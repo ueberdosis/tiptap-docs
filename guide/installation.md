@@ -2,7 +2,7 @@
 
 Install the `tiptap` package with your favorite package manager:
 ```
-npm add tiptap
+npm install tiptap
 ```
 or
 ```
