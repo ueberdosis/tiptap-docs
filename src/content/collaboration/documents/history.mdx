@@ -1,0 +1,347 @@
+---
+title: Integrate document history
+meta:
+  title: History extension | Tiptap Editor Docs
+  description: Editor History for manual and automatic versioning of your documents. Learn how to set up and use it here in the Docs!
+  category: Collaboration
+extension:
+  name: History
+  description: 'Document version history for manual and automatic versioning of your documents.'
+  type: extension
+  icon: FileStack
+  isPro: true
+  isNew: true
+  isCloud: true
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+This extension introduces a document version history feature. With it, you have the flexibility to manually or automatically generate document versions.
+
+Not only can you restore previous iterations, but you can also derive new versions from older ones.
+
+<Callout title="Public Demo" variant="warning">
+  The content of this editor is shared with other users.
+</Callout>
+
+<CodeDemo isPro path="/Extensions/CollaborationHistory" />
+
+## Install
+
+<Callout title="Set up access to Tiptap’s private repository" variant="info">
+  Gain access to this pro extension by registering for a free [Tiptap
+  account](https://cloud.tiptap.dev/register) and following our [access
+  guide](/guides/pro-extensions) to Tiptap’s private repository.
+</Callout>
+
+```bash
+
+npm install @tiptap-pro/extension-collaboration-history @hocuspocus/transformer
+
+```
+
+**Note**:
+The `@hocuspocus/transformer` package is required for transforming Y.js binary to Tiptap JSON content. The package also requires a Y.js installation which is required for collaboration. If you don't have it installed, run `npm install yjs` in your project.
+This should automatically happen if you are using NPM (as it automatically resolves peer dependencies).
+
+## Settings
+
+| Setting  | Type                   | Default    |
+| -------- | ---------------------- | ---------- |
+| provider | `TiptapCollabProvider` | `null`     |
+| onUpdate | `function`             | `() => {}` |
+
+## Storage
+
+| Key               | Type                   | Description                                                                     |
+| ----------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| currentVersion    | `number`               | The current version.                                                            |
+| lastSaved         | `Date`                 | The last saved timestamp                                                        |
+| latestVersion     | `number`               | The latest version.                                                             |
+| provider          | `TiptapCollabProvider` | The Collaboration provider instance                                             |
+| status            | `string`               | The status of the provider - can be `connecting`, `connected` or `disconnected` |
+| synced            | `boolean`              | Is the version history synced with the server                                   |
+| versioningEnabled | `boolean`              | Is versioning enabled                                                           |
+| versions          | `array`                | The array of versions that are stored in the history.                           |
+
+## Commands
+
+| Command          | Description                                                                       |
+| ---------------- | --------------------------------------------------------------------------------- |
+| saveVersion      | Creates a new version with a given title                                          |
+| toggleVersioning | Toggles auto versioning for this document                                         |
+| revertToVersion  | Revert to a specific version, can create a new revert version with optional title |
+
+## Examples
+
+### Basic Setup
+
+```js
+const provider = new TiptapCollabProvider({
+  // ...
+})
+
+const editor = new Editor({
+  // ...
+  extensions: [
+    // ...
+    CollabHistory.configure({
+      provider,
+    }),
+  ],
+})
+```
+
+### Store version updates
+
+In this example we retrieve the data of a version update and save it into a variable
+
+```js
+let currentVersion = 0
+let latestVersion = 0
+let autoversioningEnabled = false
+let versions = []
+
+const provider = new TiptapCollabProvider({
+  // ...
+})
+
+const editor = new Editor({
+  // ...
+  extensions: [
+    // ...
+    CollabHistory.configure({
+      provider,
+      onUpdate(payload) {
+        currentVersion = payload.currentVersion
+        latestVersion = payload.latestVersion
+        versions = payload.versions
+        autoversioningEnabled = payload.autoVersioning
+      },
+    }),
+  ],
+})
+```
+
+### Access version data directly from storage
+
+```js
+const provider = new TiptapCollabProvider({
+  // ...
+})
+
+const editor = new Editor({
+  // ...
+  extensions: [
+    // ...
+    CollabHistory.configure({
+      provider,
+    }),
+  ],
+})
+
+const latestVersion = editor.storage.collabHistory.latestVersion
+const currentVersion = editor.storage.collabHistory.currentVersion
+const versions = editor.storage.collabHistory.versions
+const autoversioningEnabled = editor.storage.collabHistory.versioningEnabled
+```
+
+### Create a new version manually
+
+```js
+editor.commands.saveVersion('My new custom version')
+```
+
+### Toggle autoversioning on document
+
+```js
+editor.commands.toggleVersioning()
+```
+
+### Revert with version id
+
+```js
+editor.commands.revertToVersion(4)
+```
+
+### Revert with version id with custom name
+
+In this example, the editor command helps you go back to version 4. When you use this command, it not only takes you back to how things were in version 4, but it also saves this old version as a new version, called 'Revert to version'. This way, you continue working from the point of version 4, but it's now saved as the latest version.
+
+```js
+editor.commands.revertToVersion(4, 'Revert to version')
+```
+
+### Revert, name and backup
+
+In this example, when you decide to revert to version 4 of your document, the editor automatically creates two new versions. The first new version captures and saves your document’s state just before the revert, serving as a backup. The second new version restores the document to the state of version 4, allowing you to continue from this older, preferred point as if it’s your new starting point.
+
+```js
+editor.commands.revertToVersion(4, 'Revert to version', 'Unversioned changes before revert')
+```
+
+### Implementing version previews for your editor
+
+The examples discussed above will directly modify the document and do not provide local-only previews of a version. Therefore, it is necessary to create your own frontend solution for this requirement. You can leverage the stateless messaging system of the `TiptapCloudProvider` to request a specific version from the server.
+
+Start by attaching a listener to the provider:
+
+```js
+
+// Import the getPreviewContentFromVersionPayload helper function (refer to details below)
+import { watchContent } from '@tiptap-pro/extension-collaboration-history'
+
+// Configure the provider
+const provider = new TiptapCollabProvider({ ... })
+
+// use the watchContent util function to watch for content changes on the provider
+const unbindWatchContent = watchPreviewContent(provider, content => {
+  // set your editors content
+  editor.commands.setContent(content)
+})
+```
+
+If you want to unbind the watcher, you can call the returned `unbindWatchContent` function like this:
+
+```js
+const unbindWatchContent = watchPreviewContent(provider, (content) => {
+  // set your editors content
+  editor.commands.setContent(content)
+})
+
+// unwatch
+unbindWatchContent()
+```
+
+Following this setup, you can trigger `version.preview` requests like so:
+
+```js
+// Define a function that sends a version.preview request to the provider
+const requestVersion = (version) => {
+  provider.sendStateless(
+    JSON.stringify({
+      action: 'version.preview',
+      // Include your version number here
+      version,
+    }),
+  )
+}
+
+// Trigger the request
+requestVersion(1)
+
+// This function can then be linked to button clicks or other UI elements to trigger the request
+```
+
+## Revert to a version
+
+Upon reverting a version, a new version is generated at the top of the version history. This new version will house the content of the reverted version and will stand as the latest version from which all users will proceed. If there were any unversioned changes before the revert action, an additional version will be created prior to the new one. This additional version will preserve the unaltered changes, thereby ensuring no data is lost.
+
+## Utility Functions
+
+### getPreviewContentFromVersionPayload
+
+This function will turn the payload received from the Collaboration provider into Tiptap JSON content.
+
+| Argument | Description                                          |
+| -------- | ---------------------------------------------------- |
+| payload  | The Hocuspocus payload for the version preview event |
+| field    | The field you want to parse. Default: `default`      |
+
+```js
+const myContent = getPreviewContentFromVersionPayload(payload, 'default')
+```
+
+### watchPreviewContent
+
+This function will setup a watcher on your Provider that watches the necessary events to react to version content changes. It also returns a new function that can be used to unwatch those events.
+
+| Argument | Description                                                                   |
+| -------- | ----------------------------------------------------------------------------- |
+| provider | The Collaboration provider                                                    |
+| callback | The callback function that is called, the argument is the Tiptap JSON content |
+| field    | The watched field - defaults to `default`                                     |
+
+```js
+const unwatchContent = watchPreviewContent(provider, editor.commands.setContent, 'default')
+
+// unwatch the version preview content
+unwatchContent()
+```
+
+## Possible provider payloads
+
+Here is a list of payloads that can be sent or received from the provider:
+
+### Outgoing
+
+#### `document.revert`
+
+Request a document revert to a given version with optional title settings.
+
+```js
+provider.sendStateless(
+  JSON.stringify({
+    action: 'document.revert',
+    version: 1,
+    currentVersionName: 'Before reverting to version 1',
+    newVersionName: 'Revert to version 1',
+  }),
+)
+```
+
+#### `version.create`
+
+Creates a new version with an optional title.
+
+```js
+this.options.provider.sendStateless(
+  JSON.stringify({ action: 'version.create', name: 'My custom version' }),
+)
+```
+
+### Incoming
+
+#### `saved`
+
+This stateless message can be used to retrieve the last saved timestamp.
+
+```js
+provider.on('stateless', (data) => {
+  const payload = JSON.parse(data.payload)
+
+  if (payload.action === 'saved') {
+    const lastSaved = new Date()
+  }
+})
+```
+
+#### `version.created`
+
+This stateless message includes information about newely created versions.
+
+```js
+provider.on('stateless', (data) => {
+  const payload = JSON.parse(data.payload)
+
+  if (payload.action === 'version.created') {
+    const latestVersion = payload.version
+    const currentVersion = payload.version
+  }
+})
+```
+
+#### `document.reverted`
+
+This stateless message includes information about a document revert.
+
+```js
+provider.on('stateless', (data) => {
+  const payload = JSON.parse(data.payload)
+
+  if (payload.action === 'document.reverted') {
+    const currentVersion = payload.version
+  }
+})
+```
