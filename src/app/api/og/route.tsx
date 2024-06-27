@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
   const title = req.nextUrl.searchParams.get('title') ?? null
   const category = req.nextUrl.searchParams.get('category') ?? null
 
-  const fontBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-Bold.woff2`)
+  const fontBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-Bold.otf`)
   const fontBold = await fetch(fontBoldURL)
   const fontBoldData = await fontBold.arrayBuffer()
 
-  const fontSemiBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-SemiBold.woff2`)
+  const fontSemiBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-SemiBold.otf`)
   const fontSemiBold = await fetch(fontSemiBoldURL)
   const fontSemiBoldData = await fontSemiBold.arrayBuffer()
 
