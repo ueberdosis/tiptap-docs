@@ -21,4 +21,4 @@ Thank you for being a part of the Tiptap community!
 
 ## License
 
-This project is licensed under the [Tiptap Documentation Software License](LICENSE) license. This applies to all files except those in the `src/content` directory, which contains the documentation content or the `public/assets/fonts` directory which contains our fonts. The documentation content is licensed under the [MIT](LICENSE-DOCS) license. The fonts licenses can be found in `public/assets/fonts/LICENSE.txt`.
+This project is licensed under the [Tiptap Documentation Software License](LICENSE) license. This applies to all files except those in the `src/content` directory, which contains the documentation content or the `public/assets/fonts` directory which contains our fonts. The documentation content is licensed under the [MIT](LICENSE-DOCS) license. The fonts licenses can be found in `src/assets/fonts/LICENSE.txt`.

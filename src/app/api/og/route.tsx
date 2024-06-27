@@ -9,13 +9,13 @@ export async function GET(req: NextRequest) {
   const category = req.nextUrl.searchParams.get('category') ?? null
 
   const fontBoldRawData = fs.readFileSync(
-    path.join(process.cwd(), './public/assets/fonts/Inter-Bold.otf'),
+    path.join(process.cwd(), './src/assets/fonts/Inter-Bold.otf'),
   )
   // convert to ArrayBuffer
   const fontBoldData = new Uint8Array(fontBoldRawData).buffer
 
   const fontSemiBoldRawData = fs.readFileSync(
-    path.join(process.cwd(), './public/assets/fonts/Inter-SemiBold.otf'),
+    path.join(process.cwd(), './src/assets/fonts/Inter-SemiBold.otf'),
   )
   // convert to ArrayBuffer
   const fontSemiBoldData = new Uint8Array(fontSemiBoldRawData).buffer
