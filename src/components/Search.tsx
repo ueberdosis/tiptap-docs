@@ -13,7 +13,7 @@ import { useAppState } from '@/providers/AppState'
 
 const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => {
   const { result, parents } = useMemo(() => {
-    const hierarchy = Object.entries(hit.hierarchy).filter((h) => !!h[1])
+    const hierarchy = Object.entries(hit.hierarchy)
     const result = hierarchy.at(-1)
     const parents = hierarchy.slice(0, -1)
 
@@ -41,11 +41,11 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
           <span className="flex items-center gap-0.5 flex-wrap mt-1 font-medium">
             {parents.map(([key, value], i) => (
               <>
-                <span className="text-xs text-grayAlpha-500 block" key={key}>
+                <span className="block text-xs text-grayAlpha-500" key={key}>
                   {value}
                 </span>
                 {i < parents.length - 1 ? (
-                  <span className="text-xs text-grayAlpha-400 block">/</span>
+                  <span className="block text-xs text-grayAlpha-400">/</span>
                 ) : null}
               </>
             ))}
@@ -117,7 +117,7 @@ const SearchContent = () => {
           ))
         : null}
       {query && hits.hits.length === 0 ? (
-        <div className="flex justify-center items-center p-2 mt-2">
+        <div className="flex items-center justify-center p-2 mt-2">
           <span className="text-grayAlpha-400">
             No results found for <strong>{query}</strong>
           </span>
