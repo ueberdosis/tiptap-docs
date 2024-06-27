@@ -1,19 +1,24 @@
+import fs from 'fs'
+import path from 'path'
 import { NextRequest } from 'next/server'
 import { ImageResponse } from 'next/og'
 import { TiptapLogoWithText } from '@/components/TiptapLogoWithText'
-import { FULL_DOMAIN } from '@/utils/constants'
 
 export async function GET(req: NextRequest) {
   const title = req.nextUrl.searchParams.get('title') ?? null
   const category = req.nextUrl.searchParams.get('category') ?? null
 
-  const fontBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-Bold.otf`)
-  const fontBold = await fetch(fontBoldURL)
-  const fontBoldData = await fontBold.arrayBuffer()
+  const fontBoldRawData = fs.readFileSync(
+    path.join(process.cwd(), './public/assets/fonts/Inter-Bold.otf'),
+  )
+  // convert to ArrayBuffer
+  const fontBoldData = new Uint8Array(fontBoldRawData).buffer
 
-  const fontSemiBoldURL = new URL(`${FULL_DOMAIN}/assets/fonts/Inter-SemiBold.otf`)
-  const fontSemiBold = await fetch(fontSemiBoldURL)
-  const fontSemiBoldData = await fontSemiBold.arrayBuffer()
+  const fontSemiBoldRawData = fs.readFileSync(
+    path.join(process.cwd(), './public/assets/fonts/Inter-SemiBold.otf'),
+  )
+  // convert to ArrayBuffer
+  const fontSemiBoldData = new Uint8Array(fontSemiBoldRawData).buffer
 
   return new ImageResponse(
     (
