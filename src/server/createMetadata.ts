@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { FULL_DOMAIN } from '@/utils/constants'
+import { isProductionSite } from '@/utils/isProductionSite'
 
 export async function createMetadata({
   title,
@@ -17,6 +18,7 @@ export async function createMetadata({
   return {
     title,
     description,
+    robots: isProductionSite() ? 'index, follow' : 'noindex, nofollow',
     openGraph: {
       title,
       description,
