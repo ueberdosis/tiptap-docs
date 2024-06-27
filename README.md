@@ -5,6 +5,7 @@ Welcome to the official documentation for all Tiptap products! Here, you'll find
 ## Available Documentation
 
 Our documentation includes resources for all our major products:
+
 - **Editor**: Learn how to integrate, customize, and extend the Tiptap editor.
 - **Collaboration**: Find out how to enable real-time collaboration features in your projects.
 - **Document AI**: Discover how to leverage AI for document processing and automation.
@@ -20,4 +21,4 @@ Thank you for being a part of the Tiptap community!
 
 ## License
 
-This project is licensed under the [Tiptap Documentation Software License](LICENSE) license. This applies to all files except those in the `src/content` directory, which contains the documentation content. The documentation content is licensed under the [MIT](LICENSE-DOCS) license.
+This project is licensed under the [Tiptap Documentation Software License](LICENSE) license. This applies to all files except those in the `src/content` directory, which contains the documentation content or the `public/assets/fonts` directory which contains our fonts. The documentation content is licensed under the [MIT](LICENSE-DOCS) license. The fonts licenses can be found in `public/assets/fonts/LICENSE.txt`.
