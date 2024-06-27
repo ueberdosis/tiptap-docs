@@ -1,5 +1,13 @@
 # tiptap-docs
 
+## 1.0.1
+
+### Patch Changes
+
+- 69918b6: Fixed an issue with missing slashes in the canonical path
+- 9eca07e: Include h1's in search results
+- 0980f0e: Added production check to disallow robots on non-production pages
+
 ## 1.0.0
 
 ### Major Changes
