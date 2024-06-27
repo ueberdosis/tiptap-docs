@@ -13,7 +13,7 @@ import { useAppState } from '@/providers/AppState'
 
 const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => {
   const { result, parents } = useMemo(() => {
-    const hierarchy = Object.entries(hit.hierarchy)
+    const hierarchy = Object.entries(hit.hierarchy).filter((h) => !!h[1])
     const result = hierarchy.at(-1)
     const parents = hierarchy.slice(0, -1)
 
