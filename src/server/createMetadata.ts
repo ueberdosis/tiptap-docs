@@ -27,7 +27,7 @@ export async function createMetadata({
           height: 630,
         },
       ],
-      url: process.env.NEXT_DOMAIN ?? '',
+      url: process.env.NEXT_PUBLIC_DOMAIN ?? '',
       type: 'website',
       locale: 'en_US',
     },
