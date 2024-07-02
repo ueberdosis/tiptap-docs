@@ -7,13 +7,13 @@ export async function createMetadata({
   description,
   category,
   ogTitle,
-  canonicalPath,
+  canonicalUrl,
 }: {
   title: string
   description: string
   ogTitle: string
   category?: string
-  canonicalPath: string
+  canonicalUrl: string
 }): Promise<Metadata> {
   return {
     title,
@@ -29,7 +29,7 @@ export async function createMetadata({
           height: 630,
         },
       ],
-      url: canonicalPath,
+      url: canonicalUrl,
       type: 'website',
       locale: 'en_US',
     },
@@ -42,7 +42,7 @@ export async function createMetadata({
       ],
     },
     alternates: {
-      canonical: canonicalPath,
+      canonical: canonicalUrl,
     },
   }
 }

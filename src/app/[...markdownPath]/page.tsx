@@ -5,7 +5,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
-import { createCanonicalPath } from '@/server/createCanonicalPath'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 type Props = {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props) {
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
-  const canonicalPath = createCanonicalPath(params.markdownPath)
+  const canonicalUrl = createCanonicalUrl(params.markdownPath)
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props) {
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     category: pageMdx.frontmatter?.meta?.category,
     ogTitle: pageMdx.frontmatter?.title ?? '',
-    canonicalPath,
+    canonicalUrl,
   })
 }
 

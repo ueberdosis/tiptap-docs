@@ -3,7 +3,7 @@ import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
 import { sidebarConfig } from '@/content/sidebar'
-import { createCanonicalPath } from '@/server/createCanonicalPath'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 export async function generateMetadata() {
@@ -12,13 +12,13 @@ export async function generateMetadata() {
     frontmatter?: PageFrontmatter
   }
 
-  const canonicalPath = createCanonicalPath([])
+  const canonicalUrl = createCanonicalUrl([])
 
   return await createMetadata({
     title: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     ogTitle: pageMdx.frontmatter?.title ?? '',
-    canonicalPath,
+    canonicalUrl,
   })
 }
 
