@@ -51,6 +51,8 @@ export default async function MarkdownPage({ params }: Props) {
   let sidebar: SidebarConfig | null = null
   let steppedSegments = []
 
+  const canonicalUrl = createCanonicalUrl(params.markdownPath)
+
   ;['', ...params.markdownPath].forEach((segment) => {
     steppedSegments.push(segment)
 
@@ -86,7 +88,7 @@ export default async function MarkdownPage({ params }: Props) {
     '@type': 'TechArticle',
     headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
-    url: `${FULL_DOMAIN}${(hasDirectMdx ? directPath : indexPath).replace('.mdx', '').replace('index', '')}`,
+    url: canonicalUrl,
     datePublished: new Date(Date.now()).toISOString(),
     dateModified: new Date(Date.now()).toISOString(),
     publisher: {
@@ -95,7 +97,7 @@ export default async function MarkdownPage({ params }: Props) {
       url: 'https://tiptap.dev',
       logo: {
         '@type': 'ImageObject',
-        url: `${FULL_DOMAIN}assets/images/tiptap-logo.png`,
+        url: `${FULL_DOMAIN}/assets/images/tiptap-logo.png`,
       },
     },
   }
