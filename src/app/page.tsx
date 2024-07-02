@@ -42,7 +42,7 @@ export default async function HomePage() {
       url: 'https://tiptap.dev',
       logo: {
         '@type': 'ImageObject',
-        url: `${FULL_DOMAIN}assets/images/tiptap-logo.png`,
+        url: `${FULL_DOMAIN}/assets/images/tiptap-logo.png`,
       },
     },
   }
