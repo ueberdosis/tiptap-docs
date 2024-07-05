@@ -1,8 +1,8 @@
 import { ArrowRightIcon } from 'lucide-react'
 import { HTMLProps } from 'react'
-import Link from 'next/link'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
+import Link from '@/components/Link'
 import { cn } from '@/utils'
 
 export type ProductCardProps = {

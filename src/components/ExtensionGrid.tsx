@@ -3,10 +3,10 @@
 import { SearchIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { CloseIcon } from '@codesandbox/sandpack-react'
-import Link from 'next/link'
 import { Tag } from './ui/Tag'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
+import Link from '@/components/Link'
 import { ExtensionMetaWithUrl } from '@/types'
 import { getIcon } from '@/utils/iconKit'
 

@@ -1,8 +1,8 @@
 import { Slot } from '@radix-ui/react-slot'
 import { forwardRef } from 'react'
-import Link from 'next/link'
 import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
+import Link from '@/components/Link'
 import { cn } from '@/utils'
 import { ImagePageTag, PageTag } from '@/types'
 

@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { ArrowRightIcon } from 'lucide-react'
 import type { Metadata } from 'next'
+import Link from '@/components/Link'
 import { Layout } from '@/components/layouts/Layout'
 import { Button } from '@/components/ui/Button'
 
