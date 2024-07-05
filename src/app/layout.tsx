@@ -5,7 +5,7 @@ import { cn } from '@/utils'
 import { Providers } from '@/components/Providers'
 import { createMetadata } from '@/server/createMetadata'
 import { Search } from '@/components/Search'
-import { createCanonicalPath } from '@/server/createCanonicalPath'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN, GTM_ID } from '@/utils/constants'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -15,7 +15,7 @@ export async function getMetadata() {
     title: 'Tiptap Suite Documentation',
     description: 'Documentation for Tiptap and all Tiptap products',
     ogTitle: 'Tiptap Suite Documentation',
-    canonicalPath: createCanonicalPath([]),
+    canonicalUrl: createCanonicalUrl([]),
   })
 }
 

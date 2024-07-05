@@ -5,7 +5,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
-import { createCanonicalPath } from '@/server/createCanonicalPath'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 type Props = {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props) {
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
-  const canonicalPath = createCanonicalPath(params.markdownPath)
+  const canonicalUrl = createCanonicalUrl(params.markdownPath)
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props) {
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     category: pageMdx.frontmatter?.meta?.category,
     ogTitle: pageMdx.frontmatter?.title ?? '',
-    canonicalPath,
+    canonicalUrl,
   })
 }
 
@@ -50,6 +50,8 @@ export default async function MarkdownPage({ params }: Props) {
 
   let sidebar: SidebarConfig | null = null
   let steppedSegments = []
+
+  const canonicalUrl = createCanonicalUrl(params.markdownPath)
 
   ;['', ...params.markdownPath].forEach((segment) => {
     steppedSegments.push(segment)
@@ -86,7 +88,7 @@ export default async function MarkdownPage({ params }: Props) {
     '@type': 'TechArticle',
     headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
-    url: `${FULL_DOMAIN}${(hasDirectMdx ? directPath : indexPath).replace('.mdx', '').replace('index', '')}`,
+    url: canonicalUrl,
     datePublished: new Date(Date.now()).toISOString(),
     dateModified: new Date(Date.now()).toISOString(),
     publisher: {
@@ -95,7 +97,7 @@ export default async function MarkdownPage({ params }: Props) {
       url: 'https://tiptap.dev',
       logo: {
         '@type': 'ImageObject',
-        url: `${FULL_DOMAIN}assets/images/tiptap-logo.png`,
+        url: `${FULL_DOMAIN}/assets/images/tiptap-logo.png`,
       },
     },
   }

@@ -166,7 +166,7 @@ export type LayoutContentProps = {} & React.HTMLAttributes<HTMLDivElement>
 export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
   ({ children, className, ...rest }, ref) => {
     return (
-      <div
+      <main
         {...rest}
         className={cn(
           'px-2 sm:px-6 lg:pr-12 lg:pl-0 flex-1 self-start sticky top-14 min-w-0 lg:max-w-[66rem]',
@@ -223,7 +223,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
             <div className="flex-none">Copyright © 2024 Tiptap</div>
           </div>
         </footer>
-      </div>
+      </main>
     )
   },
 )

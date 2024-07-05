@@ -8,9 +8,9 @@ export type SidebarTrack = {} & React.HTMLAttributes<HTMLDivElement>
 export const SidebarTrack = forwardRef<HTMLDivElement, SidebarTrack>(
   ({ children, className, ...rest }, ref) => {
     return (
-      <div {...rest} className={cn('flex flex-col gap-10', className)} ref={ref}>
+      <nav {...rest} className={cn('flex flex-col gap-10', className)} ref={ref}>
         {children}
-      </div>
+      </nav>
     )
   },
 )
