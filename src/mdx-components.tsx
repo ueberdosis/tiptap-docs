@@ -1,8 +1,8 @@
 import type { MDXComponents } from 'mdx/types'
 import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
-import Link from 'next/link'
 import { Codeblock } from './components/Codeblock'
+import Link from '@/components/Link'
 
 const getHeadlineId = (children: React.ReactNode) => {
   return children ? `${slugify(children.toString(), { strict: true, lower: true })}` : ''
