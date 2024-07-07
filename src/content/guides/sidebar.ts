@@ -26,6 +26,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Accessibility',
         },
         {
+          href: '/guides/performance',
+          title: 'Performance',
+        },
+        {
           href: '/guides/output-json-html',
           title: 'Export JSON or HTML',
         },
