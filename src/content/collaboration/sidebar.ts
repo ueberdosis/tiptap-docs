@@ -75,6 +75,16 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
         },
+        {
+          title: 'Import and export',
+          href: '/collaboration/documents/convert',
+          children: [
+            {
+              title: 'API Reference',
+              href: '/collaboration/documents/convert/api',
+            },
+          ],
+        },
       ],
     },
     {
