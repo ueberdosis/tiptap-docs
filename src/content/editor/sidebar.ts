@@ -282,7 +282,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
-              tags: ['Pro', 'Cloud'],
+              tags: ['Beta', 'Pro'],
             },
             {
               href: '/editor/extensions/functionality/filehandler',
@@ -322,7 +322,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
-              tags: ['Pro', 'Cloud'],
+              tags: ['Beta', 'Pro'],
             },
             {
               href: '/editor/extensions/functionality/mathematics',

@@ -78,6 +78,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Convert API',
           href: '/collaboration/documents/convert-api',
+          tags: ['Beta'],
         },
       ],
     },
