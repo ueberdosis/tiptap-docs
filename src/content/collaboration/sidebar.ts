@@ -77,11 +77,15 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Import and export',
-          href: '/collaboration/documents/convert',
+          href: '/collaboration/documents/import-export',
           children: [
             {
+              title: 'Extension API Reference',
+              href: '/collaboration/documents/import-export/extension-api',
+            },
+            {
               title: 'API Reference',
-              href: '/collaboration/documents/convert/api',
+              href: '/collaboration/documents/import-export/api',
             },
           ],
         },
