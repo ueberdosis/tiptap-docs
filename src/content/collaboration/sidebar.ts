@@ -78,6 +78,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Import and export',
           href: '/collaboration/documents/import-export',
+          tags: ['Beta'],
           children: [
             {
               title: 'Extension API Reference',
