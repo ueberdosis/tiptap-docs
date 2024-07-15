@@ -280,6 +280,11 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Dropcursor',
             },
             {
+              href: '/editor/extensions/functionality/export',
+              title: 'Export',
+              tags: ['Beta', 'Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/filehandler',
               title: 'File handler',
               tags: ['Pro'],
@@ -313,6 +318,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/listkeymap',
               title: 'List Keymap',
+            },
+            {
+              href: '/editor/extensions/functionality/import',
+              title: 'Import',
+              tags: ['Beta', 'Pro'],
             },
             {
               href: '/editor/extensions/functionality/mathematics',
