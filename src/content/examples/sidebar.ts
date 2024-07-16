@@ -81,6 +81,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/examples/advanced/interactive-react-and-vue-views',
         },
         {
+          title: 'React performance',
+          href: '/examples/advanced/react-performance',
+        },
+        {
           title: 'Menus',
           href: '/examples/advanced/menus',
         },
