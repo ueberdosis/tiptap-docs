@@ -30,6 +30,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Performance',
         },
         {
+          href: '/guides/invalid-schema',
+          title: 'Invalid schema handling',
+        },
+        {
           href: '/guides/output-json-html',
           title: 'Export JSON or HTML',
         },
