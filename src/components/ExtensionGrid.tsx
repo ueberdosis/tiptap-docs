@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
 import { SearchIcon } from 'lucide-react'
@@ -9,6 +10,7 @@ import { Button } from './ui/Button'
 import Link from '@/components/Link'
 import { ExtensionMetaWithUrl } from '@/types'
 import { getIcon } from '@/utils/iconKit'
+import { useQueryParam } from '@/hooks/useQueryParams'
 
 const SEARCH_FILTER = {
   ALL: 'all',
@@ -21,8 +23,8 @@ const SEARCH_FILTER = {
 type SearchFilter = (typeof SEARCH_FILTER)[keyof typeof SEARCH_FILTER]
 
 function useSearch() {
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<SearchFilter>(SEARCH_FILTER.ALL)
+  const [query, setQuery] = useQueryParam('search', '')
+  const [filter, setFilter] = useQueryParam<SearchFilter>('filter', SEARCH_FILTER.ALL)
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value)
