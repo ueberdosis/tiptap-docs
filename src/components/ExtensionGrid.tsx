@@ -2,7 +2,7 @@
 'use client'
 
 import { SearchIcon } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { CloseIcon } from '@codesandbox/sandpack-react'
 import { Tag } from './ui/Tag'
 import { Card } from './ui/Card'
