@@ -50,13 +50,29 @@ The `snapshotCompare` storage object contains the following properties:
 | diffs           | `Diff[]`              | The diffs that are displayed in the diff view |
 | previousContent | `JSONContent \| null` | The content before the diff view was applied  |
 
+### Examples
+
+To know that you are currently previewing the diff view, you can check the `isPreviewing` property.
+
+```ts
+if (editor.storage.snapshotCompare.isPreviewing) {
+  // The diff view is currently active
+}
+```
+
+To access the diffs that are displayed in the diff view, you can access the `diffs` property.
+
+```ts
+editor.storage.snapshotCompare.diffs
+```
+
 ## Commands
 
-| Command         | Description                                                              |
-| --------------- | ------------------------------------------------------------------------ |
-| compareVersions | Diffs two versions and renders the diff into the dom element you specify |
-| showDiff        | Given a change tracking transform, show the diff within the editor       |
-| hideDiff        | Hide the diff and restore the previous content                           |
+| Command                              | Description                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| [compareVersions](#compare-versions) | Diffs two versions and renders the diff into the dom element you specify |
+| showDiff                             | Given a change tracking transform, show the diff within the editor       |
+| hideDiff                             | Hide the diff and restore the previous content                           |
 
 ### `compareVersions`
 
@@ -124,6 +140,7 @@ For more control over the diffing process, you can pass in additional options:
 - `toVersion`: The version number to diff to. (Defaults to the latest version)
 - `onCompare`: If provided, allows customizing the behavior of rendering the diffs to the editor.
 - `hydrateUserData`: Allows adding contextual data to each user's changes.
+- `mapDiffToDecorations`: Allows configuring how the diffs are mapped into decorations to display the content of that diff.
 - `enableDebugging`: Verbosely log the diffing process to help track down where things went wrong.
 
 ### `showDiff`
@@ -159,17 +176,97 @@ If you want to hide the diff and restore the previous content, you can use the `
 editor.commands.hideDiff()
 ```
 
+### `mapDiffToDecorations` (Advanced)
+
+The `SnapShotCompare` extension has a default mapping (`defaultMapToDecorations`) for representing the diffs as prosemirror decorations.
+However, for more complex integrations and control this can be customized to fit your needs.
+
+The `mapDiffToDecorations` option allows you to control how the diffs are mapped into decorations to display the content of that diff.
+
+```ts
+editor.chain().compareVersions({
+  fromVersion: 1,
+  toVersion: 3,
+  mapDiffToDecorations: ({ diff, tr, editor, defaultMapToDecorations }) => {
+    if (diff.type === 'inline-insert') {
+      // return prosemirror decoration(s) or null
+      return Decoration.inline(
+        diff.from,
+        diff.to,
+        {
+          class: 'diff',
+          style: {
+            backgroundColor: diff.attribution.color.backgroundColor,
+          },
+        },
+        // pass the diff as the decoration's spec, this is required for `extractAttributeChanges`
+        { diff },
+      )
+    }
+
+    // fallback to the default mapping
+    return defaultMapToDecorations({ diff, tr, editor })
+  },
+})
+```
+
+## Working with Nodeviews (Advanced)
+
+If you are using custom nodeviews, the default mapping may not work as expected. You can customize the mapping to fit your needs, such as rendering the diffs within the custom nodeview.
+
+There is a helper function `extractAttributeChanges` that can be used to extract which attributes have changed between two versions of a node.
+
+<Callout title="TES" variant="info">
+  If you are mapping the diffs into decorations yourself, you need to pass `diff` as the decorations
+  spec. This is required for `extractAttributeChanges` to work.
+</Callout>
+
+```ts
+import { extractAttributeChanges } from '@tiptap-pro/extension-snapshot-compare'
+
+const Heading = BaseHeading.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(({ node, decorations }) => {
+      const { before, after, isDiffing } = extractAttributeChanges(decorations)
+
+      return (
+        <NodeViewWrapper style={{ position: 'relative' }}>
+          {isDiffing && before.level !== after.level && (
+            <span
+              style={{
+                position: 'absolute',
+                right: '100%',
+                fontSize: '14px',
+                color: '#999',
+                backgroundColor: '#f0f0f070',
+              }}
+              // Display the difference in level attribute
+            >
+              #<s>{before.level}</s>
+              {after.level}
+            </span>
+          )}
+          <NodeViewContent as={`h${node.attrs.level ?? 1}`} />
+        </NodeViewWrapper>
+      )
+    })
+  },
+})
+```
+
 ## Technical details
 
 ### Diff
 
-A `Diff` is a class that represents a change made to the document. It contains the following properties:
+A `Diff` is an object that represents a change made to the document. It contains the following properties:
 
-- `type: 'inline-insert' | 'inline-delete' | 'block-insert' | 'block-delete'` The type of change that was made.
+- `type: 'inline-insert' | 'inline-delete' | 'block-insert' | 'block-delete' | 'inline-update' | 'block-update'` The type of change that was made.
 - `from: number` The start position of the change.
 - `to: number` The end position of the change.
 - `content: Fragment` The content that was added or removed.
 - `attribution: Attribution` Metadata about the change, such as the user who made the change.
+- `attributes?: Record<string, any>` Only available for `inline-update` and `block-update` diffs. The attributes after the change was made.
+- `previousAttributes?: Record<string, any>` Only available for `inline-update` and `block-update` diffs. The attributes before the change was made.
 
 ### DiffSet
 
@@ -182,6 +279,16 @@ The `Attribution` object represents metadata about a change. It contains the fol
 - `type: 'added' | 'removed'` The type of change that was made.
 - `userId: string | undefined` The ID of the user who made the change.
 - `id: Y.ID | undefined` The Y.js client id of the user who made the change.
+
+It can be extended to include more properties like this:
+
+```ts
+declare module '@tiptap-pro/extension-snapshot-compare' {
+  interface Attribution {
+    userName: string
+  }
+}
+```
 
 ### ChangeTrackingTransform
 
