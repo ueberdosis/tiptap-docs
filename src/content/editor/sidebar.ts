@@ -350,6 +350,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/table-of-contents',
               title: 'Table of contents',
+              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/textalign',
