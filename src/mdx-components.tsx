@@ -1,11 +1,24 @@
 import type { MDXComponents } from 'mdx/types'
 import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
+import React from 'react'
 import { Codeblock } from './components/Codeblock'
 import Link from '@/components/Link'
 
+/**
+ * Extracts the text from a nested children object
+ */
 const getHeadlineId = (children: React.ReactNode) => {
-  return children ? `${slugify(children.toString(), { strict: true, lower: true })}` : ''
+  let text = ''
+  React.Children.forEach(children, (child) => {
+    if (typeof child === 'string') {
+      text += child
+    }
+    if (typeof child === 'object' && React.isValidElement(child)) {
+      text += getHeadlineId(child.props.children)
+    }
+  })
+  return children ? `${slugify(text, { strict: true, lower: true })}` : ''
 }
 
 const hashClass =
@@ -21,7 +34,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
     code: (props) => <code {...props} />,
     h1: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h1 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
@@ -32,7 +45,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     h2: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h2 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
@@ -43,7 +56,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     h3: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h3 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
@@ -54,7 +67,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     h4: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h4 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
@@ -65,7 +78,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     h5: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h5 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
@@ -76,7 +89,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     h6: ({ children, ...props }) => {
-      const id = getHeadlineId(children?.toString())
+      const id = getHeadlineId(children)
       return (
         <h6 className="group relative" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
