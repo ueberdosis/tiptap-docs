@@ -346,7 +346,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/snapshot-compare',
               title: 'Snapshot Compare',
-              tags: ['Pro', 'Cloud'],  
+              tags: ['Pro', 'Cloud'],
             },
             {
               href: '/editor/extensions/functionality/starterkit',
