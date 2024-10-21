@@ -72,6 +72,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/collaboration/documents/history',
         },
         {
+          title: 'Compare Snapshots',
+          href: '/collaboration/documents/snapshot-compare',
+        },
+        {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
         },
