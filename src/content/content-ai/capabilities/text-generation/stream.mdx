@@ -1,0 +1,224 @@
+---
+title: Provide more context to your prompts
+meta:
+  title: Context | Tiptap Content AI
+  description: Add more context to your prompts and editor commands to fine-tune your AI's response. Learn more in our docs.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+The `streamContent` command is a low-level API to stream content into the editor. It supports both appending content and replacing a specified range of content. This command is useful when you need to stream something like an LLM model response into the editor.
+
+<Callout title="Advanced Integration">
+  This command is useful for advanced integrations where you need to stream content into the editor
+  from a URL or a response body.
+</Callout>
+
+### Parameters
+
+**range**: Either a single position to insert from or an object specifying the range to replace, with `from` and `to` properties. <br/>
+**callback**: An asynchronous function that receives a write function to stream content into the editor.
+
+### `callback` Arguments
+
+**getWritableStream**: A function that returns a writable stream object that can be used to write chunks of data into the editor. <br/>
+**write**: A function that takes an object with the following properties:
+
+- `partial`: The content to insert into the editor.
+- `transform`: An optional function that takes an object with the following properties:
+  - `buffer`: The accumulated content of the stream.
+  - `partial`: The current partial content.
+  - `editor`: The editor instance.
+  - `defaultTransform`: The default transform function. This function takes the accumulated content and inserts it into the editor.
+- `appendToChain`: An optional function which can be used to append commands to the chain.
+
+## Example Usage
+
+### Using the `write` API
+
+This example shows the flexibility of the `streamContent` command by fetching a large data stream from a URL and streaming it chunk-by-chunk into the editor.
+
+```ts
+editor.commands.streamContent({ from: 0, to: 10 }, async ({ write }) => {
+  const response = await fetch('https://example.com/stream')
+  const reader = response.body?.getReader()
+  const decoder = new TextDecoder('utf-8')
+
+  if (!reader) {
+    throw new Error('Failed to get reader from response body.')
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const chunk = decoder.decode(value, { stream: true })
+    await write({ partial: chunk })
+  }
+})
+```
+
+### Using the `getWritableStream` API
+
+This example demonstrates an alternative way to stream content using a `WritableStream` object which can be used to write chunks of data into the editor.
+
+```ts
+editor.commands.streamContent({ from: 0, to: 10 }, async ({ getWritableStream }) => {
+  const response = await fetch('https://example.com/stream')
+  // This will pipe the response body content directly into the editor
+  await response.body?.pipeTo(getWritableStream())
+})
+```
+
+### Using transformations
+
+You can also use the `transform` function to modify the content before streaming it into the editor. This example demonstrates how to transform the content before streaming it into the editor.
+
+```ts
+editor.commands.streamContent({ from: 0, to: 10 }, async ({ write }) => {
+  const response = await fetch('https://example.com/stream')
+  const reader = response.body?.getReader()
+  const decoder = new TextDecoder('utf-8')
+
+  if (!reader) {
+    throw new Error('Failed to get reader from response body.')
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const chunk = decoder.decode(value, { stream: true })
+
+    await write({
+      partial: transformedChunk,
+      transform: ({ buffer, partial, editor, defaultTransform }) => {
+        // This will use the default transform function to take the whole buffer and insert it into the editor as uppercase
+        return defaultTransform(buffer.toUpperCase())
+      },
+    })
+  }
+})
+```
+
+**Use case:** Parsing markdown content from a URL and streaming it into the editor.
+
+```ts
+import { marked } from 'marked'
+
+editor.commands.streamContent({ from: 0, to: 10 }, async ({ write }) => {
+  const response = await fetch('https://example.com/stream')
+  const reader = response.body?.getReader()
+  const decoder = new TextDecoder('utf-8')
+
+  if (!reader) {
+    throw new Error('Failed to get reader from response body.')
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    const chunk = decoder.decode(value, { stream: true })
+
+    await write({
+      partial: chunk,
+      transform: ({ buffer, partial, editor, defaultTransform }) => {
+        // This will parse the markdown content into an HTML string and insert it into the editor
+        return defaultTransform(marked.parse(buffer))
+      },
+    })
+  }
+})
+```
+
+## Technical details
+
+Here is the full TypeScript definition for the `streamContent` command:
+
+```ts
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    streamContent: {
+      streamContent: (
+        /**
+         * The position to insert the content at.
+         */
+        position: number | Range,
+        /**
+         * The callback to write the content into the editor.
+         */
+        callback: (options: StreamContentAPI) => Promise<any>, // TODO what if this returned a Response object, and we could just write the response into the editor?
+        /**
+         * The options to pass to the `insertContentAt` command.
+         */
+        options?: {
+          parseOptions?: NonNullable<
+            Parameters<RawCommands['insertContentAt']>['2']
+          >['parseOptions']
+        },
+      ) => ReturnType
+    }
+  }
+}
+
+type StreamContentAPI = {
+  /**
+   * The function to write content into the editor.
+   */
+  write: (ctx: {
+    /**
+     * The partial content of the stream to insert.
+     */
+    partial: string
+    /**
+     * This function allows you to transform the content before inserting it into the editor.
+     * It must return a Prosemirror `Fragment` or `Node`.
+     */
+    transform?: (ctx: {
+      /**
+       * The accumulated content of the stream.
+       */
+      buffer: string
+      /**
+       * The current partial content of the stream.
+       */
+      partial: string
+      editor: Editor
+      /**
+       * Allows you to use the default transform function.
+       */
+      defaultTransform: (
+        /**
+         * The content to insert as an HTML string.
+         * @default ctx.buffer
+         */
+        htmlString?: string,
+      ) => Fragment
+    }) => Fragment | Node | Node[]
+    /**
+     * Allows you to append commands to the chain before it is executed.
+     */
+    appendToChain?: (chain: ChainedCommands) => ChainedCommands
+  }) => {
+    /**
+     * The buffer that is being written to.
+     */
+    buffer: string
+    /**
+     * The start of the inserted content.
+     */
+    from: number
+    /**
+     * The end of the inserted content.
+     */
+    to: number
+  }
+  /**
+   * A writable stream to write content into the editor.
+   * @example fetch('https://example.com/stream').then(response => response.body.pipeTo(ctx.getWritableStream()))
+   */
+  getWritableStream: () => WritableStream
+}
+```
