@@ -57,6 +57,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Custom commands',
               href: '/content-ai/capabilities/text-generation/custom-commands',
             },
+            {
+              title: 'Stream content (Advanced)',
+              href: '/content-ai/capabilities/text-generation/stream',
+            },
           ],
         },
         {
