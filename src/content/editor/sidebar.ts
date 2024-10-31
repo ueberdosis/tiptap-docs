@@ -344,6 +344,11 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Placeholder',
             },
             {
+              href: '/editor/extensions/functionality/snapshot-compare',
+              title: 'Snapshot Compare',
+              tags: ['Pro', 'Cloud'],
+            },
+            {
               href: '/editor/extensions/functionality/starterkit',
               title: 'Starter kit',
             },
