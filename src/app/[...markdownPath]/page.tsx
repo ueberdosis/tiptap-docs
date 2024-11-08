@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
+import type { JSX } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
@@ -9,13 +10,14 @@ import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 type Props = {
-  params: {
+  params: Promise<{
     markdownPath: string[]
-  }
+  }>
   searchParams: URLSearchParams
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata(props: Props) {
+  const params = await props.params
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
@@ -44,7 +46,8 @@ export async function generateMetadata({ params }: Props) {
   })
 }
 
-export default async function MarkdownPage({ params }: Props) {
+export default async function MarkdownPage(props: Props) {
+  const params = await props.params
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
