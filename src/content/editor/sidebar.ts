@@ -286,6 +286,11 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Pro'],
             },
             {
+              href: '/editor/extensions/functionality/drag-handle-vue',
+              title: 'Drag Handle Vue',
+              tags: ['Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/dropcursor',
               title: 'Dropcursor',
             },
