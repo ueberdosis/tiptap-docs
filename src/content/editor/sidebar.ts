@@ -286,6 +286,11 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Pro'],
             },
             {
+              href: '/editor/extensions/functionality/drag-handle-vue',
+              title: 'Drag Handle Vue',
+              tags: ['Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/dropcursor',
               title: 'Dropcursor',
             },
@@ -342,6 +347,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
+            },
+            {
+              href: '/editor/extensions/functionality/snapshot-compare',
+              title: 'Snapshot Compare',
+              tags: ['Pro', 'Cloud'],
             },
             {
               href: '/editor/extensions/functionality/starterkit',
