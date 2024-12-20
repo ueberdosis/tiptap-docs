@@ -22,7 +22,7 @@ export type SidebarConfig = {
 }
 
 export type GeneralPageTag = {
-  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents'
+  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents' | 'beta'
 }
 
 export type ImagePageTag = {
@@ -76,6 +76,7 @@ export type ExtensionMeta = {
   description: string
   type: ExtensionType
   isPro?: boolean
+  isBeta?: boolean
   isExperiment?: boolean
   isNew?: boolean
   isCloud?: boolean
