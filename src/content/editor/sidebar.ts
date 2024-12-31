@@ -725,5 +725,20 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
+    {
+      type: 'group',
+      title: 'Resources',
+      href: '/editor/resources',
+      children: [
+        {
+          href: '/guides',
+          title: 'Guides',
+        },
+        {
+          href: '/resources/pro-license',
+          title: 'Pro license',
+        },
+      ],
+    },
   ],
 }
