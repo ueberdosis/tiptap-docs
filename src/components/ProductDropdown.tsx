@@ -11,8 +11,9 @@ import { cn } from '@/utils'
 const options = [
   { label: 'Editor', href: '/editor/getting-started/overview' },
   { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
-  { label: 'Content AI', href: '/content-ai/getting-started/overview' },
   { label: 'Comments', href: '/comments/getting-started/overview' },
+  { label: 'Content AI', href: '/content-ai/getting-started/overview' },
+  { label: 'Documents', href: '/documents/getting-started/overview' },
 ]
 
 export const ProductDropdown = () => {

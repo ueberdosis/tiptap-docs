@@ -54,57 +54,5 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
-    {
-      type: 'group',
-      href: '/collaboration/documents',
-      title: 'Documents',
-      children: [
-        {
-          title: 'Overview',
-          href: '/collaboration/documents',
-        },
-        {
-          title: 'REST API',
-          href: '/collaboration/documents/rest-api',
-        },
-        {
-          title: 'History',
-          href: '/collaboration/documents/history',
-        },
-        {
-          title: 'Compare Snapshots',
-          href: '/collaboration/documents/snapshot-compare',
-        },
-        {
-          title: 'Inject content',
-          href: '/collaboration/documents/content-injection',
-        },
-        {
-          title: 'Conversion',
-          href: '/collaboration/documents/conversion',
-          tags: ['Beta'],
-        },
-        {
-          title: 'Semantic Search',
-          href: '/collaboration/documents/semantic-search',
-          tags: ['Beta'],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/collaboration/operations',
-      title: 'Ops',
-      children: [
-        {
-          title: 'Configure runtime',
-          href: '/collaboration/operations/configure',
-        },
-        {
-          title: 'Metrics',
-          href: '/collaboration/operations/metrics',
-        },
-      ],
-    },
   ],
 }

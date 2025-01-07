@@ -30,15 +30,15 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Collaboration',
         },
         {
-          href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
-        },
-        {
           href: '/comments/getting-started/overview',
           title: 'Comments',
         },
         {
-          href: '/collaboration/documents',
+          href: '/content-ai/getting-started/overview',
+          title: 'Content AI',
+        },
+        {
+          href: '/documents/getting-started/overview',
           title: 'Documents',
         },
       ],
