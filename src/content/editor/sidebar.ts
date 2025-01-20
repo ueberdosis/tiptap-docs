@@ -706,6 +706,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'HTML',
             },
             {
+              href: '/editor/api/utilities/static-renderer',
+              title: 'Static Renderer',
+            },
+            {
               href: '/editor/api/utilities/suggestion',
               title: 'Suggestion',
             },
