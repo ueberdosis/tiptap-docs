@@ -383,6 +383,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Text align',
             },
             {
+              href: '/editor/extensions/functionality/trailing-node',
+              title: 'Trailing node',
+            },
+            {
               href: '/editor/extensions/functionality/typography',
               title: 'Typography',
             },
