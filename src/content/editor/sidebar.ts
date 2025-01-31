@@ -406,12 +406,26 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Custom extensions',
           children: [
             {
-              href: '/editor/extensions/custom-extensions/extend-existing',
-              title: 'Extend existing',
-            },
-            {
               href: '/editor/extensions/custom-extensions/create-new',
               title: 'Create new',
+              children: [
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/extension',
+                  title: 'Extension API',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/node',
+                  title: 'Node API',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/mark',
+                  title: 'Mark API',
+                },
+              ],
+            },
+            {
+              href: '/editor/extensions/custom-extensions/extend-existing',
+              title: 'Extend existing',
             },
             {
               href: '/editor/extensions/custom-extensions/node-views',
@@ -432,6 +446,24 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   href: '/editor/extensions/custom-extensions/node-views/examples',
                   title: 'Examples',
+                },
+              ],
+            },
+            {
+              href: '/editor/extensions/custom-extensions/mark-views',
+              title: 'Mark views',
+              children: [
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/javascript',
+                  title: 'Javascript',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/react',
+                  title: 'React',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/vue',
+                  title: 'Vue',
                 },
               ],
             },
