@@ -45,16 +45,16 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Advanced use cases',
       children: [
         {
+          title: 'Handle images',
+          href: '/conversion/advanced/handle-images',
+        },
+        {
           title: 'Export custom nodes',
           href: '/conversion/advanced/export-custom-nodes',
         },
         {
           title: 'Override exported styles',
           href: '/conversion/advanced/override-styles',
-        },
-        {
-          title: 'Handle images',
-          href: '/conversion/advanced/handle-images',
         },
       ],
     },
