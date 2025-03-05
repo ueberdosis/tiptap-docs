@@ -46,15 +46,15 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Export custom nodes',
-          href: '/conversion/getting-started/rest-api',
+          href: '/conversion/advanced/export-custom-nodes',
         },
         {
           title: 'Override exported styles',
-          href: '/conversion/getting-started/rest-api',
+          href: '/conversion/advanced/override-styles',
         },
         {
           title: 'Handle images',
-          href: '/conversion/getting-started/rest-api',
+          href: '/conversion/advanced/handle-images',
         },
       ],
     },
