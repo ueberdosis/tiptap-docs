@@ -1,0 +1,123 @@
+---
+title: Import documents into Tiptap
+meta:
+    title: Import documents | Tiptap Conversion
+    description: Use Tiptap to convert documents from docx, odt or markdown to and into Tiptap
+    category: Conversion
+---
+
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+Importing a document converts an uploaded file into Tiptap’s JSON content, which can then be loaded into your editor. There are two ways to use import: via the Tiptap Import extension (within an editor) or via the REST API.
+
+Here we cover the editor extension usage.
+
+## Set up the Import extension
+After installing the `@tiptap-pro/extension-import` package (see [Install](/conversion/getting-started/install)), you need to add it to your Tiptap editor and configure it with your credentials. The extension will handle uploading the file to Tiptap’s conversion service and retrieving the converted content.
+
+```jsx
+import { Editor } from '@tiptap/core'
+import { Import } from '@tiptap-pro/extension-import'
+
+const editor = new Editor({
+  // ... your editor configuration (other extensions, content, etc.)
+  extensions: [
+    // ... other extensions
+    Import.configure({
+      // Your Convert App ID from Tiptap Cloud settings
+      appId: '<your-app-id>',
+      // A JWT obtained from your server (see "Authenticate" section)
+      token: '<your-jwt>',
+      // (Optional) URL to upload images found in the document. If not set, images will be stripped out.
+      imageUploadCallbackUrl: 'https://your-server.com/image-upload-endpoint',
+      // (Optional) Enable experimental enhanced DOCX import for better style preservation
+      experimentalDocxImport: false,  // set to true to try the experimental mode
+    }),
+  ],
+})
+```
+
+In this configuration:
+- `appId` and `token` are required for the extension to authenticate with the conversion service (as obtained in the [Install](/conversion/getting-started/install) guide).
+- `imageUploadCallbackUrl` is optional. Provide this if you want to preserve images during import. The conversion service will POST each image to the URL you specify so you can host it (see note on image uploading below).
+- `experimentalDocxImport` (optional) can be enabled to use an alternate DOCX importer that is better at preserving styling.
+
+### Handle images
+If you do not set an `imageUploadCallbackUrl`, any images in the document will be skipped and removed.
+
+The URL you provide must be accessible publicly by the conversion service. It should accept image file uploads and return a JSON response containing a url field pointing to the uploaded image.
+
+Your application can use this to ensure images from the DOCX/ODT file get hosted and referenced in the imported content.
+
+## Import a file
+Once the extension is set up, you can call the import command provided by the extension to import a file into the editor content. For example, to import a file selected via an `<input type="file">` element:
+
+```jsx
+// Assume `file` is a File object from an <input> or drag-and-drop)
+editor.chain().focus().import({ file }).run()
+```
+
+## Customize the import behavior
+By default, the Import extension will replace the entire editor content with the imported document. You can intercept or customize this process using the `onImport` callback option. This callback allows you to handle errors or modify the content before it gets inserted.
+
+```jsx
+editor.chain().import({
+  file,
+  onImport(context) {
+    const { content, error, setEditorContent } = context
+
+    // Error handling: if conversion failed, show an error message instead
+    if (error) {
+      console.error("Import failed:", error)
+      showErrorToast({ message: error.message })
+      return
+    }
+
+    // Modify content: for example, add a paragraph at the end of the document
+    content.doc.content.push({
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Hello from custom import!' }],
+    })
+
+    // Optionally update application state (e.g., turn off loading indicator)
+    isLoading = false
+
+    // Insert the content into the editor:
+    // If you want the extension to do the default insertion, call setEditorContent().
+    // In this example, we manually insert the modified content:
+    editor.commands.setContent(content)
+  },
+}).run()
+```
+
+In the above example, we provide an `onImport` function that checks for errors and appends a custom paragraph to the imported content before inserting it.
+
+## Extension options
+The Import extension supports a few configuration options (shown in the setup above). For reference, here are the available options:
+
+| Name                     | Type       | Default     | Description                                                                                                                                                                                     |
+| ------------------------ | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `appId`                  | `string`   | `undefined` | The convert app ID from the Convert settings page: [https://cloud.tiptap.dev/convert-settings](https://cloud.tiptap.dev/convert-settings)                                                       |
+| `token`                  | `string`   | `undefined` | The JWT token generated from your server via secret                                                                                                                                             |
+| `imageUploadCallbackUrl` | `string`   | `undefined` | The URL to upload images to, if not provided, images will be stripped from the document, [see more info](/conversion/usage/rest-api#image-uploading)                                   |
+| `experimentalDocxImport` | `boolean ` | `false`     | Enables the DOCX import endpoint which better preserves content styling|
+
+## Import Command
+When you add the Import extension, it introduces a new editor command:
+
+`editor.commands.import(options)` – Imports a document file into the editor content. The options object should include a file (and optionally onImport and other parameters as shown above).
+
+## Supported input formats
+You can import `.docx` (Word), `.odt` (OpenDocument), `.rtf` (Rich Text Format), and .`md` (Markdown) files. Both standard Markdown (CommonMark) and GitHub Flavored Markdown (GFM) are supported.
+
+## Import caveats and limitations
+Keep the following in mind when importing documents:
+- **Images**: Ensure your editor’s image extension is configured for inline images (e.g. ``Image.configure({ inline: true }))`` so that images from the document are displayed correctly. If not, or if no upload URL is provided, images will be stripped out during import.
+- **Unsupported DOCX elements**: Some Word-specific content won’t import (page breaks, headers/footers, horizontal rules, certain text styles, etc. are skipped).
+- **Suggestion/Track Changes**: Content that was added in a Word document via suggestion mode (Track Changes) is not included in the imported Tiptap document.
+- **PDFs**: Importing PDF files is not supported.
+- **Inline styles**: Inline CSS styles in HTML or Word styling that don’t map to standard document structures are not preserved on import.
+
+The Import extension and conversion API are evolving. If you encounter issues or have feature requests, let us know – we’re continuously improving the conversion quality.
