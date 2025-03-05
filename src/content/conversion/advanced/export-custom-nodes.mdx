@@ -1,0 +1,115 @@
+---
+title: Export custom nodes to DOCX
+meta:
+    title: Custom nodes in DOCX export | Tiptap Conversion
+    description: Learn how to include custom nodes when exporting to Word (DOCX) by mapping them or providing custom conversion logic.
+    category: Conversion
+---
+import { Callout } from '@/components/ui/Callout'
+
+When exporting content to DOCX, only standard node types are handled by default.
+
+If your Tiptap editor content includes **custom node types** (e.g. custom extensions), they won’t automatically appear in the exported Word document unless you take extra steps.
+
+This guide covers how to ensure custom nodes are preserved in the DOCX output.
+
+## Mapping custom nodes to types
+
+By default, the conversion service recognizes core node types (Official Tiptap Extensions). Any unrecognized node type is typically omitted or flattened during export.
+
+For example, if your content has a custom node like `<hint-box>`, the cloud conversion service will not know how to render it in a DOCX and will drop it (although its plain text content might be merged into surrounding text).
+
+If you are using Tiptap Conversion via the Tiptap Cloud you can map custom nodes to standard ones.
+
+You would need to change the node name to an existing type (e.g., telling the service to treat a `textBlock` node as a `paragraph`).
+
+This allows the content of a custom node to be exported, but any unique structure or styling of that node would be lost.
+
+## Approaches to include custom nodes in export
+
+There are two main approaches to handle custom nodes when exporting to DOCX:
+
+### 1. Map custom nodes to built-in types (for cloud conversion)
+
+If you are using the Tiptap Cloud conversion service (via the standard Export extension or REST API), you cannot directly teach it new node types. Instead, you can **map your custom node to an existing node type** that the service supports. This ensures the content is not dropped.
+
+For example, if you have a custom node type named `note` which should be treated like a paragraph, you could send an export request that maps `note` to `paragraph`. Using the REST API, this is done with query parameters. In this case, you’d add `?note=paragraph` to the export URL. This tells the converter to handle any `note` nodes as if they were regular paragraphs in the output.
+
+<Callout title="Note" variant="info">
+    **Mapping nodes via REST API:** The conversion API allows remapping node and mark names during conversion. You can override default type names by providing query parameters in the request (e.g., <code>?paragraph=textBlock</code> or <code>?heading1=title</code>). This is useful if your schema uses different names or to fall back custom nodes to a standard element. However, this mapping only changes the output node type – it won’t preserve custom styling or structure beyond what the target type can represent.
+</Callout>
+
+While mapping ensures the content isn’t lost, remember that it **flattens the custom node’s unique characteristics** into a basic form. Any special styling or behavior of the custom node will not carry over by simply mapping it to a paragraph or heading.
+
+### 2. Provide a custom conversion for the node (using local ExportDocx)
+
+With the latest DOCX conversion capabilities, you can perform the export on the client or your server and **define how custom nodes convert to DOCX**. The Pro **ExportDocx** extension (and its server-side `convert` function) support custom node converters, allowing you to specify exactly what DOCX content to generate for a given custom node type.
+
+Using this approach, you can preserve the custom node’s intent and styling in the exported document. You will write a converter function that transforms your node into Word document elements using the underlying DOCX library.
+
+**How to implement a custom node converter:**
+
+- **Use the ExportDocx extension or `convert` function:** Instead of relying on the cloud service to handle everything, you’ll perform the conversion in your own environment. For client-side, import and configure the `ExportDocx` extension in your editor. For server-side (Node.js), use the `convert` function from the same package.
+- **Define a converter for your node:** When calling the export, provide an array of custom node definitions, each with:
+- a `type` matching your custom node name,
+- a `render` function that returns a DOCX content object representing that node.
+
+The converter function must use the DOCX library’s classes to build content. It **must return one of the allowed types**: a `Paragraph`, an array of `Paragraph` objects, a `Table`, or `null` (if the node should not produce any content). These types come from the [`docx` JS library](https://www.npmjs.com/package/docx) which powers the conversion. It’s important that the objects you return strictly follow the library’s specification – otherwise the export will fail.
+
+Below is an example of configuring an export with a custom converter for a hypothetical `hint-box` node:
+
+```typescript
+// Assume `editor` is your Tiptap editor instance
+editor
+  .chain()
+  .exportDocx(
+    result => {
+      // handle the resulting blob (e.g., trigger download)
+      const blob = new Blob([result], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'document.docx'
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+    { exportType: 'blob' },
+    [
+      {
+        type: 'hint-box',
+        render: () => {
+          // Return a Paragraph representing the hint-box content in DOCX
+          return new Paragraph({
+            children: [
+              new TextRun({
+                bold: true,
+                text: 'Heads-up!',
+                allCaps: true,
+              }),
+              new TextRun({
+                text: ' This is an important information message.',
+                break: 1,
+              }),
+            ],
+            shading: {
+              color: '60945d',
+              fill: '60945d', // background color for the paragraph
+              type: 'solid',
+            },
+            indent: { firstLine: 480 },  // indentation for the first line
+            border: {                    // green border box around the paragraph
+              top:    { style: 'single', size: 1, color: '00FF00' },
+              bottom: { style: 'single', size: 1, color: '00FF00' },
+              left:   { style: 'single', size: 1, color: '00FF00' },
+              right:  { style: 'single', size: 1, color: '00FF00' },
+            },
+          })
+        },
+      },
+      // ... you can define converters for other custom types here ...
+    ],
+  )
+  .run()
+```
+
+In this example, whenever the exporter encounters a hint-box node in the Tiptap JSON, it will call the provided render() function. The function creates a new Paragraph with specific styling (bold text, shaded background, green border, etc.) to represent the hint box in the Word document.<Callout title="Important" variant="warning"> **Strict requirements:** Custom converters only work in the context of the ExportDocx extension (client-side or self-hosted server). They are ignored by Tiptap’s cloud conversion service. Make sure the objects you return (Paragraphs, Tables, etc.) are valid; otherwise the DOCX generation will error out. Test your custom node export thoroughly. Also note that images or other media inside custom nodes need special handling (e.g., ensure any image URLs are accessible as noted in image handling docs). </Callout>By using custom converters, you maintain full control over how your proprietary node types appear in the exported DOCX. This method lets you preserve special formatting, container elements, or any content that would otherwise be lost. It requires more setup and understanding of the DOCX generation API, but it’s the only way to truly extend the export functionality beyond the built-in capabilities.

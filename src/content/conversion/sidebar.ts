@@ -32,6 +32,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Export',
           href: '/conversion/usage/export',
+          children: [
+            {
+              title: 'Generic export',
+              href: '/conversion/usage/export',
+            },
+            {
+              title: 'Custom docx',
+              href: '/conversion/usage/export/custom-docx',
+            },
+          ],
         },
         {
           title: 'REST API',
@@ -47,6 +57,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Handle images',
           href: '/conversion/advanced/handle-images',
+        },
+        {
+          title: 'Docx conversion',
+          href: '/conversion/advanced/convert-docx',
         },
         {
           title: 'Export custom nodes',
