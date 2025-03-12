@@ -15,12 +15,8 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/getting-started/overview',
         },
         {
-          title: 'Install',
-          href: '/conversion/getting-started/install',
-        },
-        {
           title: 'Authenticate',
-          href: '/conversion/getting-started/authenticate',
+          href: '/conversion/getting-started/install',
         },
       ],
     },
@@ -61,11 +57,11 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'ODT',
-          href: '/conversion/usage/import',
+          href: '/conversion/import-export/odt',
         },
         {
           title: 'Markdown',
-          href: '/conversion/usage/rest-api',
+          href: '/conversion/import-export/markdown',
         },
         {
           title: 'HTML',
