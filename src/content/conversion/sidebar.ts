@@ -53,6 +53,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Export styles',
               href: '/conversion/import-export/docx/export-styles',
             },
+            {
+              title: 'Preserve images',
+              href: '/conversion/import-export/docx/preserve-images',
+            },
           ],
         },
         {
