@@ -93,7 +93,7 @@ export const dependencies = {
   '@tiptap/extension-code-block-lowlight': 'next',
   '@tiptap/extension-code-block': 'next',
   '@tiptap/extension-code': 'next',
-  '@tiptap/extension-collaboration-cursor': 'next',
+  '@tiptap/extension-collaboration-caret': 'next',
   '@tiptap/extension-collaboration': 'next',
   '@tiptap/extension-color': 'next',
   '@tiptap/extension-document': 'next',
