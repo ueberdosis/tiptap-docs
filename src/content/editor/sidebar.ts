@@ -258,8 +258,8 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Collaboration',
             },
             {
-              href: '/editor/extensions/functionality/collaboration-cursor',
-              title: 'Collaboration Cursor',
+              href: '/editor/extensions/functionality/collaboration-caret',
+              title: 'Collaboration Caret',
             },
             {
               href: '/editor/extensions/functionality/background-color',
