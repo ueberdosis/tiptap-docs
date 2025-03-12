@@ -105,7 +105,7 @@ export const dependencies = {
   '@tiptap/extension-hard-break': 'next',
   '@tiptap/extension-heading': 'next',
   '@tiptap/extension-highlight': 'next',
-  '@tiptap/extension-history': 'next',
+  '@tiptap/extension-undo-redo': 'next',
   '@tiptap/extension-horizontal-rule': 'next',
   '@tiptap/extension-image': 'next',
   '@tiptap/extension-italic': 'next',
