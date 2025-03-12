@@ -18,57 +18,54 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Install',
           href: '/conversion/getting-started/install',
         },
+        {
+          title: 'Authenticate',
+          href: '/conversion/getting-started/authenticate',
+        },
       ],
     },
     {
       type: 'group',
-      href: '/conversion/import',
-      title: 'Usage',
+      href: '/conversion/import-export',
+      title: 'Import & Export',
       children: [
         {
-          title: 'Import',
-          href: '/conversion/usage/import',
-        },
-        {
-          title: 'Export',
-          href: '/conversion/usage/export',
+          title: 'DOCX',
+          href: '/conversion/import-export/docx',
           children: [
             {
-              title: 'Generic export',
-              href: '/conversion/usage/export',
+              title: 'Editor import',
+              href: '/conversion/import-export/docx/editor-import',
             },
             {
-              title: 'Custom docx',
-              href: '/conversion/usage/export/custom-docx',
+              title: 'Editor export',
+              href: '/conversion/import-export/docx/editor-export',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/import-export/docx/rest-api',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/import-export/docx/custom-node-conversion',
+            },
+            {
+              title: 'Export styles',
+              href: '/conversion/import-export/docx/export-styles',
             },
           ],
         },
         {
-          title: 'REST API',
+          title: 'ODT',
+          href: '/conversion/usage/import',
+        },
+        {
+          title: 'Markdown',
           href: '/conversion/usage/rest-api',
         },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/conversion/export',
-      title: 'Advanced use cases',
-      children: [
         {
-          title: 'Handle images',
-          href: '/conversion/advanced/handle-images',
-        },
-        {
-          title: 'Docx conversion',
-          href: '/conversion/advanced/convert-docx',
-        },
-        {
-          title: 'Export custom nodes',
-          href: '/conversion/advanced/export-custom-nodes',
-        },
-        {
-          title: 'Override exported styles',
-          href: '/conversion/advanced/override-styles',
+          title: 'HTML',
+          href: '/conversion/usage/rest-api',
         },
       ],
     },
