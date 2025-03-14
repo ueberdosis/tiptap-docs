@@ -46,6 +46,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/import-export/docx/custom-node-conversion',
             },
             {
+              title: 'Convert custom marks',
+              href: '/conversion/import-export/docx/custom-mark-conversion',
+            },
+            {
               title: 'Export styles',
               href: '/conversion/import-export/docx/export-styles',
             },
