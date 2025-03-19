@@ -160,14 +160,17 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Text Generation',
+          // This link is the full URL so that it does not get highlighted in the sidebar when the route matches
           href: 'https://tiptap.dev/docs/content-ai/extensions/ai/getting-started/overview',
         },
         {
           title: 'Autocomplete',
+          // This link is the full URL so that it does not get highlighted in the sidebar when the route matches
           href: 'https://tiptap.dev/docs/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
         },
         {
           title: 'Proofreader',
+          // This link is the full URL so that it does not get highlighted in the sidebar when the route matches
           href: 'https://tiptap.dev/docs/content-ai/extensions/ai-proofreader/getting-started/overview',
         },
         {
