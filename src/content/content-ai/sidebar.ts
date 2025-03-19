@@ -155,6 +155,29 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '',
+      title: 'Examples',
+      children: [
+        {
+          title: 'Text Generation',
+          href: 'https://tiptap.dev/docs/content-ai/extensions/ai/getting-started/overview',
+        },
+        {
+          title: 'Autocomplete',
+          href: 'https://tiptap.dev/docs/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
+        },
+        {
+          title: 'Proofreader',
+          href: 'https://tiptap.dev/docs/content-ai/extensions/ai-proofreader/getting-started/overview',
+        },
+        {
+          title: 'Starter templates',
+          href: 'https://tiptap.dev/product/templates',
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/content-ai/resources',
       title: 'Resources',
       children: [
