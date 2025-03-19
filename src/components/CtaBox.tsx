@@ -73,7 +73,7 @@ export type DescriptionProps = {
 export const Description = forwardRef<HTMLParagraphElement, DescriptionProps>(
   ({ asChild, children, className, ...rest }, ref) => {
     const descriptionClass = cn('mt-2.5 text-[1.125rem] leading-[160%]', className)
-    const Component = asChild ? Slot : 'p'
+    const Component = asChild ? Slot : 'div'
 
     return (
       <Component ref={ref} {...rest} className={descriptionClass}>
