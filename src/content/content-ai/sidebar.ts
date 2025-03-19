@@ -139,19 +139,19 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Apply and reject suggestions',
                   href: '/content-ai/extensions/ai-proofreader/features/apply-suggestions-to-the-editors-content',
                 },
+                {
+                  title: 'Lock content',
+                  href: '/content-ai/extensions/ai-proofreader/features/lock-content',
+                },
               ],
             },
             {
-              title: 'Use with Tiptap Content AI Cloud',
+              title: 'Use with Content AI Cloud',
               href: '/content-ai/extensions/ai-proofreader/use-tiptap-content-ai-cloud',
             },
             {
-              title: 'Integrate your own backend and LLMs',
+              title: 'Integrate your LLMs',
               href: '/content-ai/extensions/ai-proofreader/integrate-your-own-backend-and-llms',
-            },
-            {
-              title: 'Lock content',
-              href: '/content-ai/extensions/ai-proofreader/lock-content',
             },
           ],
         },
