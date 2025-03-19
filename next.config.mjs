@@ -38,8 +38,18 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/content-ai/capabilities/text-generation',
-        destination: '/content-ai/capabilities/text-generation/built-in-commands',
+        source: '/content-ai/extensions/ai',
+        destination: '/content-ai/extensions/ai/getting-started/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai/getting-started',
+        destination: '/content-ai/extensions/ai/getting-started/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai/capabilities/text-generation',
+        destination: '/content-ai/extensions/ai/capabilities/text-generation/built-in-commands',
         permanent: false,
       },
       {

@@ -2,92 +2,17 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',
-  rootHref: '/content-ai/getting-started/overview',
+  rootHref: '/content-ai/extensions/ai/getting-started/overview',
   title: 'Content AI',
   items: [
     {
-      type: 'group',
-      href: '/content-ai/getting-started',
+      href: '/content-ai/extensions/ai/getting-started',
       title: 'Getting started',
+      type: 'group',
       children: [
         {
           title: 'Overview',
           href: '/content-ai/getting-started/overview',
-        },
-        {
-          title: 'Install',
-          href: '/content-ai/getting-started/install',
-        },
-        {
-          title: 'Configure',
-          href: '/content-ai/getting-started/configure',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/capabilities',
-      title: 'Capabilities',
-      children: [
-        {
-          title: 'Text generation',
-          href: '/content-ai/capabilities/text-generation',
-          children: [
-            {
-              title: 'Built-in commands',
-              href: '/content-ai/capabilities/text-generation/built-in-commands',
-            },
-            {
-              title: 'Autocompletion',
-              href: '/content-ai/capabilities/text-generation/autocompletion',
-            },
-            {
-              title: 'Provide context',
-              href: '/content-ai/capabilities/text-generation/provide-context',
-            },
-            {
-              title: 'Formatted responses',
-              href: '/content-ai/capabilities/text-generation/format',
-            },
-            {
-              title: 'Manage responses',
-              href: '/content-ai/capabilities/text-generation/manage-responses',
-            },
-            {
-              title: 'Custom commands',
-              href: '/content-ai/capabilities/text-generation/custom-commands',
-            },
-            {
-              title: 'Stream content (Advanced)',
-              href: '/content-ai/capabilities/text-generation/stream',
-            },
-          ],
-        },
-        {
-          title: 'Image generation',
-          href: '/content-ai/capabilities/image-generation',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/custom-llms',
-      title: 'Custom LLMs',
-      children: [
-        {
-          title: 'Integrate your LLM',
-          href: '/content-ai/custom-llms/integrate',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/resources',
-      title: 'Resources',
-      children: [
-        {
-          title: 'Privacy',
-          href: '/content-ai/resources/privacy',
         },
       ],
     },
@@ -97,9 +22,76 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Extensions',
       children: [
         {
+          title: 'Content AI',
+          tags: ['Pro', 'New'],
+          href: '/content-ai/extensions/ai',
+          children: [
+            {
+              href: '/content-ai/extensions/ai/getting-started',
+              title: 'Getting started',
+              children: [
+                {
+                  title: 'Overview',
+                  href: '/content-ai/extensions/ai/getting-started/overview',
+                },
+                {
+                  title: 'Install',
+                  href: '/content-ai/extensions/ai/getting-started/install',
+                },
+                {
+                  title: 'Configure',
+                  href: '/content-ai/extensions/ai/getting-started/configure',
+                },
+              ],
+            },
+            {
+              title: 'Text generation',
+              href: '/content-ai/extensions/ai/capabilities/text-generation',
+              children: [
+                {
+                  title: 'Built-in commands',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/built-in-commands',
+                },
+                {
+                  title: 'Autocompletion',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
+                },
+                {
+                  title: 'Provide context',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/provide-context',
+                },
+                {
+                  title: 'Formatted responses',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/format',
+                },
+                {
+                  title: 'Manage responses',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/manage-responses',
+                },
+                {
+                  title: 'Custom commands',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/custom-commands',
+                },
+                {
+                  title: 'Stream content (Advanced)',
+                  href: '/content-ai/extensions/ai/capabilities/text-generation/stream',
+                },
+              ],
+            },
+            {
+              title: 'Image generation',
+              href: '/content-ai/extensions/ai/capabilities/image-generation',
+            },
+            {
+              title: 'Integrate your LLM',
+              href: '/content-ai/extensions/ai/custom-llms/integrate-your-llm',
+            },
+          ],
+        },
+        {
           title: 'AI Proofreader',
           href: '/content-ai/extensions/ai-proofreader',
-          tags: ['Beta', 'Pro'],
+          tags: ['Pro', 'Beta'],
           children: [
             {
               title: 'Getting started',
@@ -158,6 +150,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/extensions/ai-proofreader/api-reference',
             },
           ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/resources',
+      title: 'Resources',
+      children: [
+        {
+          title: 'Privacy',
+          href: '/content-ai/resources/privacy',
         },
       ],
     },
