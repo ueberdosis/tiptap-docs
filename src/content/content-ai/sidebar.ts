@@ -124,8 +124,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/extensions/ai-proofreader/features',
               children: [
                 {
-                  title: 'Define your own rules',
-                  href: '/content-ai/extensions/ai-proofreader/features/define-your-own-rules',
+                  title: 'Define rules',
+                  href: '/content-ai/extensions/ai-proofreader/features/define-rules',
                 },
                 {
                   title: 'Configure when to load suggestions',
@@ -133,11 +133,11 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'Display suggestions',
-                  href: '/content-ai/extensions/ai-proofreader/features/display-suggestions-in-the-editor',
+                  href: '/content-ai/extensions/ai-proofreader/features/display-suggestions',
                 },
                 {
                   title: 'Apply and reject suggestions',
-                  href: '/content-ai/extensions/ai-proofreader/features/apply-suggestions-to-the-editors-content',
+                  href: '/content-ai/extensions/ai-proofreader/features/apply-suggestions',
                 },
                 {
                   title: 'Lock content',
