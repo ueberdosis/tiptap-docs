@@ -153,6 +153,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Integrate your LLMs',
               href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
             },
+            {
+              title: 'API Reference',
+              href: '/content-ai/extensions/ai-proofreader/api-reference',
+            },
           ],
         },
       ],
