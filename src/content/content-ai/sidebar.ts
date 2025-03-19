@@ -147,11 +147,11 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Use with Content AI Cloud',
-              href: '/content-ai/extensions/ai-proofreader/use-tiptap-content-ai-cloud',
+              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
             },
             {
               title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-proofreader/integrate-your-own-backend-and-llms',
+              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
             },
           ],
         },
