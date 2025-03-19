@@ -24,7 +24,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Content AI',
           tags: ['Pro', 'New'],
-          href: '/content-ai/extensions/ai',
+          href: '/content-ai/extensions/ai/',
           children: [
             {
               href: '/content-ai/extensions/ai/getting-started',
