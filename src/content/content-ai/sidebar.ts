@@ -116,14 +116,6 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Use with Content AI Cloud',
-              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
-            },
-            {
-              title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
-            },
-            {
               title: 'Features',
               href: '/content-ai/extensions/ai-proofreader/features',
               children: [
@@ -148,6 +140,14 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/extensions/ai-proofreader/features/lock-content',
                 },
               ],
+            },
+            {
+              title: 'Use with Content AI Cloud',
+              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
+            },
+            {
+              title: 'Integrate your LLMs',
+              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
             },
             {
               title: 'Configure',
