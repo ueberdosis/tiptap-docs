@@ -91,5 +91,71 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
+    {
+      type: 'group',
+      href: '/content-ai/extensions',
+      title: 'Extensions',
+      children: [
+        {
+          title: 'AI Proofreader',
+          href: '/content-ai/extensions/ai-proofreader',
+          tags: ['Beta', 'Pro'],
+          children: [
+            {
+              title: 'Getting started',
+              href: '/content-ai/extensions/ai-proofreader/getting-started',
+              children: [
+                {
+                  title: 'Overview',
+                  href: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+                },
+                {
+                  title: 'Install',
+                  href: '/content-ai/extensions/ai-proofreader/getting-started/install',
+                },
+                {
+                  title: 'Configure',
+                  href: '/content-ai/extensions/ai-proofreader/getting-started/configure',
+                },
+              ],
+            },
+            {
+              title: 'Features',
+              href: '/content-ai/extensions/ai-proofreader/features',
+              children: [
+                {
+                  title: 'Define your own rules',
+                  href: '/content-ai/extensions/ai-proofreader/features/define-your-own-rules',
+                },
+                {
+                  title: 'Configure when to load suggestions',
+                  href: '/content-ai/extensions/ai-proofreader/features/configure-when-to-load-suggestions',
+                },
+                {
+                  title: 'Display suggestions',
+                  href: '/content-ai/extensions/ai-proofreader/features/display-suggestions-in-the-editor',
+                },
+                {
+                  title: 'Apply and reject suggestions',
+                  href: '/content-ai/extensions/ai-proofreader/features/apply-suggestions-to-the-editors-content',
+                },
+              ],
+            },
+            {
+              title: 'Use with Tiptap Content AI Cloud',
+              href: '/content-ai/extensions/ai-proofreader/use-tiptap-content-ai-cloud',
+            },
+            {
+              title: 'Integrate your own backend and LLMs',
+              href: '/content-ai/extensions/ai-proofreader/integrate-your-own-backend-and-llms',
+            },
+            {
+              title: 'Lock content',
+              href: '/content-ai/extensions/ai-proofreader/lock-content',
+            },
+          ],
+        },
+      ],
+    },
   ],
 }
