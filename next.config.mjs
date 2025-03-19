@@ -42,6 +42,21 @@ const nextConfig = {
         destination: '/content-ai/capabilities/text-generation/built-in-commands',
         permanent: false,
       },
+      {
+        source: '/content-ai/extensions/ai-proofreader',
+        destination: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai-proofreader/getting-started',
+        destination: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai-proofreader/features',
+        destination: '/content-ai/extensions/ai-proofreader/features/define-rules',
+        permanent: false,
+      },
     ]
   },
 }
