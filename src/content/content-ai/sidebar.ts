@@ -113,11 +113,15 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Install',
                   href: '/content-ai/extensions/ai-proofreader/getting-started/install',
                 },
-                {
-                  title: 'Configure',
-                  href: '/content-ai/extensions/ai-proofreader/getting-started/configure',
-                },
               ],
+            },
+            {
+              title: 'Use with Content AI Cloud',
+              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
+            },
+            {
+              title: 'Integrate your LLMs',
+              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
             },
             {
               title: 'Features',
@@ -146,12 +150,8 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Use with Content AI Cloud',
-              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
-            },
-            {
-              title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
+              title: 'Configure',
+              href: '/content-ai/extensions/ai-proofreader/configure',
             },
             {
               title: 'API Reference',
