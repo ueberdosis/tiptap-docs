@@ -84,7 +84,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Integrate your LLM',
-              href: '/content-ai/extensions/ai/custom-llms/integrate-your-llm',
+              href: '/content-ai/extensions/ai/custom-llms/integrate',
             },
           ],
         },
@@ -139,7 +139,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-proofreader/integrate-your-llms',
+              href: '/content-ai/extensions/ai-proofreader/integrate-custom-llms',
             },
             {
               title: 'Configure',
