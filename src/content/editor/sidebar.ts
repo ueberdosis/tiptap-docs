@@ -246,6 +246,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/editor/extensions/functionality/ai-proofreader',
+              title: 'AI Proofreader',
+              tags: ['Beta', 'Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/bubble-menu',
               title: 'Bubble menu',
             },
