@@ -246,8 +246,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
-              href: '/editor/extensions/functionality/ai-proofreader',
-              title: 'AI Proofreader',
+              href: '/editor/extensions/functionality/ai-suggestion',
+              title: 'AI Suggestion',
               tags: ['Beta', 'Pro'],
             },
             {

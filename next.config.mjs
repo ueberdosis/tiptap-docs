@@ -53,18 +53,18 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-proofreader',
-        destination: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+        source: '/content-ai/extensions/ai-suggestion',
+        destination: '/content-ai/extensions/ai-suggestion/getting-started/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-proofreader/getting-started',
-        destination: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+        source: '/content-ai/extensions/ai-suggestion/getting-started',
+        destination: '/content-ai/extensions/ai-suggestion/getting-started/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-proofreader/features',
-        destination: '/content-ai/extensions/ai-proofreader/features/define-rules',
+        source: '/content-ai/extensions/ai-suggestion/features',
+        destination: '/content-ai/extensions/ai-suggestion/features/define-rules',
         permanent: false,
       },
     ]

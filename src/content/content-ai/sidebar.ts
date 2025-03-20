@@ -89,65 +89,65 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Proofreader',
-          href: '/content-ai/extensions/ai-proofreader',
+          title: 'AI Suggestion',
+          href: '/content-ai/extensions/ai-suggestion',
           tags: ['Pro', 'Beta'],
           children: [
             {
               title: 'Getting started',
-              href: '/content-ai/extensions/ai-proofreader/getting-started',
+              href: '/content-ai/extensions/ai-suggestion/getting-started',
               children: [
                 {
                   title: 'Overview',
-                  href: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+                  href: '/content-ai/extensions/ai-suggestion/getting-started/overview',
                 },
                 {
                   title: 'Install',
-                  href: '/content-ai/extensions/ai-proofreader/getting-started/install',
+                  href: '/content-ai/extensions/ai-suggestion/getting-started/install',
                 },
               ],
             },
             {
               title: 'Features',
-              href: '/content-ai/extensions/ai-proofreader/features',
+              href: '/content-ai/extensions/ai-suggestion/features',
               children: [
                 {
                   title: 'Define rules',
-                  href: '/content-ai/extensions/ai-proofreader/features/define-rules',
+                  href: '/content-ai/extensions/ai-suggestion/features/define-rules',
                 },
                 {
                   title: 'Configure when to load suggestions',
-                  href: '/content-ai/extensions/ai-proofreader/features/configure-when-to-load-suggestions',
+                  href: '/content-ai/extensions/ai-suggestion/features/configure-when-to-load-suggestions',
                 },
                 {
                   title: 'Display suggestions',
-                  href: '/content-ai/extensions/ai-proofreader/features/display-suggestions',
+                  href: '/content-ai/extensions/ai-suggestion/features/display-suggestions',
                 },
                 {
                   title: 'Apply and reject suggestions',
-                  href: '/content-ai/extensions/ai-proofreader/features/apply-suggestions',
+                  href: '/content-ai/extensions/ai-suggestion/features/apply-suggestions',
                 },
                 {
                   title: 'Lock content',
-                  href: '/content-ai/extensions/ai-proofreader/features/lock-content',
+                  href: '/content-ai/extensions/ai-suggestion/features/lock-content',
                 },
               ],
             },
             {
               title: 'Use with Content AI Cloud',
-              href: '/content-ai/extensions/ai-proofreader/use-with-content-ai-cloud',
+              href: '/content-ai/extensions/ai-suggestion/use-with-content-ai-cloud',
             },
             {
               title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-proofreader/integrate-custom-llms',
+              href: '/content-ai/extensions/ai-suggestion/integrate-custom-llms',
             },
             {
               title: 'Configure',
-              href: '/content-ai/extensions/ai-proofreader/configure',
+              href: '/content-ai/extensions/ai-suggestion/configure',
             },
             {
               title: 'API Reference',
-              href: '/content-ai/extensions/ai-proofreader/api-reference',
+              href: '/content-ai/extensions/ai-suggestion/api-reference',
             },
           ],
         },
@@ -169,9 +169,9 @@ export const sidebarConfig: SidebarConfig = {
           href: '/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
         },
         {
-          title: 'Proofreader',
+          title: 'AI Suggestions',
           isActive: false,
-          href: '/content-ai/extensions/ai-proofreader/getting-started/overview',
+          href: '/content-ai/extensions/ai-suggestion/getting-started/overview',
         },
         {
           title: 'Starter templates',
