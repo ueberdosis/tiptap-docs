@@ -54,12 +54,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/extensions/ai-suggestion',
-        destination: '/content-ai/extensions/ai-suggestion/getting-started/overview',
+        destination: '/content-ai/extensions/ai-suggestion/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-suggestion/getting-started',
-        destination: '/content-ai/extensions/ai-suggestion/getting-started/overview',
+        source: '/content-ai/extensions/ai-suggestion',
+        destination: '/content-ai/extensions/ai-suggestion/overview',
         permanent: false,
       },
       {

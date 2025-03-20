@@ -94,18 +94,12 @@ export const sidebarConfig: SidebarConfig = {
           tags: ['Pro', 'Beta'],
           children: [
             {
-              title: 'Getting started',
-              href: '/content-ai/extensions/ai-suggestion/getting-started',
-              children: [
-                {
-                  title: 'Overview',
-                  href: '/content-ai/extensions/ai-suggestion/getting-started/overview',
-                },
-                {
-                  title: 'Install',
-                  href: '/content-ai/extensions/ai-suggestion/getting-started/install',
-                },
-              ],
+              title: 'Overview',
+              href: '/content-ai/extensions/ai-suggestion/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/extensions/ai-suggestion/install',
             },
             {
               title: 'Features',
@@ -171,7 +165,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Suggestions',
           isActive: false,
-          href: '/content-ai/extensions/ai-suggestion/getting-started/overview',
+          href: '/content-ai/extensions/ai-suggestion/overview',
         },
         {
           title: 'Starter templates',
