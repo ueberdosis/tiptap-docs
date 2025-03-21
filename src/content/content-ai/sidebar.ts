@@ -126,8 +126,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/extensions/ai-suggestion/use-with-content-ai-cloud',
             },
             {
-              title: 'Integrate your LLMs',
-              href: '/content-ai/extensions/ai-suggestion/integrate-custom-llms',
+              title: 'Integrate your LLM',
+              href: '/content-ai/extensions/ai-suggestion/custom-llms/integrate',
             },
             {
               title: 'Configure',
