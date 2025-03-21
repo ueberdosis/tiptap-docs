@@ -22,7 +22,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Capabilities',
       children: [
         {
-          title: 'Content AI',
+          title: 'AI Generation',
           tags: ['Pro', 'New'],
           href: '/content-ai/extensions/ai/',
           children: [
