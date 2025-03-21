@@ -38,8 +38,33 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/content-ai/capabilities/text-generation',
-        destination: '/content-ai/capabilities/text-generation/built-in-commands',
+        source: '/content-ai/extensions/ai',
+        destination: '/content-ai/extensions/ai/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai',
+        destination: '/content-ai/extensions/ai/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai/capabilities/text-generation',
+        destination: '/content-ai/extensions/ai/capabilities/text-generation/built-in-commands',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai-suggestion',
+        destination: '/content-ai/extensions/ai-suggestion/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai-suggestion',
+        destination: '/content-ai/extensions/ai-suggestion/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/extensions/ai-suggestion/features',
+        destination: '/content-ai/extensions/ai-suggestion/features/define-rules',
         permanent: false,
       },
     ]

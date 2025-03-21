@@ -37,7 +37,7 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const pathname = usePathname()
-  const isActive = pathname === link.href
+  const isActive = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
