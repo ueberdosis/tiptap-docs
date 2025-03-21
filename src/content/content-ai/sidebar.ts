@@ -168,13 +168,20 @@ export const sidebarConfig: SidebarConfig = {
           href: '/content-ai/extensions/ai-suggestion/overview',
         },
         {
-          title: 'Integrate your LLMs',
-          isActive: false,
-          href: '/content-ai/extensions/ai/custom-llms/integrate',
-        },
-        {
           title: 'Starter templates',
           href: 'https://tiptap.dev/product/templates',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '',
+      title: 'Custom LLMs',
+      children: [
+        {
+          title: 'Integrate your LLM',
+          isActive: false,
+          href: '/content-ai/extensions/ai/custom-llms/integrate',
         },
       ],
     },
