@@ -19,7 +19,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/content-ai/extensions',
-      title: 'Extensions',
+      title: 'Capabilities',
       children: [
         {
           title: 'Content AI',
