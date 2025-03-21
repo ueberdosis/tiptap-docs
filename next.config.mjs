@@ -39,12 +39,12 @@ const nextConfig = {
     return [
       {
         source: '/content-ai/extensions/ai',
-        destination: '/content-ai/extensions/ai/getting-started/overview',
+        destination: '/content-ai/extensions/ai/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai/getting-started',
-        destination: '/content-ai/extensions/ai/getting-started/overview',
+        source: '/content-ai/extensions/ai',
+        destination: '/content-ai/extensions/ai/overview',
         permanent: false,
       },
       {

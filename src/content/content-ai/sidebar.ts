@@ -2,11 +2,11 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',
-  rootHref: '/content-ai/extensions/ai/getting-started/overview',
+  rootHref: '/content-ai/extensions/ai/overview',
   title: 'Content AI',
   items: [
     {
-      href: '/content-ai/extensions/ai/getting-started',
+      href: '/content-ai/extensions/ai',
       title: 'Getting started',
       type: 'group',
       children: [
@@ -27,22 +27,12 @@ export const sidebarConfig: SidebarConfig = {
           href: '/content-ai/extensions/ai/',
           children: [
             {
-              href: '/content-ai/extensions/ai/getting-started',
-              title: 'Getting started',
-              children: [
-                {
-                  title: 'Overview',
-                  href: '/content-ai/extensions/ai/getting-started/overview',
-                },
-                {
-                  title: 'Install',
-                  href: '/content-ai/extensions/ai/getting-started/install',
-                },
-                {
-                  title: 'Configure',
-                  href: '/content-ai/extensions/ai/getting-started/configure',
-                },
-              ],
+              title: 'Overview',
+              href: '/content-ai/extensions/ai/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/extensions/ai/install',
             },
             {
               title: 'Text generation',
@@ -85,6 +75,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Integrate your LLM',
               href: '/content-ai/extensions/ai/custom-llms/integrate',
+            },
+            {
+              title: 'Configure',
+              href: '/content-ai/extensions/ai/configure',
             },
           ],
         },
@@ -155,7 +149,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Text Generation',
           isActive: false,
-          href: '/content-ai/extensions/ai/getting-started/overview',
+          href: '/content-ai/extensions/ai/overview',
         },
         {
           title: 'Autocomplete',
