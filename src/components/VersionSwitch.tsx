@@ -10,14 +10,19 @@ import { getCurrentVersion } from '@/utils/getCurrentVersion'
 
 const versions = [
   {
+    label: 'V3',
+    key: 'v3',
+    href: '/v3',
+  },
+  {
     label: 'V2',
     key: 'v2',
     href: '/',
   },
   {
-    label: 'V3',
-    key: 'v3',
-    href: '/v3',
+    label: 'V1',
+    key: 'v1',
+    href: 'https://v1.tiptap.dev',
   },
 ]
 
@@ -25,10 +30,13 @@ export const VersionSwitch = () => {
   const pathname = usePathname()
 
   const activeItem = useMemo(() => {
+    const defaultVersion = 'v2'
     const version = getCurrentVersion(pathname)
 
     if (!version) {
-      return versions[0]
+      return versions.find((currentVersion) => {
+        return currentVersion.key === defaultVersion
+      })
     }
 
     return versions.find((currentVersion) => {
@@ -49,7 +57,9 @@ export const VersionSwitch = () => {
           <div>
             {versions.map((version) => (
               <DropdownMenu.Item asChild key={version.href}>
-                <NavLink href={version.href}>{version.label}</NavLink>
+                <NavLink href={version.href} target={!version.href.startsWith('/') ? '_blank' : ''}>
+                  {version.label}
+                </NavLink>
               </DropdownMenu.Item>
             ))}
           </div>
