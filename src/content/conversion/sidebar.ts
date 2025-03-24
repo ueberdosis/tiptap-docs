@@ -69,10 +69,6 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Markdown',
           href: '/conversion/import-export/markdown',
         },
-        {
-          title: 'HTML',
-          href: '/conversion/import-export/html',
-        },
       ],
     },
     {
