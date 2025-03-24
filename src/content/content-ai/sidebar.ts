@@ -23,7 +23,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'AI Generation',
-          tags: ['Pro', 'New'],
+          tags: ['Pro'],
           href: '/content-ai/extensions/ai/',
           children: [
             {
@@ -175,7 +175,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Integrate your LLM',
           isActive: false,
-          href: '/content-ai/extensions/ai/custom-llms/integrate',
+          href: '/content-ai/custom-llms/integrate',
         },
       ],
     },
