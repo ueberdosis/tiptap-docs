@@ -62,12 +62,32 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'ODT',
           href: '/conversion/import-export/odt',
+          title: 'ODT',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/import-export/odt/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/import-export/odt/rest-api',
+            },
+          ],
         },
         {
-          title: 'Markdown',
           href: '/conversion/import-export/markdown',
+          title: 'Markdown',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/import-export/markdown/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/import-export/markdown/rest-api',
+            },
+          ],
         },
       ],
     },
