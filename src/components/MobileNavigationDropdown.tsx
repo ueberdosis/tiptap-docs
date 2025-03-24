@@ -54,7 +54,7 @@ export const MobileNavigationDropdown = ({ prefix = '' }: { prefix?: string }) =
         return pathname.startsWith(`${prefix}/${firstPart}`)
       }
     })
-  }, [pathname])
+  }, [pathname, prefix])
 
   const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
 
