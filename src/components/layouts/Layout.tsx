@@ -11,6 +11,7 @@ import { MobileNavigationButton } from '../MobileNavigationButton'
 import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
+import { VersionSwitch } from '../VersionSwitch'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
 import { getAllMetadata } from '@/server/getAllMetadata'
@@ -26,18 +27,24 @@ const PageEditFooter = async () => {
   )
 }
 
-export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig, prefix?: string }>(
+export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig; prefix?: string }>(
   ({ config, prefix = '', ...rest }, ref) => {
     return (
       <header ref={ref} {...rest} className="container sticky top-0 w-full py-1.5 z-50">
         <div className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
           <div className="flex items-center gap-2">
-            <Link href={`${prefix}/`} className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
-              <TiptapLogo />
-              <span>
-                <span className="font-semibold">Tiptap</span> Docs
-              </span>
-            </Link>
+            <div className="flex items-center">
+              <Link
+                href={`${prefix}/`}
+                className="font-deco text-lg flex items-center gap-2.5 pr-2.5"
+              >
+                <TiptapLogo />
+                <span>
+                  <span className="font-semibold">Tiptap</span> Docs
+                </span>
+              </Link>
+              <VersionSwitch />
+            </div>
             <span className="hidden select-none lg:block text-black/15">/</span>
             <nav className="hidden lg:flex items-center gap-[0.5px]">
               <ProductDropdown prefix={prefix} />
