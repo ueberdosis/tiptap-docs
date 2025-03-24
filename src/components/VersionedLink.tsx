@@ -14,8 +14,8 @@ export const VersionedLink = ({
   const pathname = usePathname()
   const version = getCurrentVersion(pathname)
   const isInternal = href.startsWith('/')
-  const finalHrf = version && isInternal ? `/${version}${href}` : href
-  return <Link href={finalHrf} {...rest} prefetch={prefetch} />
+  const finalHref = version && isInternal ? `/${version}${href}` : href
+  return <Link href={finalHref} {...rest} prefetch={prefetch} />
 }
 
 export default VersionedLink
