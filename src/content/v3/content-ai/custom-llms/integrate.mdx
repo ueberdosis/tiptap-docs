@@ -1,0 +1,236 @@
+---
+title: Integrate a custom LLM
+meta:
+  title: Custom LLM | Tiptap Content AI
+  description: Implement custom LLMs with the AI extension and override resolver functions in your editor. Learn more in the docs!
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+If you want to use a your own backend which provides access to a custom LLM, you can override the resolver functions defined below on the extension configuration.
+
+Make sure you’re returning the correct type of response and that you handle errors correctly.
+
+<Callout title="Heads up!" variant="hint">
+
+We strongly advise you not to call OpenAI directly in your frontend, as this could lead to API token leakage! You should use a proxy on your backend to keep your API tokens secret.
+
+</Callout>
+
+## Installing the AI extension
+
+In order to use customized resolver functions, you need to install our Tiptap AI extension.
+
+<Callout title="Pro Extension" variant="warning">
+
+    This extension requires a valid subscription in an eligible plan and [access to our private registry](/guides/pro-extensions), set this up first.
+
+    **You need to be a business customer, to use the extension.**
+
+</Callout>
+
+```bash
+npm install @tiptap-pro/extension-ai
+```
+
+### Use both custom LLM and Tiptap AI Cloud
+
+If you want to rely on our cloud in some cases, make sure that you [setup your team as described here](/content-ai/getting-started/install#set-up-tiptap-ai-for-your-team).
+
+## Resolver Functions
+
+You can define custom resolver functions on the extension options. Be aware that they expect the following return types.
+
+| Type       | Method name            | Return Type                                   |
+| ---------- | ---------------------- | --------------------------------------------- |
+| completion | `aiCompletionResolver` | `Promise<string \| null>`                     |
+| streaming  | `aiStreamResolver`     | `Promise<ReadableStream<Uint8Array> \| null>` |
+| image      | `aiImageResolver`      | `Promise<string \| null>`                     |
+
+Use `aiCompletionResolver` to add text to the editor in a non-streaming manner.
+
+Use the `aiStreamResolver` to stream content directly into the editor. This gives the editor typewritter effect.
+
+Make sure that the stream returns HTML to allow Tiptap to render the content directly as rich text. This approach removes the need for a Markdown parser and keeps the frontend lightweight.
+
+## Examples
+
+### Override a specific command resolution in completion mode
+
+In this example we want to call our custom backend when the `rephrase` action/command is called.
+Everything else should be handled by the default backend in the Tiptap Cloud.
+
+```js
+// ...
+import Ai from '@tiptap-pro/extension-ai'
+// ...
+
+Ai.configure({
+  appId: 'APP_ID_HERE',
+  token: 'TOKEN_HERE',
+  // ...
+  onError(error, context) {
+    // handle error
+  },
+  // Define the resolver function for completions (attention: streaming and image have to be defined separately!)
+  aiCompletionResolver: async ({
+    editor,
+    action,
+    text,
+    textOptions,
+    extensionOptions,
+    defaultResolver,
+  }) => {
+    // Check against action, text, whatever you like
+    // Decide to use custom endpoint
+    if (action === 'rephrase') {
+      const response = await fetch('https://dummyjson.com/quotes/random')
+      const json = await response?.json()
+
+      if (!response.ok) {
+        throw new Error(`${response.status} ${json?.message}`)
+      }
+
+      return json?.quote
+    }
+
+    // Everything else is routed to the Tiptap AI service
+    return defaultResolver({
+      editor,
+      action,
+      text,
+      textOptions,
+      extensionOptions,
+      defaultResolver,
+    })
+  },
+})
+```
+
+### Register a new AI command and call a custom backend action
+
+In this example, we register a new editor command named `aiCustomTextCommand`, use the Tiptap `runAiTextCommand` function to let Tiptap do the rest, and add a custom command resolution to call a custom backend (in completion mode).
+
+```js
+// …
+import { Ai, runAiTextCommand } from '@tiptap-pro/extension-ai'
+// …
+
+// Declare typings if TypeScript is used:
+//
+// declare module '@tiptap/core' {
+//   interface Commands<ReturnType> {
+//     ai: {
+//       aiCustomTextCommand: () => ReturnType,
+//     }
+//   }
+// }
+
+const AiExtended = Ai.extend({
+  addCommands() {
+    return {
+      ...this.parent?.(),
+
+      aiCustomTextCommand:
+        (options = {}) =>
+        (props) => {
+          // Do whatever you want; e.g. get the selected text and pass it to the specific command resolution
+          return runAiTextCommand(props, 'customCommand', options)
+        },
+    }
+  },
+})
+
+// … this is where you initialize your Tiptap editor instance and register the extended extension
+
+const editor = useEditor({
+  extensions: [
+    /* … add other extension */
+    AiExtended.configure({
+      /* … add configuration here (appId, token etc.) */
+      onError(error, context) {
+        // handle error
+      },
+      aiCompletionResolver: async ({
+        action,
+        text,
+        textOptions,
+        extensionOptions,
+        defaultResolver,
+        editor,
+      }) => {
+        if (action === 'customCommand') {
+          const response = await fetch('https://dummyjson.com/quotes/random')
+          const json = await response?.json()
+
+          if (!response.ok) {
+            throw new Error(`${response.status} ${json?.message}`)
+          }
+
+          return json?.quote
+        }
+
+        return defaultResolver({
+          editor,
+          action,
+          text,
+          textOptions,
+          extensionOptions,
+          defaultResolver,
+        })
+      },
+    }),
+  ],
+  content: '',
+})
+
+// … use this to run your new command:
+// editor.chain().focus().aiCustomTextCommand().run()
+```
+
+### Use your custom backend in streaming mode
+
+We’re entirely relying on a custom backend in this example.
+
+Make sure that the function `aiStreamResolver` returns a `ReadableStream<Uint8Array>`.
+
+And remember: If you want to use both streaming and the traditional completion mode (non-streaming way), you’ll need to define a `aiCompletionResolver`, too!
+
+```js
+// ...
+import Ai from '@tiptap-pro/extension-ai'
+// ...
+
+Ai.configure({
+  appId: 'APP_ID_HERE',
+  token: 'TOKEN_HERE',
+  // ...
+  onError(error, context) {
+    // handle error
+  },
+  // Define the resolver function for streams
+  aiStreamResolver: async ({ action, text, textOptions }) => {
+    const fetchOptions = {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...textOptions,
+        text,
+      }),
+    }
+
+    const response = await fetch(`<YOUR_STREAMED_BACKEND_ENDPOINT>`, fetchOptions)
+    const json = await response?.json()
+
+    if (!response.ok) {
+      throw new Error(`${json?.error} ${json?.message}`)
+    }
+
+    return response?.body
+  },
+})
+```

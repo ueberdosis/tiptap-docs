@@ -36,7 +36,7 @@ const options = [
   },
 ]
 
-export const MobileNavigationDropdown = () => {
+export const MobileNavigationDropdown = ({ prefix = '' }: { prefix?: string }) => {
   const pathname = usePathname()
 
   const activeItem = useMemo(() => {
@@ -51,10 +51,10 @@ export const MobileNavigationDropdown = () => {
           return false
         }
 
-        return pathname.startsWith(`/${firstPart}`)
+        return pathname.startsWith(`${prefix}/${firstPart}`)
       }
     })
-  }, [pathname])
+  }, [pathname, prefix])
 
   const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
 
@@ -75,7 +75,10 @@ export const MobileNavigationDropdown = () => {
               </div>
               {group.items.map((option) => (
                 <DropdownMenu.Item key={option.href} asChild>
-                  <NavLink target={option.target} href={option.href}>
+                  <NavLink
+                    target={option.target}
+                    href={!option.target ? `${prefix}${option.href}` : option.href}
+                  >
                     {option.label}
                   </NavLink>
                 </DropdownMenu.Item>
@@ -87,7 +90,7 @@ export const MobileNavigationDropdown = () => {
               variant="invert"
               href="https://cloud.tiptap.dev/register"
               target="_blank"
-              className="text-center justify-center items-center"
+              className="items-center justify-center text-center"
               hideIcon
             >
               Sign up

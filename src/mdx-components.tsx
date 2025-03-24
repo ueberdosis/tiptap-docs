@@ -3,7 +3,7 @@ import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
 import React from 'react'
 import { Codeblock } from './components/Codeblock'
-import Link from '@/components/Link'
+import VersionedLink from './components/VersionedLink'
 
 /**
  * Extracts the text from a nested children object
@@ -36,7 +36,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h1: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h1 className="group relative" {...props} id={id}>
+        <h1 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -47,7 +47,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h2: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h2 className="group relative" {...props} id={id}>
+        <h2 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -58,7 +58,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h3: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h3 className="group relative" {...props} id={id}>
+        <h3 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -69,7 +69,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h4: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h4 className="group relative" {...props} id={id}>
+        <h4 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -80,7 +80,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h5: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h5 className="group relative" {...props} id={id}>
+        <h5 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -91,7 +91,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h6: ({ children, ...props }) => {
       const id = getHeadlineId(children)
       return (
-        <h6 className="group relative" {...props} id={id}>
+        <h6 className="relative group" {...props} id={id}>
           <a className={hashClass} href={`#${id}`}>
             <HashIcon className="w-full h-full" />
           </a>
@@ -100,7 +100,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     table: (props) => (
-      <div className="w-full overflow-auto my-12 first:mt-0 last:mb-0">
+      <div className="w-full my-12 overflow-auto first:mt-0 last:mb-0">
         <table {...props} className="w-full" />
       </div>
     ),
@@ -108,7 +108,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const isExternal = props.href?.startsWith('http')
 
       // @ts-ignore
-      return <Link {...props} target={isExternal ? '_blank' : props.target} />
+      return <VersionedLink {...props} target={isExternal ? '_blank' : props.target} />
     },
   }
 }

@@ -4,16 +4,31 @@ import { ExtensionType } from '@/types'
 
 export const Extensions = async ({
   path = '/',
+  subpath = '',
+  version = '',
+  hideVersion,
   hideAll,
   hideFree,
 }: {
   path?: string
+  subpath?: string
+  version?: string
+  /**
+   * Hide the version from the URL
+   */
+  hideVersion?: boolean
   hideAll?: boolean
   hideFree?: boolean
 }) => {
-  const extensions = await getExtensions(path)
+  const extensions = await getExtensions(path, version, subpath)
 
   const extensionsArray = Object.values(extensions)
+
+  if (hideVersion) {
+    extensionsArray.forEach((ext) => {
+      ext.url = ext.url.replace(`/${version}`, '')
+    })
+  }
 
   const nodeExtensions = extensionsArray.filter((ext) => ext.type === ExtensionType.Node)
   const markExtensions = extensionsArray.filter((ext) => ext.type === ExtensionType.Mark)

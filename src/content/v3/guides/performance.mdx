@@ -1,0 +1,168 @@
+---
+tags:
+  - type: editor
+title: Integrating Tiptap performantly in your app
+meta:
+  title: Integration performance | Tiptap Editor Docs
+  description: Learn how to integrate Tiptap Editor performantly in your app. More in the docs!
+  category: Editor
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+<CodeDemo path="/Examples/Book" />
+
+Tiptap is a very performant editor (even able to edit an entire book!), often when you run into performance issues, it's not Tiptap itself, but the way you integrate it into your app. Here are some tips to make sure your editor runs smoothly.
+
+## React Tiptap Editor Integration
+
+<CodeDemo path="/Examples/Performance?hideSource=true" />
+
+When using Tiptap with React, the most common performance issue is that the editor is re-rendered too often. This can happen for several reasons:
+
+- When using the `useEditor` hook, it by default will re-render the editor on every change. So, you should isolate the editor (and things that depend on it) in a separate component to prevent unnecessary re-renders.
+- The editor should be isolated from renders that don't affect it. For example, if you have a sidebar that doesn't interact with the editor, it should be in a separate component.
+
+Luckily, the solution for most of these issues is the same: isolate the editor in a separate component. Here is an example of how you can do this:
+
+DO: isolate the editor in a separate component
+
+```jsx
+import { EditorContent, useEditor } from '@tiptap/react'
+
+const TiptapEditor = () => {
+  const editor = useEditor({
+    extensions,
+    content,
+  })
+
+  return (
+    <>
+      <EditorContent editor={editor} />
+      {/* Other components that depend on the editor instance */}
+      <MenuComponent editor={editor} />
+    </>
+  )
+}
+
+export default TiptapEditor
+```
+
+DON'T: render the editor in the same component as other components
+
+```jsx
+import { EditorContent, useEditor } from '@tiptap/react'
+
+const App = () => {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const editor = useEditor({
+    extensions,
+    content,
+  })
+
+  return (
+    <>
+      <UnrelatedSidebar onChange={setSidebarOpen} />
+      <EditorContent editor={editor} />
+      <MenuComponent editor={editor} />
+      <Sidenav isSidebarOpen={sidebarOpen}>
+        <AnotherComponent />
+      </Sidenav>
+    </>
+  )
+}
+
+export default App
+```
+
+These unrelated components will cause the editor to re-render more often than necessary, and make each render more expensive.
+
+### Track down performance issues
+
+You can use the React DevTools Profiler to see which components are re-rendering and why. Another strategy is to put a `console.count('editor render')` in the editor component and see how often it is re-rendered. This can help you identify which components are causing unnecessary re-renders.
+
+If it is re-rendered more often than you expect, you can take the following steps:
+
+- Check if the editor is rendering because of its parent component.
+- Isolate the editor from unrelated state changes (e.g. opening a sidebar should not cause the editor to re-render).
+- Use `useEditorState` to prevent unnecessary re-renders within the editor component.
+
+Hopefully, these tips will help you track down and fix any performance issues you encounter.
+
+### Use `useEditorState` to prevent unnecessary re-renders
+
+The `useEditorState` hook allows you to subscribe to changes in the editor state and re-render only when necessary. This can help you prevent unnecessary re-renders of the editor and its components.
+
+```tsx
+import { useEditor, useEditorState } from '@tiptap/react'
+
+function Component() {
+  const editor = useEditor({
+    extensions,
+    content,
+  })
+
+  const editorState = useEditorState({
+    editor,
+    // This function will be called every time the editor state changes
+    selector: ({ editor }: { editor: Editor }) => ({
+      // It will only re-render if the bold or italic state changes
+      isBold: editorInstance.isActive('bold'),
+      isItalic: editorInstance.isActive('italic'),
+    }),
+  })
+
+  return (
+    <>
+      <EditorContent editor={editor} />
+      <button
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={editorState.isBold ? 'primary' : ''}
+      >
+        Bold
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={editorState.isItalic ? 'primary' : ''}
+      >
+        Italic
+      </button>
+    </>
+  )
+}
+```
+
+The `selector` function allows you to specify which parts of the editor state you want to subscribe to. By default this will be deeply compared with the previous selected state, and only re-render if it has changed. You can select any part of the editor state, or even derive new values from it.
+
+### Gain more control over rendering
+
+As of Tiptap v2.5.0, you can gain more control over rendering by using the `immediatelyRender` and `shouldRerenderOnTransaction` options. This can be useful if you want to prevent the editor from rendering immediately or on every transaction.
+
+```tsx
+import { useEditor } from '@tiptap/react'
+
+function Component() {
+  const editor = useEditor({
+    extensions,
+    content,
+    /**
+     * This option gives us the control to enable the default behavior of rendering the editor immediately.
+     */
+    immediatelyRender: true,
+    /**
+     * This option gives us the control to disable the default behavior of re-rendering the editor on every transaction.
+     */
+    shouldRerenderOnTransaction: false,
+  })
+
+  return <EditorContent editor={editor} />
+}
+```
+
+## React node views performance
+
+Node views allow you to render custom components in place of nodes within the editor. This enables you to embed any kind of content in your editor. However, when using React components, be aware of potential performance implications.
+
+For technical reasons, node views are expected to be rendered synchronously. Tiptap will create new elements for each node view and mount your React component in them. This can be expensive, especially if you have many instances of node views throughout your editor.
+
+We've optimized as much as possible on our side, but if you find that rendering node views is causing performance issues, consider using plain HTML elements or a different approach to render your content within your node view.
