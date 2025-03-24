@@ -1,10 +1,10 @@
 'use client'
 
-import { getCurrentVersion } from '@/utils/getCurrentVersion'
 import { usePathname } from 'next/navigation'
 import React, { HTMLProps } from 'react'
-import Link from './Link'
 import type { LinkProps } from 'next/link'
+import Link from './Link'
+import { getCurrentVersion } from '@/utils/getCurrentVersion'
 
 export const VersionedLink = ({
   prefetch = false,

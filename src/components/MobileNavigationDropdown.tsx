@@ -75,7 +75,10 @@ export const MobileNavigationDropdown = ({ prefix = '' }: { prefix?: string }) =
               </div>
               {group.items.map((option) => (
                 <DropdownMenu.Item key={option.href} asChild>
-                  <NavLink target={option.target} href={!option.target ? `${prefix}${option.href}` : option.href}>
+                  <NavLink
+                    target={option.target}
+                    href={!option.target ? `${prefix}${option.href}` : option.href}
+                  >
                     {option.label}
                   </NavLink>
                 </DropdownMenu.Item>
