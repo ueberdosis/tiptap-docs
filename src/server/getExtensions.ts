@@ -1,30 +1,32 @@
 import { glob } from 'fast-glob'
 import { ExtensionMetaWithUrl } from '@/types'
 
-export const getExtensions = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
+export const getExtensions = async (path: string = '', version: string = '', subpath?: string) => {
+  let pages = (await glob(`**/*.mdx`, { cwd: `src/content/${version}/${path}${subpath}` })).filter((p) => {
     return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
   })
 
-  const pathPrefix = path ? `${path}/` : ''
+  const pathPrefix = path ? `${path}` : ''
 
   let allExtensions = (await Promise.all(
     pages.map(async (page) => {
-      let pagePath = `/${pathPrefix + page}`
+      let pagePath = `${pathPrefix + subpath + '/' + page}`
 
-      const extensionData = (await import(`@/content/${pagePath.replace('/content/', '')}`))
-        .frontmatter?.extension as ExtensionMetaWithUrl | undefined
+      const extensionData = (await import(`@/content/${version}/${pagePath}`)).frontmatter
+        ?.extension as ExtensionMetaWithUrl | undefined
 
       if (!extensionData) {
         return null
       }
 
+      const url = `/${version}/${pagePath.replace('.mdx', '')}`
+
       return [
-        path + pagePath,
+        path + subpath + pagePath,
         {
           ...extensionData,
           path: page,
-          url: pagePath.replace('content/', '').replace('.mdx', ''),
+          url,
         },
       ]
     }),

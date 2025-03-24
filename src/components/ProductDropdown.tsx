@@ -15,7 +15,7 @@ const options = [
   { label: 'Comments', href: '/comments/getting-started/overview' },
 ]
 
-export const ProductDropdown = () => {
+export const ProductDropdown = ({ prefix = '' }: { prefix?: string }) => {
   const pathname = usePathname()
 
   const activeItem = useMemo(() => {
@@ -24,10 +24,10 @@ export const ProductDropdown = () => {
         return pathname === '/'
       } else {
         const firstPart = option.href.split('/')[1]
-        return pathname.startsWith(`/${firstPart}`)
+        return pathname.startsWith(`${prefix}/${firstPart}`)
       }
     })
-  }, [pathname])
+  }, [pathname, prefix])
 
   const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
 
@@ -47,7 +47,7 @@ export const ProductDropdown = () => {
             </div>
             {options.map((option) => (
               <DropdownMenu.Item key={option.href} asChild>
-                <NavLink href={option.href}>{option.label}</NavLink>
+                <NavLink href={`${prefix}${option.href}`}>{option.label}</NavLink>
               </DropdownMenu.Item>
             ))}
           </div>
@@ -55,8 +55,8 @@ export const ProductDropdown = () => {
             <div className="uppercase font-bold leading-[120%] text-xs px-2 mb-3 block lg:hidden">
               Others
             </div>
-            <NavLink href="/guides">Guides</NavLink>
-            <NavLink href="/examples">Examples</NavLink>
+            <NavLink href={`${prefix}/guides`}>Guides</NavLink>
+            <NavLink href={`${prefix}/examples`}>Examples</NavLink>
             <NavLink href="https://templates.tiptap.dev" target="_blank">
               Templates
             </NavLink>
@@ -69,7 +69,7 @@ export const ProductDropdown = () => {
               variant="invert"
               href="https://cloud.tiptap.dev/register"
               target="_blank"
-              className="text-center justify-center items-center"
+              className="items-center justify-center text-center"
               hideIcon
             >
               Sign up
