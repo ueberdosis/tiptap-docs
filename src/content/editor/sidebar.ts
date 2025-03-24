@@ -258,8 +258,8 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Collaboration',
             },
             {
-              href: '/editor/extensions/functionality/collaboration-cursor',
-              title: 'Collaboration Cursor',
+              href: '/editor/extensions/functionality/collaboration-caret',
+              title: 'Collaboration Caret',
             },
             {
               href: '/editor/extensions/functionality/background-color',
@@ -329,11 +329,6 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Gap cursor',
             },
             {
-              href: '/editor/extensions/functionality/history',
-              title: 'History',
-              tags: ['Pro', 'Cloud'],
-            },
-            {
               href: '/editor/extensions/functionality/invisiblecharacters',
               title: 'Invisible characters',
               tags: ['Pro'],
@@ -359,6 +354,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
+            },
+            {
+              href: '/editor/extensions/functionality/snapshot',
+              title: 'Snapshot',
+              tags: ['Pro', 'Cloud'],
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
