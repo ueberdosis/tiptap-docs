@@ -38,33 +38,33 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/content-ai/extensions/ai',
-        destination: '/content-ai/extensions/ai/overview',
+        source: '/content-ai/capabilities/generation',
+        destination: '/content-ai/capabilities/generation/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai',
-        destination: '/content-ai/extensions/ai/overview',
+        source: '/content-ai/capabilities/generation',
+        destination: '/content-ai/capabilities/generation/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai/text-generation',
-        destination: '/content-ai/extensions/ai/text-generation/built-in-commands',
+        source: '/content-ai/capabilities/generation/text-generation',
+        destination: '/content-ai/capabilities/generation/text-generation/built-in-commands',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-suggestion',
-        destination: '/content-ai/extensions/ai-suggestion/overview',
+        source: '/content-ai/capabilities/suggestion',
+        destination: '/content-ai/capabilities/suggestion/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-suggestion',
-        destination: '/content-ai/extensions/ai-suggestion/overview',
+        source: '/content-ai/capabilities/suggestion',
+        destination: '/content-ai/capabilities/suggestion/overview',
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai-suggestion/features',
-        destination: '/content-ai/extensions/ai-suggestion/features/define-rules',
+        source: '/content-ai/capabilities/suggestion/features',
+        destination: '/content-ai/capabilities/suggestion/features/define-rules',
         permanent: false,
       },
     ]
