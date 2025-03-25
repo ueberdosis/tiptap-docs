@@ -276,8 +276,8 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Beta', 'Pro'],
             },
             {
-              href: '/editor/extensions/functionality/content-ai',
-              title: 'Content AI',
+              href: '/editor/extensions/functionality/ai-generation',
+              title: 'AI Generation',
               tags: ['Pro'],
             },
             {
