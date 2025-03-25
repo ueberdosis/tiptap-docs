@@ -28,16 +28,15 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'DOCX',
           href: '/conversion/import-export/docx',
+          tags: ['Beta'],
           children: [
             {
               title: 'Editor import',
               href: '/conversion/import-export/docx/editor-import',
-              tags: ['Beta'],
             },
             {
               title: 'Editor export',
               href: '/conversion/import-export/docx/editor-export',
-              tags: ['Beta'],
             },
             {
               title: 'REST API',
