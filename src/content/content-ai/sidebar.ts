@@ -174,7 +174,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Integrate your LLM',
-          href: '/content-ai/custom-llms/integrate',
+          href: '/content-ai/custom-llms',
         },
       ],
     },
