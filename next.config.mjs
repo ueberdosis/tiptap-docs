@@ -67,6 +67,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/suggestion/features/define-rules',
         permanent: false,
       },
+      {
+        source: '/content-ai/capabilities/text-generation',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: true,
+      },
     ]
   },
 }
