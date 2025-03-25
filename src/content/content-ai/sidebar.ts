@@ -2,11 +2,11 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',
-  rootHref: '/content-ai/extensions/ai/overview',
+  rootHref: '/content-ai/getting-started/overview',
   title: 'Content AI',
   items: [
     {
-      href: '/content-ai/extensions/ai',
+      href: '/content-ai/getting-started/overview',
       title: 'Getting started',
       type: 'group',
       children: [
@@ -36,45 +36,45 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Text generation',
-              href: '/content-ai/extensions/ai/capabilities/text-generation',
+              href: '/content-ai/extensions/ai/text-generation',
               children: [
                 {
                   title: 'Built-in commands',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/built-in-commands',
+                  href: '/content-ai/extensions/ai/text-generation/built-in-commands',
                 },
                 {
                   title: 'Autocompletion',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
+                  href: '/content-ai/extensions/ai/text-generation/autocompletion',
                 },
                 {
                   title: 'Provide context',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/provide-context',
+                  href: '/content-ai/extensions/ai/text-generation/provide-context',
                 },
                 {
                   title: 'Formatted responses',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/format',
+                  href: '/content-ai/extensions/ai/text-generation/format',
                 },
                 {
                   title: 'Manage responses',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/manage-responses',
+                  href: '/content-ai/extensions/ai/text-generation/manage-responses',
                 },
                 {
                   title: 'Custom commands',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/custom-commands',
+                  href: '/content-ai/extensions/ai/text-generation/custom-commands',
                 },
                 {
                   title: 'Stream content (Advanced)',
-                  href: '/content-ai/extensions/ai/capabilities/text-generation/stream',
+                  href: '/content-ai/extensions/ai/text-generation/stream',
                 },
               ],
             },
             {
               title: 'Image generation',
-              href: '/content-ai/extensions/ai/capabilities/image-generation',
+              href: '/content-ai/extensions/ai/image-generation',
             },
             {
               title: 'Integrate your LLM',
-              href: '/content-ai/extensions/ai/custom-llms/integrate',
+              href: '/content-ai/extensions/ai/custom-llms',
             },
             {
               title: 'Configure',
@@ -127,7 +127,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Integrate your LLM',
-              href: '/content-ai/extensions/ai-suggestion/custom-llms/integrate',
+              href: '/content-ai/extensions/ai-suggestion/custom-llms',
             },
             {
               title: 'Configure',
@@ -154,7 +154,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Autocomplete',
           isActive: false,
-          href: '/content-ai/extensions/ai/capabilities/text-generation/autocompletion',
+          href: '/content-ai/extensions/ai/text-generation/autocompletion',
         },
         {
           title: 'AI Suggestions',
@@ -169,12 +169,11 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '',
+      href: '/content-ai/custom-llms',
       title: 'Custom LLMs',
       children: [
         {
           title: 'Integrate your LLM',
-          isActive: false,
           href: '/content-ai/custom-llms/integrate',
         },
       ],

@@ -48,8 +48,8 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/content-ai/extensions/ai/capabilities/text-generation',
-        destination: '/content-ai/extensions/ai/capabilities/text-generation/built-in-commands',
+        source: '/content-ai/extensions/ai/text-generation',
+        destination: '/content-ai/extensions/ai/text-generation/built-in-commands',
         permanent: false,
       },
       {
