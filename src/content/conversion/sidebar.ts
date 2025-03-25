@@ -89,17 +89,6 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
       ],
-    },
-    {
-      type: 'group',
-      href: '/conversion/import-export',
-      title: 'Guides',
-      children: [
-        {
-          title: 'Export JSON or HTML',
-          href: '/guides/output-json-html',
-        },
-      ],
-    },
+    }
   ],
 }
