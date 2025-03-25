@@ -37,7 +37,7 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const pathname = usePathname()
-  const isActive = pathname === link.href
+  const isActive = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
@@ -68,24 +68,26 @@ export const LinkItem = ({
       >
         <Link href={link.href} onClick={onClick}>
           {link.title}
-          {link.tags ? (
-            <span className="flex items-center gap-0.5">
-              {link.tags.map((tag) => (
-                <Tag key={tag} className="select-none" variant="gray" size="small">
-                  {tag}
-                </Tag>
-              ))}
-            </span>
-          ) : null}
-          {link.children ? (
-            <button className={toggleButtonClassName} onClick={toggleOpen}>
-              {isOpen ? (
-                <ChevronDownIcon className="size-4 text-grayAlpha-500" />
-              ) : (
-                <ChevronRightIcon className="size-4 text-grayAlpha-500" />
-              )}
-            </button>
-          ) : null}
+          <span className="flex gap-1">
+            {link.tags ? (
+              <span className="flex items-center gap-0.5">
+                {link.tags.map((tag) => (
+                  <Tag key={tag} className="select-none" variant="gray" size="small">
+                    {tag}
+                  </Tag>
+                ))}
+              </span>
+            ) : null}
+            {link.children ? (
+              <button className={toggleButtonClassName} onClick={toggleOpen}>
+                {isOpen ? (
+                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                ) : (
+                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                )}
+              </button>
+            ) : null}
+          </span>
         </Link>
       </Sidebar.Button>
       {link.children ? (
