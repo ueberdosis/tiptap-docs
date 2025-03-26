@@ -3,12 +3,16 @@ export type ExternalVersion = {
   isExternal: true
   url: string
   isBeta?: boolean
+  isAlpha?: boolean
+  isRc?: boolean
 }
 
 export type InternalVersion = {
   version: string
   key: string
   isBeta?: boolean
+  isAlpha?: boolean
+  isRc?: boolean
 }
 
 export type VersionData = ExternalVersion | InternalVersion

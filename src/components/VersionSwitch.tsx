@@ -35,6 +35,8 @@ const VersionItem = ({ version }: { version: VersionData }) => {
       <NavLink href={url} target={isExternal ? '_blank' : undefined}>
         {version.version}
         {version.isBeta ? <Tag className="ml-1">Beta</Tag> : null}
+        {version.isAlpha ? <Tag className="ml-1">Alpha</Tag> : null}
+        {version.isRc ? <Tag className="ml-1">RC</Tag> : null}
       </NavLink>
     </DropdownMenu.Item>
   )

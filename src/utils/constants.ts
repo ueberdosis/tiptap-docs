@@ -25,6 +25,6 @@ export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
     key: '3.x',
-    isBeta: true,
+    isRc: true,
   },
 ]
