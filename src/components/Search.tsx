@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import { useCallback, useMemo } from 'react'
-import { InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
+import { Configure, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
 import { useHotkeys } from '@mantine/hooks'
 import Link from '@/components/Link'
 import { typesenseAdapter } from '@/utils/search'
@@ -62,6 +62,8 @@ const SearchWrapper = ({ children }: { children: React.ReactNode }) => {
       searchClient={typesenseAdapter.searchClient}
       indexName={process.env.NEXT_PUBLIC_DOCSEARCH_INDEX || ''}
     >
+      <Configure filters="version:2.x" />
+
       {children}
     </InstantSearch>
   )
