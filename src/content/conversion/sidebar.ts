@@ -89,6 +89,6 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
       ],
-    }
+    },
   ],
 }
