@@ -29,11 +29,7 @@ const options = [
     items: [
       { label: 'Guides', href: '/guides' },
       { label: 'Examples', href: '/examples' },
-      {
-        label: 'Templates',
-        href: 'https://templates.tiptap.dev',
-        target: '_blank',
-      },
+      { label: 'UI Components', href: '/ui-components/getting-started/overview' },
       { label: 'Website', href: 'https://tiptap.dev', target: '_blank' },
     ],
   },

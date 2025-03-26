@@ -43,9 +43,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               <ProductDropdown />
               <NavLink href="/guides">Guides</NavLink>
               <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="https://templates.tiptap.dev" target="_blank">
-                Templates
-              </NavLink>
+              <NavLink href="/ui-components/getting-started/overview">UI Components</NavLink>
               <NavLink href="https://tiptap.dev" target="_blank">
                 Website
               </NavLink>
