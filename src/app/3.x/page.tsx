@@ -1,32 +1,21 @@
 import { Layout } from '@/components/layouts/Layout'
-import { createMetadata } from '@/server/createMetadata'
 import { PageHeader } from '@/components/PageHeader'
-import { sidebarConfig } from '@/content/3.x/sidebar'
-import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
-import { importMdxFromPath } from '@/utils/versioning'
+import { generateVersionedMetadata } from '@/server/generateVersionedMetadata'
+import { getVersionedMdx } from '@/server/getVersionedMdx'
 
 export async function generateMetadata() {
-  const pageMdx = await importMdxFromPath('3.x', 'index.mdx')
-
-  const canonicalUrl = createCanonicalUrl([])
-
-  return await createMetadata({
-    title: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
-    description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
-    ogTitle: pageMdx.frontmatter?.title ?? '',
-    canonicalUrl,
-  })
+  return generateVersionedMetadata([], '3.x')
 }
 
 export default async function HomePage() {
-  const pageMdx = await importMdxFromPath('3.x', 'index.mdx')
+  const { mdx, sidebar } = await getVersionedMdx([], '3.x')
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
-    headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
-    description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
+    headline: mdx.frontmatter?.meta?.title ?? mdx.frontmatter?.title ?? '',
+    description: mdx.frontmatter?.meta?.description ?? mdx.frontmatter?.description ?? '',
     url: FULL_DOMAIN,
     datePublished: new Date(Date.now()).toISOString(),
     dateModified: new Date(Date.now()).toISOString(),
@@ -43,27 +32,25 @@ export default async function HomePage() {
 
   return (
     <>
-      <Layout.Header config={sidebarConfig} prefix="/3.x" />
+      <Layout.Header config={sidebar ?? undefined} prefix="/3.x" />
       <Layout.Wrapper>
-        <Layout.Sidebar config={sidebarConfig} />
+        {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
         <Layout.Content>
-          {pageMdx.frontmatter ? (
+          {mdx.frontmatter ? (
             <PageHeader.Wrapper>
-              {<PageHeader.Breadcrumbs config={sidebarConfig} />}
-              <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
-              {pageMdx.frontmatter?.tags ? (
-                <PageHeader.Tags tags={pageMdx.frontmatter.tags} />
-              ) : null}
-              {pageMdx.frontmatter.description ? (
+              {sidebar ? <PageHeader.Breadcrumbs config={sidebar} /> : null}
+              <PageHeader.Title>{mdx.frontmatter.title}</PageHeader.Title>
+              {mdx.frontmatter?.tags ? <PageHeader.Tags tags={mdx.frontmatter.tags} /> : null}
+              {mdx.frontmatter.description ? (
                 <PageHeader.Description
                   dangerouslySetInnerHTML={{
-                    __html: pageMdx.frontmatter.description,
+                    __html: mdx.frontmatter.description,
                   }}
                 />
               ) : null}
             </PageHeader.Wrapper>
           ) : null}
-          <div className="mdx-content">{pageMdx.default()}</div>
+          <div className="mdx-content">{mdx.default()}</div>
         </Layout.Content>
         <Layout.SecondarySidebar />
       </Layout.Wrapper>

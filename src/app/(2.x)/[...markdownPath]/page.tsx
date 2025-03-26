@@ -1,12 +1,9 @@
-import fs from 'fs'
-import { notFound } from 'next/navigation'
 import { Layout } from '@/components/layouts/Layout'
-import { createMetadata } from '@/server/createMetadata'
-import { SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
-import { getImportPathForVersion, importMdxFromPath } from '@/utils/versioning'
+import { generateVersionedMetadata } from '@/server/generateVersionedMetadata'
+import { getVersionedMdx } from '@/server/getVersionedMdx'
 
 type Props = {
   params: {
@@ -16,72 +13,18 @@ type Props = {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const directPath = `${params.markdownPath.join('/')}.mdx`
-  const indexPath = `${params.markdownPath.join('/')}/index.mdx`
-
-  const canonicalUrl = createCanonicalUrl(params.markdownPath)
-
-  const hasDirectMdx = fs.existsSync(getImportPathForVersion('2.x', directPath))
-  const hasIndexMdx = fs.existsSync(getImportPathForVersion('2.x', indexPath))
-
-  if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
-    return {}
-  }
-
-  const pageMdx = await importMdxFromPath('2.x', hasDirectMdx ? directPath : indexPath)
-
-  return await createMetadata({
-    title: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
-    description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
-    category: pageMdx.frontmatter?.meta?.category,
-    ogTitle: pageMdx.frontmatter?.title ?? '',
-    canonicalUrl,
-  })
+  return await generateVersionedMetadata(params.markdownPath, '2.x')
 }
 
 export default async function MarkdownPage({ params }: Props) {
-  const directPath = `${params.markdownPath.join('/')}.mdx`
-  const indexPath = `${params.markdownPath.join('/')}/index.mdx`
-
-  let sidebar: SidebarConfig | null = null
-  let steppedSegments = []
-
   const canonicalUrl = createCanonicalUrl(params.markdownPath)
-
-  ;['', ...params.markdownPath].forEach((segment) => {
-    steppedSegments.push(segment)
-
-    const filePath = getImportPathForVersion('2.x', ...steppedSegments, 'sidebar.ts')
-
-    const fileExists = fs.existsSync(filePath)
-
-    if (fileExists) {
-      const isIndex = steppedSegments[steppedSegments.length - 1] === ''
-      const importPath = isIndex
-        ? 'sidebar'
-        : `${steppedSegments.filter((s) => s !== '').join('/')}/sidebar`
-      sidebar = require(`@/content/2.x/${importPath}`).sidebarConfig as SidebarConfig
-    }
-  })
-
-  const hasDirectMdx = fs.existsSync(getImportPathForVersion('2.x', directPath))
-  const hasIndexMdx = fs.existsSync(getImportPathForVersion('2.x', indexPath))
-
-  if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
-    notFound()
-  }
-
-  const pageMdx = await importMdxFromPath('2.x', hasDirectMdx ? directPath : indexPath)
+  const { mdx, sidebar } = await getVersionedMdx(params.markdownPath, '2.x')
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
-    headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
-    description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
+    headline: mdx.frontmatter?.meta?.title ?? mdx.frontmatter?.title ?? '',
+    description: mdx.frontmatter?.meta?.description ?? mdx.frontmatter?.description ?? '',
     url: canonicalUrl,
     datePublished: new Date(Date.now()).toISOString(),
     dateModified: new Date(Date.now()).toISOString(),
@@ -102,27 +45,25 @@ export default async function MarkdownPage({ params }: Props) {
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
         <Layout.Content>
-          {pageMdx.frontmatter ? (
+          {mdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar ? <PageHeader.Breadcrumbs config={sidebar} /> : null}
-              {pageMdx.frontmatter?.title ? (
-                <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
+              {mdx.frontmatter?.title ? (
+                <PageHeader.Title>{mdx.frontmatter.title}</PageHeader.Title>
               ) : null}
-              {pageMdx.frontmatter?.tags ? (
-                <PageHeader.Tags tags={pageMdx.frontmatter.tags} />
-              ) : null}
-              {pageMdx.frontmatter.description ? (
+              {mdx.frontmatter?.tags ? <PageHeader.Tags tags={mdx.frontmatter.tags} /> : null}
+              {mdx.frontmatter.description ? (
                 <PageHeader.Description
                   dangerouslySetInnerHTML={{
-                    __html: pageMdx.frontmatter.description,
+                    __html: mdx.frontmatter.description,
                   }}
                 />
               ) : null}
             </PageHeader.Wrapper>
           ) : null}
-          <div className="mdx-content">{pageMdx.default()}</div>
+          <div className="mdx-content">{mdx.default()}</div>
         </Layout.Content>
-        {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
+        {!mdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
       </Layout.Wrapper>
       <script
         type="application/ld+json"
