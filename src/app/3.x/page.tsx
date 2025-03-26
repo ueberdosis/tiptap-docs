@@ -1,13 +1,13 @@
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageHeader } from '@/components/PageHeader'
-import { sidebarConfig } from '@/content/v2/sidebar'
+import { sidebarConfig } from '@/content/3.x/sidebar'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importMdxFromPath } from '@/utils/versioning'
 
 export async function generateMetadata() {
-  const pageMdx = await importMdxFromPath('v2', 'index.mdx')
+  const pageMdx = await importMdxFromPath('3.x', 'index.mdx')
 
   const canonicalUrl = createCanonicalUrl([])
 
@@ -20,7 +20,7 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const pageMdx = await importMdxFromPath('v2', 'index.mdx')
+  const pageMdx = await importMdxFromPath('3.x', 'index.mdx')
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
@@ -43,7 +43,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Layout.Header config={sidebarConfig} />
+      <Layout.Header config={sidebarConfig} prefix="/3.x" />
       <Layout.Wrapper>
         <Layout.Sidebar config={sidebarConfig} />
         <Layout.Content>

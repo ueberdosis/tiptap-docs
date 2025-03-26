@@ -2,16 +2,16 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
-  rootHref: '/v3/',
+  rootHref: '/3.x/',
   title: 'Home',
   items: [
     {
       type: 'group',
       title: 'Getting started',
-      href: '/v3/getting-started',
+      href: '/3.x/getting-started',
       children: [
         {
-          href: '/v3/',
+          href: '/3.x/',
           title: 'Overview',
         },
       ],
@@ -19,26 +19,26 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       title: 'Browse by feature',
-      href: '/v3/suite-docs',
+      href: '/3.x/suite-docs',
       children: [
         {
-          href: '/v3/editor/getting-started/overview',
+          href: '/3.x/editor/getting-started/overview',
           title: 'Editor',
         },
         {
-          href: '/v3/collaboration/getting-started/overview',
+          href: '/3.x/collaboration/getting-started/overview',
           title: 'Collaboration',
         },
         {
-          href: '/v3/content-ai/getting-started/overview',
+          href: '/3.x/content-ai/getting-started/overview',
           title: 'Content AI',
         },
         {
-          href: '/v3/comments/getting-started/overview',
+          href: '/3.x/comments/getting-started/overview',
           title: 'Comments',
         },
         {
-          href: '/v3/collaboration/documents',
+          href: '/3.x/collaboration/documents',
           title: 'Documents',
         },
       ],
@@ -46,26 +46,26 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       title: 'Resources',
-      href: '/v3/resources',
+      href: '/3.x/resources',
       children: [
         {
-          href: '/v3/guides',
+          href: '/3.x/guides',
           title: 'Guides',
         },
         {
-          href: '/v3/examples',
+          href: '/3.x/examples',
           title: 'Examples',
         },
         {
-          href: '/v3/resources/contributing',
+          href: '/3.x/resources/contributing',
           title: 'Contributing',
         },
         {
-          href: '/v3/resources/changelog',
+          href: '/3.x/resources/changelog',
           title: 'Editor changelog',
         },
         {
-          href: '/v3/resources/pro-license',
+          href: '/3.x/resources/pro-license',
           title: 'Pro license',
         },
       ],

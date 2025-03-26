@@ -2,92 +2,92 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',
-  rootHref: '/v3/content-ai/getting-started/overview',
+  rootHref: '/3.x/content-ai/getting-started/overview',
   title: 'Content AI',
   items: [
     {
       type: 'group',
-      href: '/v3/content-ai/getting-started',
+      href: '/3.x/content-ai/getting-started',
       title: 'Getting started',
       children: [
         {
           title: 'Overview',
-          href: '/v3/content-ai/getting-started/overview',
+          href: '/3.x/content-ai/getting-started/overview',
         },
         {
           title: 'Install',
-          href: '/v3/content-ai/getting-started/install',
+          href: '/3.x/content-ai/getting-started/install',
         },
         {
           title: 'Configure',
-          href: '/v3/content-ai/getting-started/configure',
+          href: '/3.x/content-ai/getting-started/configure',
         },
       ],
     },
     {
       type: 'group',
-      href: '/v3/content-ai/capabilities',
+      href: '/3.x/content-ai/capabilities',
       title: 'Capabilities',
       children: [
         {
           title: 'Text generation',
-          href: '/v3/content-ai/capabilities/text-generation',
+          href: '/3.x/content-ai/capabilities/text-generation',
           children: [
             {
               title: 'Built-in commands',
-              href: '/v3/content-ai/capabilities/text-generation/built-in-commands',
+              href: '/3.x/content-ai/capabilities/text-generation/built-in-commands',
             },
             {
               title: 'Autocompletion',
-              href: '/v3/content-ai/capabilities/text-generation/autocompletion',
+              href: '/3.x/content-ai/capabilities/text-generation/autocompletion',
             },
             {
               title: 'Provide context',
-              href: '/v3/content-ai/capabilities/text-generation/provide-context',
+              href: '/3.x/content-ai/capabilities/text-generation/provide-context',
             },
             {
               title: 'Formatted responses',
-              href: '/v3/content-ai/capabilities/text-generation/format',
+              href: '/3.x/content-ai/capabilities/text-generation/format',
             },
             {
               title: 'Manage responses',
-              href: '/v3/content-ai/capabilities/text-generation/manage-responses',
+              href: '/3.x/content-ai/capabilities/text-generation/manage-responses',
             },
             {
               title: 'Custom commands',
-              href: '/v3/content-ai/capabilities/text-generation/custom-commands',
+              href: '/3.x/content-ai/capabilities/text-generation/custom-commands',
             },
             {
               title: 'Stream content (Advanced)',
-              href: '/v3/content-ai/capabilities/text-generation/stream',
+              href: '/3.x/content-ai/capabilities/text-generation/stream',
             },
           ],
         },
         {
           title: 'Image generation',
-          href: '/v3/content-ai/capabilities/image-generation',
+          href: '/3.x/content-ai/capabilities/image-generation',
         },
       ],
     },
     {
       type: 'group',
-      href: '/v3/content-ai/custom-llms',
+      href: '/3.x/content-ai/custom-llms',
       title: 'Custom LLMs',
       children: [
         {
           title: 'Integrate your LLM',
-          href: '/v3/content-ai/custom-llms/integrate',
+          href: '/3.x/content-ai/custom-llms/integrate',
         },
       ],
     },
     {
       type: 'group',
-      href: '/v3/content-ai/resources',
+      href: '/3.x/content-ai/resources',
       title: 'Resources',
       children: [
         {
           title: 'Privacy',
-          href: '/v3/content-ai/resources/privacy',
+          href: '/3.x/content-ai/resources/privacy',
         },
       ],
     },

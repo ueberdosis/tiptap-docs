@@ -2,7 +2,7 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'guides',
-  rootHref: '/v3/guides',
+  rootHref: '/3.x/guides',
   title: 'Guides',
   items: [
     {
@@ -11,7 +11,7 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       children: [
         {
-          href: '/v3/guides/pro-extensions',
+          href: '/3.x/guides/pro-extensions',
           title: 'Integrate Pro Extensions',
         },
       ],
@@ -22,43 +22,43 @@ export const sidebarConfig: SidebarConfig = {
       href: '',
       children: [
         {
-          href: '/v3/guides/faq',
+          href: '/3.x/guides/faq',
           title: 'FAQ',
         },
         {
-          href: '/v3/guides/accessibility',
+          href: '/3.x/guides/accessibility',
           title: 'Accessibility',
         },
         {
-          href: '/v3/guides/performance',
+          href: '/3.x/guides/performance',
           title: 'Performance',
         },
         {
-          href: '/v3/guides/invalid-schema',
+          href: '/3.x/guides/invalid-schema',
           title: 'Invalid schema handling',
         },
         {
-          href: '/v3/guides/output-json-html',
+          href: '/3.x/guides/output-json-html',
           title: 'Export JSON or HTML',
         },
         {
-          href: '/v3/guides/authentication',
+          href: '/3.x/guides/authentication',
           title: 'Collaboration Auth',
         },
         {
-          href: '/v3/guides/naming-documents',
+          href: '/3.x/guides/naming-documents',
           title: 'Naming documents',
         },
         {
-          href: '/v3/guides/offline-support',
+          href: '/3.x/guides/offline-support',
           title: 'Offline Collaboration',
         },
         {
-          href: '/v3/guides/upgrade-tiptap-v1',
+          href: '/3.x/guides/upgrade-tiptap-v1',
           title: 'Upgrade Tiptap V1',
         },
         {
-          href: '/v3/guides/upgrade-tiptap-v2',
+          href: '/3.x/guides/upgrade-tiptap-v2',
           title: 'Upgrade Tiptap V2',
         },
       ],
@@ -69,7 +69,7 @@ export const sidebarConfig: SidebarConfig = {
       href: '',
       children: [
         {
-          href: '/v3/guides/typescript',
+          href: '/3.x/guides/typescript',
           title: 'Extend with TypeScript',
         },
       ],

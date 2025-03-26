@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: Props) {
 
   const canonicalUrl = createCanonicalUrl(params.markdownPath)
 
-  const hasDirectMdx = fs.existsSync(getImportPathForVersion('v2', directPath))
-  const hasIndexMdx = fs.existsSync(getImportPathForVersion('v2', indexPath))
+  const hasDirectMdx = fs.existsSync(getImportPathForVersion('3.x', directPath))
+  const hasIndexMdx = fs.existsSync(getImportPathForVersion('3.x', indexPath))
 
   if (!hasDirectMdx && !hasIndexMdx) {
     // Return a 404 page if the markdown file doesn't exist
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props) {
     return {}
   }
 
-  const pageMdx = await importMdxFromPath('v2', hasDirectMdx ? directPath : indexPath)
+  const pageMdx = await importMdxFromPath('3.x', hasDirectMdx ? directPath : indexPath)
 
   return await createMetadata({
     title: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
@@ -53,7 +53,7 @@ export default async function MarkdownPage({ params }: Props) {
   ;['', ...params.markdownPath].forEach((segment) => {
     steppedSegments.push(segment)
 
-    const filePath = getImportPathForVersion('v2', ...steppedSegments, 'sidebar.ts')
+    const filePath = getImportPathForVersion('3.x', ...steppedSegments, 'sidebar.ts')
 
     const fileExists = fs.existsSync(filePath)
 
@@ -62,12 +62,12 @@ export default async function MarkdownPage({ params }: Props) {
       const importPath = isIndex
         ? 'sidebar'
         : `${steppedSegments.filter((s) => s !== '').join('/')}/sidebar`
-      sidebar = require(`@/content/v2/${importPath}`).sidebarConfig as SidebarConfig
+      sidebar = require(`@/content/3.x/${importPath}`).sidebarConfig as SidebarConfig
     }
   })
 
-  const hasDirectMdx = fs.existsSync(getImportPathForVersion('v2', directPath))
-  const hasIndexMdx = fs.existsSync(getImportPathForVersion('v2', indexPath))
+  const hasDirectMdx = fs.existsSync(getImportPathForVersion('3.x', directPath))
+  const hasIndexMdx = fs.existsSync(getImportPathForVersion('3.x', indexPath))
 
   if (!hasDirectMdx && !hasIndexMdx) {
     // Return a 404 page if the markdown file doesn't exist
@@ -75,7 +75,7 @@ export default async function MarkdownPage({ params }: Props) {
     notFound()
   }
 
-  const pageMdx = await importMdxFromPath('v2', hasDirectMdx ? directPath : indexPath)
+  const pageMdx = await importMdxFromPath('3.x', hasDirectMdx ? directPath : indexPath)
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
@@ -98,7 +98,7 @@ export default async function MarkdownPage({ params }: Props) {
 
   return (
     <>
-      <Layout.Header config={sidebar ?? undefined} />
+      <Layout.Header config={sidebar ?? undefined} prefix="/3.x" />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
         <Layout.Content>

@@ -1,3 +1,18 @@
+export type ExternalVersion = {
+  version: string
+  isExternal: true
+  url: string
+  isBeta?: boolean
+}
+
+export type InternalVersion = {
+  version: string
+  key: string
+  isBeta?: boolean
+}
+
+export type VersionData = ExternalVersion | InternalVersion
+
 export type SidebarLink = {
   type: 'link'
   title: string
