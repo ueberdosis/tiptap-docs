@@ -5,6 +5,7 @@ export type ExternalVersion = {
   isBeta?: boolean
   isAlpha?: boolean
   isRc?: boolean
+  isLegacy?: boolean
 }
 
 export type InternalVersion = {
@@ -13,6 +14,7 @@ export type InternalVersion = {
   isBeta?: boolean
   isAlpha?: boolean
   isRc?: boolean
+  isLegacy?: boolean
 }
 
 export type VersionData = ExternalVersion | InternalVersion

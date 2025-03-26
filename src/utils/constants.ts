@@ -17,6 +17,7 @@ export const VERSIONS: Array<VersionData> = [
     version: '1.x',
     isExternal: true,
     url: 'https://v1.tiptap.dev',
+    isLegacy: true,
   },
   {
     version: '2.x',
