@@ -47,8 +47,6 @@ export const VersionSwitch = () => {
     const defaultVersion = getRecentVersion(VERSIONS)?.version ?? '2.x'
     const version = getCurrentVersion(pathname)
 
-    console.log(defaultVersion, version)
-
     if (!version) {
       return VERSIONS.find((currentVersion) => {
         return currentVersion.version === defaultVersion
