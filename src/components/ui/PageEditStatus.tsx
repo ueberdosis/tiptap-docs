@@ -5,6 +5,9 @@ import { Button } from './Button'
 import Link from '@/components/Link'
 import { PageMeta } from '@/types'
 import { getRepoBase } from '@/utils'
+import { getCurrentVersion } from '@/utils/getCurrentVersion'
+import { getRecentVersion } from '@/utils/versioning.client'
+import { VERSIONS } from '@/utils/constants'
 
 export const PageEditStatus = ({
   allMeta,
@@ -12,9 +15,17 @@ export const PageEditStatus = ({
   allMeta: Record<string, PageMeta & { path: string }>
 }) => {
   const pathname = usePathname()
+  const version = getCurrentVersion(pathname)
+  const defaultVersion = getRecentVersion(VERSIONS)
+  let finalPathname = pathname
+
+  if (!version && defaultVersion) {
+    finalPathname = `/${defaultVersion.version}${pathname}`
+  }
+
   const meta =
     pathname !== '/'
-      ? allMeta[`${pathname}.mdx`] || allMeta[`${pathname}/index.mdx`]
+      ? allMeta[`${finalPathname}.mdx`] || allMeta[`${finalPathname}/index.mdx`]
       : allMeta['/index.mdx']
 
   if (!meta?.path) {
