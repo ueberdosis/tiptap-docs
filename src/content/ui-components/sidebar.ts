@@ -54,8 +54,36 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components',
           children: [
             {
-              title: 'Privacy',
-              href: '/content-ai/resources/privacy',
+              title: 'Heading Dropdown Menu',
+              href: '/ui-components/components/heading-dropdown-menu',
+            },
+            {
+              title: 'List dropdown menu',
+              href: '/ui-components/components/list-dropdown-menu',
+            },
+            {
+              title: 'List button',
+              href: '/ui-components/components/list-button',
+            },
+            {
+              title: 'Mark button',
+              href: '/ui-components/components/mark-button',
+            },
+            {
+              title: 'Align button',
+              href: '/ui-components/components/text-align-button',
+            },
+            {
+              title: 'Undo redo button',
+              href: '/ui-components/components/undo-redo-button',
+            },
+            {
+              title: 'Highlight popover',
+              href: '/ui-components/components/highlight-popover',
+            },
+            {
+              title: 'Link popover',
+              href: '/ui-components/components/link-popover',
             },
           ],
         },
@@ -64,7 +92,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/node-components',
           children: [
             {
-              title: 'Code block',
+              title: 'Code block node',
               href: '/ui-components/node-components/code-block-node',
             },
             {
@@ -72,7 +100,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/node-components/image-node',
             },
             {
-              title: 'Image upload',
+              title: 'Image upload node',
               href: '/ui-components/node-components/image-upload-node',
             },
             {

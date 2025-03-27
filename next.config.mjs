@@ -72,6 +72,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
       },
+      {
+        source: '/ui-components/node-components',
+        destination: '/ui-components/node-components/code-block-node',
+        permanent: false,
+      },
     ]
   },
 }
