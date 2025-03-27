@@ -8,17 +8,19 @@ export async function createMetadata({
   category,
   ogTitle,
   canonicalUrl,
+  isCurrentVersion,
 }: {
   title: string
   description: string
   ogTitle: string
   category?: string
   canonicalUrl: string
+  isCurrentVersion?: boolean
 }): Promise<Metadata> {
   return {
     title,
     description,
-    robots: isProductionSite() ? 'index, follow' : 'noindex, nofollow',
+    robots: isProductionSite() && isCurrentVersion ? 'index, follow' : 'noindex, nofollow',
     openGraph: {
       title,
       description,

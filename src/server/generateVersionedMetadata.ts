@@ -1,13 +1,14 @@
 import fs from 'fs'
 import { createCanonicalUrl } from './createCanonicalUrl'
 import { createMetadata } from './createMetadata'
-import { getImportPathForVersion, importMdxFromPath } from '@/utils/versioning'
+import { getImportPathForVersion, getRecentVersion, importMdxFromPath } from '@/utils/versioning'
+import { VERSIONS } from '@/utils/constants'
 
 export async function generateVersionedMetadata(path: string[], version: string) {
   const directPath = `${path.join('/')}.mdx`
   const indexPath = path.length > 0 ? `${path.join('/')}/index.mdx` : 'index.mdx'
 
-  const canonicalUrl = createCanonicalUrl(path)
+  const canonicalUrl = createCanonicalUrl(path, version)
 
   const hasDirectMdx = fs.existsSync(getImportPathForVersion(version, directPath))
   const hasIndexMdx = fs.existsSync(getImportPathForVersion(version, indexPath))
@@ -26,5 +27,6 @@ export async function generateVersionedMetadata(path: string[], version: string)
     category: pageMdx.frontmatter?.meta?.category,
     ogTitle: pageMdx.frontmatter?.title ?? '',
     canonicalUrl,
+    isCurrentVersion: getRecentVersion(VERSIONS)?.version === version,
   })
 }

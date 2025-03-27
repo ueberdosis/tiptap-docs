@@ -16,6 +16,7 @@ export async function getMetadata() {
     description: 'Documentation for Tiptap and all Tiptap products',
     ogTitle: 'Tiptap Suite Documentation',
     canonicalUrl: createCanonicalUrl([]),
+    isCurrentVersion: false,
   })
 }
 
