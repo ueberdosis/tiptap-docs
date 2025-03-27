@@ -25,7 +25,7 @@ export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
     key: '3.x',
-    isRc: true,
+    isBeta: true,
     demoUrls: {
       free: 'https://next--tiptap-embed.netlify.app',
       pro: 'https://next--tiptap-pro.netlify.app',
