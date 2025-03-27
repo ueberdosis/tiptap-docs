@@ -2,7 +2,7 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
-  rootHref: '/3.x',
+  rootHref: '/3.x/',
   title: 'Home',
   items: [
     {
@@ -11,7 +11,7 @@ export const sidebarConfig: SidebarConfig = {
       href: '/3.x/getting-started',
       children: [
         {
-          href: '/3.x',
+          href: '/3.x/',
           title: 'Overview',
         },
       ],

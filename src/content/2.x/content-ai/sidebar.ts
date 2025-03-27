@@ -24,7 +24,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Generation',
           tags: ['Pro'],
-          href: '/content-ai/capabilities/generation/',
+          href: '/content-ai/capabilities/generation/overview',
           children: [
             {
               title: 'Overview',
@@ -36,7 +36,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Text generation',
-              href: '/content-ai/capabilities/generation/text-generation',
+              href: '/content-ai/capabilities/generation/text-generation/built-in-commands',
               children: [
                 {
                   title: 'Built-in commands',
@@ -84,7 +84,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'AI Suggestion',
-          href: '/content-ai/capabilities/suggestion',
+          href: '/content-ai/capabilities/suggestion/overview',
           tags: ['Pro', 'Beta'],
           children: [
             {
@@ -97,7 +97,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Features',
-              href: '/content-ai/capabilities/suggestion/features',
+              href: '/content-ai/capabilities/suggestion/features/define-rules',
               children: [
                 {
                   title: 'Define rules',

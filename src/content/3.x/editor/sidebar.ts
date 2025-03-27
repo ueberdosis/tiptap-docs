@@ -246,6 +246,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/3.x/editor/extensions/functionality/ai-suggestion',
+              title: 'AI Suggestion',
+              tags: ['Beta', 'Pro'],
+            },
+            {
               href: '/3.x/editor/extensions/functionality/bubble-menu',
               title: 'Bubble menu',
             },
@@ -275,8 +280,8 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Beta', 'Pro'],
             },
             {
-              href: '/3.x/editor/extensions/functionality/content-ai',
-              title: 'Content AI',
+              href: '/3.x/editor/extensions/functionality/ai-generation',
+              title: 'AI Generation',
               tags: ['Pro'],
             },
             {
