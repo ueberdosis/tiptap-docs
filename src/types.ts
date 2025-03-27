@@ -4,6 +4,11 @@ export type SidebarLink = {
   href: string
   tags?: string[]
   children?: Omit<SidebarLink, 'type'>[]
+  /**
+   * Whether to show the link as active. If undefined, the link will be active
+   * if its href matches the current pathname.
+   */
+  isActive?: boolean
 }
 
 export type SidebarGroup = {
