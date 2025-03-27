@@ -1,7 +1,6 @@
 'use client'
 
 import IframeResizer from 'iframe-resizer-react'
-import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 import { useCurrentVersion } from '@/hooks/useCurrentVersion'
 import { isInternalVersion } from '@/utils/versioning.client'
 
