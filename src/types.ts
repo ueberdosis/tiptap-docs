@@ -15,6 +15,10 @@ export type InternalVersion = {
   isAlpha?: boolean
   isRc?: boolean
   isLegacy?: boolean
+  demoUrls: {
+    free: string
+    pro: string
+  }
 }
 
 export type VersionData = ExternalVersion | InternalVersion

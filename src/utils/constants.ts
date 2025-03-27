@@ -22,10 +22,18 @@ export const VERSIONS: Array<VersionData> = [
   {
     version: '2.x',
     key: '2.x',
+    demoUrls: {
+      free: 'https://embed.tiptap.dev',
+      pro: 'https://embed-pro.tiptap.dev',
+    },
   },
   {
     version: '3.x',
     key: '3.x',
     isRc: true,
+    demoUrls: {
+      free: 'https://next--tiptap-embed.netlify.app',
+      pro: 'https://next--tiptap-pro.netlify.app',
+    },
   },
 ]
