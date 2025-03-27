@@ -87,6 +87,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
       },
+      {
+        source: '/collaboration/documents/conversion',
+        destination: '/conversion/getting-started/overview',
+        permanent: true,
+      },
     ]
   },
 }
