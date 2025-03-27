@@ -263,8 +263,12 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Collaboration',
             },
             {
-              href: '/editor/extensions/functionality/collaboration-cursor',
-              title: 'Collaboration Cursor',
+              href: '/editor/extensions/functionality/collaboration-caret',
+              title: 'Collaboration Caret',
+            },
+            {
+              href: '/editor/extensions/functionality/background-color',
+              title: 'Background Color',
             },
             {
               href: '/editor/extensions/functionality/color',
@@ -322,18 +326,21 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Font family',
             },
             {
-              href: '/editor/extensions/functionality/gapcursor',
-              title: 'Gap cursor',
+              href: '/editor/extensions/functionality/fontsize',
+              title: 'Font size',
             },
             {
-              href: '/editor/extensions/functionality/history',
-              title: 'History',
-              tags: ['Pro', 'Cloud'],
+              href: '/editor/extensions/functionality/gapcursor',
+              title: 'Gap cursor',
             },
             {
               href: '/editor/extensions/functionality/invisiblecharacters',
               title: 'Invisible characters',
               tags: ['Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/line-height',
+              title: 'Line Height',
             },
             {
               href: '/editor/extensions/functionality/listkeymap',
@@ -354,9 +361,18 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Placeholder',
             },
             {
+              href: '/editor/extensions/functionality/snapshot',
+              title: 'Snapshot',
+              tags: ['Pro', 'Cloud'],
+            },
+            {
               href: '/editor/extensions/functionality/snapshot-compare',
               title: 'Snapshot Compare',
               tags: ['Pro', 'Cloud'],
+            },
+            {
+              href: '/editor/extensions/functionality/selection',
+              title: 'Selection',
             },
             {
               href: '/editor/extensions/functionality/starterkit',
@@ -370,6 +386,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/textalign',
               title: 'Text align',
+            },
+            {
+              href: '/editor/extensions/functionality/trailing-node',
+              title: 'Trailing node',
             },
             {
               href: '/editor/extensions/functionality/typography',
@@ -391,12 +411,26 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Custom extensions',
           children: [
             {
-              href: '/editor/extensions/custom-extensions/extend-existing',
-              title: 'Extend existing',
-            },
-            {
               href: '/editor/extensions/custom-extensions/create-new',
               title: 'Create new',
+              children: [
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/extension',
+                  title: 'Extension API',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/node',
+                  title: 'Node API',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/create-new/mark',
+                  title: 'Mark API',
+                },
+              ],
+            },
+            {
+              href: '/editor/extensions/custom-extensions/extend-existing',
+              title: 'Extend existing',
             },
             {
               href: '/editor/extensions/custom-extensions/node-views',
@@ -417,6 +451,24 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   href: '/editor/extensions/custom-extensions/node-views/examples',
                   title: 'Examples',
+                },
+              ],
+            },
+            {
+              href: '/editor/extensions/custom-extensions/mark-views',
+              title: 'Mark views',
+              children: [
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/javascript',
+                  title: 'Javascript',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/react',
+                  title: 'React',
+                },
+                {
+                  href: '/editor/extensions/custom-extensions/mark-views/vue',
+                  title: 'Vue',
                 },
               ],
             },
@@ -709,6 +761,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/api/utilities/html',
               title: 'HTML',
+            },
+            {
+              href: '/editor/api/utilities/static-renderer',
+              title: 'Static Renderer',
             },
             {
               href: '/editor/api/utilities/suggestion',
