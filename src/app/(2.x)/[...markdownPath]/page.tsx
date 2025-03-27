@@ -41,6 +41,7 @@ export default async function MarkdownPage({ params }: Props) {
 
   return (
     <>
+      <meta name="docsearch:version" content="2.x" />
       <Layout.Header config={sidebar ?? undefined} />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}

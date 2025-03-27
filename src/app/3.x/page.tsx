@@ -32,6 +32,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <meta name="docsearch:version" content="3.x" />
       <Layout.Header config={sidebar ?? undefined} prefix="/3.x" />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}

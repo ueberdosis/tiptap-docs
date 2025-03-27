@@ -10,6 +10,10 @@ import { useCommands } from '@/hooks/useCommands'
 import { cn } from '@/utils'
 import { SearchHit } from '@/types'
 import { useAppState } from '@/providers/AppState'
+import { getCurrentVersion } from '@/utils/getCurrentVersion'
+import { usePathname } from 'next/navigation'
+import { getRecentVersion } from '@/utils/versioning.client'
+import { VERSIONS } from '@/utils/constants'
 
 const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => {
   const { result, parents } = useMemo(() => {
@@ -57,12 +61,15 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
 }
 
 const SearchWrapper = ({ children }: { children: React.ReactNode }) => {
+  const pathname = usePathname()
+  const currentVersion = getCurrentVersion(pathname) || getRecentVersion(VERSIONS)?.version || null
+
   return (
     <InstantSearch
       searchClient={typesenseAdapter.searchClient}
       indexName={process.env.NEXT_PUBLIC_DOCSEARCH_INDEX || ''}
     >
-      <Configure filters="version:2.x" />
+      {currentVersion ? <Configure filters={`version:${currentVersion}`} /> : null }
 
       {children}
     </InstantSearch>

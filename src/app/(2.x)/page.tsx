@@ -1,8 +1,6 @@
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
-import { sidebarConfig } from '@/content/2.x/sidebar'
 import { FULL_DOMAIN } from '@/utils/constants'
-import { importMdxFromPath } from '@/utils/versioning'
 import { generateVersionedMetadata } from '@/server/generateVersionedMetadata'
 import { getVersionedMdx } from '@/server/getVersionedMdx'
 
@@ -34,6 +32,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <meta name="docsearch:version" content="2.x" />
       <Layout.Header config={sidebar ?? undefined} />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
