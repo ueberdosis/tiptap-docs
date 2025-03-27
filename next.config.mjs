@@ -38,6 +38,21 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/content-ai/capabilities/text-generation',
+        destination: '/content-ai/capabilities/text-generation/built-in-commands',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/odt',
+        destination: '/conversion/import-export/odt/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/markdown',
+        destination: '/conversion/import-export/markdown/editor-extensions',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/generation',
         destination: '/content-ai/capabilities/generation/overview',
         permanent: false,

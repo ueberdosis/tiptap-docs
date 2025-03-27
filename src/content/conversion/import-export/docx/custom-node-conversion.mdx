@@ -1,0 +1,235 @@
+---
+title: Import and export custom nodes with .docx
+meta:
+    title: Custom nodes in DOCX | Tiptap Conversion
+    description: Learn how to export custom nodes to DOCX (Word) files using the Export extension.
+    category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+One of the biggest advantages of the `@tiptap-pro/extension-export-docx` and `@tiptap-pro/extension-import` extensions is the ability to define how custom nodes in your Tiptap schema should be rendered in DOCX.
+
+This allows you to preserve application-specific content in the exported Word file.
+
+<Callout title="Custom node conventions" variant="warning">
+  Custom node converters must adhere to the underlying DOCX generation library’s requirements. In practice, a custom converter function for DOCX should return one of the allowed DOCX elements for that node: a `Paragraph` class (or an array of `Paragraph` classes), a `Table` class, or `null` if the node should be skipped in the output.
+</Callout>
+
+## Export custom nodes to .docx
+
+<CodeDemo isPro path="/Extensions/ExportDocxCustomNode" />
+
+When calling `editor.exportDocx()`, you can pass an array of custom node definitions in the `ExportDocxOptions` argument. Each definition specifies the node type and a render function.
+
+For the sake of the example, suppose your editor has a custom node type `hintbox` (a callout-styled box). You can define how it should appear in DOCX.
+
+Here's how the `Hintbox` extension's custom node might look like:
+
+```ts
+import { mergeAttributes, Node } from '@tiptap/core'
+
+export interface ParagraphOptions {
+  /**
+   * The HTML attributes for a paragraph node.
+   * @default {}
+   * @example { class: 'foo' }
+   */
+  HTMLAttributes: Record<string, any>
+}
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    hintbox: {
+      /**
+       * Set a hintbox
+       * @example editor.commands.setHintbox()
+       */
+      setHintbox: () => ReturnType
+      /**
+       * Toggle a hintbox
+       * @example editor.commands.toggleHintbox()
+       */
+      toggleHintbox: () => ReturnType
+    }
+  }
+}
+
+/**
+ * This extension allows you to create hintboxes.
+ * @see https://www.tiptap.dev/api/nodes/paragraph
+ */
+export const Hintbox = Node.create<ParagraphOptions>({
+  name: 'hintbox',
+
+  priority: 1000,
+
+  addOptions() {
+    return {
+      HTMLAttributes: {
+        style: 'padding: 20px; border: 1px solid #b8d8ff; border-radius: 5px; background-color: #e6f3ff;',
+      },
+    }
+  },
+
+  group: 'block',
+
+  content: 'inline*',
+
+  parseHTML() {
+    return [{ tag: 'p' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['p', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0]
+  },
+
+  addCommands() {
+    return {
+      setHintbox:
+        () =>
+        ({ commands }) => {
+          return commands.setNode(this.name)
+        },
+      toggleHintbox:
+        () =>
+        ({ commands }) => {
+          return commands.toggleNode(this.name, 'paragraph')
+        },
+    }
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Alt-h': () => this.editor.commands.toggleHintbox(),
+    }
+  },
+})
+```
+
+And we will define how the `Hintbox` custom node should be rendered in the `DOCX`:
+
+```ts
+// Import the ExportDocx extension
+import {
+  convertTextNode,
+  Docx,
+  ExportDocx,
+  lineHeightToDocx,
+  pixelsToHalfPoints,
+  pointsToTwips,
+} from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  extensions: [
+    // Other extensions ...
+    ExportDocx.configure({
+      onCompleteExport: result => {
+        setIsLoading(false)
+        const blob = new Blob([result], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'export.docx'
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+      exportType: 'blob',
+      customNodes: [
+        {
+          type: 'hintbox',
+          render: node => {
+            // Here we define how our custom Hintbox node should be rendered in the DOCX.
+            // Per the documentation, we should return a Docx node
+            // that's either a Paragraph, an array of Paragraphs, or a Table.
+            return new Docx.Paragraph({
+              children: node.content.map(content => convertTextNode(content)),
+              style: 'Hintbox', // Here we apply our custom style to the Paragraph node.
+            })
+            },
+        },
+      ], // Custom nodes
+      styleOverrides: {
+        paragraphStyles: [
+          // Here we define our custom styles for our custom Hintbox node.
+          {
+            id: 'Hintbox',
+            name: 'Hintbox',
+            basedOn: 'Normal',
+            next: 'Normal',
+            quickFormat: false,
+            run: {
+              font: 'Aptos Light',
+              size: pixelsToHalfPoints(16),
+            },
+            paragraph: {
+              spacing: {
+                before: pointsToTwips(12),
+                after: pointsToTwips(12),
+                line: lineHeightToDocx(1),
+              },
+              border: {
+                // DOCX colors are in Hexadecimal without the leading #
+                top: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                bottom: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                right: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                left: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+              },
+              shading: {
+                type: Docx.ShadingType.SOLID,
+                color: 'e6f3ff',
+              },
+            },
+          },
+        ],
+      }, // Style overrides
+    }),
+    // Other extensions ...
+  ],
+  // Other editor settings ...
+})
+```
+
+Then, at a later point in your application, you can export the editor content to a `DOCX` file:
+
+
+```ts
+editor
+  .chain()
+  .exportDocx()
+  .run()
+```
+
+You can construct any supported `DOCX` elements in the `render` function using the `Docx` library classes (`Paragraph`, `TextRun`, `Table`, etc.) that are provided via the `Docx` import from the `@tiptap-pro/extension-export-docx` package.
+
+## Import custom nodes from .docx
+
+<CodeDemo isPro path="/Extensions/ImportDocxCustomNode" />
+
+When importing a DOCX file, you can also define how custom nodes should be converted back to Tiptap nodes. This is done by passing an array of custom node definitions to the `import` command.
+
+```ts
+import { Import } from '@tiptap-pro/extension-import'
+
+// ... inside your Editor or useEditor setup:
+Import.configure({
+  appId: 'your-app-id',
+  token: 'your-jwt',
+  // ATTENTION: This is for demo purposes only
+  endpoint: 'https://your-endpoint.com',
+  imageUploadCallbackUrl: 'https://your-endpoint.com/image-upload',
+  // Promisemirror custom node mapping
+  promisemirrorNodes: {
+    Hintbox: 'hintbox',
+  },
+}),
+```
+
+The latest version of the `@tiptap-pro/extension-import` has available the `promisemirrorNodes` configuration option. This option allows you to map custom nodes from the DOCX to your Tiptap schema. In the example above, we are mapping the `Hintbox` custom node from the DOCX to the `hintbox` custom node in our Tiptap schema. By doing so, whenever the DOCX contains a `Hintbox` custom node, it will be converted to a `hintbox` node in Tiptap when imported.
+
+<Callout title='DOCX, "prosemirrorNodes" and "prosemirrorMarks"' variant="info">
+  Please note that the `promisemirrorNodes` and `prosemirrorMarks` options will only work if you're importing a `.docx` file. If you're importing another type of file, eg: an `.odt` file, the `/import` endpoint will be used instead of the `/import-docx` endpoint, and the `promisemirrorNodes` and `prosemirrorMarks` options will not be available, and therefore you'd need to rely on the [custom node and mark mapping API](/conversion/import-export/docx/rest-api#custom-node-and-mark-mapping) for those endpoints.
+</Callout>
