@@ -4,6 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useCallback, useMemo } from 'react'
 import { Configure, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
 import { useHotkeys } from '@mantine/hooks'
+import { usePathname } from 'next/navigation'
 import Link from '@/components/Link'
 import { typesenseAdapter } from '@/utils/search'
 import { useCommands } from '@/hooks/useCommands'
@@ -11,7 +12,6 @@ import { cn } from '@/utils'
 import { SearchHit } from '@/types'
 import { useAppState } from '@/providers/AppState'
 import { getCurrentVersion } from '@/utils/getCurrentVersion'
-import { usePathname } from 'next/navigation'
 import { getRecentVersion } from '@/utils/versioning.client'
 import { VERSIONS } from '@/utils/constants'
 
@@ -69,7 +69,7 @@ const SearchWrapper = ({ children }: { children: React.ReactNode }) => {
       searchClient={typesenseAdapter.searchClient}
       indexName={process.env.NEXT_PUBLIC_DOCSEARCH_INDEX || ''}
     >
-      {currentVersion ? <Configure filters={`version:${currentVersion}`} /> : null }
+      {currentVersion ? <Configure filters={`version:${currentVersion}`} /> : null}
 
       {children}
     </InstantSearch>

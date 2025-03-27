@@ -148,17 +148,14 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Text Generation',
-          isActive: false,
           href: '/3.x/content-ai/capabilities/generation/overview',
         },
         {
           title: 'Autocomplete',
-          isActive: false,
           href: '/3.x/content-ai/capabilities/generation/text-generation/autocompletion',
         },
         {
           title: 'AI Suggestions',
-          isActive: false,
           href: '/3.x/content-ai/capabilities/suggestion/overview',
         },
         {

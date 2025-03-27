@@ -20,7 +20,11 @@ export const CodeDemo = ({ src, path, isPro }: CodeDemoProps) => {
   return (
     <div className="shadow-cardHover rounded-[0.625rem] my-12 bg-white">
       <IframeResizer
-        src={src ? src : (isPro ? currentVersion.demoUrls.pro : currentVersion.demoUrls.free) + `/preview${path}`}
+        src={
+          src
+            ? src
+            : `${isPro ? currentVersion.demoUrls.pro : currentVersion.demoUrls.free}/preview${path}`
+        }
         className="w-full h-96"
       />
     </div>

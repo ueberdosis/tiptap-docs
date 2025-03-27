@@ -17,7 +17,9 @@ export const importMdxFromPath = async (version: string, incPath: string) => {
  * @param versions The list of versions to search
  */
 export const getRecentVersion = (versions: Array<VersionData>) => {
-  return versions.filter((version) => !version.isBeta && !version.isAlpha && !version.isLegacy && !version.isRc).at(-1)
+  return versions
+    .filter((version) => !version.isBeta && !version.isAlpha && !version.isLegacy && !version.isRc)
+    .at(-1)
 }
 
 /**
