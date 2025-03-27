@@ -53,6 +53,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/guides/upgrade-tiptap-v1',
           title: 'Upgrade Tiptap V1',
         },
+        {
+          href: '/guides/legacy-conversion',
+          title: 'Legacy conversion',
+        },
       ],
     },
     {

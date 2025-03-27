@@ -90,5 +90,16 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
+    {
+      type: 'group',
+      href: '/conversion/resources',
+      title: 'Resources',
+      children: [
+        {
+          title: 'Legacy extensions',
+          href: '/guides/legacy-conversion',
+        },
+      ],
+    },
   ],
 }
