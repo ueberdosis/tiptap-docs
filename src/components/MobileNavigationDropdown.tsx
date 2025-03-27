@@ -19,6 +19,9 @@ const options = [
       },
       { label: 'Content AI', href: '/content-ai/getting-started/overview' },
       { label: 'Comments', href: '/comments/getting-started/overview' },
+      { label: 'Document History', href: '/collaboration/documents/history' },
+      { label: 'Documents', href: '/collaboration/documents' },
+      { label: 'Import & Export', href: '/conversion/getting-started/overview' },
     ],
   },
   {

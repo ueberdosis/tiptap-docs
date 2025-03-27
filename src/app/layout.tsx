@@ -67,6 +67,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href={`${FULL_DOMAIN}/favicon.png`} sizes="any" />
+        <meta name="docsearch:version" content="2.x" />
       </head>
       <body className={cn(inter.className, 'font-sans bg-warmGray text-black')}>
         {GTM_ID ? (
