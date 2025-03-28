@@ -9,6 +9,8 @@ import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
 import { useCurrentVersion } from '@/hooks/useCurrentVersion'
+import { getRecentVersion } from '@/utils/versioning.client'
+import { VERSIONS } from '@/utils/constants'
 
 export const DocsSidebar = ({
   config,
@@ -38,8 +40,9 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const currentVersion = useCurrentVersion()?.version
+  const defaultVersion = getRecentVersion(VERSIONS)?.version
   const pathname = usePathname()
-  const versionedHref = currentVersion ? `/${currentVersion}${link.href}` : link.href
+  const versionedHref = currentVersion && currentVersion !== defaultVersion ? `/${currentVersion}${link.href}` : link.href
   const isActive = link.isActive ?? pathname === versionedHref
   const isActiveParent = pathname.startsWith(versionedHref)
 
