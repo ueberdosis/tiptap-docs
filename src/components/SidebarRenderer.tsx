@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Tag } from './ui/Tag'
 import VersionedLink from './VersionedLink'
-import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
+import { useCurrentVersion } from '@/hooks/useCurrentVersion'
 
 export const DocsSidebar = ({
   config,
@@ -37,9 +37,11 @@ export const LinkItem = ({
   link: Omit<SidebarLink, 'type'>
   onClick?: () => void
 }) => {
+  const currentVersion = useCurrentVersion()?.version
   const pathname = usePathname()
-  const isActive = link.isActive ?? pathname === link.href
-  const isActiveParent = pathname.startsWith(link.href)
+  const versionedHref = currentVersion ? `/${currentVersion}${link.href}` : link.href
+  const isActive = link.isActive ?? pathname === versionedHref
+  const isActiveParent = pathname.startsWith(versionedHref)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
 
