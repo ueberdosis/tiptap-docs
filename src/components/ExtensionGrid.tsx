@@ -7,7 +7,7 @@ import { CloseIcon } from '@codesandbox/sandpack-react'
 import { Tag } from './ui/Tag'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
-import Link from '@/components/Link'
+import Link from './Link'
 import { ExtensionMetaWithUrl } from '@/types'
 import { getIcon } from '@/utils/iconKit'
 import { useQueryParam } from '@/hooks/useQueryParams'
@@ -89,6 +89,7 @@ function useFilteredExtensions(
 
 function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl }) {
   const Icon = getIcon(ext.icon)
+
   return (
     <Card isClickable asChild>
       <Link href={ext.url} key={ext.path}>

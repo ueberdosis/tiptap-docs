@@ -2,16 +2,16 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'examples',
-  rootHref: '/3.x/examples',
+  rootHref: '/examples',
   title: 'Examples',
   items: [
     {
       type: 'group',
       title: 'Getting started',
-      href: '/3.x/examples',
+      href: '/examples',
       children: [
         {
-          href: '/3.x/examples',
+          href: '/examples',
           title: 'Overview',
         },
       ],
@@ -23,35 +23,35 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Default text editor',
-          href: '/3.x/examples/basics/default-text-editor',
+          href: '/examples/basics/default-text-editor',
         },
         {
           title: 'Formatting',
-          href: '/3.x/examples/basics/formatting',
+          href: '/examples/basics/formatting',
         },
         {
           title: 'Images',
-          href: '/3.x/examples/basics/images',
+          href: '/examples/basics/images',
         },
         {
           title: 'Long texts',
-          href: '/3.x/examples/basics/long-texts',
+          href: '/examples/basics/long-texts',
         },
         {
           title: 'Markdown shortcuts',
-          href: '/3.x/examples/basics/markdown-shortcuts',
+          href: '/examples/basics/markdown-shortcuts',
         },
         {
           title: 'Minimal setup',
-          href: '/3.x/examples/basics/minimal-setup',
+          href: '/examples/basics/minimal-setup',
         },
         {
           title: 'Tables',
-          href: '/3.x/examples/basics/tables',
+          href: '/examples/basics/tables',
         },
         {
           title: 'Tasks',
-          href: '/3.x/examples/basics/tasks',
+          href: '/examples/basics/tasks',
         },
       ],
     },
@@ -62,43 +62,43 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Clever editor',
-          href: '/3.x/examples/advanced/clever-editor',
+          href: '/examples/advanced/clever-editor',
         },
         {
           title: 'Collaborative editing',
-          href: '/3.x/examples/advanced/collaborative-editing',
+          href: '/examples/advanced/collaborative-editing',
         },
         {
           title: 'Drawing',
-          href: '/3.x/examples/advanced/drawing',
+          href: '/examples/advanced/drawing',
         },
         {
           title: 'Forced content structure',
-          href: '/3.x/examples/advanced/forced-content-structure',
+          href: '/examples/advanced/forced-content-structure',
         },
         {
           title: 'Interactive React & Vue views',
-          href: '/3.x/examples/advanced/interactive-react-and-vue-views',
+          href: '/examples/advanced/interactive-react-and-vue-views',
         },
         {
           title: 'Retrieval-Augmented Generation (RAG)',
-          href: '/3.x/examples/advanced/retrieval-augmented-generation-rag',
+          href: '/examples/advanced/retrieval-augmented-generation-rag',
         },
         {
           title: 'React performance',
-          href: '/3.x/examples/advanced/react-performance',
+          href: '/examples/advanced/react-performance',
         },
         {
           title: 'Menus',
-          href: '/3.x/examples/advanced/menus',
+          href: '/examples/advanced/menus',
         },
         {
           title: 'Mentions',
-          href: '/3.x/examples/advanced/mentions',
+          href: '/examples/advanced/mentions',
         },
         {
           title: 'Syntax highlighting',
-          href: '/3.x/examples/advanced/syntax-highlighting',
+          href: '/examples/advanced/syntax-highlighting',
         },
       ],
     },
@@ -109,31 +109,31 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Collaborative fields',
-          href: '/3.x/examples/experiments/collaborative-fields',
+          href: '/examples/experiments/collaborative-fields',
         },
         {
           title: 'Figure',
-          href: '/3.x/examples/experiments/figure',
+          href: '/examples/experiments/figure',
         },
         {
           title: 'Generic figure',
-          href: '/3.x/examples/experiments/generic-figure',
+          href: '/examples/experiments/generic-figure',
         },
         {
           title: 'iFrame',
-          href: '/3.x/examples/experiments/iframe',
+          href: '/examples/experiments/iframe',
         },
         {
           title: 'Linting',
-          href: '/3.x/examples/experiments/linting',
+          href: '/examples/experiments/linting',
         },
         {
           title: 'Slash commands',
-          href: '/3.x/examples/experiments/slash-commands',
+          href: '/examples/experiments/slash-commands',
         },
         {
           title: 'Trailing node',
-          href: '/3.x/examples/experiments/trailing-node',
+          href: '/examples/experiments/trailing-node',
         },
       ],
     },

@@ -2,6 +2,7 @@ import { ArrowRightIcon } from 'lucide-react'
 import { HTMLProps } from 'react'
 import { Button } from './ui/Button'
 import { Card } from './ui/Card'
+import VersionedLink from './VersionedLink'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
 
@@ -49,17 +50,17 @@ export const ProductCard = ({
       </div>
       <div className="flex items-center gap-2 mt-8">
         <Button asChild variant="secondary">
-          <Link href={documentationUrl}>
+          <VersionedLink href={documentationUrl}>
             Documentation
             <ArrowRightIcon className="size-3.5" />
-          </Link>
+          </VersionedLink>
         </Button>
         {secondaryUrl ? (
           <Button asChild variant="tertiary">
-            <Link href={secondaryUrl}>
+            <VersionedLink href={secondaryUrl}>
               Example
               <ArrowRightIcon className="size-3.5" />
-            </Link>
+            </VersionedLink>
           </Button>
         ) : null}
       </div>

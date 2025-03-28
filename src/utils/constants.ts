@@ -1,4 +1,4 @@
-import type { VersionData } from '@/types'
+import type { ProductData, VersionData } from '@/types'
 
 export const BASE_PATH = process.env.BASE_PATH || process.env.NEXT_PUBLIC_BASE_PATH || ''
 export const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'
@@ -32,3 +32,24 @@ export const VERSIONS: Array<VersionData> = [
     },
   },
 ]
+
+export const PRODUCTS: ProductData = {
+  '2.x': [
+    { label: 'Editor', href: '/editor/getting-started/overview' },
+    { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
+    { label: 'Content AI', href: '/content-ai/getting-started/overview' },
+    { label: 'Comments', href: '/comments/getting-started/overview' },
+    { label: 'History', href: '/collaboration/documents/history' },
+    { label: 'Conversion', href: '/conversion/getting-started/overview' },
+    { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
+  ],
+  '3.x': [
+    { label: 'Editor', href: '/editor/getting-started/overview' },
+    { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
+    { label: 'Content AI', href: '/content-ai/getting-started/overview' },
+    { label: 'Comments', href: '/comments/getting-started/overview' },
+    { label: 'Snapshot', href: '/collaboration/documents/snapshot' },
+    { label: 'Conversion', href: '/conversion/getting-started/overview' },
+    { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
+  ],
+}

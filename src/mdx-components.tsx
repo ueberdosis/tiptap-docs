@@ -4,6 +4,7 @@ import { HashIcon } from 'lucide-react'
 import React from 'react'
 import { Codeblock } from './components/Codeblock'
 import Link from './components/Link'
+import VersionedLink from './components/VersionedLink'
 
 /**
  * Extracts the text from a nested children object
@@ -108,7 +109,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const isExternal = props.href?.startsWith('http')
 
       // @ts-ignore
-      return <Link {...props} target={isExternal ? '_blank' : props.target} />
+      return <VersionedLink {...props} target={isExternal ? '_blank' : props.target} />
     },
   }
 }

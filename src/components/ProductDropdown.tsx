@@ -7,30 +7,43 @@ import { useMemo } from 'react'
 import { NavLink } from './NavLink'
 import { NavLinkButton } from './ui/NavLinkButton'
 import { cn } from '@/utils'
-
-const options = [
-  { label: 'Editor', href: '/editor/getting-started/overview' },
-  { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
-  { label: 'Content AI', href: '/content-ai/getting-started/overview' },
-  { label: 'Comments', href: '/comments/getting-started/overview' },
-  { label: 'History', href: '/collaboration/documents/history' },
-  { label: 'Conversion', href: '/conversion/getting-started/overview' },
-  { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
-]
+import { PRODUCTS, VERSIONS } from '@/utils/constants'
+import { getRecentVersion } from '@/utils/versioning.client'
 
 export const ProductDropdown = ({ prefix = '' }: { prefix?: string }) => {
   const pathname = usePathname()
 
+  const version = prefix ? prefix.split('/')[1] : getRecentVersion(VERSIONS)?.version || null
+
   const activeItem = useMemo(() => {
-    return options.find((option) => {
-      if (option.href === '/') {
-        return pathname === '/'
-      } else {
-        const firstPart = option.href.split('/')[1]
-        return pathname.startsWith(`${prefix}/${firstPart}`)
-      }
-    })
-  }, [pathname, prefix])
+    if (!version || !PRODUCTS[version]) {
+      return null
+    }
+
+    return PRODUCTS[version]
+      .filter((option) => {
+        if (option.href === '/') {
+          return pathname === '/'
+        } else {
+          const firstPart = option.href.split('/')[1]
+          return (
+            pathname.startsWith(`${prefix}/${firstPart}`) || pathname === `${prefix}${option.href}`
+          )
+        }
+      })
+      .sort((a, b) => {
+        if (`${prefix}${a.href}` === pathname) {
+          return -1
+        }
+
+        return 0
+      })
+      .at(0)
+  }, [pathname, prefix, version])
+
+  if (!version) {
+    return null
+  }
 
   const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
 
@@ -48,7 +61,7 @@ export const ProductDropdown = ({ prefix = '' }: { prefix?: string }) => {
             <div className="uppercase font-bold leading-[120%] text-xs mb-3 px-2 block lg:hidden">
               Documentations
             </div>
-            {options.map((option) => (
+            {PRODUCTS[version].map((option) => (
               <DropdownMenu.Item key={option.href} asChild>
                 <NavLink href={`${prefix}${option.href}`}>{option.label}</NavLink>
               </DropdownMenu.Item>

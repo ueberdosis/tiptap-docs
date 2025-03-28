@@ -1,6 +1,7 @@
 import slugify from 'slugify'
 import { ArrowRightIcon } from 'lucide-react'
 import Link from '../Link'
+import VersionedLink from '../VersionedLink'
 import { Button } from './Button'
 
 export type SectionProps = {
@@ -27,10 +28,10 @@ export const Section = ({ children, title, description, moreLink }: SectionProps
         {moreLink ? (
           <div className="flex-none">
             <Button asChild variant="tertiary">
-              <Link href={moreLink.url}>
+              <VersionedLink href={moreLink.url}>
                 {moreLink.label}
                 <ArrowRightIcon className="w-4 h-4" />
-              </Link>
+              </VersionedLink>
             </Button>
           </div>
         ) : null}

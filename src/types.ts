@@ -23,6 +23,10 @@ export type InternalVersion = {
 
 export type VersionData = ExternalVersion | InternalVersion
 
+export type ProductData = {
+  [key: string]: Array<{ label: string; href: string }>
+}
+
 export type SidebarLink = {
   type: 'link'
   title: string

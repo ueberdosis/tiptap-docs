@@ -2,59 +2,59 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'comments',
-  rootHref: '/3.x/comments/getting-started/overview',
+  rootHref: '/comments/getting-started/overview',
   title: 'Comments',
   items: [
     {
       type: 'group',
-      href: '/3.x/comments/getting-started',
+      href: '/comments/getting-started',
       title: 'Getting started',
       children: [
         {
           title: 'Overview',
-          href: '/3.x/comments/getting-started/overview',
+          href: '/comments/getting-started/overview',
         },
         {
           title: 'Install',
-          href: '/3.x/comments/getting-started/install',
+          href: '/comments/getting-started/install',
         },
       ],
     },
     {
       type: 'group',
-      href: '/3.x/comments/core-concepts',
+      href: '/comments/core-concepts',
       title: 'Core concepts',
       children: [
         {
           title: 'Manage threads',
-          href: '/3.x/comments/core-concepts/manage-threads',
+          href: '/comments/core-concepts/manage-threads',
         },
         {
           title: 'Style threads',
-          href: '/3.x/comments/core-concepts/style-threads',
+          href: '/comments/core-concepts/style-threads',
         },
         {
           title: 'Configure',
-          href: '/3.x/comments/core-concepts/configure',
+          href: '/comments/core-concepts/configure',
         },
       ],
     },
     {
       type: 'group',
-      href: '/3.x/comments/integrate',
+      href: '/comments/integrate',
       title: 'Integrate',
       children: [
         {
           title: 'Editor commands',
-          href: '/3.x/comments/integrate/editor-commands',
+          href: '/comments/integrate/editor-commands',
         },
         {
           title: 'REST API',
-          href: '/3.x/comments/integrate/rest-api',
+          href: '/comments/integrate/rest-api',
         },
         {
           title: 'Webhook',
-          href: '/3.x/comments/integrate/webhook',
+          href: '/comments/integrate/webhook',
         },
       ],
     },

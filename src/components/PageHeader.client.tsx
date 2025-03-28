@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { forwardRef } from 'react'
 import { Slot } from '@radix-ui/react-slot'
+import VersionedLink from './VersionedLink'
 import Link from '@/components/Link'
 import { SidebarConfig } from '@/types'
 import { cn } from '@/utils'
@@ -49,9 +50,13 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
           {crumbs.map((crumb, i) => (
             <div key={crumb.href}>
               {crumb.href ? (
-                <Link data-breadcrumb={i} className={clickableBreadcrumbClass} href={crumb.href}>
+                <VersionedLink
+                  data-breadcrumb={i}
+                  className={clickableBreadcrumbClass}
+                  href={crumb.href}
+                >
                   {crumb.text}
-                </Link>
+                </VersionedLink>
               ) : (
                 <span className={breadcrumbClass}>{crumb.text}</span>
               )}

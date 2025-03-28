@@ -2,16 +2,16 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
-  rootHref: '/3.x/',
+  rootHref: '/',
   title: 'Home',
   items: [
     {
       type: 'group',
       title: 'Getting started',
-      href: '/3.x/getting-started',
+      href: '/getting-started',
       children: [
         {
-          href: '/3.x/',
+          href: '/',
           title: 'Overview',
         },
       ],
@@ -19,53 +19,61 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       title: 'Browse by feature',
-      href: '/3.x/suite-docs',
+      href: '/suite-docs',
       children: [
         {
-          href: '/3.x/editor/getting-started/overview',
+          href: '/editor/getting-started/overview',
           title: 'Editor',
         },
         {
-          href: '/3.x/collaboration/getting-started/overview',
+          href: '/collaboration/getting-started/overview',
           title: 'Collaboration',
         },
         {
-          href: '/3.x/content-ai/getting-started/overview',
-          title: 'Content AI',
-        },
-        {
-          href: '/3.x/comments/getting-started/overview',
+          href: '/comments/getting-started/overview',
           title: 'Comments',
         },
         {
-          href: '/3.x/collaboration/documents',
-          title: 'Documents',
+          href: '/content-ai/getting-started/overview',
+          title: 'Content AI',
+        },
+        {
+          href: '/collaboration/documents/snapshot',
+          title: 'Snapshot',
+        },
+        {
+          href: '/conversion/getting-started/overview',
+          title: 'Conversion',
+        },
+        {
+          href: '/collaboration/documents/semantic-search',
+          title: 'Semantic Search',
         },
       ],
     },
     {
       type: 'group',
       title: 'Resources',
-      href: '/3.x/resources',
+      href: '/resources',
       children: [
         {
-          href: '/3.x/guides',
+          href: '/guides',
           title: 'Guides',
         },
         {
-          href: '/3.x/examples',
+          href: '/examples',
           title: 'Examples',
         },
         {
-          href: '/3.x/resources/contributing',
+          href: '/resources/contributing',
           title: 'Contributing',
         },
         {
-          href: '/3.x/resources/changelog',
+          href: '/resources/changelog',
           title: 'Editor changelog',
         },
         {
-          href: '/3.x/resources/pro-license',
+          href: '/resources/pro-license',
           title: 'Pro license',
         },
       ],

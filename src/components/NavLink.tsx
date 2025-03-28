@@ -3,7 +3,8 @@
 import { ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { HTMLAttributeAnchorTarget, forwardRef } from 'react'
-import Link from '@/components/Link'
+import Link from 'next/link'
+import VersionedLink from './VersionedLink'
 import { NavLinkButton } from '@/components/ui/NavLinkButton'
 
 export type NavLinkProps = {

@@ -4,6 +4,7 @@ import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Tag } from './ui/Tag'
+import VersionedLink from './VersionedLink'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
@@ -66,7 +67,7 @@ export const LinkItem = ({
         isActive={isActive}
         onClick={link.href === '' ? toggleOpen : undefined}
       >
-        <Link href={link.href} onClick={onClick}>
+        <VersionedLink href={link.href} onClick={onClick}>
           {link.title}
           <span className="flex gap-1">
             {link.tags ? (
@@ -88,7 +89,7 @@ export const LinkItem = ({
               </button>
             ) : null}
           </span>
-        </Link>
+        </VersionedLink>
       </Sidebar.Button>
       {link.children ? (
         <div
