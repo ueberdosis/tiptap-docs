@@ -15,12 +15,8 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/getting-started/overview',
         },
         {
-          title: 'Install',
-          href: '/ui-components/getting-started/install',
-        },
-        {
           title: 'CLI',
-          href: '/ui-components/getting-started/install',
+          href: '/ui-components/getting-started/cli',
         },
       ],
     },
@@ -42,13 +38,9 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/ui-components/elements',
+      href: '/ui-components/components',
       title: 'UI Components',
       children: [
-        {
-          title: 'Overview',
-          href: '/ui-components/components',
-        },
         {
           title: 'Components',
           href: '/ui-components/components',
@@ -158,7 +150,6 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          type: 'group',
           title: 'Primitives',
           href: '/ui-components/primitives',
           children: [
