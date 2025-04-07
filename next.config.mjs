@@ -97,6 +97,11 @@ const nextConfig = {
         destination: '/ui-components/node-components/code-block-node',
         permanent: false,
       },
+      {
+        source: '/ui-components/components',
+        destination: '/ui-components/components/comment-button',
+        permanent: false,
+      },
     ]
   },
 }
