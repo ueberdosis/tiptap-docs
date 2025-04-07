@@ -17,13 +17,12 @@ To contribute, please follow these steps:
    - Run the linter with `npm run lint` command
 5. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message. We recommend using the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
 6. **Push to Your Fork**: Push your changes to your fork on GitHub.
-7. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. Provide a detailed description of your changes in the pull request.
-   - In the pull request, please include:
-     - A clear title that summarizes your changes.
-     - If your PR documents a change in the [Tiptap repository](https://github.com/ueberdosis/tiptap), add a link to the PR in the Tiptap repository that introduced that change.
-     - Add links to any issues or discussions that are related to your changes.
-     - A summary of the changes you made.
-     - Any relevant information that will help the maintainers understand your changes.
+7. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. In the pull request, include:
+   - A clear title that summarizes your changes.
+   - If your PR documents a change in the [Tiptap repository](https://github.com/ueberdosis/tiptap), add a link to the PR in the Tiptap repository that introduced that change.
+   - Add links to any issues or discussions that are related to your changes.
+   - A detailed description of the changes you made.
+   - Any relevant information that will help the maintainers understand your changes.
 8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
 ## License
