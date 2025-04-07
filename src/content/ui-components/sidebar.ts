@@ -2,12 +2,12 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ui components',
-  rootHref: '/ui-components/getting-started/overview',
+  rootHref: '/ui-components/getting-started/',
   title: 'Components',
   items: [
     {
       type: 'group',
-      href: '/ui-components/getting-started',
+      href: '/ui-components/getting-started/overview',
       title: 'Getting started',
       children: [
         {
@@ -28,11 +28,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
-        },
-        {
-          title: 'Collaborative',
-          href: '/ui-components/templates/collaborative',
-          tags: ['Coming Soon'],
+          tags: ['Open Source'],
         },
       ],
     },
