@@ -54,36 +54,84 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components',
           children: [
             {
-              title: 'Heading Dropdown Menu',
+              title: 'Comment button',
+              href: '/ui-components/components/comment-button',
+            },
+            {
+              title: 'Emoji dropdown',
+              href: '/ui-components/components/emoji-dropdown-menu',
+            },
+            {
+              title: 'Floating element',
+              href: '/ui-components/components/floating-element',
+            },
+            {
+              title: 'Floating toolbar',
+              href: '/ui-components/components/floating-toolbar',
+            },
+            {
+              title: 'Heading button',
+              href: '/ui-components/components/heading-button',
+            },
+            {
+              title: 'Heading dropdown',
               href: '/ui-components/components/heading-dropdown-menu',
-            },
-            {
-              title: 'List dropdown menu',
-              href: '/ui-components/components/list-dropdown-menu',
-            },
-            {
-              title: 'List button',
-              href: '/ui-components/components/list-button',
-            },
-            {
-              title: 'Mark button',
-              href: '/ui-components/components/mark-button',
-            },
-            {
-              title: 'Align button',
-              href: '/ui-components/components/text-align-button',
-            },
-            {
-              title: 'Undo redo button',
-              href: '/ui-components/components/undo-redo-button',
             },
             {
               title: 'Highlight popover',
               href: '/ui-components/components/highlight-popover',
             },
             {
+              title: 'Image upload button',
+              href: '/ui-components/components/image-upload-button',
+            },
+            {
               title: 'Link popover',
               href: '/ui-components/components/link-popover',
+            },
+            {
+              title: 'List button',
+              href: '/ui-components/components/list-button',
+            },
+            {
+              title: 'List dropdown',
+              href: '/ui-components/components/list-dropdown-menu',
+            },
+            {
+              title: 'Mark button',
+              href: '/ui-components/components/mark-button',
+            },
+            {
+              title: 'Math button',
+              href: '/ui-components/components/math-button',
+            },
+            {
+              title: 'Mention dropdown',
+              href: '/ui-components/components/mention-dropdown-menu',
+            },
+            {
+              title: 'Node button',
+              href: '/ui-components/components/node-button',
+            },
+            {
+              title: 'Slash menu',
+              href: '/ui-components/components/slash-dropdown-menu',
+            },
+            {
+              title: 'Text align button',
+              href: '/ui-components/components/text-align-button',
+            },
+            {
+              title: 'Thread',
+              href: '/ui-components/components/thread',
+            },
+            {
+              title: 'Trigger button',
+              href: '/ui-components/components/trigger-button',
+            },
+            {
+              title: 'Undo redo button',
+              href: '/ui-components/components/undo-redo-button',
             },
           ],
         },
