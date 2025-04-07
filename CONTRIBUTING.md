@@ -8,17 +8,23 @@ To contribute, please follow these steps:
 
 1. **Fork the Repository**: Start by forking the repository and cloning it to your local machine.
 2. **Create a New Branch**: Create a new branch for your changes to keep your work organized and separate from the main branch.
+   - When naming your branch, please use the following format:
+     - `fix/<description` for fixes to the documentation (typos, incorrect information) or bugs in the website code.
+     - `feature/<description>` for new features of the website or new content of the documentation.
 3. **Make Your Changes**: Implement your changes or additions to the documentation.
 4. **Test Your Changes**: Ensure your changes work correctly and do not introduce any issues.
-5. **Create a Changeset**: Run `npx changeset` to create a new changeset. Select the appropriate change type (patch, minor, or major) and write a meaningful message describing your changes.
-6. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message.
-7. **Push to Your Fork**: Push your changes to your fork on GitHub.
-8. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. Provide a detailed description of your changes in the pull request.
-9. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
-
-## Creating Versions
-
-We use [changesets](https://github.com/changesets/changesets) for versioning. To create a new version, run `npx changeset version` in your terminal. This command will process all changesets (if the branch is not on a pre-release), create a new version, and update the `CHANGELOG.md` file accordingly.
+   - Run the docs locally with the `npm run dev` command. Preview the changes in your browser.
+   - Run the linter with `npm run lint` command
+5. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message. We recommend using the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
+6. **Push to Your Fork**: Push your changes to your fork on GitHub.
+7. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. Provide a detailed description of your changes in the pull request.
+   - In the pull request, please include:
+     - A clear title that summarizes your changes.
+     - If your PR documents a change in the [Tiptap repository](https://github.com/ueberdosis/tiptap), add a link to the PR in the Tiptap repository that introduced that change.
+     - Add links to any issues or discussions that are related to your changes.
+     - A summary of the changes you made.
+     - Any relevant information that will help the maintainers understand your changes.
+8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
 ## License
 
