@@ -2,15 +2,7 @@ import { UIComponentsGrid } from './UIComponentsGrid'
 import { getUIComponents } from '@/server/getUIComponents'
 import { UIComponentType } from '@/types'
 
-export const UIComponents = async ({
-  path = '/',
-  hideAll,
-  hideFree,
-}: {
-  path?: string
-  hideAll?: boolean
-  hideFree?: boolean
-}) => {
+export const UIComponents = async ({ path = '/' }: { path?: string }) => {
   const uiComponents = await getUIComponents(path)
   const componentsArray = Object.values(uiComponents)
 
@@ -24,8 +16,6 @@ export const UIComponents = async ({
         components={components}
         nodeComponents={nodeComponents}
         primitives={primitives}
-        hideAll={hideAll}
-        hideFree={hideFree}
       />
     </div>
   )
