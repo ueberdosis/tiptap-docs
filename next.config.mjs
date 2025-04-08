@@ -97,6 +97,11 @@ const nextConfig = {
         destination: '/ui-components/node-components/code-block-node',
         permanent: false,
       },
+      {
+        source: '/ui-components/primitives',
+        destination: '/ui-components/primitives/avatar',
+        permanent: false,
+      },
     ]
   },
 }
