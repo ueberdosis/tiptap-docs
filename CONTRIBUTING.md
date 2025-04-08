@@ -9,7 +9,7 @@ To contribute, please follow these steps:
 1. **Fork the Repository**: Start by [forking the repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) and cloning it to your local machine.
 2. **Create a New Branch**: Create a new branch for your changes to keep your work organized and separate from the main branch.
    - When naming your branch, please use the following format:
-     - `fix/<description` for fixes to the documentation (typos, incorrect information) or bugs in the website code.
+     - `fix/<description>` for fixes to the documentation (typos, incorrect information) or bugs in the website code.
      - `feature/<description>` for new features of the website or new content of the documentation.
 3. **Make Your Changes**: Implement your changes or additions to the documentation.
 4. **Test Your Changes**: Ensure your changes work correctly and do not introduce any issues.
