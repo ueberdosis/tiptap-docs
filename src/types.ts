@@ -125,3 +125,25 @@ export type SearchHit = {
   url_without_anchor: string
   url_without_variables: string
 }
+
+export enum UIComponentType {
+  Component = 'component',
+  NodeComponent = 'node-component',
+  Primitive = 'primitive',
+}
+
+export interface UIComponentMeta {
+  name: string
+  description: string
+  type: UIComponentType
+  isFree: boolean
+  isCloud: boolean
+  isNew: boolean
+  isOpen: boolean
+}
+
+export interface UIComponentMetaWithUrl extends UIComponentMeta {
+  icon: string | null
+  path: string
+  url: string
+}

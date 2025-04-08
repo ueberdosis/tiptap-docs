@@ -38,8 +38,12 @@ export const sidebarConfig: SidebarConfig = {
       title: 'UI Components',
       children: [
         {
-          title: 'Components',
+          title: 'Overview',
           href: '/ui-components/components',
+        },
+        {
+          title: 'Components',
+          href: '/ui-components/components/floating-element',
           children: [
             // {
             //   title: 'Comment button',
