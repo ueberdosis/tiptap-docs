@@ -98,13 +98,13 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/ui-components/primitives',
-        destination: '/ui-components/primitives/avatar',
+        source: '/ui-components/components',
+        destination: '/ui-components/components/heading-button',
         permanent: false,
       },
       {
-        source: '/ui-components/components',
-        destination: '/ui-components/components/heading-button',
+        source: '/ui-components/primitives',
+        destination: '/ui-components/primitives/avatar',
         permanent: false,
       },
     ]
