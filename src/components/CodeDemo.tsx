@@ -4,21 +4,21 @@ import IframeResizer from 'iframe-resizer-react'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 export type CodeDemoProps = {
-    src?: string
-    path: string
-    isPro?: boolean
-    isSmall?: boolean
-    isScrollable?: boolean
+  src?: string
+  path: string
+  isPro?: boolean
+  isSmall?: boolean
+  isScrollable?: boolean
 }
 
 export const CodeDemo = ({ src, path, isPro, isSmall, isScrollable = false }: CodeDemoProps) => {
-    return (
-        <div className="shadow-cardHover rounded-[0.625rem] my-12 bg-white">
-            <IframeResizer
-                src={src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path}
-                className={`w-full ${isSmall ? 'h-60' : 'h-96'}`}
-                scrolling={isScrollable}
-            />
-        </div>
-    )
+  return (
+    <div className="shadow-cardHover rounded-[0.625rem] my-12 bg-white">
+      <IframeResizer
+        src={src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path}
+        className={`w-full ${isSmall ? 'h-60' : 'h-96'}`}
+        scrolling={isScrollable}
+      />
+    </div>
+  )
 }
