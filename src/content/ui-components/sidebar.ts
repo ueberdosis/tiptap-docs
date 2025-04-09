@@ -43,7 +43,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Components',
-          href: '/ui-components/components/floating-element',
+          href: '/ui-components/components/',
           children: [
             // {
             //   title: 'Comment button',
@@ -146,6 +146,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'List node',
               href: '/ui-components/node-components/list-node',
+            },
+            {
+              title: 'Paragraph node',
+              href: '/ui-components/node-components/paragraph-node',
             },
           ],
         },
