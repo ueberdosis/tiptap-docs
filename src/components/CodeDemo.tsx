@@ -9,9 +9,10 @@ export type CodeDemoProps = {
   isPro?: boolean
   isSmall?: boolean
   isLarge?: boolean
+  isScrollable?: boolean
 }
 
-export const CodeDemo = ({ src, path, isPro, isSmall, isLarge }: CodeDemoProps) => {
+export const CodeDemo = ({ src, path, isPro, isSmall, isLarge, isScrollable }: CodeDemoProps) => {
   const iframeHeightClass = isSmall
     ? 'h-60'
     : isLarge
@@ -23,6 +24,7 @@ export const CodeDemo = ({ src, path, isPro, isSmall, isLarge }: CodeDemoProps) 
       <IframeResizer
         src={src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path}
         className={`w-full ${iframeHeightClass}`}
+        scrolling={isScrollable}
       />
     </div>
   )
