@@ -39,7 +39,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Overview',
-          href: '/ui-components/components',
+          href: '/ui-components/components/overview',
         },
         {
           title: 'Components',
