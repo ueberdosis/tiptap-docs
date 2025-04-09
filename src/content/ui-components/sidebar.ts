@@ -53,10 +53,10 @@ export const sidebarConfig: SidebarConfig = {
             //   title: 'Emoji dropdown',
             //   href: '/ui-components/components/emoji-dropdown-menu',
             // },
-            {
-              title: 'Floating element',
-              href: '/ui-components/components/floating-element',
-            },
+            // {
+            //   title: 'Floating element',
+            //   href: '/ui-components/components/floating-element',
+            // },
             // {
             //   title: 'Floating toolbar',
             //   href: '/ui-components/components/floating-toolbar',
