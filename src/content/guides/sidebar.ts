@@ -22,6 +22,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '',
       children: [
         {
+          href: '/guides/faq',
+          title: 'FAQ',
+        },
+        {
           href: '/guides/accessibility',
           title: 'Accessibility',
         },
@@ -50,12 +54,16 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Offline Collaboration',
         },
         {
+          href: '/guides/legacy-conversion',
+          title: 'Legacy conversion',
+        },
+        {
           href: '/guides/upgrade-tiptap-v1',
           title: 'Upgrade Tiptap V1',
         },
         {
-          href: '/guides/legacy-conversion',
-          title: 'Legacy conversion',
+          href: '/guides/upgrade-tiptap-v2',
+          title: 'Upgrade Tiptap V2',
         },
       ],
     },
