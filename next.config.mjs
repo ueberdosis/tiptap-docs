@@ -107,6 +107,11 @@ const nextConfig = {
         destination: '/ui-components/primitives/avatar',
         permanent: false,
       },
+      {
+        source: '/ui-components/getting-started',
+        destination: '/ui-components/getting-started/overview',
+        permanent: false,
+      },
     ]
   },
 }
