@@ -18,6 +18,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'CLI',
           href: '/ui-components/getting-started/cli',
         },
+        {
+          title: 'Styling',
+          href: '/ui-components/getting-started/styling',
+        },
       ],
     },
     {
