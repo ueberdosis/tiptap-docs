@@ -118,6 +118,7 @@ const SearchContent = () => {
             'w-full appearance-none rounded shadow-cardLight border border-grayAlpha-200 p-2 text-sm outline-none hover:border-grayAlpha-300 focus:border-grayAlpha-400',
         }}
       />
+      {query && hits?.hits.length > 0 ? <div className="h-4"></div> : null}
       <div className="overflow-auto max-h-[calc(100vh-10rem)] flex flex-col gap-1">
         {query && hits.hits.length > 0
           ? hits.hits.map((hit, i) => (
