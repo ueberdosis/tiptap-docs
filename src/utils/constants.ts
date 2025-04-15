@@ -12,7 +12,7 @@ export const FULL_DOMAIN = `${DOMAIN}${BASE_PATH}`
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || null
 export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
 
-export const CURRENT_VERSION = '3.x'
+export const CURRENT_VERSION = '2.x'
 
 export const VERSIONS: Array<VersionData> = [
   {
