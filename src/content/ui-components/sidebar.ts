@@ -157,14 +157,14 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Primitives',
           href: '/ui-components/primitives',
           children: [
-            {
-              title: 'Avatar',
-              href: '/ui-components/primitives/avatar',
-            },
-            {
-              title: 'Badge',
-              href: '/ui-components/primitives/badge',
-            },
+            // {
+            //   title: 'Avatar',
+            //   href: '/ui-components/primitives/avatar',
+            // },
+            // {
+            //   title: 'Badge',
+            //   href: '/ui-components/primitives/badge',
+            // },
             {
               title: 'Button',
               href: '/ui-components/primitives/button',
