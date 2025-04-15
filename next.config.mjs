@@ -92,6 +92,26 @@ const nextConfig = {
         destination: '/conversion/getting-started/overview',
         permanent: true,
       },
+      {
+        source: '/ui-components/node-components',
+        destination: '/ui-components/node-components/code-block-node',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/components',
+        destination: '/ui-components/components/heading-button',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/primitives',
+        destination: '/ui-components/primitives/avatar',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/getting-started',
+        destination: '/ui-components/getting-started/overview',
+        permanent: false,
+      },
     ]
   },
 }

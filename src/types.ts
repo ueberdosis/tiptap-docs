@@ -125,3 +125,26 @@ export type SearchHit = {
   url_without_anchor: string
   url_without_variables: string
 }
+
+export enum UIComponentType {
+  // eslint-disable-next-line no-unused-vars
+  Component = 'component',
+  // eslint-disable-next-line no-unused-vars
+  NodeComponent = 'node-component',
+  // eslint-disable-next-line no-unused-vars
+  Primitive = 'primitive',
+}
+
+export interface UIComponentMeta {
+  name: string
+  description: string
+  type: UIComponentType
+  isNew: boolean
+  isOpen: boolean
+}
+
+export interface UIComponentMetaWithUrl extends UIComponentMeta {
+  icon: string | null
+  path: string
+  url: string
+}
