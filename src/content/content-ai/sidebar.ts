@@ -166,6 +166,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/content-ai/capabilities/suggestion/overview',
         },
         {
+          title: 'AI Agent',
+          href: '/examples/advanced/ai-agent',
+        },
+        {
           title: 'Starter templates',
           href: 'https://tiptap.dev/product/templates',
         },

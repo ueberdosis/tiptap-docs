@@ -61,6 +61,10 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Advanced',
       children: [
         {
+          title: 'AI Agent',
+          href: '/examples/advanced/ai-agent',
+        },
+        {
           title: 'Clever editor',
           href: '/examples/advanced/clever-editor',
         },
