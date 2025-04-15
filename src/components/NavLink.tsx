@@ -24,25 +24,6 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
     const isActive = pathname === href
     const isActiveParent = href !== '/' && pathname.startsWith(`${href}`)
 
-    const innerLinkContent = (
-      <>
-        {children}
-        {isExternal && !hideIcon ? (
-          <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />
-        ) : null}
-      </>
-    )
-
-    const linkContent = isExternal ? (
-      <a ref={ref} target={target} href={href}>
-        {innerLinkContent}
-      </a>
-    ) : (
-      <Link ref={ref} target={target} href={href}>
-        {innerLinkContent}
-      </Link>
-    )
-
     return (
       <NavLinkButton
         isActive={isDirectActive ? isActive : isActive || isActiveParent}
@@ -50,7 +31,12 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
         variant={variant}
         className={className}
       >
-        {linkContent}
+        <Link ref={ref} target={target} href={href}>
+          {children}
+          {isExternal && !hideIcon ? (
+            <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />
+          ) : null}
+        </Link>
       </NavLinkButton>
     )
   },
