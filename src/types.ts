@@ -149,7 +149,7 @@ export interface UIComponentMetaWithUrl extends UIComponentMeta {
   url: string
 }
 
-export type VersionData = {
+export interface VersionData {
   version: string
   url: string
   isBeta?: boolean

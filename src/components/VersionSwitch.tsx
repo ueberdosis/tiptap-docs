@@ -8,15 +8,22 @@ import { Tag } from './ui/Tag'
 import { VERSIONS, CURRENT_VERSION } from '@/utils/constants'
 import type { VersionData } from '@/types'
 
+const getItemLabel = ({ version }: { version: VersionData }) => {
+  if (version.isLegacy) return 'Legacy'
+  if (version.isBeta) return 'Beta'
+  if (version.isAlpha) return 'Alpha'
+  if (version.isRc) return 'RC'
+  return false
+}
+
 const VersionItem = ({ version }: { version: VersionData }) => {
+  const label = getItemLabel({ version })
+
   return (
     <DropdownMenu.Item asChild>
       <NavLink href={version.url} target={version.version !== CURRENT_VERSION ? '_blank' : ''}>
         {version.version}
-        {version.isLegacy ? <Tag className="ml-1">Legacy</Tag> : null}
-        {version.isBeta ? <Tag className="ml-1">Beta</Tag> : null}
-        {version.isAlpha ? <Tag className="ml-1">Alpha</Tag> : null}
-        {version.isRc ? <Tag className="ml-1">RC</Tag> : null}
+        {label ? <Tag className="ml-1">{label}</Tag> : null}
       </NavLink>
     </DropdownMenu.Item>
   )
