@@ -44,8 +44,7 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
     <Dialog.Close asChild>
       <Link className={linkClassName} href={hit.url}>
         <span className="block font-semibold">{result[1]}</span>
-        {/* @ts-ignore */}
-        <Highlight hit={hit} attribute="content" className="text-sm my-2 block" />
+        <Highlight hit={hit as any} attribute="content" className="text-sm my-2 block" />
         {parents ? (
           <span className="flex items-center gap-0.5 flex-wrap mt-1 font-medium">
             {parents.map(([key, value], i) => (
