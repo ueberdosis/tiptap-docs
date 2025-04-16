@@ -15,7 +15,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Overview',
         },
         {
-          href: '/whats-new',
+          href: '/resources/whats-new',
           title: "What's new",
         },
       ],
