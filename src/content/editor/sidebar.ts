@@ -779,6 +779,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Static Renderer',
             },
             {
+              href: '/editor/api/utilities/jsx',
+              title: 'JSX',
+            },
+            {
               href: '/editor/api/utilities/suggestion',
               title: 'Suggestion',
             },
