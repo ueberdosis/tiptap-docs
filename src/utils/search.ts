@@ -18,6 +18,6 @@ export const typesenseAdapter = new TypesenseInstantsearchAdapter({
     group_by: 'url',
     group_limit: 1,
     query_by:
-      'hierarchy.lvl0,hierarchy.lvl1,hierarchy.lvl2,hierarchy.lvl3,hierarchy.lvl4,hierarchy.lvl5,hierarchy.lvl6',
+      'hierarchy.lvl0,hierarchy.lvl1,hierarchy.lvl2,hierarchy.lvl3,hierarchy.lvl4,hierarchy.lvl5,hierarchy.lvl6,content',
   },
 })

@@ -5,7 +5,7 @@ import { FULL_DOMAIN } from '@/utils/constants'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = await getAllContentPaths({ withoutIndex: true })
 
-  const pathEntries = paths.map((path) => ({
+  const pathEntries = paths.map((path: string) => ({
     url: `${FULL_DOMAIN}${path}`,
     lastModified: new Date(),
     changeFrequency: 'monthly',

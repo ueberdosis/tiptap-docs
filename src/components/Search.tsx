@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import { useCallback, useMemo } from 'react'
-import { InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
+import { Highlight, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
 import { useHotkeys } from '@mantine/hooks'
 import Link from '@/components/Link'
 import { typesenseAdapter } from '@/utils/search'
@@ -37,6 +37,7 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
     <Dialog.Close asChild>
       <Link className={linkClassName} href={hit.url}>
         <span className="block font-semibold">{result[1]}</span>
+        <Highlight hit={hit as any} attribute="content" className="text-sm my-2 block" />
         {parents ? (
           <span className="flex items-center gap-0.5 flex-wrap mt-1 font-medium">
             {parents.map(([key, value], i) => (
@@ -107,22 +108,25 @@ const SearchContent = () => {
             'w-full appearance-none rounded shadow-cardLight border border-grayAlpha-200 p-2 text-sm outline-none hover:border-grayAlpha-300 focus:border-grayAlpha-400',
         }}
       />
-      {query && hits.hits.length > 0
-        ? hits.hits.map((hit, i) => (
-            <SearchResult
-              hit={hit as unknown as SearchHit}
-              active={i === currentIndex}
-              key={hit.objectID}
-            />
-          ))
-        : null}
-      {query && hits.hits.length === 0 ? (
-        <div className="flex items-center justify-center p-2 mt-2">
-          <span className="text-grayAlpha-400">
-            No results found for <strong>{query}</strong>
-          </span>
-        </div>
-      ) : null}
+      {query && hits?.hits.length > 0 ? <div className="h-4"></div> : null}
+      <div className="overflow-auto max-h-[calc(100vh-10rem)] flex flex-col gap-1">
+        {query && hits.hits.length > 0
+          ? hits.hits.map((hit, i) => (
+              <SearchResult
+                hit={hit as unknown as SearchHit}
+                active={i === currentIndex}
+                key={hit.objectID}
+              />
+            ))
+          : null}
+        {query && hits.hits.length === 0 ? (
+          <div className="flex items-center justify-center p-2 mt-2">
+            <span className="text-grayAlpha-400">
+              No results found for <strong>{query}</strong>
+            </span>
+          </div>
+        ) : null}
+      </div>
     </>
   )
 }

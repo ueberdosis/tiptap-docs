@@ -93,6 +93,17 @@ export type ExtensionMetaWithUrl = ExtensionMeta & {
 }
 
 export type SearchHit = {
+  _highlightResult: {
+    content: {
+      value: string
+    }
+
+    code: {
+      value: string
+    }
+  }
+
+  content: string
   hierarchy: {
     lvl0: string
     lvl1?: string
