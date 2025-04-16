@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import { useCallback, useMemo } from 'react'
-import { Configure, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
+import { InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
 import { useHotkeys } from '@mantine/hooks'
 import Link from '@/components/Link'
 import { typesenseAdapter } from '@/utils/search'
