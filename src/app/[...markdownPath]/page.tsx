@@ -104,6 +104,7 @@ export default async function MarkdownPage({ params }: Props) {
 
   return (
     <>
+      <Layout.CTA />
       <Layout.Header config={sidebar ?? undefined} />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
