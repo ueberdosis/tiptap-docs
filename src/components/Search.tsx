@@ -62,8 +62,6 @@ const SearchWrapper = ({ children }: { children: React.ReactNode }) => {
       searchClient={typesenseAdapter.searchClient}
       indexName={process.env.NEXT_PUBLIC_DOCSEARCH_INDEX || ''}
     >
-      <Configure filters="version:2.x" />
-
       {children}
     </InstantSearch>
   )
