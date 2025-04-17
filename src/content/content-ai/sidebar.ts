@@ -167,7 +167,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'AI Agent',
-          href: '/examples/advanced/ai-agent',
+          href: '/examples/experiments/ai-agent',
         },
         {
           title: 'Starter templates',
