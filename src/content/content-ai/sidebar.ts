@@ -168,6 +168,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Agent',
           href: '/examples/experiments/ai-agent',
+          tags: ['Experiment'],
         },
         {
           title: 'Starter templates',
