@@ -32,6 +32,6 @@ export const VERSIONS: Array<VersionData> = [
 ]
 
 export const CTA_BAR: CTABarOptions | null = {
-  text: "Find out what's new in Tiptap 3.0.0",
+  text: "Find out what's new in Tiptap V3",
   url: '/resources/whats-new',
 }
