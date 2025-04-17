@@ -108,6 +108,10 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Experiments',
       children: [
         {
+          title: 'AI agent',
+          href: '/examples/experiments/ai-agent',
+        },
+        {
           title: 'Collaborative fields',
           href: '/examples/experiments/collaborative-fields',
         },
