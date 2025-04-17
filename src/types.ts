@@ -159,3 +159,12 @@ export interface UIComponentMetaWithUrl extends UIComponentMeta {
   path: string
   url: string
 }
+
+export interface VersionData {
+  version: string
+  url: string
+  isBeta?: boolean
+  isAlpha?: boolean
+  isRc?: boolean
+  isLegacy?: boolean
+}
