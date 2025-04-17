@@ -168,3 +168,8 @@ export interface VersionData {
   isRc?: boolean
   isLegacy?: boolean
 }
+
+export interface CTABarOptions {
+  text: string
+  url: string
+}

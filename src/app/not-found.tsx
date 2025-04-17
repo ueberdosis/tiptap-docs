@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 export default async function NotFoundPage() {
   return (
     <>
+      <Layout.CTA />
       <Layout.Header />
       <Layout.Wrapper>
         <Layout.Content className="mx-auto">
