@@ -143,6 +143,43 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+        {
+          title: 'AI Changes',
+          href: '/content-ai/capabilities/changes',
+          tags: ['Pro', 'Beta'],
+          children: [
+            {
+              title: 'Overview',
+              href: '/content-ai/capabilities/changes/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/capabilities/changes/install',
+            },
+            {
+              title: 'Features',
+              href: '/content-ai/capabilities/changes/features',
+              children: [
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/suggestion/features/define-rules',
+                },
+                {
+                  title: 'Display changes',
+                  href: '/content-ai/capabilities/suggestion/features/configure-when-to-load-suggestions',
+                },
+              ],
+            },
+            {
+              title: 'Configure',
+              href: '/content-ai/capabilities/suggestion/configure',
+            },
+            {
+              title: 'API Reference',
+              href: '/content-ai/capabilities/suggestion/api-reference',
+            },
+          ],
+        },
       ],
     },
     {
