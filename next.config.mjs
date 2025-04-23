@@ -83,6 +83,16 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: '/content-ai/capabilities/changes',
+        destination: '/content-ai/capabilities/changes/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/changes/features',
+        destination: '/content-ai/capabilities/changes/features/review-changes',
+        permanent: false,
+      },
+      {
         source: '/content-ai/capabilities/text-generation',
         destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
