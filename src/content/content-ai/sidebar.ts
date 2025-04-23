@@ -162,21 +162,21 @@ export const sidebarConfig: SidebarConfig = {
               children: [
                 {
                   title: 'Review changes',
-                  href: '/content-ai/capabilities/suggestion/features/define-rules',
+                  href: '/content-ai/capabilities/changes/features/review-changes',
                 },
                 {
                   title: 'Display changes',
-                  href: '/content-ai/capabilities/suggestion/features/configure-when-to-load-suggestions',
+                  href: '/content-ai/capabilities/changes/features/display-changes',
                 },
               ],
             },
             {
               title: 'Configure',
-              href: '/content-ai/capabilities/suggestion/configure',
+              href: '/content-ai/capabilities/changes/configure',
             },
             {
               title: 'API Reference',
-              href: '/content-ai/capabilities/suggestion/api-reference',
+              href: '/content-ai/capabilities/changes/api-reference',
             },
           ],
         },
@@ -201,6 +201,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'AI Suggestions',
           isActive: false,
           href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Track AI changes',
+          isActive: false,
+          href: '/content-ai/capabilities/changes/overview',
         },
         {
           title: 'AI Agent',
