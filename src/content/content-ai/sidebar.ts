@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       href: '/content-ai/getting-started/overview',
-      title: 'Getting started',
+      title: 'Get started',
       type: 'group',
       children: [
         {
