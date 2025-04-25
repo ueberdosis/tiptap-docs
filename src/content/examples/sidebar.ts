@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       type: 'group',
-      title: 'Getting started',
+      title: 'Get started',
       href: '/examples',
       children: [
         {

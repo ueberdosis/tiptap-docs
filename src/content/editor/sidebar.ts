@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/editor/getting-started',
-      title: 'Getting started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
