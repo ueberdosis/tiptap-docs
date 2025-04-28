@@ -238,6 +238,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Privacy',
           href: '/content-ai/resources/privacy',
         },
+        {
+          title: 'Collaboration',
+          href: '/content-ai/resources/collaboration',
+        },
       ],
     },
   ],
