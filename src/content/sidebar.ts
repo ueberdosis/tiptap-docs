@@ -65,6 +65,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Examples',
         },
         {
+          href: '/resources/tiptap-trial',
+          title: 'Tiptap trial',
+        },
+        {
           href: '/resources/contributing',
           title: 'Contributing',
         },

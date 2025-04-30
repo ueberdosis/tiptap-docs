@@ -30,16 +30,24 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Collaboration',
         },
         {
-          href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
-        },
-        {
           href: '/comments/getting-started/overview',
           title: 'Comments',
         },
         {
-          href: '/collaboration/documents',
-          title: 'Documents',
+          href: '/content-ai/getting-started/overview',
+          title: 'Content AI',
+        },
+        {
+          href: '/collaboration/documents/history',
+          title: 'History',
+        },
+        {
+          href: '/conversion/getting-started/overview',
+          title: 'Conversion',
+        },
+        {
+          href: '/collaboration/documents/semantic-search',
+          title: 'Semantic Search',
         },
       ],
     },
@@ -55,6 +63,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/examples',
           title: 'Examples',
+        },
+        {
+          href: '/resources/tiptap-trial',
+          title: 'Tiptap trial',
         },
         {
           href: '/resources/contributing',

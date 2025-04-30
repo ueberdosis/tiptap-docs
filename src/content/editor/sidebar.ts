@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/editor/getting-started',
-      title: 'Getting started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
@@ -246,6 +246,16 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/editor/extensions/functionality/ai-changes',
+              title: 'AI Changes',
+              tags: ['Beta', 'Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/ai-generation',
+              title: 'AI Generation',
+              tags: ['Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/ai-suggestion',
               title: 'AI Suggestion',
               tags: ['Beta', 'Pro'],
@@ -278,11 +288,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/comments',
               title: 'Comments',
               tags: ['Beta', 'Pro'],
-            },
-            {
-              href: '/editor/extensions/functionality/ai-generation',
-              title: 'AI Generation',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/drag-handle',
