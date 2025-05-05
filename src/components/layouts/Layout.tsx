@@ -34,9 +34,12 @@ export const LayoutCTABar = () => {
     return null
   }
 
+  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
+
   return (
     <Link
       href={CTA_BAR.url}
+      target={target}
       className="flex gap-2 justify-center items-center bg-gradient-to-r from-purple-600 to-purple-800 font-semibold text-white text-sm text-center px-2 py-3 group"
     >
       <span className="leading-none">{CTA_BAR.text}</span>
