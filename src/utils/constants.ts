@@ -16,17 +16,17 @@ export const CURRENT_VERSION = '2.x'
 
 export const VERSIONS: Array<VersionData> = [
   {
-    version: '1.x',
-    isLegacy: true,
-    url: 'https://v1.tiptap.dev/',
+    version: '3.x',
+    isBeta: true,
+    url: 'https://next.tiptap.dev',
   },
   {
     version: '2.x',
     url: 'https://tiptap.dev/docs',
   },
   {
-    version: '3.x',
-    isBeta: true,
-    url: 'https://next.tiptap.dev',
+    version: '1.x',
+    isLegacy: true,
+    url: 'https://v1.tiptap.dev/',
   },
 ]

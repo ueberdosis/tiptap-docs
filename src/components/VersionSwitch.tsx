@@ -18,10 +18,11 @@ const getItemLabel = ({ version }: { version: VersionData }) => {
 
 const VersionItem = ({ version }: { version: VersionData }) => {
   const label = getItemLabel({ version })
+  const isCurrentVersion = version.version === CURRENT_VERSION
 
   return (
     <DropdownMenu.Item asChild>
-      <NavLink href={version.url} target={version.version !== CURRENT_VERSION ? '_blank' : ''}>
+      <NavLink href={version.url} target={!isCurrentVersion ? '_blank' : ''} hideIcon>
         {version.version}
         {label ? <Tag className="ml-1">{label}</Tag> : null}
       </NavLink>
