@@ -14,6 +14,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/',
           title: 'Overview',
         },
+        {
+          href: '/resources/whats-new',
+          title: "What's new in V3",
+        },
       ],
     },
     {
@@ -54,7 +58,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       title: 'Resources',
-      href: '/resources',
+      href: '/',
       children: [
         {
           href: '/guides',

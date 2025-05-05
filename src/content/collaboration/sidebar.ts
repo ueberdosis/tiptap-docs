@@ -68,8 +68,8 @@ export const sidebarConfig: SidebarConfig = {
           href: '/collaboration/documents/rest-api',
         },
         {
-          title: 'History',
-          href: '/collaboration/documents/history',
+          title: 'Snapshots',
+          href: '/collaboration/documents/snapshot',
         },
         {
           title: 'Compare Snapshots',
