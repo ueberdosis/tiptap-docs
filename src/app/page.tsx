@@ -49,6 +49,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <Layout.CTA />
       <Layout.Header config={sidebarConfig} />
       <Layout.Wrapper>
         <Layout.Sidebar config={sidebarConfig} />
