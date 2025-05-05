@@ -1,4 +1,4 @@
-import type { VersionData } from '@/types'
+import type { CTABarOptions, VersionData } from '@/types'
 
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
@@ -30,3 +30,8 @@ export const VERSIONS: Array<VersionData> = [
     url: 'https://v1.tiptap.dev/',
   },
 ]
+
+export const CTA_BAR: CTABarOptions | null = {
+  text: 'Tiptap Editor 3.0 Beta is out. Start here',
+  url: 'https://next.tiptap.dev/docs/resources/whats-new',
+}

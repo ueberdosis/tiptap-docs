@@ -1,4 +1,5 @@
 import { forwardRef } from 'react'
+import { ArrowRightIcon } from 'lucide-react'
 import { PageEditStatus } from '../ui/PageEditStatus'
 import { TiptapLogo } from '../TiptapLogo'
 import { ProductDropdown } from '../ProductDropdown'
@@ -16,6 +17,7 @@ import Link from '@/components/Link'
 import { cn } from '@/utils'
 import { getAllMetadata } from '@/server/getAllMetadata'
 import { SidebarConfig } from '@/types'
+import { CTA_BAR } from '@/utils/constants'
 
 const PageEditFooter = async () => {
   const allMeta = await getAllMetadata()
@@ -24,6 +26,25 @@ const PageEditFooter = async () => {
     <>
       <PageEditStatus allMeta={allMeta} />
     </>
+  )
+}
+
+export const LayoutCTABar = () => {
+  if (!CTA_BAR) {
+    return null
+  }
+
+  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
+
+  return (
+    <Link
+      href={CTA_BAR.url}
+      target={target}
+      className="flex gap-2 justify-center items-center bg-gradient-to-r from-purple-600 to-purple-800 font-semibold text-white text-sm text-center px-2 py-3 group"
+    >
+      <span className="leading-none">{CTA_BAR.text}</span>
+      <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition" />
+    </Link>
   )
 }
 
@@ -237,4 +258,5 @@ export const Layout = {
   Sidebar: LayoutSidebar,
   SecondarySidebar: LayoutSecondarySidebar,
   Content: LayoutContent,
+  CTA: LayoutCTABar,
 }
