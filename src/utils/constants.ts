@@ -1,4 +1,4 @@
-import type { VersionData } from '@/types'
+import type { CTABarOptions, VersionData } from '@/types'
 
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
@@ -16,17 +16,22 @@ export const CURRENT_VERSION = '3.x'
 
 export const VERSIONS: Array<VersionData> = [
   {
-    version: '1.x',
-    isLegacy: true,
-    url: 'https://v1.tiptap.dev/',
+    version: '3.x',
+    isBeta: true,
+    url: 'https://next.tiptap.dev',
   },
   {
     version: '2.x',
     url: 'https://tiptap.dev/docs',
   },
   {
-    version: '3.x',
-    isBeta: true,
-    url: 'https://next.tiptap.dev',
+    version: '1.x',
+    isLegacy: true,
+    url: 'https://v1.tiptap.dev/',
   },
 ]
+
+export const CTA_BAR: CTABarOptions | null = {
+  text: "Find out what's new in Tiptap V3",
+  url: '/resources/whats-new',
+}

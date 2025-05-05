@@ -348,6 +348,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Line Height',
             },
             {
+              href: '/editor/extensions/functionality/list-kit',
+              title: 'List kit',
+            },
+            {
               href: '/editor/extensions/functionality/listkeymap',
               title: 'List Keymap',
             },
@@ -384,9 +388,17 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Starter kit',
             },
             {
+              href: '/editor/extensions/functionality/table-kit',
+              title: 'Table kit',
+            },
+            {
               href: '/editor/extensions/functionality/table-of-contents',
               title: 'Table of contents',
               tags: ['Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/text-style-kit',
+              title: 'TextStyle kit',
             },
             {
               href: '/editor/extensions/functionality/textalign',
@@ -770,6 +782,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/api/utilities/static-renderer',
               title: 'Static Renderer',
+            },
+            {
+              href: '/editor/api/utilities/jsx',
+              title: 'JSX',
             },
             {
               href: '/editor/api/utilities/suggestion',
