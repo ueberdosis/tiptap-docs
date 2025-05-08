@@ -62,8 +62,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/heading-dropdown-menu',
             },
             {
-              title: 'Highlight popover',
-              href: '/ui-components/components/highlight-popover',
+              title: 'Color highlight popover',
+              href: '/ui-components/components/color-highlight-popover',
             },
             {
               title: 'Image upload button',
