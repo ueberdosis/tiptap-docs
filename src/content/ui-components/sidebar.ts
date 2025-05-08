@@ -45,22 +45,14 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Components',
           href: '/ui-components/components/',
           children: [
-            // {
-            //   title: 'Comment button',
-            //   href: '/ui-components/components/comment-button',
-            // },
-            // {
-            //   title: 'Emoji dropdown',
-            //   href: '/ui-components/components/emoji-dropdown-menu',
-            // },
-            // {
-            //   title: 'Floating element',
-            //   href: '/ui-components/components/floating-element',
-            // },
-            // {
-            //   title: 'Floating toolbar',
-            //   href: '/ui-components/components/floating-toolbar',
-            // },
+            {
+              title: 'Blockquote button',
+              href: '/ui-components/components/blockquote-button',
+            },
+            {
+              title: 'Code block button',
+              href: '/ui-components/components/code-block-button',
+            },
             {
               title: 'Heading button',
               href: '/ui-components/components/heading-button',
@@ -93,6 +85,30 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Mark button',
               href: '/ui-components/components/mark-button',
             },
+            {
+              title: 'Text align button',
+              href: '/ui-components/components/text-align-button',
+            },
+            {
+              title: 'Undo redo button',
+              href: '/ui-components/components/undo-redo-button',
+            },
+            // {
+            //   title: 'Comment button',
+            //   href: '/ui-components/components/comment-button',
+            // },
+            // {
+            //   title: 'Emoji dropdown',
+            //   href: '/ui-components/components/emoji-dropdown-menu',
+            // },
+            // {
+            //   title: 'Floating element',
+            //   href: '/ui-components/components/floating-element',
+            // },
+            // {
+            //   title: 'Floating toolbar',
+            //   href: '/ui-components/components/floating-toolbar',
+            // },
             // {
             //   title: 'Math button',
             //   href: '/ui-components/components/math-button',
@@ -101,18 +117,10 @@ export const sidebarConfig: SidebarConfig = {
             //   title: 'Mention dropdown',
             //   href: '/ui-components/components/mention-dropdown-menu',
             // },
-            {
-              title: 'Node button',
-              href: '/ui-components/components/node-button',
-            },
             // {
             //   title: 'Slash menu',
             //   href: '/ui-components/components/slash-dropdown-menu',
             // },
-            {
-              title: 'Text align button',
-              href: '/ui-components/components/text-align-button',
-            },
             // {
             //   title: 'Thread',
             //   href: '/ui-components/components/thread',
@@ -121,10 +129,6 @@ export const sidebarConfig: SidebarConfig = {
             //   title: 'Trigger button',
             //   href: '/ui-components/components/trigger-button',
             // },
-            {
-              title: 'Undo redo button',
-              href: '/ui-components/components/undo-redo-button',
-            },
           ],
         },
         {
