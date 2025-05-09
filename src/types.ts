@@ -93,6 +93,17 @@ export type ExtensionMetaWithUrl = ExtensionMeta & {
 }
 
 export type SearchHit = {
+  _highlightResult: {
+    content: {
+      value: string
+    }
+
+    code: {
+      value: string
+    }
+  }
+
+  content: string
   hierarchy: {
     lvl0: string
     lvl1?: string
@@ -146,5 +157,19 @@ export interface UIComponentMeta {
 export interface UIComponentMetaWithUrl extends UIComponentMeta {
   icon: string | null
   path: string
+  url: string
+}
+
+export interface VersionData {
+  version: string
+  url: string
+  isBeta?: boolean
+  isAlpha?: boolean
+  isRc?: boolean
+  isLegacy?: boolean
+}
+
+export interface CTABarOptions {
+  text: string
   url: string
 }

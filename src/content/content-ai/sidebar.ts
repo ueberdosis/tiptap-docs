@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       href: '/content-ai/getting-started/overview',
-      title: 'Getting started',
+      title: 'Get started',
       type: 'group',
       children: [
         {
@@ -143,6 +143,43 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+        {
+          title: 'AI Changes',
+          href: '/content-ai/capabilities/changes',
+          tags: ['Pro', 'Beta'],
+          children: [
+            {
+              title: 'Overview',
+              href: '/content-ai/capabilities/changes/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/capabilities/changes/install',
+            },
+            {
+              title: 'Features',
+              href: '/content-ai/capabilities/changes/features',
+              children: [
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/changes/features/review-changes',
+                },
+                {
+                  title: 'Display changes',
+                  href: '/content-ai/capabilities/changes/features/display-changes',
+                },
+              ],
+            },
+            {
+              title: 'Configure',
+              href: '/content-ai/capabilities/changes/configure',
+            },
+            {
+              title: 'API Reference',
+              href: '/content-ai/capabilities/changes/api-reference',
+            },
+          ],
+        },
       ],
     },
     {
@@ -164,6 +201,16 @@ export const sidebarConfig: SidebarConfig = {
           title: 'AI Suggestions',
           isActive: false,
           href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Track AI changes',
+          isActive: false,
+          href: '/content-ai/capabilities/changes/overview',
+        },
+        {
+          title: 'AI Agent',
+          href: '/examples/experiments/ai-agent',
+          tags: ['Experiment'],
         },
         {
           title: 'Starter templates',
@@ -190,6 +237,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Privacy',
           href: '/content-ai/resources/privacy',
+        },
+        {
+          title: 'Collaboration',
+          href: '/content-ai/resources/collaboration',
         },
       ],
     },

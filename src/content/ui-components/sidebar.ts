@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/ui-components/getting-started/overview',
-      title: 'Getting started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',

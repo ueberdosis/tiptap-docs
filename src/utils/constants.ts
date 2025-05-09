@@ -1,3 +1,5 @@
+import type { CTABarOptions, VersionData } from '@/types'
+
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
 export const PRO_DEMO_URL =
@@ -9,3 +11,27 @@ export const FULL_DOMAIN = `${DOMAIN}${BASE_PATH}`
 
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || null
 export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
+
+export const CURRENT_VERSION = '2.x'
+
+export const VERSIONS: Array<VersionData> = [
+  {
+    version: '3.x',
+    isBeta: true,
+    url: 'https://next.tiptap.dev',
+  },
+  {
+    version: '2.x',
+    url: 'https://tiptap.dev/docs',
+  },
+  {
+    version: '1.x',
+    isLegacy: true,
+    url: 'https://v1.tiptap.dev/',
+  },
+]
+
+export const CTA_BAR: CTABarOptions | null = {
+  text: 'Tiptap Editor 3.0 Beta is out. Start here',
+  url: 'https://next.tiptap.dev/docs/resources/whats-new',
+}

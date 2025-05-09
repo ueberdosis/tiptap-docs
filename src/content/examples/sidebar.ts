@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       type: 'group',
-      title: 'Getting started',
+      title: 'Get started',
       href: '/examples',
       children: [
         {
@@ -107,6 +107,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '',
       title: 'Experiments',
       children: [
+        {
+          title: 'AI agent',
+          href: '/examples/experiments/ai-agent',
+        },
         {
           title: 'Collaborative fields',
           href: '/examples/experiments/collaborative-fields',
