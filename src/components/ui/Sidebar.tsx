@@ -8,7 +8,7 @@ export type SidebarTrack = {} & React.HTMLAttributes<HTMLDivElement>
 export const SidebarTrack = forwardRef<HTMLDivElement, SidebarTrack>(
   ({ children, className, ...rest }, ref) => {
     return (
-      <nav {...rest} className={cn('flex flex-col', className)} ref={ref}>
+      <nav {...rest} className={cn('flex flex-col gap-10 pb-8', className)} ref={ref}>
         {children}
       </nav>
     )
@@ -22,7 +22,7 @@ export type SidebarGroupProps = {} & React.HTMLAttributes<HTMLDivElement>
 const SidebarGroup = forwardRef<HTMLDivElement, SidebarGroupProps>(
   ({ children, className, ...rest }, ref) => {
     return (
-      <div {...rest} className={cn('flex flex-col gap-1 pb-10', className)} ref={ref}>
+      <div {...rest} className={cn('flex flex-col gap-1', className)} ref={ref}>
         {children}
       </div>
     )
