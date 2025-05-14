@@ -55,15 +55,10 @@ export const LinkItem = ({
     }
   }, [isActive, isActiveParent, link.href])
 
-  // Scroll active item into view on page load, if item is not in view
+  // Scroll active item into view when sidebar is fully rendered
   useEffect(() => {
     if (isActive && linkRef.current) {
-      // Use a small timeout to ensure the sidebar is fully rendered
-      const timer = setTimeout(() => {
-        linkRef.current?.scrollIntoView({ block: 'nearest' })
-      }, 100)
-
-      return () => clearTimeout(timer)
+      linkRef.current.scrollIntoView({ block: 'nearest' })
     }
   }, [isActive])
 
