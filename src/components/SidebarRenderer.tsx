@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
@@ -39,6 +39,7 @@ export const LinkItem = ({
   const pathname = usePathname()
   const isActive = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
+  const linkRef = useRef<HTMLDivElement>(null)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
 
@@ -54,13 +55,20 @@ export const LinkItem = ({
     }
   }, [isActive, isActiveParent, link.href])
 
+  // Scroll active item into view when sidebar is fully rendered
+  useEffect(() => {
+    if (isActive && linkRef.current) {
+      linkRef.current.scrollIntoView({ block: 'nearest' })
+    }
+  }, [isActive])
+
   const toggleButtonClassName = cn(
     'p-0.5 rounded',
     !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
   )
 
   return (
-    <div>
+    <div ref={linkRef}>
       <Sidebar.Button
         asChild
         isActive={isActive}
