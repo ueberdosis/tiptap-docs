@@ -143,7 +143,7 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
         <div
           {...rest}
           className={cn(
-            'hidden lg:block flex-none sticky top-[4.25rem] px-2 py-6 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
+            'hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}
