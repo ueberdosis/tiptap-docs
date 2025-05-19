@@ -7,8 +7,6 @@ import { createMetadata } from '@/server/createMetadata'
 import { Search } from '@/components/Search'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN, GTM_ID } from '@/utils/constants'
-import PageHelpFeedback from '@/components/PageHelpFeedback'
-
 const inter = Inter({ subsets: ['latin'] })
 
 export async function getMetadata() {
@@ -86,9 +84,7 @@ export default function RootLayout({
         </Providers>
         {/* Footer without PageHelpFeedback at the bottom of the page */}
         <footer className="w-full flex flex-col items-center mt-16 mb-8">
-          <div className="w-full max-w-4xl px-4">
-            {/* PageHelpFeedback removed as requested */}
-          </div>
+          <div className="w-full max-w-4xl px-4">{/* PageHelpFeedback removed as requested */}</div>
         </footer>
         <script
           type="application/ld+json"

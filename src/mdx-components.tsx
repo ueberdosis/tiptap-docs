@@ -5,7 +5,6 @@ import React from 'react'
 import { Codeblock } from './components/Codeblock'
 import Link from '@/components/Link'
 
-
 /**
  * Extracts the text from a nested children object
  */
@@ -28,7 +27,7 @@ const hashClass =
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
-    wrapper: ({ children, ...props }) => <>{children}</>,
+    wrapper: ({ children }) => <>{children}</>,
     pre: (props) => (
       <Codeblock>
         <pre className="hljs">{props.children}</pre>

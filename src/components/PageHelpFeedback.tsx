@@ -1,34 +1,27 @@
-'use client';
-import React, { useState } from 'react';
-import { Button } from './ui/Button';
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
+'use client'
+import React, { useState } from 'react'
+import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Button } from './ui/Button'
+const NO_OPTIONS = ['Inaccurate', 'Missing information', 'Hard to understand', 'Code sample errors']
 
-
-const NO_OPTIONS = [
-  'Inaccurate',
-  'Missing information',
-  'Hard to understand',
-  'Code sample errors',
-];
-
-export type FeedbackState = 'initial' | 'yes' | 'no' | 'submitted';
+export type FeedbackState = 'initial' | 'yes' | 'no' | 'submitted'
 
 export default function PageHelpFeedback({ className }: { className?: string }) {
-  const [slug, setSlug] = useState('');
+  const [slug, setSlug] = useState('')
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      setSlug(window.location.pathname);
+      setSlug(window.location.pathname)
     }
-  }, []);
-  const [state, setState] = useState<FeedbackState>('initial');
-  const [yesText, setYesText] = useState('');
-  const [noOption, setNoOption] = useState('');
-  const [noText, setNoText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [lastFeedbackWasYes, setLastFeedbackWasYes] = useState(false);
+  }, [])
+  const [state, setState] = useState<FeedbackState>('initial')
+  const [yesText, setYesText] = useState('')
+  const [noOption, setNoOption] = useState('')
+  const [noText, setNoText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [lastFeedbackWasYes, setLastFeedbackWasYes] = useState(false)
 
   const handleSubmit = async () => {
-    setSubmitting(true);
+    setSubmitting(true)
     await fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,28 +32,33 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         noOption: state === 'no' ? noOption : undefined,
         noText: state === 'no' ? noText : undefined,
       }),
-    });
-    setSubmitting(false);
-    setState('submitted');
+    })
+    setSubmitting(false)
+    setState('submitted')
     if (state === 'yes') {
-      setLastFeedbackWasYes(true);
-      setTimeout(() => setLastFeedbackWasYes(false), 1000);
+      setLastFeedbackWasYes(true)
+      setTimeout(() => setLastFeedbackWasYes(false), 1000)
     }
-    setYesText('');
-    setNoOption('');
-    setNoText('');
-  };
+    setYesText('')
+    setNoOption('')
+    setNoText('')
+  }
 
   return (
     <>
-      <div className={`flex flex-col items-start gap-2 text-sm w-full ${className ?? ''}`} style={{ minHeight: 90 }} >
+      <div
+        className={`flex flex-col items-start gap-2 text-sm w-full ${className ?? ''}`}
+        style={{ minHeight: 90 }}
+      >
         <div className="flex flex-row items-center gap-x-3 w-full">
-          <h3 className="font-medium text-gray-800 m-0 flex items-center">Was this page helpful?</h3>
+          <h3 className="font-medium text-gray-800 m-0 flex items-center">
+            Was this page helpful?
+          </h3>
           <Button
             aria-label="Yes"
             variant={state === 'yes' ? 'secondary' : 'tertiary'}
             size="small"
-            className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${(state === 'submitted' && lastFeedbackWasYes) ? 'wiggle' : ''}`}
+            className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? 'wiggle' : ''}`}
             onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
             disabled={submitting}
           >
@@ -79,18 +77,40 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         </div>
 
         <style jsx global>{`
-          @keyframes wiggle {
-            0% { transform: rotate(0deg); }
-            10% { transform: rotate(-15deg); }
-            20% { transform: rotate(15deg); }
-            30% { transform: rotate(-15deg); }
-            40% { transform: rotate(15deg); }
-            50% { transform: rotate(-15deg); }
-            60% { transform: rotate(15deg); }
-            70% { transform: rotate(-15deg); }
-            80% { transform: rotate(15deg); }
-            90% { transform: rotate(-15deg); }
-            100% { transform: rotate(0deg); }
+                    @keyframes wiggle {
+            0% {
+              transform: rotate(0deg);
+            }
+            10% {
+              transform: rotate(-15deg);
+            }
+            20% {
+              transform: rotate(15deg);
+            }
+            30% {
+              transform: rotate(-15deg);
+            }
+            40% {
+              transform: rotate(15deg);
+            }
+            50% {
+              transform: rotate(-15deg);
+            }
+            60% {
+              transform: rotate(15deg);
+            }
+            70% {
+              transform: rotate(-15deg);
+            }
+            80% {
+              transform: rotate(15deg);
+            }
+            90% {
+              transform: rotate(-15deg);
+            }
+            100% {
+              transform: rotate(0deg);
+            }
           }
           .wiggle {
             animation: wiggle 1s;
@@ -111,20 +131,18 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
               placeholder="What made this content helpful? (optional)"
               value={yesText}
-              onChange={e => setYesText(e.target.value)}
+              onChange={(e) => setYesText(e.target.value)}
               aria-label="What specifically did you like? (optional)"
-              onKeyDown={e => {
+              onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submitting) {
-                  e.preventDefault();
-                  handleSubmit();
+                  e.preventDefault()
+                  handleSubmit()
                 }
               }}
             />
             <div className="flex gap-2 mt-1">
               <Button
-                type="submit"
-                variant="secondary"
-                disabled={submitting}
+                type="submit" variant="secondary" disabled={submitting}
               >
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
@@ -137,7 +155,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
             onSubmit={e => { e.preventDefault(); handleSubmit(); }}
           >
             <div className="flex flex-col gap-1">
-              {NO_OPTIONS.map(option => (
+              {NO_OPTIONS.map((option) => (
                 <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"
@@ -158,21 +176,19 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
                 className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
                 placeholder="Can you provide more details? (optional)"
                 value={noText}
-                onChange={e => setNoText(e.target.value)}
+                onChange={(e) => setNoText(e.target.value)}
                 aria-label="Can you provide more details?"
-                onKeyDown={e => {
+                onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !submitting) {
-                    e.preventDefault();
-                    handleSubmit();
+                    e.preventDefault()
+                    handleSubmit()
                   }
                 }}
               />
             )}
             <div className="flex gap-2 mt-1">
               <Button
-                type="submit"
-                variant="secondary"
-                disabled={submitting || !noOption}
+                type="submit" variant="secondary" disabled={submitting || !noOption}
               >
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
@@ -181,5 +197,5 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         )}
       </div>
     </>
-  );
+  )
 }
