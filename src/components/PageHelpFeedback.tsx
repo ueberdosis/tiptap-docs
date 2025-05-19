@@ -77,7 +77,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         </div>
 
         <style jsx global>{`
-                    @keyframes wiggle {
+          @keyframes wiggle {
             0% {
               transform: rotate(0deg);
             }
@@ -124,7 +124,10 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         {state === 'yes' && (
           <form
             className="flex flex-col gap-2 w-full max-w-2xl"
-            onSubmit={e => { e.preventDefault(); handleSubmit(); }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSubmit()
+            }}
           >
             <textarea
               rows={3}
@@ -141,9 +144,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               }}
             />
             <div className="flex gap-2 mt-1">
-              <Button
-                type="submit" variant="secondary" disabled={submitting}
-              >
+              <Button type="submit" variant="secondary" disabled={submitting}>
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
@@ -152,7 +153,10 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         {state === 'no' && (
           <form
             className="flex flex-col gap-2 w-full max-w-2xl"
-            onSubmit={e => { e.preventDefault(); handleSubmit(); }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSubmit()
+            }}
           >
             <div className="flex flex-col gap-1">
               {NO_OPTIONS.map((option) => (
@@ -187,9 +191,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               />
             )}
             <div className="flex gap-2 mt-1">
-              <Button
-                type="submit" variant="secondary" disabled={submitting || !noOption}
-              >
+              <Button type="submit" variant="secondary" disabled={submitting || !noOption}>
                 {submitting ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
