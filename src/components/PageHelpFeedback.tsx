@@ -61,7 +61,6 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               variant={state === 'yes' ? 'secondary' : 'tertiary'}
               size="small"
               className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
-
               onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
               disabled={submitting}
             >
@@ -79,7 +78,6 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
             </Button>
           </div>
         </div>
-
 
         {state === 'submitted' && !lastFeedbackWasYes && (
           <span className="inline-block text-xs text-gray-800 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
