@@ -54,26 +54,28 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
           <h3 className="font-medium text-gray-800 m-0 flex items-center">
             Was this page helpful?
           </h3>
-          <Button
-            aria-label="Yes"
-            variant={state === 'yes' ? 'secondary' : 'tertiary'}
-            size="small"
-            className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? 'wiggle' : ''}`}
-            onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
-            disabled={submitting}
-          >
-            <ThumbsUp className="w-4 h-4" />
-          </Button>
-          <Button
-            aria-label="No"
-            variant={state === 'no' ? 'secondary' : 'tertiary'}
-            size="small"
-            className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'no' ? 'bg-gray-200 border border-gray-400' : ''}`}
-            onClick={() => setState(state === 'no' ? 'initial' : 'no')}
-            disabled={submitting}
-          >
-            <ThumbsDown className="w-4 h-4" />
-          </Button>
+          <div className="flex gap-0">
+            <Button
+              aria-label="Yes"
+              variant={state === 'yes' ? 'secondary' : 'tertiary'}
+              size="small"
+              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? 'wiggle' : ''}`}
+              onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
+              disabled={submitting}
+            >
+              <ThumbsUp className="w-4 h-4" />
+            </Button>
+            <Button
+              aria-label="No"
+              variant={state === 'no' ? 'secondary' : 'tertiary'}
+              size="small"
+              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'no' ? 'bg-gray-200 border border-gray-400' : ''}`}
+              onClick={() => setState(state === 'no' ? 'initial' : 'no')}
+              disabled={submitting}
+            >
+              <ThumbsDown className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <style jsx global>{`
