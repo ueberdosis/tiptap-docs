@@ -19,8 +19,10 @@ export async function addFeedbackToNotion({
   if (!databaseId) throw new Error('NOTION_FEEDBACK_DATABASE_ID is not set')
 
   // Compose Notion properties
+  const basePath = process.env.NEXT_PUBLIC_DOMAIN || ''
+  const fullSlug = `${basePath}${slug || ''}`
   const properties: any = {
-    Slug: { title: [{ text: { content: slug || 'Unknown Slug' } }] },
+    Slug: { title: [{ text: { content: fullSlug || 'Unknown Slug' } }] },
     Helpful: { checkbox: helpful },
     Timestamp: { date: { start: new Date().toISOString() } },
   }

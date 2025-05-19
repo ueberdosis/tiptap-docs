@@ -22,7 +22,8 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    await fetch('/api/feedback', {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+    await fetch(`${basePath}/api/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
