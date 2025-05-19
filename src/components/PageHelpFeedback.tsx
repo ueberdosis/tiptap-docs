@@ -60,7 +60,8 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               aria-label="Yes"
               variant={state === 'yes' ? 'secondary' : 'tertiary'}
               size="small"
-              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? 'wiggle' : ''}`}
+              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
+
               onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
               disabled={submitting}
             >
@@ -79,46 +80,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
           </div>
         </div>
 
-        <style jsx global>{`
-          @keyframes wiggle {
-            0% {
-              transform: rotate(0deg);
-            }
-            10% {
-              transform: rotate(-15deg);
-            }
-            20% {
-              transform: rotate(15deg);
-            }
-            30% {
-              transform: rotate(-15deg);
-            }
-            40% {
-              transform: rotate(15deg);
-            }
-            50% {
-              transform: rotate(-15deg);
-            }
-            60% {
-              transform: rotate(15deg);
-            }
-            70% {
-              transform: rotate(-15deg);
-            }
-            80% {
-              transform: rotate(15deg);
-            }
-            90% {
-              transform: rotate(-15deg);
-            }
-            100% {
-              transform: rotate(0deg);
-            }
-          }
-          .wiggle {
-            animation: wiggle 1s;
-          }
-        `}</style>
+
         {state === 'submitted' && !lastFeedbackWasYes && (
           <span className="inline-block text-xs text-gray-800 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
             Thank you for your feedback!
