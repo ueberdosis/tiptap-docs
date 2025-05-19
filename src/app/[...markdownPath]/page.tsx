@@ -5,6 +5,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+import PageHelpFeedback from '@/components/PageHelpFeedback'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
