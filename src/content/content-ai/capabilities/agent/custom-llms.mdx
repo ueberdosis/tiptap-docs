@@ -1,0 +1,192 @@
+---
+title: Integrate your LLM
+meta:
+  title: Integrate your LLM | Tiptap Content AI
+  description: Learn how to integrate the AI Agent with your own LLM and backend.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+You can integrate the AI Agent extension with your own backend and LLM provider instead of using Tiptap Cloud. This gives you complete control over the AI model, tools, and conversation flow.
+
+<Callout title="Enterprise Support" variant="info">
+  For enterprise customers, Tiptap provides a reference implementation that demonstrates how to
+  build a custom backend for the AI Agent extension.
+</Callout>
+
+## Installation and setup
+
+The basic setup involves:
+
+1. Creating a backend service that communicates with your LLM provider
+2. Implementing the necessary tools and adapters
+3. Configuring the AI Agent extension to use your custom provider
+
+## AI Agent Toolkit
+
+When you're building an AI Agent, you need to define a set of tools that it can call. The AIAgentToolkit provides a list of text-editing tools that you can send to the LLM provider API. You can combine these tools with your own custom tools (like web search, agentic RAG, or orchestration) to build a custom AI Agent that can edit rich text as well as perform other actions.
+
+The `AiAgentToolkit` class provides methods for generating the system prompt and tool definitions in a format that can be sent to your LLM provider API or your AI Agent framework of choice.
+
+```tsx
+import { AiAgentToolkit } from '@tiptap-pro/extension-ai-agent-server'
+
+const toolkit = new AiAgentToolkit()
+
+const response = await openai.responses.create({
+  model: 'gpt-4.1',
+  input: [
+    `You are Tiptap AI Agent, an AI agent that edits rich text documents.
+// ... other system prompt instructions
+${aiAgentToolkit.getSystemPrompt()}`,
+    ...args.llmMessages,
+  ],
+  tools: [
+    ...aiAgentToolkit.getTools(openAiResponsesAdapter),
+    // ... combine with your custom tools
+    customWebSearchTool,
+    customWeatherReportTool,
+  ],
+})
+```
+
+You can customize the `AiAgentToolkit` instance by passing custom text-editing tools to its constructor.
+
+```tsx
+const toolkit = new AiAgentToolkit({
+// The tools starter kit contains all the built-in tools
+...toolsStarterKit(),
+// Add, for example, a tool to search the editor's content
+customSearchTool()
+})
+```
+
+## Adapters
+
+Adapters convert between the AI Agent's internal format and the format used by different LLM providers and AI Agent frameworks. The extension includes these built-in adapters:
+
+| Adapter                        | Provider                        |
+| ------------------------------ | ------------------------------- |
+| `openAiResponsesAdapter`       | OpenAI API Responses API        |
+| `openAiChatCompletionsAdapter` | OpenAI API Chat Completions API |
+| `anthropicMessagesAdapter`     | Anthropic Claude Messages API   |
+| `vercelAiSdkAdapter`           | Vercel AI SDK                   |
+
+<Callout title="Need more adapters?" variant="info">
+  We are working on adding more adapters for different LLM providers and frameworks. If you need an
+  adapter for a specific provider that is not yet available, [contact us with your specific use
+  case](mailto:humans@tiptap.dev)
+</Callout>
+
+If you want to use an LLM provider that is not yet supported by our backend library, you can create a custom adapter by implementing the `AiAgentAdapter` interface.
+
+## Built-in tools
+
+The AI Agent extension includes these pre-built tools:
+
+| Tool Category  | Tools                                                                   |
+| -------------- | ----------------------------------------------------------------------- |
+| **Reading**    | `read_first_chunk`, `read_next_chunk`, `read_previous_chunk`            |
+| **Writing**    | `replace_chunk`, `replace_document`                                     |
+| **Formatting** | `run_command` (with various commands like `setBold`, `setItalic`, etc.) |
+| **Workflow**   | `plan`, `ask_user`, `finish_with_summary`                               |
+
+Each tool has two components:
+
+1. **Tool definition**: Defines the tool's ID, description, and JSON schema. This data is sent to the LLM to generate the tool calls.
+2. **Tool handler**: Implements the logic for executing the tool in the editor. If you define a tool in your backend, you must define a tool handler in the AI Agent provider, in the `toolHandlers` option.
+
+## Custom tools
+
+You can create custom tools to extend the AI Agent's capabilities:
+
+### Step 1: Define the tool (server-side)
+
+```tsx
+import { AiAgentTool } from '@tiptap-pro/extension-ai-agent-server'
+
+export const customSearchTool = (): AiAgentTool => ({
+  id: 'search_document',
+  toolDescription: 'Searches for text in the document',
+  jsonSchema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'The text to search for',
+      },
+    },
+    required: ['query'],
+  },
+  // Optional additional rules for the system prompt
+  systemPromptRules: [
+    'Use this tool when you need to find specific content in the document',
+    'The search is case-insensitive',
+  ],
+})
+```
+
+### Step 2: Implement the tool handler (client-side)
+
+```tsx
+import { AiAgentToolCallHandler } from '@tiptap-pro/extension-ai-agent'
+import { z } from 'zod'
+
+// Schema for validating tool arguments
+const SearchToolSchema = z.object({
+  query: z.string(),
+})
+
+export const searchToolHandler = (): AiAgentToolCallHandler => ({
+  id: 'search_document',
+  modifiesEditor: false, // This tool doesn't modify the document
+  handleToolCall: ({ editor, toolCall }) => {
+    // Validate arguments
+    const args = SearchToolSchema.parse(toolCall.arguments)
+
+    // Implement search logic
+    const html = editor.getHTML()
+    const results = findTextInHtml(html, args.query)
+
+    // Return results to the LLM
+    return 'Found these results: ' + results.join(', ')
+  },
+})
+```
+
+### Step 3: Add the tool to your toolkit and provider
+
+```tsx
+// Server-side
+const toolkit = new AiAgentToolkit({
+  tools: [
+    // Built-in tools
+    ...toolsStarterKit(),
+    // Custom tools
+    customSearchTool(),
+  ],
+})
+
+// Client-side
+const provider = new CustomAiAgentProvider({
+  toolHandlers: [
+    // Tool handlers for built-in tools
+    ...toolHandlersStarterKit(),
+    // Custom handlers
+    searchToolHandler(),
+  ],
+})
+```
+
+## Custom provider
+
+You can create a custom provider by using the `BaseAiAgentProvider` class. This gives you complete control over the conversation state management and communication with your backend.
+
+The `AiAgentProvider` class is stateful and manages the conversation state. It is recommended for most use cases. However, if you need more control over the state management, you can create a custom provider by using the `BaseAiAgentProvider` class. This class is stateless, and provides only the methods to apply tool calls. You are responsible for managing the conversation state, the API calls, and the agent execution workflow. In fact, the `AiAgentProvider` class uses the `BaseAiAgentProvider` class internally.
+
+Using a custom provider gives you the flexibility to:
+
+- Implement custom state management
+- Control the conversation flow
+- Define your custom entities and models for chat messages
