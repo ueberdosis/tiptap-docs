@@ -13,7 +13,7 @@ export const Section = ({ children, title, description, moreLink }: SectionProps
   const titleSlug = slugify(title, { lower: true })
 
   return (
-    <section>
+    <section className="mt-10">
       <div className="flex items-center justify-between gap-8">
         <div className="flex-1">
           <h2 className="font-bold text-[1.875rem] leading-[120%]" id={titleSlug}>
@@ -34,7 +34,7 @@ export const Section = ({ children, title, description, moreLink }: SectionProps
           </div>
         ) : null}
       </div>
-      <div className="mt-12">{children}</div>
+      <div className={description ? 'mt-12' : 'mt-8'}>{children}</div>
     </section>
   )
 }

@@ -4,6 +4,11 @@ export type SidebarLink = {
   href: string
   tags?: string[]
   children?: Omit<SidebarLink, 'type'>[]
+  /**
+   * Whether to show the link as active. If undefined, the link will be active
+   * if its href matches the current pathname.
+   */
+  isActive?: boolean
 }
 
 export type SidebarGroup = {
@@ -22,7 +27,7 @@ export type SidebarConfig = {
 }
 
 export type GeneralPageTag = {
-  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents'
+  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents' | 'beta'
 }
 
 export type ImagePageTag = {
@@ -76,6 +81,7 @@ export type ExtensionMeta = {
   description: string
   type: ExtensionType
   isPro?: boolean
+  isBeta?: boolean
   isExperiment?: boolean
   isNew?: boolean
   isCloud?: boolean
@@ -87,6 +93,17 @@ export type ExtensionMetaWithUrl = ExtensionMeta & {
 }
 
 export type SearchHit = {
+  _highlightResult: {
+    content: {
+      value: string
+    }
+
+    code: {
+      value: string
+    }
+  }
+
+  content: string
   hierarchy: {
     lvl0: string
     lvl1?: string
@@ -118,4 +135,41 @@ export type SearchHit = {
   url: string
   url_without_anchor: string
   url_without_variables: string
+}
+
+export enum UIComponentType {
+  // eslint-disable-next-line no-unused-vars
+  Component = 'component',
+  // eslint-disable-next-line no-unused-vars
+  NodeComponent = 'node-component',
+  // eslint-disable-next-line no-unused-vars
+  Primitive = 'primitive',
+}
+
+export interface UIComponentMeta {
+  name: string
+  description: string
+  type: UIComponentType
+  isNew: boolean
+  isOpen: boolean
+}
+
+export interface UIComponentMetaWithUrl extends UIComponentMeta {
+  icon: string | null
+  path: string
+  url: string
+}
+
+export interface VersionData {
+  version: string
+  url: string
+  isBeta?: boolean
+  isAlpha?: boolean
+  isRc?: boolean
+  isLegacy?: boolean
+}
+
+export interface CTABarOptions {
+  text: string
+  url: string
 }

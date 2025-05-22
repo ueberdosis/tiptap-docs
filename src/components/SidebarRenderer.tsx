@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
@@ -37,8 +37,9 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const pathname = usePathname()
-  const isActive = pathname === link.href
+  const isActive = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
+  const linkRef = useRef<HTMLDivElement>(null)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
 
@@ -54,13 +55,20 @@ export const LinkItem = ({
     }
   }, [isActive, isActiveParent, link.href])
 
+  // Scroll active item into view when sidebar is fully rendered
+  useEffect(() => {
+    if (isActive && linkRef.current) {
+      linkRef.current.scrollIntoView({ block: 'nearest' })
+    }
+  }, [isActive])
+
   const toggleButtonClassName = cn(
     'p-0.5 rounded',
     !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
   )
 
   return (
-    <div>
+    <div ref={linkRef}>
       <Sidebar.Button
         asChild
         isActive={isActive}
@@ -68,24 +76,26 @@ export const LinkItem = ({
       >
         <Link href={link.href} onClick={onClick}>
           {link.title}
-          {link.tags ? (
-            <span className="flex items-center gap-0.5">
-              {link.tags.map((tag) => (
-                <Tag key={tag} className="select-none" variant="gray" size="small">
-                  {tag}
-                </Tag>
-              ))}
-            </span>
-          ) : null}
-          {link.children ? (
-            <button className={toggleButtonClassName} onClick={toggleOpen}>
-              {isOpen ? (
-                <ChevronDownIcon className="size-4 text-grayAlpha-500" />
-              ) : (
-                <ChevronRightIcon className="size-4 text-grayAlpha-500" />
-              )}
-            </button>
-          ) : null}
+          <span className="flex gap-1">
+            {link.tags ? (
+              <span className="flex items-center gap-0.5">
+                {link.tags.map((tag) => (
+                  <Tag key={tag} className="select-none" variant="gray" size="small">
+                    {tag}
+                  </Tag>
+                ))}
+              </span>
+            ) : null}
+            {link.children ? (
+              <button className={toggleButtonClassName} onClick={toggleOpen}>
+                {isOpen ? (
+                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                ) : (
+                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                )}
+              </button>
+            ) : null}
+          </span>
         </Link>
       </Sidebar.Button>
       {link.children ? (

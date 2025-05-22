@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/editor/getting-started',
-      title: 'Getting started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
@@ -246,6 +246,21 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/editor/extensions/functionality/ai-changes',
+              title: 'AI Changes',
+              tags: ['Beta', 'Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/ai-generation',
+              title: 'AI Generation',
+              tags: ['Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/ai-suggestion',
+              title: 'AI Suggestion',
+              tags: ['Beta', 'Pro'],
+            },
+            {
               href: '/editor/extensions/functionality/bubble-menu',
               title: 'Bubble menu',
             },
@@ -271,8 +286,18 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Beta', 'Pro'],
             },
             {
-              href: '/editor/extensions/functionality/content-ai',
-              title: 'Content AI',
+              href: '/editor/extensions/functionality/drag-handle',
+              title: 'Drag Handle',
+              tags: ['Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/drag-handle-react',
+              title: 'Drag Handle React',
+              tags: ['Pro'],
+            },
+            {
+              href: '/editor/extensions/functionality/drag-handle-vue',
+              title: 'Drag Handle Vue',
               tags: ['Pro'],
             },
             {
@@ -334,12 +359,18 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Placeholder',
             },
             {
+              href: '/editor/extensions/functionality/snapshot-compare',
+              title: 'Snapshot Compare',
+              tags: ['Pro', 'Cloud'],
+            },
+            {
               href: '/editor/extensions/functionality/starterkit',
               title: 'Starter kit',
             },
             {
               href: '/editor/extensions/functionality/table-of-contents',
               title: 'Table of contents',
+              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/textalign',
@@ -701,6 +732,21 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/events',
           title: 'Events',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Resources',
+      href: '/editor/resources',
+      children: [
+        {
+          href: '/guides',
+          title: 'Guides',
+        },
+        {
+          href: '/resources/pro-license',
+          title: 'Pro license',
         },
       ],
     },

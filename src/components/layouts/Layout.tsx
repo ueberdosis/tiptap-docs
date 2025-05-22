@@ -1,5 +1,7 @@
 import { forwardRef } from 'react'
+import { ArrowRightIcon } from 'lucide-react'
 import { PageEditStatus } from '../ui/PageEditStatus'
+import PageHelpFeedback from '../PageHelpFeedback'
 import { TiptapLogo } from '../TiptapLogo'
 import { ProductDropdown } from '../ProductDropdown'
 import { NavLink } from '../NavLink'
@@ -11,10 +13,12 @@ import { MobileNavigationButton } from '../MobileNavigationButton'
 import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
+import { VersionSwitch } from '../VersionSwitch'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
 import { getAllMetadata } from '@/server/getAllMetadata'
 import { SidebarConfig } from '@/types'
+import { CTA_BAR } from '@/utils/constants'
 
 const PageEditFooter = async () => {
   const allMeta = await getAllMetadata()
@@ -23,6 +27,25 @@ const PageEditFooter = async () => {
     <>
       <PageEditStatus allMeta={allMeta} />
     </>
+  )
+}
+
+export const LayoutCTABar = () => {
+  if (!CTA_BAR) {
+    return null
+  }
+
+  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
+
+  return (
+    <Link
+      href={CTA_BAR.url}
+      target={target}
+      className="flex gap-2 justify-center items-center bg-gradient-to-r from-purple-600 to-purple-800 font-semibold text-white text-sm text-center px-2 py-3 group"
+    >
+      <span className="leading-none">{CTA_BAR.text}</span>
+      <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition" />
+    </Link>
   )
 }
 
@@ -38,24 +61,23 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
                 <span className="font-semibold">Tiptap</span> Docs
               </span>
             </Link>
-            <span className="hidden lg:block select-none text-black/15">/</span>
+            <VersionSwitch />
+            <span className="hidden select-none lg:block text-black/15">/</span>
             <nav className="hidden lg:flex items-center gap-[0.5px]">
               <ProductDropdown />
               <NavLink href="/guides">Guides</NavLink>
               <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="https://templates.tiptap.dev" target="_blank">
-                Templates
-              </NavLink>
+              <NavLink href="/ui-components/getting-started/overview">UI Components</NavLink>
               <NavLink href="https://tiptap.dev" target="_blank">
                 Website
               </NavLink>
             </nav>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <div className="hidden xl:block">
               <SearchButton />
             </div>
-            <div className="hidden lg:flex items-center gap-1 xl:hidden">
+            <div className="items-center hidden gap-1 lg:flex xl:hidden">
               <ToCButton />
               <SearchButton />
             </div>
@@ -75,11 +97,11 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
           </div>
         </div>
         <div className="block lg:hidden py-1.5 bg-white px-[1.125rem] shadow-slim rounded-bl-pilled rounded-br-pilled border-t border-neutral-200">
-          <div className="h-8 py-1 flex items-center">
-            <div className="mr-auto flex items-center gap-2">
+          <div className="flex items-center h-8 py-1">
+            <div className="flex items-center gap-2 mr-auto">
               <MobileNavigationButton config={config} />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <ToCButton />
               <SearchButton />
             </div>
@@ -122,7 +144,7 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
         <div
           {...rest}
           className={cn(
-            'hidden lg:block flex-none sticky top-[4.25rem] px-2 py-6 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
+            'hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}
@@ -153,6 +175,7 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
           ref={ref}
         >
           <SidebarTableOfContent />
+          <div id="requirements-slot" className="mt-8 flex flex-col gap-8" />
         </div>
       </>
     )
@@ -177,13 +200,15 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
         <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
-          <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
-            <div className="flex flex-col items-start flex-none">
+          <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
+            <div className="flex flex-col items-start flex-none z-10">
               <PageEditFooter />
             </div>
-            <div className="flex flex-col items-end flex-none"></div>
+            <div className="flex flex-col items-end flex-none z-20 w-full lg:absolute lg:right-0 lg:top-0 lg:w-auto lg:static">
+              <PageHelpFeedback />
+            </div>
           </div>
-          <div className="flex flex-col items-start justify-between gap-4 mt-12 text-sm">
+          <div className="flex flex-col items-start justify-between gap-4 mt-14 text-sm">
             <div className="flex flex-wrap items-center flex-none gap-3">
               <Link
                 className="hover:underline"
@@ -236,4 +261,5 @@ export const Layout = {
   Sidebar: LayoutSidebar,
   SecondarySidebar: LayoutSecondarySidebar,
   Content: LayoutContent,
+  CTA: LayoutCTABar,
 }

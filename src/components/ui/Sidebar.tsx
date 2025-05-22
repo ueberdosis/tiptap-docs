@@ -76,7 +76,7 @@ const SidebarButton = forwardRef<HTMLButtonElement, SidebarButtonProps>(
           'bg-transparent flex items-center justify-between w-full px-2.5 py-1.5 text-sm text-grayAlpha-900 rounded-md',
           !isActive
             ? 'hover:text-grayAlpha-900 hover:bg-grayAlpha-100'
-            : 'bg-white text-purple-500 font-semibold',
+            : 'text-purple-500 font-semibold',
           className,
         )}
         ref={ref}

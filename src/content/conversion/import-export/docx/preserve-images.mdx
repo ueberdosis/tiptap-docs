@@ -1,0 +1,230 @@
+---
+title: Preserve images during conversion
+meta:
+    title: Preserve images | Tiptap Conversion
+    description: Preserve images in your converted documents by providing an image upload callback url. Learn more in the docs.
+    category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+import { Requirements, RequirementItem } from '@/components/Requirements'
+
+<Requirements>
+    <RequirementItem label="1. Activate trial or subscribe">
+        Start a free [trial in your Account](https://cloud.tiptap.dev/v2/billing) or subscribe to a [Tiptap plan](https://cloud.tiptap.dev/v2/billing).
+    </RequirementItem>
+    <RequirementItem label="2. Install from private registry">
+        To install this frontend extensions, authenticate to Tiptap’s private npm registry by following the [setup guide](/guides/pro-extensions).
+    </RequirementItem>
+</Requirements>
+
+Some documents that you're importing may include images that you may want to preserve in the converted document.
+
+<Callout title="Note" variant="info">
+    Tiptap does not provide an image upload service. You will need to implement your own server to
+    handle image uploads.
+</Callout>
+
+## Import images
+
+If you import a DOCX file that has images, the conversion service can include those images in the resulting Tiptap JSON only if you provide an image upload callback URL.
+
+This is a URL endpoint on your server that the conversion service will use to offload images during the import process.
+
+```js
+ import { Editor } from '@tiptap/core'
+ import { Import } from '@tiptap-pro/extension-import-docx'
+
+ const editor = new Editor({
+   // ... other editor options,
+   extensions: [
+     Import.configure({
+       appId: '<your-app-id>',
+       token: '<your-jwt>',
+       imageUploadCallbackUrl: 'https://your-server.com/upload-image'
+     })
+   ]
+ })
+ ```
+In this configuration, `imageUploadCallbackUrl` is set to an endpoint (e.g., on your server) that will handle receiving image files. If this is not provided, the importer will strip out images from the document.
+
+When an import is triggered, the conversion service will upload each embedded image to the URL you provided.
+
+### Callback process
+This endpoint can be implemented with any web framework or cloud function. The key steps you need to integrate are:
+
+1. **Receive the file:** The request will contain the image file data which you will need to parse on your server.
+2. **Store the image:** Save the image to a location that is accessible via URL. This could be an AWS S3 bucket, a storage service like Cloudinary, or a public folder on your server. Generate a public URL or path for the saved file.
+3. **Return the URL:** Send back a JSON response containing the image’s URL. For example: `{ "url": "https://my-cdn.com/uploads/unique-image-name.png" }`. Make sure to send an HTTP 200 status. The converter will use the provided URL in the editor content.
+
+The Tiptap conversion service then takes that URL and inserts it into the Tiptap JSON as the `src` of an image node.
+
+### Important considerations
+- **Public accessibility:** The endpoint URL you provide must be reachable from the internet, since Tiptap’s cloud service will call it. It cannot be localhost or behind a firewall. Likewise, the returned image URL should be publicly accessible (or at least accessible to anyone who needs to view the document)
+- **Correct response format:** Your endpoint should return a JSON object with a url field exactly. If the conversion service cannot parse the response or doesn’t find a URL, the image won’t be inserted.
+- **Security:** Tiptap doesn’t restrict what endpoint you use. You can include tokens or keys in the URL (e.g., https://your-server.com/upload-image?key=123) to control access. The conversion service will simply call that URL. Implement any necessary auth on your side (for instance, verifying a secret token in the request headers or URL).
+- **Persistence of images:** The URLs you return will be used in your editor’s content going forward. For example, after import, your editor will have image nodes with src: "https://my-cdn.com/uploads/unique-image-name.png". Anyone who later exports or views that content will attempt to load that URL. Make sure the images remain available at those URLs (don’t delete them immediately)​
+
+### Server implementation example
+This example shows a simple server implementation that accepts image uploads & uploads them to an S3 bucket configured by environment variables.
+
+```ts
+ import { serve } from '@hono/node-server'
+ import { Hono } from 'hono'
+ import { Upload } from '@aws-sdk/lib-storage'
+ import { S3Client } from '@aws-sdk/client-s3'
+
+ const {
+   AWS_ACCESS_KEY_ID,
+   AWS_SECRET_ACCESS_KEY,
+   AWS_REGION,
+   AWS_S3_BUCKET,
+   PORT = '3011',
+   AWS_ENDPOINT,
+   AWS_FORCE_STYLE,
+ } = process.env
+
+ if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !AWS_S3_BUCKET) {
+   console.error('Please provide AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET')
+   process.exit(1)
+ }
+
+ const s3 = new S3Client({
+   credentials: {
+     accessKeyId: AWS_ACCESS_KEY_ID,
+     secretAccessKey: AWS_SECRET_ACCESS_KEY,
+   },
+
+   region: AWS_REGION,
+   endpoint: AWS_ENDPOINT,
+   forcePathStyle: AWS_FORCE_STYLE === 'true',
+ })
+
+ const app = new Hono() as Hono<any>
+
+ app.post('/upload', async (c) => {
+   // if you are using v2 import, you need this
+   const file = await c.req.blob()
+
+   const filename = c.req.header('File-Name')
+   const fileType = c.req.header('Content-Type')
+   // end
+   // if you are using v1 import, you need this
+   const body = await c.req.parseBody()
+   const file = body['file']
+
+   const filename = file.name
+   const fileType = file.type
+   // end
+
+   if (!file) {
+     return c.json({ error: 'No file uploaded' }, 400)
+   }
+
+   try {
+     const data = await new Upload({
+       client: s3,
+       params: {
+         Bucket: AWS_S3_BUCKET,
+         Key: filename,
+         Body: file,
+         ContentType: fileType,
+       },
+     }).done()
+
+     return c.json({ url: data.Location })
+   } catch (error) {
+     console.error(error)
+     return c.json({ error: 'Failed to upload file' }, 500)
+   }
+ })
+
+ serve({
+   fetch: app.fetch,
+   port: Number(PORT) || 3000,
+ })
+```
+
+Here is another implementation using bun with no dependencies:
+
+```ts
+ const s3Client = new Bun.S3Client({
+   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+   region: process.env.AWS_REGION,
+   bucket: process.env.AWS_BUCKET,
+   endpoint: process.env.AWS_ENDPOINT,
+ })
+
+ Bun.serve({
+   port: 8081,
+   async fetch(req) {
+     const url = new URL(req.url)
+
+     // Handle file uploads on the /upload endpoint
+     if (url.pathname === '/upload') {
+
+       // if you are using v2 import, you need this
+       const file = await req.blob()
+
+       const filename = req.headers.get('File-Name')!
+       const fileType = req.headers.get('Content-Type')!
+       // end
+       // if you are using v1 import, you need this
+       const body = await req.formData()
+       const file = body.get('file')
+
+       const filename = file.name
+       const fileType = file.type
+       // end
+
+       const file = await req.blob()
+
+       if (!file) {
+         return new Response(JSON.stringify({ error: 'No file uploaded' }), {
+           status: 400,
+           headers: {
+             'content-type': 'application/json',
+           },
+         })
+       }
+
+       try {
+         // The file already has a name and type, so we can use it directly
+         const s3File = s3Client.file(filename, { type: fileType })
+         // Write the file to S3
+         await s3File.write(file)
+
+         return new Response(
+           JSON.stringify({
+             // Send the URL of the uploaded file back to the client to insert it into the editor
+             url: new Response(s3File).headers.get('location'),
+           }),
+           {
+             headers: {
+               'content-type': 'application/json',
+             },
+           },
+         )
+       } catch (error) {
+         return new Response(
+           JSON.stringify({
+             error: error instanceof Error ? error.message : 'Failed to upload file',
+           }),
+           {
+             status: 500,
+             headers: {
+               'content-type': 'application/json',
+             },
+           },
+         )
+       }
+     }
+
+     return new Response(JSON.stringify({ error: 'Not found' }), {
+       status: 404,
+     })
+   },
+ })
+```

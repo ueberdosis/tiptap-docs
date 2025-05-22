@@ -17,8 +17,11 @@ const options = [
         label: 'Collaboration',
         href: '/collaboration/getting-started/overview',
       },
-      { label: 'Content AI', href: '/content-ai/getting-started/overview' },
       { label: 'Comments', href: '/comments/getting-started/overview' },
+      { label: 'Content AI', href: '/content-ai/getting-started/overview' },
+      { label: 'History', href: '/collaboration/documents/history' },
+      { label: 'Conversion', href: '/conversion/getting-started/overview' },
+      { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
     ],
   },
   {
@@ -26,11 +29,7 @@ const options = [
     items: [
       { label: 'Guides', href: '/guides' },
       { label: 'Examples', href: '/examples' },
-      {
-        label: 'Templates',
-        href: 'https://templates.tiptap.dev',
-        target: '_blank',
-      },
+      { label: 'UI Components', href: '/ui-components/getting-started/overview' },
       { label: 'Website', href: 'https://tiptap.dev', target: '_blank' },
     ],
   },

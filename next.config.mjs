@@ -40,6 +40,86 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/text-generation',
         destination: '/content-ai/capabilities/text-generation/built-in-commands',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/odt',
+        destination: '/conversion/import-export/odt/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/markdown',
+        destination: '/conversion/import-export/markdown/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/generation',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/generation',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/generation/text-generation',
+        destination: '/content-ai/capabilities/generation/text-generation/built-in-commands',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/suggestion',
+        destination: '/content-ai/capabilities/suggestion/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/suggestion',
+        destination: '/content-ai/capabilities/suggestion/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/suggestion/features',
+        destination: '/content-ai/capabilities/suggestion/features/define-rules',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/changes',
+        destination: '/content-ai/capabilities/changes/overview',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/changes/features',
+        destination: '/content-ai/capabilities/changes/features/review-changes',
+        permanent: false,
+      },
+      {
+        source: '/content-ai/capabilities/text-generation',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: true,
+      },
+      {
+        source: '/collaboration/documents/conversion',
+        destination: '/conversion/getting-started/overview',
+        permanent: true,
+      },
+      {
+        source: '/ui-components/node-components',
+        destination: '/ui-components/node-components/code-block-node',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/components',
+        destination: '/ui-components/components/heading-button',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/primitives',
+        destination: '/ui-components/primitives/avatar',
+        permanent: false,
+      },
+      {
+        source: '/ui-components/getting-started',
+        destination: '/ui-components/getting-started/overview',
         permanent: false,
       },
     ]

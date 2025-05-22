@@ -5,6 +5,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
@@ -104,6 +105,7 @@ export default async function MarkdownPage({ params }: Props) {
 
   return (
     <>
+      <Layout.CTA />
       <Layout.Header config={sidebar ?? undefined} />
       <Layout.Wrapper>
         {sidebar ? <Layout.Sidebar config={sidebar} /> : null}

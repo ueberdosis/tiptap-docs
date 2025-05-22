@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/collaboration/getting-started',
-      title: 'Getting started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
@@ -72,12 +72,16 @@ export const sidebarConfig: SidebarConfig = {
           href: '/collaboration/documents/history',
         },
         {
+          title: 'Compare Snapshots',
+          href: '/collaboration/documents/snapshot-compare',
+        },
+        {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
         },
         {
-          title: 'Conversion',
-          href: '/collaboration/documents/conversion',
+          title: 'Semantic Search',
+          href: '/collaboration/documents/semantic-search',
           tags: ['Beta'],
         },
       ],

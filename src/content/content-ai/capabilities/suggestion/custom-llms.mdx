@@ -1,0 +1,298 @@
+---
+title: Integrate your custom backend and LLMs
+meta:
+  title: Custom LLM | Tiptap AI Suggestion
+  description: Integrate your own backend and LLMs with the AI Suggestion extension for custom suggestions.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+By default, the AI Suggestion extension uses the Tiptap Content AI Cloud to generate suggestions for your content. This lets you use its capabilities with minimal setup. However, you can integrate your own backend and LLMs to generate suggestions.
+
+<Callout title="Custom LLM demo" variant="info">
+  We provide our Business and Enterprise customers with a detailed Custom LLM demo. It includes the client and server code, and
+  instructions on how to run and deploy it. See [plans and pricing](https://tiptap.dev/pricing).
+</Callout>
+
+The AI Suggestion extension supports different degrees of customization. You can:
+
+1. Use the Tiptap Content AI Cloud, but customize the OpenAI model.
+2. Replace the API endpoint to get the suggestions data with your own LLM and backend, but let the extension handle how suggestions are displayed and applied. This is the recommended approach for most use cases, as we handle most of the complexity for you: comparing the old and new editor content, displaying the diff in a pleasant way, and handling conflicts.
+3. Implement your own resolver function entirely. This gives you total flexibility to decide how suggestions are displayed in the editor. It is only recommended in advanced scenarios.
+
+## Customize the OpenAI Model in Tiptap Cloud
+
+You can configure the OpenAI model to use for generating suggestions with the `model` option. The default model is `gpt-4o-mini`. It provides a good balance between speed, cost and accuracy.
+
+If you want to improve the suggestions' quality, you can use a larger model like `gpt-4o`. Bear in mind that larger models tend to be more expensive, slower, and have a higher latency.
+
+```ts
+AiSuggestion.configure({
+  // The model to use for generating suggestions. Defaults to "gpt-4o-mini"
+  model: 'gpt-4o',
+})
+```
+
+## Replace the API Endpoint (Recommended)
+
+If you want to use your own backend and LLMs to generate suggestions, you can provide a custom `apiResolver` function. This function should call your backend and return an array of suggestions based on the editor's content and rules.
+
+```tsx
+AiSuggestion.configure({
+  async resolver({ defaultResolver, ...options }) {
+    const suggestions = defaultResolver({
+      ...options,
+      apiResolver: async ({ html, htmlChunks, rules }) => {
+        // Generate the response by calling your custom backend and LLMs
+        const response = await claudeSonnetApi({ html, htmlChunks, rules })
+
+        // Return the response in the correct format (see details below)
+        return { format: 'replacements', content: response }
+      },
+    })
+
+    return suggestions
+  },
+})
+```
+
+To provide maximum flexibility, the `apiResolver` accepts the response in two formats:
+
+### `replacements` Format (recommended)
+
+The response is an array of replacements that will be applied to the editor's content. It is useful when the suggestions modify specific parts of the document. It is the format used internally in our Tiptap Content AI Cloud, which has given us the best results so far.
+It contains the following properties:
+
+- `items`: A list of suggestions. Each suggestion has the following properties:
+  - `ruleId`: The ID of the rule that generated the suggestion.
+  - `deleteHtml`: The HTML content to be deleted from the editor.
+  - `insertHtml`: The HTML content to be inserted into the editor.
+  - `chunkId`: The ID of the chunk where the suggestion should be applied.
+- `htmlChunks`: A list of all the chunks of HTML code in the editor content. Each chunk has these properties:
+  - `id`: A unique identifier for the chunk.
+  - `html`: The HTML content of the chunk.
+  - `generateSuggestions`: Whether the AI model did generate suggestions for this chunk. Otherwise, if set to `false`, the suggestions will be fetched from the extension's internal cache.
+
+Make sure the `htmlChunks` property contains all the chunks of HTML code in the editor content, otherwise the caching mechanism will not work properly.
+
+You can easily get the value of the `htmlChunks` property by reading the `htmlChunks` argument of the `apiResolver` function.
+
+Here is an example response in the `replacements` format.
+
+```json
+{
+  "format": "replacements",
+  "content": {
+    "htmlChunks": [
+      {
+        "id": "1",
+        "html": "<p>Hello, welcome to our awesome app! We hope you guys will love it. Our aplication offers unique features that enhance your cooking experience. You can explore various cuisines and share your food momentts.</p><p>Hola, estamos emocionados de tenerte aquí. Our app is not just about recipes but also about building a community. We believe this will transform how you cook.</p>",
+        "generateSuggestions": true
+      },
+      {
+        "id": "2",
+        "html": "<p>Please check out our cool fetures and enjoy cooking with us. Si tienes dudas, no dudes en preguntar.</p>",
+        "generateSuggestions": true
+      }
+    ],
+    "items": [
+      {
+        "ruleId": "1",
+        "deleteHtml": "Hola, estamos <bold>emocionados</bold> de tenerte aquí.",
+        "insertHtml": "Hello, we are <bold>excited</bold> to have you here.",
+        "chunkId": "1"
+      },
+      {
+        "ruleId": "2",
+        "deleteHtml": "aplication",
+        "insertHtml": "application",
+        "chunkId": "1"
+      },
+      {
+        "ruleId": "2",
+        "deleteHtml": "momentts",
+        "insertHtml": "moments",
+        "chunkId": "1"
+      },
+      {
+        "ruleId": "1",
+        "deleteHtml": "Si tienes dudas, no dudes en preguntar.",
+        "insertHtml": "If you have any questions, feel free to ask.",
+        "chunkId": "2"
+      },
+      {
+        "ruleId": "2",
+        "deleteHtml": "fetures",
+        "insertHtml": "features",
+        "chunkId": "2"
+      }
+    ]
+  }
+}
+```
+
+### `fullHtml` Format
+
+The response is a full HTML string that will replace the editor's content. This is useful when you want to replace the entire content with the suggestions. We've found this format to perform very well when there is only one rule to apply, but less so when there are multiple rules. This format does not support chunking and caching.
+
+```json
+{
+  "format": "fullHtml",
+  "content": {
+    "items": [
+      {
+        "ruleId": "1",
+        "fullHtml": "<p>Hello, welcome to our awesome app! We hope you guys will love it. Our aplication offers unique features that enhance your cooking experience. You can explore various cuisines and share your food momentts.</p><p>Hello, we are excited to have you here. Our app is not just about recipes but also about building a community. We believe this will transform how you cook.</p><p>Please check out our cool fetures and enjoy cooking with us. If you have doubts, do not hesitate to ask.</p>"
+      },
+      {
+        "ruleId": "2",
+        "fullHtml": "<p>Hello, welcome to our awesome app! We hope you guys will love it. Our application offers unique features that enhance your cooking experience. You can explore various cuisines and share your food moments.</p><p>Hola, estamos emocionados de tenerte aquí. Our app is not just about recipes but also about building a community. We believe this will transform how you cook.</p><p>Please check out our cool features and enjoy cooking with us. Si tienes dudas, no dudes en preguntar.</p>"
+      }
+    ]
+  }
+}
+```
+
+### Improving Accuracy
+
+LLMs can make mistakes, making it difficult to ensure that their responses follow the desired format. To improve the accuracy of your custom models, we recommend following these best practices and prompt engineering techniques.
+
+- Before implementing improvements, evaluate your custom endpoint's responses and measure their performance and accuracy. Use an evaluation framework like [Evalite](https://www.evalite.dev/). This helps you refine and compare prompts for better performance.
+- If you use the `replacements` format, take advantage of [OpenAI structured outputs](https://platform.openai.com/docs/guides/structured-outputs) (or the equivalent feature in other LLM providers) to ensure that responses are JSON objects that comply with a specific schema.
+- If you use the `fullHtml` format, leverage [OpenAI predicted outputs](https://platform.openai.com/docs/guides/predicted-outputs) (or the equivalent feature in other LLM providers) to ensure that responses do not deviate excessively from the original editor content.
+- Adjust the `temperature` or `top_p` [parameters](https://platform.openai.com/docs/api-reference/completions/create) to control the randomness of the model's output.
+- LLM providers have official guides on [best practices](https://platform.openai.com/docs/guides/prompt-engineering), optimizing [latency](https://platform.openai.com/docs/guides/latency-optimization), and improving [accuracy](https://platform.openai.com/docs/guides/optimizing-llm-accuracy).
+- Different proofreading rules work best with different prompting approaches and response formats. You do not need to choose between the `replacements` or the `fullHtml` format—you can use both! Define an API endpoint that returns the suggestions in the `replacements` format, and another that generates them in the `fullHtml` format. Here is an example:
+
+  ```tsx
+  AiSuggestion.configure({
+    async resolver({ defaultResolver, rules, ...options }) {
+     // Split the rules into two groups
+     const {
+     rulesForFirstApi,
+     rulesForSecondApi,
+    } = splitRules(rules)
+
+    // Send the first group of rules to the first api endpoint
+      const suggestions1 = await defaultResolver({
+        ...options,
+        rules: rulesForFirstApiEndpoint
+        apiResolver: async ({ html, htmlChunks, rules }) => {
+          const response = await firstApi({ html, htmlChunks, rules });
+          return { format: "replacements", content: response };
+        },
+      });
+
+      // Send the second group of rules to the second api endpoint
+      const suggestions2 = await defaultResolver({
+        ...options,
+        rules: rulesForSecondApiEndpoint
+        apiResolver: async ({ html, htmlChunks, rules }) => {
+          const response = await secondApi({ html, htmlChunks, rules });
+          return { format: "fullHtml", content: response };
+        },
+      });
+
+    // Merge both lists of suggestions
+      return [...suggestions1, ...suggestions2]
+    },
+  ```
+
+### Improving Performance
+
+To enhance the performance of your API and custom LLM models when generating suggestions, consider the following strategies:
+
+- Choose a model that balances accuracy with speed and low latency. Use leaderboards like [Artificial Analysis](https://artificialanalysis.ai/#intelligence-vs-output-speed) to compare models across different metrics.
+- Before implementing performance improvements, measure your API's response times. If your pipeline includes multiple steps or model calls, analyze each step to identify bottlenecks. Use an evaluation framework like [Evalite](https://www.evalite.dev/) to iterate on prompts and compare their effectiveness.
+- Leverage [OpenAI predicted outputs](https://platform.openai.com/docs/guides/predicted-outputs) (or the equivalent feature in other LLM providers) to improve latency and processing speed.
+- Chunk editor content into sub-sections and process them in parallel to reduce overall processing time, especially for large documents. Take advantage of the built-in chunking and caching mechanism of the extension, and only reload the suggestions of the chunks that have changed.
+- Structure your prompt to take advantage of full or [partial caching](https://platform.openai.com/docs/guides/prompt-caching). Note that different LLM providers offer varying caching implementations, and some may not support it. If necessary, implement your own caching mechanism to reuse LLM responses for identical or similar prompts.
+- Streaming responses can improve the perceived performance of your API, particularly for large documents, by allowing suggestions to be displayed before the entire response is generated. While our AI Suggestion extension currently does not support streaming, we are considering adding this feature in future versions. If you believe your application would benefit from it, reach out to us at humans@tiptap.dev.
+
+## Replace the Resolver Function Entirely (Advanced)
+
+If you want to have total control over how the editor suggestions are generated, including their exact position in the document, you can do so by providing a custom `resolver` function. This function should return an array of suggestions based on the editor's content and rules.
+
+To generate valid suggestion objects, your code needs to compute [their positions in the editor](https://prosemirror.net/docs/guide/#doc.indexing). This will most likely involve comparing the editor's current content with the content that has been generated by the LLM. To see an example on how to do this, you can check the default resolver function in the extension's source code.
+
+To learn more about the data that each suggestion object should contain, check the [API reference](/content-ai/capabilities/suggestion/api-reference#proofreading-suggestions).
+
+```tsx
+AiSuggestion.configure({
+  async resolver({ defaultResolver, ...options }) {
+    const suggestions = await customResolver(options)
+    return suggestions
+  },
+})
+```
+
+Overall, the approach of implementing your custom resolver will take more work to implement, but it will give you more flexibility. We only recommend it for advanced use cases.
+
+## Combine the Tiptap Content AI Cloud With Your Own Backend
+
+You do not have to choose between using the Tiptap Content AI Cloud or your own backend. You can combine the two, and get the best of both worlds.
+
+```tsx
+AiSuggestion.configure({
+  async resolver({ defaultResolver, rules, ...options }) {
+    // Split the rules into two groups
+    const { rulesForDefaultSuggestions, rulesForCustomSuggestions } = splitRules(rules)
+
+    // Get suggestions from Tiptap Content AI Cloud
+    const defaultSuggestions = await defaultResolver({
+      ...options,
+      rules: rulesForDefaultSuggestions,
+    })
+    // Get suggestions from your own backend
+    const customSuggestions = await customResolver({
+      ...options,
+      rules: rulesForCustomSuggestions,
+    })
+
+    // merge both lists of suggestions
+    return [...defaultSuggestions, ...customSuggestions]
+  },
+})
+```
+
+## Generate Proofreading Suggestions Without AI
+
+You don’t need to use AI to generate proofreading suggestions. You can combine AI models with classic proofreading techniques. For example, you can check for certain words and replace them. Here is an example of a resolver that generates suggestions that replace the word “hello” with “goodbye”.
+
+```tsx
+AiSuggestion.configure({
+  rules: [
+    {
+      id: '1',
+      title: 'Replace hello with goodbye',
+      // The prompt will not be used because we do not use an LLM to generate suggestions for this rule
+      prompt: 'Replace hello with goodbye',
+      color: '#DC143C',
+      backgroundColor: 'FFE6E6',
+    },
+  ],
+  async resolver({ defaultResolver, ...options }) {
+    const suggestions = await defaultResolver({
+      ...options,
+      apiResolver: async ({ html, rules }) => {
+        // Generate the response without needing to call an LLM
+        return {
+          format: 'fullHtml',
+          content: {
+            items: [
+              {
+                ruleId: '1',
+                // return the new document html after replacing "hello" with "goodbye"
+                fullHtml: html.replaceAll('hello', 'goodbye'),
+              },
+            ],
+          },
+        }
+      },
+    })
+
+    return suggestions
+  },
+})
+```

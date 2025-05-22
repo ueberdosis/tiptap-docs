@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       type: 'group',
-      title: 'Getting started',
+      title: 'Get started',
       href: '/examples',
       children: [
         {
@@ -81,6 +81,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/examples/advanced/interactive-react-and-vue-views',
         },
         {
+          title: 'Retrieval-Augmented Generation (RAG)',
+          href: '/examples/advanced/retrieval-augmented-generation-rag',
+        },
+        {
           title: 'React performance',
           href: '/examples/advanced/react-performance',
         },
@@ -103,6 +107,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '',
       title: 'Experiments',
       children: [
+        {
+          title: 'AI agent',
+          href: '/examples/experiments/ai-agent',
+        },
         {
           title: 'Collaborative fields',
           href: '/examples/experiments/collaborative-fields',

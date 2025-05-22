@@ -121,6 +121,10 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
     return <Tag variant="info">New</Tag>
   }
 
+  if (tag.type === 'beta') {
+    return <Tag variant="info">Beta</Tag>
+  }
+
   if (tag.type === 'experiment') {
     return <Tag>Experiment</Tag>
   }
