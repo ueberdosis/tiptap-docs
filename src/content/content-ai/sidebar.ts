@@ -193,10 +193,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/content-ai/capabilities/agent/overview',
         },
         {
-          title: 'What are AI Agents?',
-          href: '/content-ai/capabilities/agent/overview',
-        },
-        {
           title: 'Install',
           href: '/content-ai/capabilities/agent/install',
         },
