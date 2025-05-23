@@ -180,71 +180,70 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
-      ],
-    },
-    {
-      type: 'group',
-      title: 'AI Agent',
-      href: '/content-ai/capabilities/agent',
-      tags: ['Pro', 'Beta'],
-      children: [
         {
-          title: 'Overview',
-          href: '/content-ai/capabilities/agent/overview',
-        },
-        {
-          title: 'Install',
-          href: '/content-ai/capabilities/agent/install',
-        },
-        {
-          title: 'Use with Content AI Cloud',
-          href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
-        },
-        {
-          title: 'Features',
-          href: '/content-ai/capabilities/agent/features',
+          title: 'AI Agent',
+          href: '/content-ai/capabilities/agent',
+          tags: ['Pro', 'Beta'],
           children: [
             {
-              title: 'State Management',
-              href: '/content-ai/capabilities/agent/features/state-management',
+              title: 'Overview',
+              href: '/content-ai/capabilities/agent/overview',
             },
             {
-              title: 'Listen to events',
-              href: '/content-ai/capabilities/agent/features/events',
+              title: 'Install',
+              href: '/content-ai/capabilities/agent/install',
             },
             {
-              title: 'Available Methods',
-              href: '/content-ai/capabilities/agent/features/methods',
+              title: 'Use with Content AI Cloud',
+              href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
             },
             {
-              title: 'Manage Checkpoints',
-              href: '/content-ai/capabilities/agent/features/checkpoints',
+              title: 'Features',
+              href: '/content-ai/capabilities/agent/features',
+              children: [
+                {
+                  title: 'State Management',
+                  href: '/content-ai/capabilities/agent/features/state-management',
+                },
+                {
+                  title: 'Listen to events',
+                  href: '/content-ai/capabilities/agent/features/events',
+                },
+                {
+                  title: 'Available Methods',
+                  href: '/content-ai/capabilities/agent/features/methods',
+                },
+                {
+                  title: 'Manage Checkpoints',
+                  href: '/content-ai/capabilities/agent/features/checkpoints',
+                },
+                {
+                  title: 'AI Agent Lifecycle',
+                  href: '/content-ai/capabilities/agent/features/runs',
+                },
+                {
+                  title: 'Reading the document',
+                  href: '/content-ai/capabilities/agent/features/reading-the-document',
+                },
+                {
+                  title: 'Review AI-generated changes',
+                  href: '/content-ai/capabilities/agent/features/review',
+                },
+              ],
             },
             {
-              title: 'AI Agent Lifecycle',
-              href: '/content-ai/capabilities/agent/features/runs',
+              title: 'Integrate your LLM',
+              href: '/content-ai/capabilities/agent/custom-llms',
             },
             {
-              title: 'Reading the document',
-              href: '/content-ai/capabilities/agent/features/reading-the-document',
+              title: 'Configure',
+              href: '/content-ai/capabilities/agent/configure',
             },
             {
-              title: 'Review AI-generated changes',
-              href: '/content-ai/capabilities/agent/features/review',
+              title: 'API Reference',
+              href: '/content-ai/capabilities/agent/api-reference',
             },
           ],
-        },
-        {
-          title: 'Integrate your LLM',
-          href: '/content-ai/capabilities/agent/custom-llms',
-        },
-        {
-          title: 'Configure',
-          href: '/content-ai/capabilities/agent/configure',
-        },
-        {
-          title: 'API Reference',
-          href: '/content-ai/capabilities/agent/api-reference',
         },
       ],
     },
