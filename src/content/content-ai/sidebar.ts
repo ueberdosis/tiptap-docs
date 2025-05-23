@@ -242,6 +242,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Configure',
           href: '/content-ai/capabilities/agent/configure',
         },
+        {
+          title: 'API Reference',
+          href: '/content-ai/capabilities/agent/api-reference',
+        },
       ],
     },
     {
