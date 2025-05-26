@@ -98,6 +98,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/agent',
+        destination: '/content-ai/capabilities/agent/overview',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features',
+        destination: '/content-ai/capabilities/agent/features/state-management',
+        permanent: true,
+      },
+      {
         source: '/collaboration/documents/conversion',
         destination: '/conversion/getting-started/overview',
         permanent: true,
