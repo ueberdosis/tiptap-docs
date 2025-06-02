@@ -817,7 +817,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Guides',
         },
         {
-          href: '/resources/pro-license',
+          href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
       ],

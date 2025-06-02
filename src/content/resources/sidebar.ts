@@ -81,7 +81,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Editor changelog',
         },
         {
-          href: '/resources/pro-license',
+          href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
       ],
