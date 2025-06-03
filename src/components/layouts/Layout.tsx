@@ -34,12 +34,9 @@ export const LayoutCTABar = () => {
     return null
   }
 
-  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
-
   return (
     <Link
       href={CTA_BAR.url}
-      target={target}
       className="flex gap-2 justify-center items-center bg-gradient-to-r from-purple-600 to-purple-800 font-semibold text-white text-sm text-center px-2 py-3 group"
     >
       <span className="leading-none">{CTA_BAR.text}</span>
@@ -143,7 +140,7 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
         <div
           {...rest}
           className={cn(
-            'hidden lg:block flex-none sticky top-[4.25rem] px-2 py-6 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
+            'hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}

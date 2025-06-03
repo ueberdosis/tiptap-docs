@@ -1,7 +1,7 @@
 import createMdx from '@next/mdx'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
-import rehypeHighlight from 'rehype-highlight'
+import rehypeShiki from '@shikijs/rehype'
 import remarkGfm from 'remark-gfm'
 
 /** @type {import('next').NextConfig} */
@@ -98,6 +98,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/agent',
+        destination: '/content-ai/capabilities/agent/overview',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features',
+        destination: '/content-ai/capabilities/agent/features/state-management',
+        permanent: true,
+      },
+      {
         source: '/collaboration/documents/conversion',
         destination: '/conversion/getting-started/overview',
         permanent: true,
@@ -129,7 +139,14 @@ const nextConfig = {
 const withMDX = createMdx({
   options: {
     remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm],
-    rehypePlugins: [rehypeHighlight],
+    rehypePlugins: [
+      [
+        rehypeShiki,
+        {
+          theme: 'github-dark-high-contrast',
+        },
+      ],
+    ],
   },
 })
 

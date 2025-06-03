@@ -1,5 +1,18 @@
 # tiptap-docs
 
+## 2.0.0
+
+### Major Changes
+
+- 8f1ef5e: Update docs for undo-redo extension to reflect the renaming changes
+- cc5f055: Updated docs to reflect package name changes for collaboration cursor
+- 01958bd: Add new API for FloatingUI based BubbleMenu and FloatingMenu extensions
+
+### Minor Changes
+
+- 3d5120a: fix for example link for CodeBlockLowlight extension
+- 4e46777: Changed the docs for the AI extension and removed the AI Advanced documentation
+
 ## 1.1.0
 
 ### Minor Changes

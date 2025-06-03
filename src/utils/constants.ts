@@ -8,11 +8,12 @@ export const PRO_DEMO_URL =
 export const BASE_PATH = process.env.BASE_PATH || process.env.NEXT_PUBLIC_BASE_PATH || ''
 export const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'
 export const FULL_DOMAIN = `${DOMAIN}${BASE_PATH}`
+export const IS_NEXT = process.env.NEXT_PUBLIC_NEXT === 'true' ? true : false
 
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || null
 export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
 
-export const CURRENT_VERSION = '2.x'
+export const CURRENT_VERSION = '3.x'
 
 export const VERSIONS: Array<VersionData> = [
   {
@@ -32,6 +33,6 @@ export const VERSIONS: Array<VersionData> = [
 ]
 
 export const CTA_BAR: CTABarOptions | null = {
-  text: 'Tiptap Editor 3.0 Beta is out. Start here',
-  url: 'https://next.tiptap.dev/docs/resources/whats-new',
+  text: "Find out what's new in Tiptap V3",
+  url: '/resources/whats-new',
 }

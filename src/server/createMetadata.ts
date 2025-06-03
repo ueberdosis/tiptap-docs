@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { FULL_DOMAIN } from '@/utils/constants'
+import { FULL_DOMAIN, IS_NEXT } from '@/utils/constants'
 import { isProductionSite } from '@/utils/isProductionSite'
 
 export async function createMetadata({
@@ -42,7 +42,7 @@ export async function createMetadata({
       ],
     },
     alternates: {
-      canonical: canonicalUrl,
+      canonical: !IS_NEXT ? canonicalUrl : '',
     },
   }
 }
