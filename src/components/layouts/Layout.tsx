@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { ArrowRightIcon } from 'lucide-react'
 import { PageEditStatus } from '../ui/PageEditStatus'
+import PageHelpFeedback from '../PageHelpFeedback'
 import { TiptapLogo } from '../TiptapLogo'
 import { ProductDropdown } from '../ProductDropdown'
 import { NavLink } from '../NavLink'
@@ -143,7 +144,7 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
         <div
           {...rest}
           className={cn(
-            'hidden lg:block flex-none sticky top-[4.25rem] px-2 py-6 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
+            'hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}
@@ -199,13 +200,15 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
         <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
-          <div className="flex flex-col items-start justify-between gap-4 lg:flex-row">
-            <div className="flex flex-col items-start flex-none">
+          <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
+            <div className="flex flex-col items-start flex-none z-10">
               <PageEditFooter />
             </div>
-            <div className="flex flex-col items-end flex-none"></div>
+            <div className="flex flex-col items-end flex-none z-20 w-full lg:absolute lg:right-0 lg:top-0 lg:w-auto lg:static">
+              <PageHelpFeedback />
+            </div>
           </div>
-          <div className="flex flex-col items-start justify-between gap-4 mt-12 text-sm">
+          <div className="flex flex-col items-start justify-between gap-4 mt-14 text-sm">
             <div className="flex flex-wrap items-center flex-none gap-3">
               <Link
                 className="hover:underline"
