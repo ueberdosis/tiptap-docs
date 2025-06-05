@@ -13,7 +13,7 @@ export const IS_NEXT = process.env.NEXT_PUBLIC_NEXT === 'true' ? true : false
 export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || null
 export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
 
-export const CURRENT_VERSION = '3.x'
+export const CURRENT_VERSION = '2.x'
 
 export const VERSIONS: Array<VersionData> = [
   {

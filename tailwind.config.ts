@@ -31,6 +31,7 @@ const config: Config = {
   },
   theme: {
     extend: {
+
       colors: {
         white: '#FFFFFF',
         black: '#0D0D0D',

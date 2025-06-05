@@ -68,6 +68,41 @@ export const sidebarConfig: SidebarConfig = {
       ],
     },
     {
+      title: 'Migration',
+      type: 'group',
+      href: '',
+      children: [
+        {
+          href: '/guides/migrate-from-tinymce',
+          title: 'Migrate from TinyMCE',
+        },
+        {
+          href: '/guides/migrate-from-ckeditor5',
+          title: 'Migrate from CKEditor 5',
+        },
+        {
+          href: '/guides/migrate-from-quill',
+          title: 'Migrate from Quill',
+        },
+        {
+          href: '/guides/migrate-from-slate',
+          title: 'Migrate from Slate',
+        },
+        {
+          href: '/guides/migrate-from-lexical',
+          title: 'Migrate from Lexical',
+        },
+        {
+          href: '/guides/migrate-from-editorjs',
+          title: 'Migrate from Editor.js',
+        },
+        {
+          href: '/guides/migrate-from-draftjs',
+          title: 'Migrate from Draft.js',
+        },
+      ],
+    },
+    {
       title: 'Customization',
       type: 'group',
       href: '',

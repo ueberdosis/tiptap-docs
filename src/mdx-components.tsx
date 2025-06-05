@@ -27,6 +27,7 @@ const hashClass =
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
+    wrapper: ({ children }) => <>{children}</>,
     pre: (props) => (
       <Codeblock>
         <pre className="hljs">{props.children}</pre>
