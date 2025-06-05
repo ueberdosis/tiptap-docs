@@ -23,7 +23,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'AI Generation',
-          tags: ['Pro'],
+          tags: ['Paid'],
           href: '/content-ai/capabilities/generation/',
           children: [
             {
@@ -85,7 +85,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Suggestion',
           href: '/content-ai/capabilities/suggestion',
-          tags: ['Pro', 'Beta'],
+          tags: ['Paid', 'Beta'],
           children: [
             {
               title: 'Overview',
@@ -146,7 +146,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Changes',
           href: '/content-ai/capabilities/changes',
-          tags: ['Pro', 'Beta'],
+          tags: ['Paid', 'Beta'],
           children: [
             {
               title: 'Overview',
@@ -183,7 +183,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Agent',
           href: '/content-ai/capabilities/agent',
-          tags: ['Pro', 'Beta'],
+          tags: ['Paid', 'Beta'],
           children: [
             {
               title: 'Overview',
