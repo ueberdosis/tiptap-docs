@@ -68,6 +68,17 @@ export const sidebarConfig: SidebarConfig = {
       ],
     },
     {
+      title: 'Customization',
+      type: 'group',
+      href: '',
+      children: [
+        {
+          href: '/guides/typescript',
+          title: 'Extend with TypeScript',
+        },
+      ],
+    },
+    {
       title: 'Migration',
       type: 'group',
       href: '',
@@ -99,17 +110,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/guides/migrate-from-draftjs',
           title: 'Migrate from Draft.js',
-        },
-      ],
-    },
-    {
-      title: 'Customization',
-      type: 'group',
-      href: '',
-      children: [
-        {
-          href: '/guides/typescript',
-          title: 'Extend with TypeScript',
         },
       ],
     },
