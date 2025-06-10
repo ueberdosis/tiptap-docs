@@ -29,7 +29,17 @@ export type SidebarConfig = {
 }
 
 export type GeneralPageTag = {
-  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents' | 'beta' | 'start' | 'team'
+  type:
+    | 'pro'
+    | 'new'
+    | 'experiment'
+    | 'ai'
+    | 'collaboration'
+    | 'editor'
+    | 'documents'
+    | 'beta'
+    | 'start'
+    | 'team'
   tooltip?: string
 }
 

@@ -98,7 +98,14 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'pro') {
-    return <Tag variant="invert" tooltip={tag.tooltip || "Pro extensions require a Tiptap subscription."}>Pro Extension</Tag>
+    return (
+      <Tag
+        variant="invert"
+        tooltip={tag.tooltip || 'Pro extensions require a Tiptap subscription.'}
+      >
+        Pro Extension
+      </Tag>
+    )
   }
 
   if (tag.type === 'start') {
@@ -126,11 +133,19 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'new') {
-    return <Tag variant="info" tooltip={tag.tooltip}>New</Tag>
+    return (
+      <Tag variant="info" tooltip={tag.tooltip}>
+        New
+      </Tag>
+    )
   }
 
   if (tag.type === 'beta') {
-    return <Tag variant="info" tooltip={tag.tooltip}>Beta</Tag>
+    return (
+      <Tag variant="info" tooltip={tag.tooltip}>
+        Beta
+      </Tag>
+    )
   }
 
   if (tag.type === 'experiment') {

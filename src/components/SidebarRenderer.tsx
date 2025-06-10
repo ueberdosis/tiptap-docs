@@ -74,16 +74,18 @@ export const LinkItem = ({
         isActive={isActive}
         onClick={link.href === '' ? toggleOpen : undefined}
       >
-        <Link 
-          href={link.href} 
-          onClick={onClick} 
+        <Link
+          href={link.href}
+          onClick={onClick}
           className="flex items-center justify-between w-full"
-          target={link.external ? "_blank" : undefined}
-          rel={link.external ? "noopener noreferrer" : undefined}
+          target={link.external ? '_blank' : undefined}
+          rel={link.external ? 'noopener noreferrer' : undefined}
         >
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
-            {link.beta && <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>}
+            {link.beta && (
+              <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+            )}
           </span>
           <span className="flex gap-1 items-center">
             {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
