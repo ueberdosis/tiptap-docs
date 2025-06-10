@@ -82,7 +82,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Semantic Search',
           href: '/collaboration/documents/semantic-search',
-          tags: ['Beta'],
+          beta: true,
         },
       ],
     },

@@ -98,35 +98,58 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'pro') {
-    return <Tag variant="invert">Pro Extension</Tag>
+    return (
+      <Tag
+        variant="invert"
+        tooltip={tag.tooltip || 'Pro extensions require a Tiptap subscription.'}
+      >
+        Pro Extension
+      </Tag>
+    )
+  }
+
+  if (tag.type === 'start') {
+    return <Tag tooltip={tag.tooltip}>Available in Start plan</Tag>
+  }
+
+  if (tag.type === 'team') {
+    return <Tag tooltip={tag.tooltip}>Available in the Team plan</Tag>
   }
 
   if (tag.type === 'ai') {
-    return <Tag>Content AI</Tag>
+    return <Tag tooltip={tag.tooltip}>Content AI</Tag>
   }
 
   if (tag.type === 'collaboration') {
-    return <Tag>Collaboration</Tag>
+    return <Tag tooltip={tag.tooltip}>Collaboration</Tag>
   }
 
   if (tag.type === 'documents') {
-    return <Tag>Documents</Tag>
+    return <Tag tooltip={tag.tooltip}>Documents</Tag>
   }
 
   if (tag.type === 'editor') {
-    return <Tag>Editor</Tag>
+    return <Tag tooltip={tag.tooltip}>Editor</Tag>
   }
 
   if (tag.type === 'new') {
-    return <Tag variant="info">New</Tag>
+    return (
+      <Tag variant="info" tooltip={tag.tooltip}>
+        New
+      </Tag>
+    )
   }
 
   if (tag.type === 'beta') {
-    return <Tag variant="info">Beta</Tag>
+    return (
+      <Tag variant="info" tooltip={tag.tooltip}>
+        Beta
+      </Tag>
+    )
   }
 
   if (tag.type === 'experiment') {
-    return <Tag>Experiment</Tag>
+    return <Tag tooltip={tag.tooltip}>Experiment</Tag>
   }
 }
 

@@ -73,10 +73,10 @@ const SidebarButton = forwardRef<HTMLButtonElement, SidebarButtonProps>(
       <Component
         {...rest}
         className={cn(
-          'bg-transparent flex items-center justify-between w-full px-2.5 py-1.5 text-sm text-grayAlpha-900 rounded-md',
+          'flex items-center justify-between w-full px-2.5 py-1.5 text-sm text-grayAlpha-900 rounded-md',
           !isActive
-            ? 'hover:text-grayAlpha-900 hover:bg-grayAlpha-100'
-            : 'text-purple-500 font-semibold',
+            ? 'bg-transparent hover:text-grayAlpha-900 hover:bg-grayAlpha-100'
+            : 'bg-white text-purple-500 font-semibold',
           className,
         )}
         ref={ref}
