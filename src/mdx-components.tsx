@@ -4,6 +4,7 @@ import { HashIcon } from 'lucide-react'
 import React from 'react'
 import { Codeblock } from './components/Codeblock'
 import Link from '@/components/Link'
+import { Checklist, CheckboxItem } from './components/Checklist'
 
 /**
  * Extracts the text from a nested children object
@@ -111,5 +112,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       // @ts-ignore
       return <Link {...props} target={isExternal ? '_blank' : props.target} />
     },
+    // Direct custom component usage
+    Checklist,
+    CheckboxItem,
   }
 }
