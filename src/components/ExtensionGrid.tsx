@@ -77,18 +77,23 @@ function useFilteredExtensions(
         ext.description.toLowerCase().includes(query.toLowerCase())
       )
     }
-    
+
     // When "Team" is selected, show both Team and Start plan extensions
     if (filter === SEARCH_FILTER.TEAM) {
       // Check if it's either a Team extension or also has Start tag
-      return (ext.tags?.includes('Team') || ext.tags?.includes('Start')) && (
-        ext.name.toLowerCase().includes(query.toLowerCase()) ||
-        ext.description.toLowerCase().includes(query.toLowerCase())
+      return (
+        (ext.tags?.includes('Team') || ext.tags?.includes('Start')) &&
+        (ext.name.toLowerCase().includes(query.toLowerCase()) ||
+          ext.description.toLowerCase().includes(query.toLowerCase()))
       )
     }
-    
+
     // Other filter logic remains the same
-    if (filter === SEARCH_FILTER.OPEN_SOURCE && (ext.tags?.includes('Start') || ext.tags?.includes('Team'))) return false
+    if (
+      filter === SEARCH_FILTER.OPEN_SOURCE &&
+      (ext.tags?.includes('Start') || ext.tags?.includes('Team'))
+    )
+      return false
     if (filter === SEARCH_FILTER.START && !ext.tags?.includes('Start')) return false
 
     return (
@@ -98,7 +103,7 @@ function useFilteredExtensions(
   })
 }
 
-function ExtensionCard({ ext, currentFilter }: { ext: ExtensionMetaWithUrl; currentFilter?: SearchFilter }) {
+function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: SearchFilter }) {
   const Icon = getIcon(ext.icon)
   return (
     <Card isClickable asChild>
@@ -113,9 +118,7 @@ function ExtensionCard({ ext, currentFilter }: { ext: ExtensionMetaWithUrl; curr
         <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {/* Always show all tags regardless of filter */}
-          {ext.tags?.map(tag => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
+          {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
         </div>
       </Link>
     </Card>
@@ -180,9 +183,9 @@ export const ExtensionGrid = ({
   markExtensions,
   nodeExtensions,
   hideAll,
-  hideFree,
 }: ExtensionGridProps) => {
-  const { clear, handleInput, query, filter, showAll, showOpenSource, showStart, showTeam } = useSearch()
+  const { clear, handleInput, query, filter, showAll, showOpenSource, showStart, showTeam } =
+    useSearch()
   const allExtensions = useAllExtensions(nodeExtensions, markExtensions, functionalityExtensions)
   const filteredNodeExtensions = useFilteredExtensions(query, nodeExtensions, filter)
   const filteredMarkExtensions = useFilteredExtensions(query, markExtensions, filter)
@@ -192,17 +195,17 @@ export const ExtensionGrid = ({
     filter,
   )
 
-  const hasOpenSourceExtensions = useMemo(() => 
-    allExtensions.some((ext) => !ext.tags?.includes('Start') && !ext.tags?.includes('Team')), 
-    [allExtensions]
+  const hasOpenSourceExtensions = useMemo(
+    () => allExtensions.some((ext) => !ext.tags?.includes('Start') && !ext.tags?.includes('Team')),
+    [allExtensions],
   )
-  const hasStartExtensions = useMemo(() => 
-    allExtensions.some((ext) => ext.tags?.includes('Start')), 
-    [allExtensions]
+  const hasStartExtensions = useMemo(
+    () => allExtensions.some((ext) => ext.tags?.includes('Start')),
+    [allExtensions],
   )
-  const hasTeamExtensions = useMemo(() => 
-    allExtensions.some((ext) => ext.tags?.includes('Team')), 
-    [allExtensions]
+  const hasTeamExtensions = useMemo(
+    () => allExtensions.some((ext) => ext.tags?.includes('Team')),
+    [allExtensions],
   )
 
   const noExtensions =
@@ -260,13 +263,25 @@ export const ExtensionGrid = ({
           </div>
         ) : null}
         {nodeExtensions && filteredNodeExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredNodeExtensions} title="Nodes" currentFilter={filter} />
+          <ExtensionGroup
+            extensions={filteredNodeExtensions}
+            title="Nodes"
+            currentFilter={filter}
+          />
         ) : null}
         {markExtensions && filteredMarkExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredMarkExtensions} title="Marks" currentFilter={filter} />
+          <ExtensionGroup
+            extensions={filteredMarkExtensions}
+            title="Marks"
+            currentFilter={filter}
+          />
         ) : null}
         {functionalityExtensions && filteredFunctionalityExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredFunctionalityExtensions} title="Functionality" currentFilter={filter} />
+          <ExtensionGroup
+            extensions={filteredFunctionalityExtensions}
+            title="Functionality"
+            currentFilter={filter}
+          />
         ) : null}
       </div>
     </div>

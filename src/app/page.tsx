@@ -7,6 +7,7 @@ import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 export async function generateMetadata() {
+  // @ts-ignore
   const pageMdx = (await import(`@/content/index.mdx`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
