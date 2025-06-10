@@ -10,7 +10,7 @@ interface CheckboxItemProps {
 
 export function CheckboxItem({ children, defaultChecked = false }: CheckboxItemProps) {
   const [isChecked, setIsChecked] = useState(defaultChecked)
-  
+
   const handleToggle = () => {
     setIsChecked(!isChecked)
   }
@@ -28,8 +28,8 @@ export function CheckboxItem({ children, defaultChecked = false }: CheckboxItemP
         className="sr-only"
         aria-checked={isChecked}
       />
-      <label 
-        htmlFor={id} 
+      <label
+        htmlFor={id}
         className="flex items-center cursor-pointer select-none"
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
@@ -37,14 +37,16 @@ export function CheckboxItem({ children, defaultChecked = false }: CheckboxItemP
           <div className="relative w-4 h-4">
             <Square className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
             {isChecked && (
-              <Check 
-                className="w-3 h-3 text-gray-900 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 fade-in" 
+              <Check
+                className="w-3 h-3 text-gray-900 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 fade-in"
                 strokeWidth={2.5}
               />
             )}
           </div>
         </div>
-        <div className={`text-base leading-tight ${isChecked ? 'line-through text-grayAlpha-500' : 'text-grayAlpha-800'}`}>
+        <div
+          className={`text-base leading-tight ${isChecked ? 'line-through text-grayAlpha-500' : 'text-grayAlpha-800'}`}
+        >
           {children}
         </div>
       </label>
@@ -60,10 +62,10 @@ export function Checklist({ children }: ChecklistProps) {
   // Add the animation styles when component mounts
   useEffect(() => {
     // Check if the style is already added
-    const styleId = 'checklist-animations';
+    const styleId = 'checklist-animations'
     if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
+      const style = document.createElement('style')
+      style.id = styleId
       style.textContent = `
         .fade-in {
           animation: fadeIn 0.1s ease-in forwards;
@@ -73,14 +75,10 @@ export function Checklist({ children }: ChecklistProps) {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-      `;
-      document.head.appendChild(style);
+      `
+      document.head.appendChild(style)
     }
-  }, []);
+  }, [])
 
-  return (
-    <div className="my-6">
-      {children}
-    </div>
-  )
+  return <div className="my-6">{children}</div>
 }

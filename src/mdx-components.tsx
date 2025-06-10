@@ -3,8 +3,8 @@ import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
 import React from 'react'
 import { Codeblock } from './components/Codeblock'
-import Link from '@/components/Link'
 import { Checklist, CheckboxItem } from './components/Checklist'
+import Link from '@/components/Link'
 
 /**
  * Extracts the text from a nested children object
