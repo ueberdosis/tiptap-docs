@@ -12,11 +12,46 @@ export const getExtensions = async (path: string = '') => {
     pages.map(async (page) => {
       let pagePath = `/${pathPrefix + page}`
 
-      const extensionData = (await import(`@/content/${pagePath.replace('/content/', '')}`))
-        .frontmatter?.extension as ExtensionMetaWithUrl | undefined
-
+      const module = await import(`@/content/${pagePath.replace('/content/', '')}`)
+      const extensionData = module.frontmatter?.extension as ExtensionMetaWithUrl | undefined
+      const pageTags = module.frontmatter?.tags || []
+      
       if (!extensionData) {
         return null
+      }
+      
+      // Check if the page has a beta tag in the frontmatter
+      const hasBetaTag = pageTags.some((tag: { type: string }) => 
+        typeof tag === 'object' && tag.type === 'beta'
+      )
+      
+      // If beta tag is present, mark extension as new
+      if (hasBetaTag && !extensionData.isNew) {
+        extensionData.isNew = true
+      }
+
+      // Check for 'start' and 'team' tag types and add corresponding tags to the extension
+      const hasStartTag = pageTags.some((tag: { type: string }) => 
+        typeof tag === 'object' && tag.type === 'start'
+      )
+      
+      const hasTeamTag = pageTags.some((tag: { type: string }) => 
+        typeof tag === 'object' && tag.type === 'team'
+      )
+      
+      // Initialize tags array if it doesn't exist
+      if (!extensionData.tags) {
+        extensionData.tags = []
+      }
+      
+      // Add "Start" tag if start type is present
+      if (hasStartTag && !extensionData.tags.includes('Start')) {
+        extensionData.tags.push('Start')
+      }
+      
+      // Add "Team" tag if team type is present
+      if (hasTeamTag && !extensionData.tags.includes('Team')) {
+        extensionData.tags.push('Team')
       }
 
       return [

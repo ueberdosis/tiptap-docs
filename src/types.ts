@@ -83,11 +83,13 @@ export type ExtensionMeta = {
   link: string
   description: string
   type: ExtensionType
+  tags?: string[]
   isPro?: boolean
   isBeta?: boolean
   isExperiment?: boolean
   isNew?: boolean
   isCloud?: boolean
+  beta?: boolean
 }
 
 export type ExtensionMetaWithUrl = ExtensionMeta & {
