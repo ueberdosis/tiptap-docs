@@ -23,7 +23,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'AI Generation',
-          tags: ['Paid'],
+          tags: ['Start'],
           href: '/content-ai/capabilities/generation/',
           children: [
             {
@@ -85,7 +85,8 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Suggestion',
           href: '/content-ai/capabilities/suggestion',
-          tags: ['Paid', 'Beta'],
+          tags: ['Team'],
+          beta: true,
           children: [
             {
               title: 'Overview',
@@ -146,7 +147,8 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Changes',
           href: '/content-ai/capabilities/changes',
-          tags: ['Paid', 'Beta'],
+          tags: ['Team'],
+          beta: true,
           children: [
             {
               title: 'Overview',
@@ -183,7 +185,8 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Agent',
           href: '/content-ai/capabilities/agent',
-          tags: ['Paid', 'Beta'],
+          tags: ['Team'],
+          beta: true,
           children: [
             {
               title: 'Overview',
@@ -275,6 +278,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Starter templates',
           href: 'https://tiptap.dev/product/templates',
+          external: true,
         },
       ],
     },

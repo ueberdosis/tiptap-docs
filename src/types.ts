@@ -3,6 +3,8 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
+  beta?: boolean
+  external?: boolean
   children?: Omit<SidebarLink, 'type'>[]
   /**
    * Whether to show the link as active. If undefined, the link will be active
@@ -27,7 +29,8 @@ export type SidebarConfig = {
 }
 
 export type GeneralPageTag = {
-  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents' | 'beta'
+  type: 'pro' | 'new' | 'experiment' | 'ai' | 'collaboration' | 'editor' | 'documents' | 'beta' | 'start' | 'team'
+  tooltip?: string
 }
 
 export type ImagePageTag = {
