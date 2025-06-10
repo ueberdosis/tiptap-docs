@@ -162,11 +162,6 @@ const nextConfig = {
         destination: '/ui-components/getting-started/overview',
         permanent: true,
       },
-      {
-        source: '/resources/pro-license',
-        destination: '/pro-license',
-        permanent: true,
-      },
     ]
   },
 }
