@@ -108,12 +108,16 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
     )
   }
 
+  if (tag.type === 'beginStart') {
+    return <Tag tooltip={tag.tooltip}>Available from Start plan</Tag>
+  }
+
   if (tag.type === 'start') {
     return <Tag tooltip={tag.tooltip}>Available in Start plan</Tag>
   }
 
   if (tag.type === 'team') {
-    return <Tag tooltip={tag.tooltip}>Available in the Team plan</Tag>
+    return <Tag tooltip={tag.tooltip}>Available in Team plan</Tag>
   }
 
   if (tag.type === 'ai') {

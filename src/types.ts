@@ -39,6 +39,7 @@ export type GeneralPageTag = {
     | 'documents'
     | 'beta'
     | 'start'
+    | 'beginStart'
     | 'team'
   tooltip?: string
 }
