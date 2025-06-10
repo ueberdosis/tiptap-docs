@@ -19,7 +19,7 @@ export function CheckboxItem({ children, defaultChecked = false }: CheckboxItemP
   const id = React.useId()
 
   return (
-    <div className="flex items-center my-2">
+    <div className="flex items-center my-3">
       <input
         type="checkbox"
         id={id}
