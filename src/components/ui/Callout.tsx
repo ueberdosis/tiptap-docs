@@ -28,19 +28,19 @@ export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
       'c-callout content-block flex flex-col md:flex-row gap-3 items-start border rounded-[10px] p-4',
       hasCalloutAfter ? 'mb-2' : 'mb-8',
       hasCalloutBefore ? 'mt-2' : 'mt-8',
-      variant === 'default' ? 'bg-grayAlpha-100 border-grayAlpha-200 text-grayAlpha-900' : '',
-      variant === 'info' ? 'bg-purpleAlpha-50 border-purpleAlpha-500 text-grayAlpha-900' : '',
-      variant === 'hint' ? 'bg-yellow-50 border-yellow-500' : '',
-      variant === 'warning' ? 'bg-red-50 border-red-400' : '',
+      variant === 'default' ? 'callout-default' : '',
+      variant === 'info' ? 'callout-info' : '',
+      variant === 'hint' ? 'callout-hint' : '',
+      variant === 'warning' ? 'callout-warning' : '',
       className,
     )
 
     const iconClass = cn(
       'w-4 h-4',
-      variant === 'default' ? 'text-grayAlpha-900' : '',
-      variant === 'info' ? 'text-purpleAlpha-500' : '',
-      variant === 'hint' ? 'text-yellow-600' : '',
-      variant === 'warning' ? 'text-red-600' : '',
+      variant === 'default' ? 'callout-icon-default' : '',
+      variant === 'info' ? 'callout-icon-info' : '',
+      variant === 'hint' ? 'callout-icon-hint' : '',
+      variant === 'warning' ? 'callout-icon-warning' : '',
     )
 
     const titleClass = cn(

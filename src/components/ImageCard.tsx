@@ -28,7 +28,7 @@ export type CardImageProps = {
 export const Image = forwardRef<HTMLImageElement, CardImageProps>(
   ({ asChild, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'img'
-    const imageClass = cn('rounded-lg shadow-cardLight', className)
+    const imageClass = cn('rounded-lg card-image-shadow', className)
 
     return <Component className={imageClass} ref={ref} {...props} />
   },
@@ -58,7 +58,7 @@ export type CardTitleProps = {
 export const Title = forwardRef<HTMLParagraphElement, CardTitleProps>(
   ({ asChild, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'p'
-    const titleClass = cn('text-base font-bold leading-[140%]', className)
+    const titleClass = cn('text-base font-bold leading-[140%] card-title', className)
 
     return <Component className={titleClass} ref={ref} {...props} />
   },
@@ -74,7 +74,7 @@ export const Paragraph = forwardRef<HTMLParagraphElement, CardParagraphProps>(
   ({ asChild, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'p'
     const paragraphClass = cn(
-      'text-base leading-[140%]',
+      'text-base leading-[140%] card-description',
       '[&:not(:first-child)]:mt-2 [&:not(:last-child)]:mb-6',
       className,
     )

@@ -41,7 +41,7 @@ const SidebarGroupTitle = forwardRef<HTMLDivElement, SidebarGroupTitleProps>(
       <div
         {...rest}
         className={cn(
-          'flex items-center justify-between gap-4 text-grayAlpha-900 mb-2 uppercase text-label font-bold pl-2.5',
+          'flex items-center justify-between gap-4 sidebar-text-primary mb-2 uppercase text-label font-bold pl-2.5',
           className,
         )}
         ref={ref}
@@ -73,10 +73,10 @@ const SidebarButton = forwardRef<HTMLButtonElement, SidebarButtonProps>(
       <Component
         {...rest}
         className={cn(
-          'flex items-center justify-between w-full px-2.5 py-1.5 text-sm text-grayAlpha-900 rounded-md',
+          'flex items-center justify-between w-full px-2.5 py-1.5 text-sm sidebar-text-primary rounded-md transition-colors',
           !isActive
-            ? 'bg-transparent hover:text-grayAlpha-900 hover:bg-grayAlpha-100'
-            : 'bg-white text-purple-500 font-semibold',
+            ? 'bg-transparent sidebar-hover'
+            : 'sidebar-bg-active-highlight font-semibold',
           className,
         )}
         ref={ref}

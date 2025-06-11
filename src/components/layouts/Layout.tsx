@@ -7,6 +7,7 @@ import { ProductDropdown } from '../ProductDropdown'
 import { NavLink } from '../NavLink'
 import { SearchButton } from '../SearchButton'
 import { ToCButton } from '../ToCButton'
+import { ThemeToggle } from '../ThemeToggle'
 import { MobileTableOfContent } from '../MobileTableOfContent'
 import { MobileSidebarNavigation } from '../MobileSidebarNavigation'
 import { MobileNavigationButton } from '../MobileNavigationButton'
@@ -53,16 +54,16 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
   ({ config, ...rest }, ref) => {
     return (
       <header ref={ref} {...rest} className="container sticky top-0 w-full py-1.5 z-50">
-        <div className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
+        <div className="nav-header-bg nav-shadow h-14 rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
           <div className="flex items-center gap-2">
-            <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
+            <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5 nav-text-primary">
               <TiptapLogo />
               <span>
                 <span className="font-semibold">Tiptap</span> Docs
               </span>
             </Link>
             <VersionSwitch />
-            <span className="hidden select-none lg:block text-black/15">/</span>
+            <span className="hidden select-none lg:block nav-text-separator">/</span>
             <nav className="hidden lg:flex items-center gap-[0.5px]">
               <ProductDropdown />
               <NavLink href="/guides">Guides</NavLink>
@@ -75,11 +76,17 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <div className="hidden xl:block">
-              <SearchButton />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <SearchButton />
+              </div>
             </div>
             <div className="items-center hidden gap-1 lg:flex xl:hidden">
-              <ToCButton />
-              <SearchButton />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <ToCButton />
+                <SearchButton />
+              </div>
             </div>
             <div className="block lg:hidden">
               <MobileNavigationDropdown />
@@ -102,8 +109,11 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               <MobileNavigationButton config={config} />
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <ToCButton />
-              <SearchButton />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <ToCButton />
+                <SearchButton />
+              </div>
             </div>
           </div>
         </div>
@@ -199,7 +209,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
       >
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
-        <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
+        <footer className="footer-container pt-8 pb-[3.125rem]">
           <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
             <div className="flex flex-col items-start flex-none z-10">
               <PageEditFooter />
@@ -211,41 +221,41 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
           <div className="flex flex-col items-start justify-between gap-4 mt-14 text-sm">
             <div className="flex flex-wrap items-center flex-none gap-3">
               <Link
-                className="hover:underline"
+                className="footer-link"
                 target="_blank"
                 href="https://tiptap.dev/docs/hocuspocus/introduction"
               >
                 Hocuspocus
               </Link>
               <Link
-                className="hover:underline"
+                className="footer-link"
                 target="_blank"
                 href="https://tiptap.dev/legal-notice"
               >
                 Legal notice
               </Link>
               <Link
-                className="hover:underline"
+                className="footer-link"
                 target="_blank"
                 href="https://tiptap.dev/privacy-policy"
               >
                 Privacy Policy
               </Link>
               <Link
-                className="hover:underline"
+                className="footer-link"
                 target="_blank"
                 href="https://tiptap.dev/terms-of-service"
               >
                 Terms of Service
               </Link>
-              <Link className="hover:underline" href="/resources/contributing">
+              <Link className="footer-link" href="/resources/contributing">
                 Contributing
               </Link>
-              <Link className="hover:underline" href="/resources/changelog">
+              <Link className="footer-link" href="/resources/changelog">
                 Changelog
               </Link>
             </div>
-            <div className="flex-none">Copyright © 2025 Tiptap</div>
+            <div className="footer-copyright">Copyright 2025 Tiptap</div>
           </div>
         </footer>
       </main>

@@ -66,10 +66,10 @@ export const MobileNavigationDropdown = () => {
         </NavLinkButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="flex flex-col gap-6 z-50 py-6 px-2 lg:py-3 text-black bg-white border rounded-lg border-grayAlpha-100 w-[14rem] lg:w-[10.43rem]">
+        <DropdownMenu.Content className="flex flex-col gap-6 z-50 py-6 px-2 lg:py-3 dropdown-content rounded-lg w-[14rem] lg:w-[10.43rem]">
           {options.map((group, i) => (
             <div key={`group__${i}`}>
-              <div className="uppercase font-bold leading-[120%] text-xs mb-3 px-2 block lg:hidden">
+              <div className="uppercase font-bold leading-[120%] text-xs mb-3 px-2 block lg:hidden dropdown-section-title">
                 {group.label}
               </div>
               {group.items.map((option) => (

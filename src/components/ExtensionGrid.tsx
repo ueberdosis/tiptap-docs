@@ -114,8 +114,8 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: Sea
             {ext.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
         </div>
-        <div className="font-semibold text-black leading-[140%]">{ext.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
+        <div className="font-semibold extension-card-title leading-[140%]">{ext.name}</div>
+        <div className="mt-2 leading-[140%] extension-card-description">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {/* Always show all tags regardless of filter */}
           {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
@@ -136,8 +136,8 @@ function ExtensionGroup({
 }) {
   return (
     <div>
-      <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
-      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
+      <div className="text-xl font-bold mb-6 leading-[120%] extension-group-title">{title}</div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {extensions.map((ext) => (
           <ExtensionCard ext={ext} key={ext.path} currentFilter={currentFilter} />
         ))}
@@ -170,7 +170,7 @@ function useAllExtensions(
   return [...(nodeExtensions || []), ...(markExtensions || []), ...(functionalityExtensions || [])]
 }
 
-export type ExtensionGridProps = {
+type ExtensionGridProps = {
   nodeExtensions?: ExtensionMetaWithUrl[]
   markExtensions?: ExtensionMetaWithUrl[]
   functionalityExtensions?: ExtensionMetaWithUrl[]
@@ -217,17 +217,17 @@ export const ExtensionGrid = ({
   return (
     <div className="grid gap-8">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-8">
-        <label className="flex flex-1 items-center p-2 gap-2 justify-center bg-white max-w-[36rem] rounded-lg border border-neutral-300 focus-within:border-neutral-700">
-          <SearchIcon className="w-4 h-4 text-neutral-500" />
+        <label className="flex flex-1 items-center p-2 gap-2 justify-center extension-search-input max-w-[36rem] rounded-lg">
+          <SearchIcon className="w-4 h-4 extension-search-icon" />
           <input
             type="text"
-            className="w-full outline-none"
+            className="w-full outline-none bg-transparent"
             placeholder="Filter extensions..."
             value={query}
             onChange={handleInput}
           />
           {query ? (
-            <button className="p-1 hover:bg-neutral-100" onClick={clear}>
+            <button className="p-1 extension-search-clear rounded" onClick={clear}>
               <CloseIcon />
             </button>
           ) : null}
@@ -257,7 +257,7 @@ export const ExtensionGrid = ({
       </div>
       <div className="grid gap-20 first:mt-0 last:mb-0">
         {noExtensions ? (
-          <div className="text-neutral-700">
+          <div className="extension-no-results">
             No extensions found for{' '}
             {query ? <span className="font-semibold">&quot;{query}&quot;</span> : 'your filters.'}
           </div>

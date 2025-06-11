@@ -12,14 +12,9 @@ export const NavLinkButton = forwardRef<HTMLButtonElement, NavLinkButtonProps>(
   ({ children, isActive, asChild, variant = 'default', ...props }, ref) => {
     const linkClass = cn(
       'px-2.5 flex items-center gap-1 py-1.5 rounded-[0.625rem] transition-colors duration-100',
-      variant === 'default' && !isActive
-        ? 'bg-transparent text-gray-900 hover:bg-grayAlpha-200'
-        : '',
-      variant === 'default' && isActive
-        ? 'bg-transparent font-bold text-gray-900 hover:bg-grayAlpha-200'
-        : '',
-      variant === 'invert' && !isActive ? 'bg-black text-white hover:bg-neutral-800' : '',
-      variant === 'invert' && isActive ? 'bg-black font-bold text-white hover:bg-neutral-800' : '',
+      variant === 'default' && !isActive ? 'nav-link-default' : '',
+      variant === 'default' && isActive ? 'nav-link-default-active' : '',
+      variant === 'invert' ? 'nav-link-invert' : '',
       props.className,
     )
 

@@ -28,22 +28,22 @@ export function RequirementItem({ label, children }: RequirementItemProps) {
           type="button"
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            'flex items-center justify-between w-full px-2.5 py-1.5 text-sm leading-[140%] text-grayAlpha-900 hover:bg-grayAlpha-100 transition-colors',
-            open ? 'bg-grayAlpha-100' : '',
+            'flex items-center justify-between w-full px-2.5 py-1.5 text-sm leading-[140%] requirements-button transition-colors',
+            open ? 'requirements-button-active' : '',
           )}
         >
           <span className="flex-1 text-left">{label}</span>
           <ChevronRightIcon
             className={cn(
-              'w-4 h-4 text-grayAlpha-500 transition-transform duration-200',
-              open ? 'rotate-90 text-purple-500' : '',
+              'w-4 h-4 transition-transform duration-200',
+              open ? 'rotate-90 requirements-chevron-active' : 'requirements-chevron',
             )}
           />
         </button>
       </Sidebar.Button>
 
       {open && (
-        <div className="markdown pl-6 pt-1 text-sm leading-[150%] text-grayAlpha-600">
+        <div className="markdown pl-6 pt-1 text-sm leading-[150%] requirements-content">
           {children}
         </div>
       )}

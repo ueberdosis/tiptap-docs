@@ -25,10 +25,10 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
     const wrapperClass = cn('flex items-center gap-2 mb-3', className)
 
     const breadcrumbClass = cn(
-      'text-sm leading-[110%] text-grayAlpha-500 font-semibold select-none',
+      'text-sm leading-[110%] breadcrumb-text font-semibold select-none',
     )
 
-    const clickableBreadcrumbClass = cn(breadcrumbClass, 'text-purple-500 hover:underline')
+    const clickableBreadcrumbClass = cn(breadcrumbClass, 'breadcrumb-link')
 
     const schemaLdJson = {
       '@context': 'https://schema.org',
@@ -56,7 +56,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
                 <span className={breadcrumbClass}>{crumb.text}</span>
               )}
               {i < crumbs.length - 1 ? (
-                <span className="ml-2 text-sm font-bold select-none text-grayAlpha-400">/</span>
+                <span className="ml-2 text-sm font-bold select-none breadcrumb-separator">/</span>
               ) : null}
             </div>
           ))}

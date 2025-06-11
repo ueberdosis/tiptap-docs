@@ -22,17 +22,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       !rest.disabled
         ? cn(
             variant === 'primary' && !isActive
-              ? 'bg-grayAlpha-800 text-white hover:bg-grayAlpha-900 group-hover:bg-grayAlpha-900 active:bg-grayAlpha-900'
+              ? 'btn-primary'
               : '',
-            variant === 'primary' && isActive ? 'bg-grayAlpha-900' : '',
+            variant === 'primary' && isActive ? 'btn-primary' : '',
             variant === 'secondary' && !isActive
-              ? 'bg-grayAlpha-100 text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'btn-secondary'
               : '',
-            variant === 'secondary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'secondary' && isActive ? 'btn-secondary' : '',
             variant === 'tertiary' && !isActive
-              ? 'bg-transparent text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'btn-tertiary'
               : '',
-            variant === 'tertiary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'tertiary' && isActive ? 'btn-tertiary' : '',
           )
         : cn(
             variant === 'primary' ? 'bg-transparent text-grayAlpha-400' : '',

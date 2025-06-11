@@ -40,7 +40,7 @@ export const VersionSwitch = () => {
         </NavLinkButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="z-50 flex flex-col gap-6 px-2 py-6 text-black bg-white border rounded-lg shadow-md lg:py-3 border-grayAlpha-100">
+        <DropdownMenu.Content className="version-dropdown-content">
           <div>
             {VERSIONS.map((version) => (
               <VersionItem key={version.version} version={version} />

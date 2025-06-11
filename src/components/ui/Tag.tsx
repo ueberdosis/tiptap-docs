@@ -39,14 +39,13 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
 
     const tagClass = cn(
       'text-xs font-semibold leading-[120%] px-1.5 py-0.5 border rounded',
-      variant === 'neutral' ? 'text-grayAlpha-800 bg-white border-grayAlpha-200' : '',
-      variant === 'gray' ? 'bg-grayAlpha-100 border-grayAlpha-100 text-grayAlpha-600' : '',
-      variant === 'invert' ? 'text-whiteAlpha-900 bg-grayAlpha-800 border-grayAlpha-800' : '',
-      variant === 'success' ? 'text-green-900 bg-green-100 border-[#0BDA81]' : '',
-      variant === 'info' ? 'text-purpleAlpha-800 bg-purpleAlpha-50 border-purpleAlpha-500' : '',
-      variant === 'hint' ? 'text-yellow-900 bg-yellow-100 border-yellow-500' : '',
-      variant === 'warning' ? 'text-red-900 bg-red-100 border-red-500' : '',
-      variant === 'gray' ? 'text-grayAlpha-600 bg-grayAlpha-100 border-grayAlpha-100' : '',
+      variant === 'neutral' ? 'tag-neutral' : '',
+      variant === 'gray' ? 'tag-gray' : '',
+      variant === 'invert' ? 'tag-invert' : '',
+      variant === 'success' ? 'tag-success' : '',
+      variant === 'info' ? 'tag-info' : '',
+      variant === 'hint' ? 'tag-hint' : '',
+      variant === 'warning' ? 'tag-warning' : '',
       size === 'medium' ? 'text-xs px-1.5 py-0.5' : '',
       size === 'small' ? 'text-[0.625rem] px-1 py-0.5 font-semibold' : '',
       tooltip ? 'cursor-pointer' : '',
@@ -89,12 +88,12 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
             >
               <div
                 className={cn(
-                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
+                  'tag-tooltip py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
                   tooltipFontSize,
                 )}
               >
                 {tooltip}
-                <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent border-t-black"></div>
+                <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent tag-tooltip-arrow"></div>
               </div>
             </div>,
             document.body,

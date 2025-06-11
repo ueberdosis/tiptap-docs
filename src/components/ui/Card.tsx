@@ -11,8 +11,8 @@ export type CardProps = {
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ asChild, children, className, isClickable, ...rest }, ref) => {
     const cardClass = cn(
-      'p-5 bg-white shadow-cardLight rounded-xl',
-      isClickable ? 'transition-shadow hover:shadow-cardHover' : '',
+      'p-5 card-base rounded-xl',
+      isClickable ? 'transition-shadow' : '',
       className,
     )
     const Tag = asChild ? Slot : 'div'

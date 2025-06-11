@@ -52,7 +52,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         style={{ minHeight: 90 }}
       >
         <div className="flex flex-row items-center gap-x-3 w-full">
-          <h3 className="font-medium text-gray-800 m-0 flex items-center">
+          <h3 className="feedback-heading font-medium m-0 flex items-center">
             Was this page helpful?
           </h3>
           <div className="flex gap-0">
@@ -60,7 +60,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               aria-label="Yes"
               variant={state === 'yes' ? 'secondary' : 'tertiary'}
               size="small"
-              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
+              className={`rounded-lg feedback-button-hover transition-colors ${state === 'yes' ? 'feedback-button-active' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
               onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
               disabled={submitting}
             >
@@ -70,7 +70,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               aria-label="No"
               variant={state === 'no' ? 'secondary' : 'tertiary'}
               size="small"
-              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'no' ? 'bg-gray-200 border border-gray-400' : ''}`}
+              className={`rounded-lg feedback-button-hover transition-colors ${state === 'no' ? 'feedback-button-active' : ''}`}
               onClick={() => setState(state === 'no' ? 'initial' : 'no')}
               disabled={submitting}
             >
@@ -80,7 +80,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         </div>
 
         {state === 'submitted' && !lastFeedbackWasYes && (
-          <span className="inline-block text-xs text-gray-800 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
+          <span className="feedback-success-message inline-block text-xs rounded px-2 py-1 mt-1">
             Thank you for your feedback!
           </span>
         )}
@@ -94,7 +94,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
           >
             <textarea
               rows={3}
-              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
+              className="feedback-textarea rounded-md px-2 py-1 text-xs resize-none w-full max-w-2xl"
               placeholder="What made this content helpful? (optional)"
               value={yesText}
               onChange={(e) => setYesText(e.target.value)}
@@ -123,14 +123,14 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
           >
             <div className="flex flex-col gap-1">
               {NO_OPTIONS.map((option) => (
-                <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
+                <label key={option} className="feedback-radio-label flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"
                     name="no-option"
                     value={option}
                     checked={noOption === option}
                     onChange={() => setNoOption(option)}
-                    className="accent-gray-800"
+                    className="feedback-radio-input"
                     aria-label={option}
                   />
                   {option}
@@ -140,7 +140,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
             {noOption && (
               <textarea
                 rows={3}
-                className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
+                className="feedback-textarea rounded-md px-2 py-1 text-xs resize-none w-full max-w-2xl"
                 placeholder="Can you provide more details? (optional)"
                 value={noText}
                 onChange={(e) => setNoText(e.target.value)}

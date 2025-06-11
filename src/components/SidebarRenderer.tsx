@@ -63,8 +63,8 @@ export const LinkItem = ({
   }, [isActive])
 
   const toggleButtonClassName = cn(
-    'p-0.5 rounded',
-    !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
+    'p-0.5 rounded transition-colors',
+    !isOpen ? 'sidebar-bg-toggle-hover' : 'sidebar-bg-toggle',
   )
 
   return (
@@ -84,11 +84,11 @@ export const LinkItem = ({
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
             {link.beta && (
-              <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+              <sup className="inline-block ml-1 text-[10px] sidebar-text-secondary">BETA</sup>
             )}
           </span>
           <span className="flex gap-1 items-center">
-            {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
+            {link.external && <ExternalLinkIcon className="size-3.5 sidebar-text-muted" />}
             {link.tags ? (
               <span className="flex items-center gap-0.5">
                 {link.tags.map((tag) => (
@@ -101,9 +101,9 @@ export const LinkItem = ({
             {link.children ? (
               <button className={toggleButtonClassName} onClick={toggleOpen}>
                 {isOpen ? (
-                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                  <ChevronDownIcon className="size-4 sidebar-text-muted" />
                 ) : (
-                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                  <ChevronRightIcon className="size-4 sidebar-text-muted" />
                 )}
               </button>
             ) : null}
@@ -113,7 +113,7 @@ export const LinkItem = ({
       {link.children ? (
         <div
           className={cn(
-            'pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300',
+            'pl-2 my-2 space-y-1 ml-2 border-l sidebar-border',
             isOpen ? 'block' : 'hidden',
           )}
         >
