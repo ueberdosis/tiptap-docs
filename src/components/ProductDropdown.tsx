@@ -17,6 +17,7 @@ const options = [
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
   { label: 'Pages', href: '/pages/getting-started/overview' },
   { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
+  { label: 'Hocuspocus', href: '/hocuspocus/getting-started/overview' },
 ]
 
 export const ProductDropdown = () => {
