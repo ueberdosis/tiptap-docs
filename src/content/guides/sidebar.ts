@@ -59,7 +59,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/guides/run-tiptap-on-the-server',
-          title: 'Run Tiptap on the Server',
+          title: 'Run Tiptap on the server',
         },
         {
           href: '/guides/upgrade-tiptap-v1',
