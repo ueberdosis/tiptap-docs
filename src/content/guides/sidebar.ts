@@ -58,6 +58,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Legacy conversion',
         },
         {
+          href: '/guides/run-tiptap-on-the-server',
+          title: 'Run Tiptap on the Server',
+        },
+        {
           href: '/guides/upgrade-tiptap-v1',
           title: 'Upgrade Tiptap V1',
         },

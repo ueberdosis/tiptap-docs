@@ -1,0 +1,156 @@
+---
+tags:
+  - type: editor
+title: Tiptap on the Server
+meta:
+  title: Tiptap on the Server | Tiptap Editor Docs
+  description: Run the Tiptap Editor instance on the server in a headless environment.
+  category: Editor
+---
+
+Tiptap is a headless editor framework that can run in any environment, including the server. This guide covers everything you need to know about running Tiptap in non-browser environments like [Node](https://nodejs.org/), [Bun](https://bun.sh/) or [Deno](https://deno.land/).
+
+## Overview
+
+Server-side Tiptap is useful for:
+
+- **Server-side rendering (SSR)**: pre-render HTML content for static sites
+- **Background content processing**: edit content while the user is away from your app
+- **Batch processing**: process multiple documents at once
+- **Agentic AI workflows**: integrate Tiptap with your AI Agents and workflows for automated content editing
+
+Server-side Tiptap works by replacing the browser environment with a custom implementation. By default, Tiptap accesses the DOM APIs like [`window`](https://developer.mozilla.org/en-US/docs/Web/API/Window) and [`DOMParser`](https://developer.mozilla.org/en-US/docs/Web/API/DOMParser) to render and parse HMTL content. However, these APIs are not available outside the browser. To run Tiptap on the server, you need to provide a custom browser environment.
+
+## Installation
+
+First, install a DOM implementation library like [happy-dom](https://github.com/capricorn86/happy-dom) or [jsdom](https://github.com/jsdom/jsdom) to provide a virtual browser environment on the server.
+
+```bash
+npm install happy-dom
+```
+
+Install Tiptap and its dependencies:
+
+```bash
+npm install @tiptap/core @tiptap/starter-kit
+```
+
+## Basic setup
+
+To run Tiptap on the server, you need to provide a custom browser environment since server runtimes like Node don't have DOM APIs:
+
+```ts
+import { Editor, BrowserEnvironment } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Window, DOMParser } from 'happy-dom'
+
+// Create virtual browser environment
+const window = new Window()
+const browserEnvironment: BrowserEnvironment = {
+  window: window as any,
+  domParser: DOMParser,
+}
+
+// Instantiate the Tiptap editor
+const editor = new Editor({
+  extensions: [StarterKit],
+  content: '<p>Server-side content</p>',
+  browserEnvironment,
+})
+
+// Always clean up
+editor.destroy()
+```
+
+If you initialize your browser environment correctly, you will be able to run [Tiptap editor commands](/editor/api/commands) and [methods](/editor/api/editor#methods) as you would in the browser:
+
+```ts
+// Run Tiptap commands
+const html = editor.commands.setContent('<p>Updated content</p>')
+// Get updated content
+const json = editor.getJSON()
+```
+
+Finally, clean up the editor instance to prevent memory leaks:
+
+```ts
+editor.destroy()
+```
+
+## Configure the browser environment
+
+The `browserEnvironment` option accepts a `BrowserEnvironment` object:
+
+```ts
+/**
+ * Overrides browser APIs like `window` with a custom implementation.
+ */
+export interface BrowserEnvironment {
+  /**
+   * Custom implementation of the `window` object
+   */
+  window?: Window
+
+  /**
+   * Custom implementation of the `DOMParser` class constructor
+   */
+  domParser?: typeof DOMParser
+}
+```
+
+You can provide any valid DOM implementation, such as:
+
+- [happy-dom](https://github.com/capricorn86/happy-dom)
+- [happy-dom-without-node](https://github.com/capricorn86/happy-dom-without-node)
+- [jsdom](https://github.com/jsdom/jsdom)
+
+If any of these properties are not provided, Tiptap will fall back to trying to access the browser environment APIs directly, like the global `window` and `DOMParser` objects. If in a server environment, this will throw an error.
+
+## Develop server-compatible custom extensions
+
+To develop [custom extensions](/editor/extensions/custom-extensions) that work on the server, you need to make sure that your extension does not access the browser environment APIs directly, but rather through the `editor.browserEnvironment` object.
+
+```ts
+import { Node } from '@tiptap/core'
+
+const CustomExtension = Node.create({
+  name: 'custom_extension',
+  addNodeView() {
+    return ({ editor }) => {
+      // Access browser environment APIs through `editor.browserEnvironment`
+      const window = editor.browserEnvironment.window
+      // ...
+    }
+  },
+})
+```
+
+The `browserEnvironment` object contains getters for the following properties:
+
+- `window`: Custom implementation of the `window` object
+- `document`: Custom implementation of the `document` object
+- `domParser`: Custom implementation of the `DOMParser` class constructor
+
+If the program is not running in a browser and no custom browser environment is provided, the value of these properties will be `undefined`.
+
+## Server-side rendering (SSR) setup
+
+If you want to use Tiptap for server-side rendering, you can instantiate the Editor with `element: null` to opt-in to SSR:
+
+```ts
+import { Editor, BrowserEnvironment } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = new Editor({
+  element: null,
+  extensions: [StarterKit],
+  content: '<p>Server-side content</p>',
+  // No need to provide a custom browser environment for SSR
+})
+```
+
+This will create the editor instance without mounting it to a DOM element.
+
+This simple setup is suitable for server-side rendering but not for server-side content manipulation. If you try to run commands or methods like `editor.commands.setContent()`, you will get an error since you did not provide a custom browser implementation.
+
+Therefore, if your server setup requires content manipulation, you need to provide a custom browser environment as described above.
