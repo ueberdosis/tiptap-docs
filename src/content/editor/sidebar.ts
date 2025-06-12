@@ -58,6 +58,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/getting-started/install/cdn',
               title: 'CDN',
             },
+            {
+              href: '/editor/getting-started/install/nodejs',
+              title: 'Node.js',
+            },
           ],
         },
         {
