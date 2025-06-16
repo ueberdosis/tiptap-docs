@@ -88,6 +88,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Migrate from TinyMCE',
         },
         {
+          href: '/guides/migrate-from-ckeditor4',
+          title: 'Migrate from CKEditor 4',
+        },
+        {
           href: '/guides/migrate-from-ckeditor5',
           title: 'Migrate from CKEditor 5',
         },
