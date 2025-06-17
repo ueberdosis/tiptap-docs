@@ -315,7 +315,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/filehandler',
               title: 'File handler',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/floatingmenu',
