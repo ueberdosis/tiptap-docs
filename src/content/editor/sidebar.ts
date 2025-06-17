@@ -108,17 +108,14 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/nodes/details',
               title: 'Details',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/details-content',
               title: 'Details content',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/details-summary',
               title: 'Details summary',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/document',
