@@ -345,7 +345,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/invisiblecharacters',
               title: 'Invisible characters',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/listkeymap',
