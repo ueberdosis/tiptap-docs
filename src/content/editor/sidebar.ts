@@ -294,17 +294,14 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/drag-handle',
               title: 'Drag Handle',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/drag-handle-react',
               title: 'Drag Handle React',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/drag-handle-vue',
               title: 'Drag Handle Vue',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/dropcursor',
