@@ -246,19 +246,27 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/editor/extensions/functionality/ai-agent',
+              title: 'AI Agent',
+              tags: ['Team'],
+              beta: true,
+            },
+            {
               href: '/editor/extensions/functionality/ai-changes',
               title: 'AI Changes',
-              tags: ['Beta', 'Pro'],
+              tags: ['Team'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/ai-generation',
               title: 'AI Generation',
-              tags: ['Pro'],
+              tags: ['Start'],
             },
             {
               href: '/editor/extensions/functionality/ai-suggestion',
               title: 'AI Suggestion',
-              tags: ['Beta', 'Pro'],
+              tags: ['Team'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -283,7 +291,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/comments',
               title: 'Comments',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/drag-handle',
@@ -307,7 +316,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/filehandler',
@@ -332,8 +342,13 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               href: '/editor/extensions/functionality/history',
-              title: 'History',
-              tags: ['Pro', 'Cloud'],
+              title: 'Version History',
+              tags: ['Start'],
+            },
+            {
+              href: '/editor/extensions/functionality/snapshot-compare',
+              title: 'Version Compare',
+              tags: ['Team'],
             },
             {
               href: '/editor/extensions/functionality/invisiblecharacters',
@@ -347,7 +362,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/mathematics',
@@ -357,11 +373,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
-            },
-            {
-              href: '/editor/extensions/functionality/snapshot-compare',
-              title: 'Snapshot Compare',
-              tags: ['Pro', 'Cloud'],
             },
             {
               href: '/editor/extensions/functionality/starterkit',
@@ -745,7 +756,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Guides',
         },
         {
-          href: '/resources/pro-license',
+          href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
       ],

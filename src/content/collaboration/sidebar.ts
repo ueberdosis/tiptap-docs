@@ -51,6 +51,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Webhooks',
           href: '/collaboration/core-concepts/webhooks',
+          tags: ['Team'],
         },
       ],
     },
@@ -70,19 +71,22 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'History',
           href: '/collaboration/documents/history',
+          tags: ['Start'],
         },
         {
           title: 'Compare Snapshots',
           href: '/collaboration/documents/snapshot-compare',
+          tags: ['Team'],
         },
         {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
+          tags: ['Team'],
         },
         {
           title: 'Semantic Search',
           href: '/collaboration/documents/semantic-search',
-          tags: ['Beta'],
+          beta: true,
         },
       ],
     },
