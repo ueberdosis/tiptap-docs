@@ -359,7 +359,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/mathematics',
               title: 'Mathematics',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/placeholder',
