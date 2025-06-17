@@ -124,7 +124,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/nodes/emoji',
               title: 'Emoji',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/hard-break',
