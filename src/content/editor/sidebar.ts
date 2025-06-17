@@ -387,7 +387,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/uniqueid',
               title: 'Unique ID',
-              tags: ['Pro'],
             },
           ],
         },
