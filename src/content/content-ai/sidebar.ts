@@ -232,12 +232,26 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Integrate your LLM',
-              href: '/content-ai/capabilities/agent/custom-llms',
-            },
-            {
               title: 'Configure',
               href: '/content-ai/capabilities/agent/configure',
+              children: [
+                {
+                  title: 'Configuration options',
+                  href: '/content-ai/capabilities/agent/configure/options',
+                },
+                {
+                  title: 'System prompt',
+                  href: '/content-ai/capabilities/agent/configure/system-prompt',
+                },
+                {
+                  title: 'Add context to messages',
+                  href: '/content-ai/capabilities/agent/configure/add-context',
+                },
+              ],
+            },
+            {
+              title: 'Integrate your LLM',
+              href: '/content-ai/capabilities/agent/custom-llms',
             },
             {
               title: 'API Reference',
