@@ -108,17 +108,14 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/nodes/details',
               title: 'Details',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/details-content',
               title: 'Details content',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/details-summary',
               title: 'Details summary',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/document',
@@ -127,7 +124,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/nodes/emoji',
               title: 'Emoji',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/nodes/hard-break',
@@ -297,17 +293,14 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/drag-handle',
               title: 'Drag Handle',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/drag-handle-react',
               title: 'Drag Handle React',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/drag-handle-vue',
               title: 'Drag Handle Vue',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/dropcursor',
@@ -322,7 +315,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/filehandler',
               title: 'File handler',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/floatingmenu',
@@ -353,7 +345,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/invisiblecharacters',
               title: 'Invisible characters',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/listkeymap',
@@ -368,7 +359,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/mathematics',
               title: 'Mathematics',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/placeholder',
@@ -381,7 +371,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/table-of-contents',
               title: 'Table of contents',
-              tags: ['Pro'],
             },
             {
               href: '/editor/extensions/functionality/textalign',
@@ -398,7 +387,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/uniqueid',
               title: 'Unique ID',
-              tags: ['Pro'],
             },
           ],
         },
