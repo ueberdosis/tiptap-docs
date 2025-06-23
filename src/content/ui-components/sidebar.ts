@@ -38,16 +38,16 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/ui-components/installation',
-      title: 'Installation',
+      href: '/ui-components/install',
+      title: 'Install',
       children: [
         {
           title: 'Next.js',
-          href: '/ui-components/installation/next',
+          href: '/ui-components/install/next',
         },
         {
           title: 'Vite',
-          href: '/ui-components/installation/vite',
+          href: '/ui-components/install/vite',
         },
       ],
     },
@@ -73,16 +73,16 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/code-block-button',
             },
             {
+              title: 'Color highlight popover',
+              href: '/ui-components/components/color-highlight-popover',
+            },
+            {
               title: 'Heading button',
               href: '/ui-components/components/heading-button',
             },
             {
               title: 'Heading dropdown',
               href: '/ui-components/components/heading-dropdown-menu',
-            },
-            {
-              title: 'Color highlight popover',
-              href: '/ui-components/components/color-highlight-popover',
             },
             {
               title: 'Image upload button',
