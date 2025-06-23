@@ -38,16 +38,16 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/ui-components/installation',
-      title: 'Installation',
+      href: '/ui-components/install',
+      title: 'Install',
       children: [
         {
           title: 'Next.js',
-          href: '/ui-components/installation/next',
+          href: '/ui-components/install/next',
         },
         {
           title: 'Vite',
-          href: '/ui-components/installation/vite',
+          href: '/ui-components/install/vite',
         },
       ],
     },

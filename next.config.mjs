@@ -167,6 +167,16 @@ const nextConfig = {
         destination: '/ui-components/getting-started/overview',
         permanent: true,
       },
+      {
+        source: '/ui-components/components/highlight-popover',
+        destination: '/ui-components/components/color-highlight-popover',
+        permanent: true,
+      },
+      {
+        source: '/ui-components/components/node-button',
+        destination: '/ui-components/components/blockquote-button',
+        permanent: true,
+      },
     ]
   },
 }
