@@ -229,6 +229,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Review AI-generated changes',
                   href: '/content-ai/capabilities/agent/features/review',
                 },
+                {
+                  title: 'Add context to messages',
+                  href: '/content-ai/capabilities/agent/features/add-context',
+                },
               ],
             },
             {
@@ -242,10 +246,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'System prompt',
                   href: '/content-ai/capabilities/agent/configure/system-prompt',
-                },
-                {
-                  title: 'Add context to messages',
-                  href: '/content-ai/capabilities/agent/configure/add-context',
                 },
               ],
             },
