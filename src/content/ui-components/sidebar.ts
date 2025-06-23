@@ -15,6 +15,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/getting-started/overview',
         },
         {
+          title: 'Style',
+          href: '/ui-components/getting-started/style',
+        },
+        {
           title: 'CLI',
           href: '/ui-components/getting-started/cli',
         },
@@ -29,6 +33,21 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
           tags: ['Open Source'],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/ui-components/installation',
+      title: 'Installation',
+      children: [
+        {
+          title: 'Next.js',
+          href: '/ui-components/installation/next',
+        },
+        {
+          title: 'Vite',
+          href: '/ui-components/installation/vite',
         },
       ],
     },
