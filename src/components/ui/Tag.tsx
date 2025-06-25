@@ -27,13 +27,27 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
       return () => setMounted(false)
     }, [])
 
-    useEffect(() => {
-      if (showTooltip && tagRef.current) {
+    const updateTooltipPosition = () => {
+      if (tagRef.current) {
         const rect = tagRef.current.getBoundingClientRect()
         setTooltipPosition({
-          top: rect.top + window.scrollY - 10, // Position above the tag with some margin
-          left: rect.left + rect.width / 2 + window.scrollX, // Center horizontally
+          top: rect.top - 10, // Position above the tag with some margin (viewport-relative)
+          left: rect.left + rect.width / 2, // Center horizontally (viewport-relative)
         })
+      }
+    }
+
+    useEffect(() => {
+      if (showTooltip) {
+        updateTooltipPosition()
+        
+        // Add scroll event listener to update position during scroll
+        const handleScroll = () => updateTooltipPosition()
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        
+        return () => {
+          window.removeEventListener('scroll', handleScroll)
+        }
       }
     }, [showTooltip])
 
