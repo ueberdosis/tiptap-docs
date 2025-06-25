@@ -5,6 +5,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter, SidebarConfig } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+import { Tag } from '@/components/ui/Tag'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
@@ -115,6 +116,11 @@ export default async function MarkdownPage({ params }: Props) {
               {sidebar ? <PageHeader.Breadcrumbs config={sidebar} /> : null}
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
+              ) : null}
+              {pageMdx.frontmatter?.incident?.severity === 'high' ? (
+                <div className="mt-6">
+                  <Tag variant="warning">Severity: High</Tag>
+                </div>
               ) : null}
               {pageMdx.frontmatter?.tags ? (
                 <PageHeader.Tags tags={pageMdx.frontmatter.tags} />
