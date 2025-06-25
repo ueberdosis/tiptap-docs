@@ -5,7 +5,7 @@ import { Tag } from './ui/Tag'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import Link from '@/components/Link'
-import { IncidentData, INCIDENT_STATUS_COLORS, INCIDENT_SEVERITY_COLORS } from '@/types'
+import { IncidentData, INCIDENT_SEVERITY_COLORS } from '@/types'
 import { useQueryParam } from '@/hooks/useQueryParams'
 
 // Constants

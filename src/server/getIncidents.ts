@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import fm from 'front-matter'
-import { IncidentData } from '@/types'
+import { IncidentData, PageFrontmatter } from '@/types'
 
 export async function getIncidents(): Promise<IncidentData[]> {
   const incidentsDir = path.join(process.cwd(), 'src/content/resources/incidents')
-  
+
   try {
     const files = fs.readdirSync(incidentsDir)
     const incidents: IncidentData[] = []
@@ -14,17 +14,26 @@ export async function getIncidents(): Promise<IncidentData[]> {
       if (file.endsWith('.mdx')) {
         const filePath = path.join(incidentsDir, file)
         const fileContent = fs.readFileSync(filePath, 'utf8')
-        const { attributes } = fm(fileContent)
-        
+        const { attributes } = fm<PageFrontmatter>(fileContent)
+
         const slug = file.replace('.mdx', '')
         const url = `/resources/incidents/${slug}`
-        
+
         incidents.push({
-          title: attributes.title,
-          meta: attributes.meta,
-          incident: attributes.incident,
+          title: attributes.title || '',
+          meta: {
+            title: attributes.meta?.title || '',
+            description: attributes.meta?.description || '',
+            category: attributes.meta?.category || '',
+          },
+          incident: attributes.incident || {
+            product: '',
+            date: '',
+            status: 'resolved',
+            severity: 'low',
+          },
           path: file,
-          url: url
+          url: url,
         })
       }
     }
