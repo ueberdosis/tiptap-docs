@@ -40,11 +40,11 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
     useEffect(() => {
       if (showTooltip) {
         updateTooltipPosition()
-        
+
         // Add scroll event listener to update position during scroll
         const handleScroll = () => updateTooltipPosition()
         window.addEventListener('scroll', handleScroll, { passive: true })
-        
+
         return () => {
           window.removeEventListener('scroll', handleScroll)
         }
