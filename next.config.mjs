@@ -113,6 +113,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/agent/custom-llms',
+        destination: '/content-ai/capabilities/agent/custom-llms/overview',
+        permanent: true,
+      },
+      {
         source: '/collaboration/documents/conversion',
         destination: '/conversion/getting-started/overview',
         permanent: true,

@@ -252,6 +252,34 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Integrate your LLM',
               href: '/content-ai/capabilities/agent/custom-llms',
+              children: [
+                {
+                  title: 'Overview',
+                  href: '/content-ai/capabilities/agent/custom-llms/overview',
+                },
+                {
+                  title: 'Get started',
+                  href: '/content-ai/capabilities/agent/custom-llms/get-started',
+                  children: [
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/vercel-ai-sdk',
+                    },
+                    {
+                      title: 'OpenAI Completions',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-chat-completions',
+                    },
+                    {
+                      title: 'OpenAI Responses',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-responses',
+                    },
+                    {
+                      title: 'Anthropic Claude',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/anthropic-messages',
+                    },
+                  ],
+                },
+              ],
             },
             {
               title: 'API Reference',
