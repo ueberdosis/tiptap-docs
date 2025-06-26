@@ -279,6 +279,54 @@ export const sidebarConfig: SidebarConfig = {
                     },
                   ],
                 },
+                {
+                  title: 'Tools overview',
+                  href: '/content-ai/capabilities/agent/custom-llms/tools',
+                },
+                {
+                  title: 'Client-side tools',
+                  href: '/content-ai/capabilities/agent/custom-llms/client-side-tools',
+                  children: [
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/agent/custom-llms/client-side-tools/vercel-ai-sdk',
+                    },
+                    {
+                      title: 'OpenAI Completions',
+                      href: '/content-ai/capabilities/agent/custom-llms/client-side-tools/openai-chat-completions',
+                    },
+                    {
+                      title: 'OpenAI Responses',
+                      href: '/content-ai/capabilities/agent/custom-llms/client-side-tools/openai-responses',
+                    },
+                    {
+                      title: 'Anthropic Claude',
+                      href: '/content-ai/capabilities/agent/custom-llms/client-side-tools/anthropic-messages',
+                    },
+                  ],
+                },
+                {
+                  title: 'Server-side tools',
+                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools',
+                  children: [
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/vercel-ai-sdk',
+                    },
+                    {
+                      title: 'OpenAI Completions',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-chat-completions',
+                    },
+                    {
+                      title: 'OpenAI Responses',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-responses',
+                    },
+                    {
+                      title: 'Anthropic Claude',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/anthropic-messages',
+                    },
+                  ],
+                },
               ],
             },
             {
