@@ -230,8 +230,12 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/agent/features/review',
                 },
                 {
-                  title: 'Add context to messages',
+                  title: 'Provide context',
                   href: '/content-ai/capabilities/agent/features/add-context',
+                },
+                {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/agent/features/selection-awareness',
                 },
               ],
             },
