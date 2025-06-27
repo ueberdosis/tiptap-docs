@@ -206,7 +206,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/agent/features/state',
                 },
                 {
-                  title: 'Listen to events',
+                  title: 'Events',
                   href: '/content-ai/capabilities/agent/features/events',
                 },
                 {
@@ -215,7 +215,7 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'Lifecycle',
-                  href: '/content-ai/capabilities/agent/features/runs',
+                  href: '/content-ai/capabilities/agent/features/lifecycle',
                 },
                 {
                   title: 'Review changes',
@@ -227,7 +227,7 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'Provide context',
-                  href: '/content-ai/capabilities/agent/features/add-context',
+                  href: '/content-ai/capabilities/agent/features/context',
                 },
                 {
                   title: 'Selection awareness',
