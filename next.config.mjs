@@ -104,12 +104,17 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/agent/features',
-        destination: '/content-ai/capabilities/agent/features/state-management',
+        destination: '/content-ai/capabilities/agent/features/state',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/agent/configure',
         destination: '/content-ai/capabilities/agent/configure/options',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/custom-llms',
+        destination: '/content-ai/capabilities/agent/custom-llms/overview',
         permanent: true,
       },
       {
