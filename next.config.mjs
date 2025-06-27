@@ -104,7 +104,7 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/agent/features',
-        destination: '/content-ai/capabilities/agent/features/state-management',
+        destination: '/content-ai/capabilities/agent/features/state',
         permanent: true,
       },
       {

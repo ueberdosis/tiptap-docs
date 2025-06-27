@@ -202,32 +202,28 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/features',
               children: [
                 {
-                  title: 'State Management',
-                  href: '/content-ai/capabilities/agent/features/state-management',
+                  title: 'State',
+                  href: '/content-ai/capabilities/agent/features/state',
                 },
                 {
                   title: 'Listen to events',
                   href: '/content-ai/capabilities/agent/features/events',
                 },
                 {
-                  title: 'Available Methods',
+                  title: 'Methods',
                   href: '/content-ai/capabilities/agent/features/methods',
                 },
                 {
-                  title: 'Manage Checkpoints',
-                  href: '/content-ai/capabilities/agent/features/checkpoints',
-                },
-                {
-                  title: 'AI Agent Lifecycle',
+                  title: 'Lifecycle',
                   href: '/content-ai/capabilities/agent/features/runs',
                 },
                 {
-                  title: 'Reading the document',
-                  href: '/content-ai/capabilities/agent/features/reading-the-document',
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/agent/features/review',
                 },
                 {
-                  title: 'Review AI-generated changes',
-                  href: '/content-ai/capabilities/agent/features/review',
+                  title: 'Checkpoints',
+                  href: '/content-ai/capabilities/agent/features/checkpoints',
                 },
                 {
                   title: 'Provide context',
@@ -236,6 +232,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Selection awareness',
                   href: '/content-ai/capabilities/agent/features/selection-awareness',
+                },
+                {
+                  title: 'Read large documents',
+                  href: '/content-ai/capabilities/agent/features/large-documents',
                 },
               ],
             },
