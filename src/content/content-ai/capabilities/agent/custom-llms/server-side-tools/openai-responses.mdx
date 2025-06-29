@@ -33,11 +33,21 @@ const weatherTool = {
 Then, when you call the OpenAI API, include the tool in the `tools` array:
 
 ```ts
-import { AiAgentToolkit } from '@tiptap-pro/extension-ai-agent-server'
-import { openaiResponsesAdapter } from '@tiptap-pro/extension-ai-agent'
+import {
+  AiAgentToolkit,
+  openaiResponsesAdapter,
+  ChatMessagesFormatter,
+} from '@tiptap-pro/extension-ai-agent-server'
 import OpenAI from 'openai'
 
-const toolkit = new AiAgentToolkit()
+const toolkit = new AiAgentToolkit({
+  adapter: openaiResponsesAdapter,
+})
+
+const formatter = new ChatMessagesFormatter({
+  initialMessages: chatMessages,
+  adapter: openaiResponsesAdapter,
+})
 
 // Initialize the OpenAI client
 const openai = new OpenAI()
@@ -53,17 +63,18 @@ const response = await openai.responses.create({
 ${toolkit.getSystemPrompt()}
 `,
     },
-    ...llmMessages,
+    ...formatter.format(),
   ],
   // Include the weather tool in the tools array, beside
   // the other tools provided by AiAgentToolkit
-  tools: [...toolkit.getTools(openaiResponsesAdapter), weatherTool],
+  tools: [...toolkit.getTools(), weatherTool],
 })
 ```
 
 Then, check if the response contains the weather tool. If so, call the tool and add the result to the `llmMessages` array.
 
 ```ts
+formatter.addAiResponse(response)
 for (const toolCall of response.output) {
   if (toolCall.type !== 'function_call') {
     continue
@@ -78,33 +89,19 @@ for (const toolCall of response.output) {
   const args = JSON.parse(toolCall.arguments)
 
   const result = getWeather(args)
-  llmMessages.push({
-    type: 'function_call_output',
-    call_id: toolCall.call_id,
-    output: result.toString(),
+  formatter.addChatMessage({
+    type: 'toolCallResult',
+    toolName: 'get_weather',
+    toolCallId: toolCall.call_id,
+    result: result.toString(),
   })
 }
 ```
 
-Finally, when there are no more server-side tool calls, use the `openaiResponsesAdapter` to convert the response to the format expected by the AI Agent extension.
+Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.
 
 ```ts
-const result = openaiResponsesAdapter.parseResponse(response)
+const response = formatter.getResolverResponse()
 ```
 
 The `result` should be the response of the API endpoint, and the return value of the `resolver` function.
-
-You can also add chat messages to the `result` describing the tool that was called. This will display the result of the tool call in the chat conversation.
-
-```ts
-// Add the tool call message to the beginning of the list of new chat messages
-result.chatMessages.unshift({
-  type: 'ai',
-  text: 'The weather in Berlin is sunny.',
-  metadata: {
-    // Include this metadata to mark the message as a server-side tool call
-    // and display it differently in the UI
-    isServerSideToolCall: true,
-  },
-})
-```
