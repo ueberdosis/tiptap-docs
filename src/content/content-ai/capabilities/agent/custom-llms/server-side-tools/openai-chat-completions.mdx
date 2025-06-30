@@ -2,11 +2,11 @@
 title: Server-side tools (OpenAI Chat Completions API)
 meta:
   title: Server-side tools (OpenAI Chat Completions API) | Tiptap Content AI
-  description: Learn how to call tools in the server-side using the OpenAI Chat Completions API.
+  description: Learn how to call tools in the server using the OpenAI Chat Completions API.
   category: Content AI
 ---
 
-This guide explains how to call tools in the server-side using the OpenAI Chat Completions API. It presents an example of a tool that returns the weather in a given location.
+This guide explains how to call tools in the server using the OpenAI Chat Completions API. It presents an example of a tool that returns the weather in a given location.
 
 First, define the tool in the [OpenAI Chat Completions API tool format](https://platform.openai.com/docs/guides/function-calling):
 
@@ -30,14 +30,24 @@ const weatherTool = {
 }
 ```
 
-Then, when you call the OpenAI API, include the tool in the `tools` array:
+Then, when you call the OpenAI API, include the tool in the `tools` array.
 
 ```ts
-import { AiAgentToolkit } from '@tiptap-pro/extension-ai-agent-server'
-import { openaiChatCompletionsAdapter } from '@tiptap-pro/extension-ai-agent'
+import {
+  AiAgentToolkit,
+  openaiChatCompletionsAdapter,
+  ChatMessagesFormatter,
+} from '@tiptap-pro/extension-ai-agent-server'
 import OpenAI from 'openai'
 
-const toolkit = new AiAgentToolkit()
+const toolkit = new AiAgentToolkit({
+  adapter: openaiChatCompletionsAdapter,
+})
+
+const formatter = new ChatMessagesFormatter({
+  initialMessages: chatMessages,
+  adapter: openaiChatCompletionsAdapter,
+})
 
 // Initialize the OpenAI client
 const openai = new OpenAI()
@@ -53,15 +63,23 @@ const response = await openai.chat.completions.create({
 ${toolkit.getSystemPrompt()}
 `,
     },
-    ...llmMessages,
+    ...formatter.format(),
   ],
   // Include the weather tool in the tools array, beside
   // the other tools provided by AiAgentToolkit
-  tools: [...toolkit.getTools(openaiChatCompletionsAdapter), weatherTool],
+  tools: [...toolkit.getTools(), weatherTool],
 })
 ```
 
-Then, check if the response contains the weather tool. If so, call the tool and add the result to the `llmMessages` array.
+First, add the response to the formatter so that it is included in the conversation.
+
+```ts
+formatter.addAiResponse(response)
+```
+
+Then, check if the response contains a server-side tool call like the weather tool. If so, call the tool and add the result to the formatter. Then, call the OpenAI API again.
+
+Repeat this process until there are no more server-side tool calls in the response.
 
 ```ts
 for (const choice of response.choices) {
@@ -76,37 +94,42 @@ for (const choice of response.choices) {
       continue
     }
 
+    // Get weather from an external API
     const args = JSON.parse(toolCall.function.arguments)
-
     const result = getWeather(args)
-    llmMessages.push({
-      role: 'tool',
-      content: result.toString(),
-      tool_call_id: toolCall.id,
+
+    formatter.addChatMessage({
+      type: 'toolCallResult',
+      toolName: 'get_weather',
+      toolCallId: toolCall.id,
+      result: result.toString(),
     })
   }
 }
-```
 
-Finally, when there are no more server-side tool calls, use the `openaiChatCompletionsAdapter` to convert the response to the format expected by the AI Agent extension.
-
-```ts
-const result = openaiChatCompletionsAdapter.parseResponse(response)
-```
-
-The `result` should be the response of the API endpoint, and the return value of the `resolver` function.
-
-You can also add chat messages to the `result` describing the tool that was called. This will display the result of the tool call in the chat conversation.
-
-```ts
-// Add the tool call message to the beginning of the list of new chat messages
-result.chatMessages.unshift({
-  type: 'ai',
-  text: 'The weather in Berlin is sunny.',
-  metadata: {
-    // Include this metadata to mark the message as a server-side tool call
-    // and display it differently in the UI
-    isServerSideToolCall: true,
-  },
+// Call the OpenAI Chat Completions API again
+const response = await openai.chat.completions.create({
+  model: 'gpt-4.1',
+  messages: [
+    {
+      role: 'system',
+      content: `
+<Your system prompt>
+${toolkit.getSystemPrompt()}
+`,
+    },
+    ...formatter.format(),
+  ],
+  // Include the weather tool in the tools array, beside
+  // the other tools provided by AiAgentToolkit
+  tools: [...toolkit.getTools(), weatherTool],
 })
 ```
+
+Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.
+
+```ts
+const response = formatter.getResolverResponse()
+```
+
+The `response` should be the response of the API endpoint, and the return value of the `resolver` function.
