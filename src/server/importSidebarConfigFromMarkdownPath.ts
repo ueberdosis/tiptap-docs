@@ -17,13 +17,19 @@ export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]
 
     if (fileExists) {
       const isIndex = steppedSegments[steppedSegments.length - 1] === ''
-      importPath = isIndex
-        ? 'sidebar'
-        : `${steppedSegments.filter((s) => s !== '').join('/')}sidebar`
+      const path = restSegments.join('/')
+
+      importPath = isIndex ? 'sidebar' : `${path}/sidebar`
     }
 
     // remove last segment
     restSegments.pop()
+  }
+
+  // if the importPath starts with a slash, remove it
+  // as import statements do not support leading slashes
+  if (importPath.startsWith('/')) {
+    importPath = importPath.slice(1)
   }
 
   return import(`@/content/${importPath}`)
