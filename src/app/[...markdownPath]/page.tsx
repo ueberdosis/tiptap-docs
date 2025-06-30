@@ -61,7 +61,6 @@ export default async function MarkdownPage({ params }: Props) {
     notFound()
   }
 
-  console.log(`import ${`@/content/${hasDirectMdx ? directPath : indexPath}`}`)
   const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
