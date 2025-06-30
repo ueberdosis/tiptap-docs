@@ -9,20 +9,22 @@ export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]
   let importPath = ''
   let steppedSegments: string[] = []
 
-  ;['', ...markdownPath].forEach((segment) => {
-    steppedSegments.push(segment)
+  const restSegments = ['', ...markdownPath]
 
-    const filePath = path.join(process.cwd(), 'src/content', ...steppedSegments, 'sidebar.ts')
-
-    const fileExists = fs.existsSync(filePath)
+  while (!importPath && restSegments.length > 0) {
+    const fullPath = path.join(process.cwd(), 'src/content', ...restSegments, 'sidebar.ts')
+    const fileExists = fs.existsSync(fullPath)
 
     if (fileExists) {
       const isIndex = steppedSegments[steppedSegments.length - 1] === ''
       importPath = isIndex
         ? 'sidebar'
-        : `${steppedSegments.filter((s) => s !== '').join('/')}/sidebar`
+        : `${steppedSegments.filter((s) => s !== '').join('/')}sidebar`
     }
-  })
+
+    // remove last segment
+    restSegments.pop()
+  }
 
   return import(`@/content/${importPath}`)
 }
