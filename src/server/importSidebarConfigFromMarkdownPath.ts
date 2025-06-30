@@ -22,6 +22,9 @@ export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]
     }
   })
 
+  if (!importPath) {
+    return Promise.resolve({ sidebarConfig: undefined })
+  }
   return import(`@/content/${importPath}`) as Promise<{
     sidebarConfig: SidebarConfig | undefined
   }>
