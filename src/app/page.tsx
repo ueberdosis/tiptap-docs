@@ -2,9 +2,9 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
-import { sidebarConfig } from '@/content/sidebar'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
+import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 
 export async function generateMetadata() {
   const pageMdx = (await import(`@/content/index.mdx`)) as {
@@ -27,6 +27,7 @@ export default async function HomePage() {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
   }
+  const sidebar = await importSidebarConfigFromMarkdownPath([])
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
@@ -50,13 +51,15 @@ export default async function HomePage() {
   return (
     <>
       <Layout.CTA />
-      <Layout.Header config={sidebarConfig} />
+      <Layout.Header config={sidebar.sidebarConfig} />
       <Layout.Wrapper>
-        <Layout.Sidebar config={sidebarConfig} />
+        {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
         <Layout.Content>
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
-              {<PageHeader.Breadcrumbs config={sidebarConfig} />}
+              {sidebar.sidebarConfig ? (
+                <PageHeader.Breadcrumbs config={sidebar.sidebarConfig} />
+              ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               {pageMdx.frontmatter?.tags ? (
                 <PageHeader.Tags tags={pageMdx.frontmatter.tags} />

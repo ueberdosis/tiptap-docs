@@ -3,10 +3,11 @@ import path from 'path'
 import { notFound } from 'next/navigation'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
-import { PageFrontmatter, SidebarConfig } from '@/types'
+import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
+import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 
 type Props = {
   params: {
@@ -48,26 +49,8 @@ export default async function MarkdownPage({ params }: Props) {
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
-  let sidebar: SidebarConfig | null = null
-  let steppedSegments = []
-
   const canonicalUrl = createCanonicalUrl(params.markdownPath)
-
-  ;['', ...params.markdownPath].forEach((segment) => {
-    steppedSegments.push(segment)
-
-    const filePath = path.join(process.cwd(), 'src/content', ...steppedSegments, 'sidebar.ts')
-
-    const fileExists = fs.existsSync(filePath)
-
-    if (fileExists) {
-      const isIndex = steppedSegments[steppedSegments.length - 1] === ''
-      const importPath = isIndex
-        ? 'sidebar'
-        : `${steppedSegments.filter((s) => s !== '').join('/')}/sidebar`
-      sidebar = require(`@/content/${importPath}`).sidebarConfig as SidebarConfig
-    }
-  })
+  const sidebar = await importSidebarConfigFromMarkdownPath(params.markdownPath)
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
@@ -78,6 +61,7 @@ export default async function MarkdownPage({ params }: Props) {
     notFound()
   }
 
+  console.log(`import ${`@/content/${hasDirectMdx ? directPath : indexPath}`}`)
   const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
@@ -105,13 +89,15 @@ export default async function MarkdownPage({ params }: Props) {
   return (
     <>
       <Layout.CTA />
-      <Layout.Header config={sidebar ?? undefined} />
+      <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
-        {sidebar ? <Layout.Sidebar config={sidebar} /> : null}
+        {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
         <Layout.Content>
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
-              {sidebar ? <PageHeader.Breadcrumbs config={sidebar} /> : null}
+              {sidebar.sidebarConfig ? (
+                <PageHeader.Breadcrumbs config={sidebar.sidebarConfig} />
+              ) : null}
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               ) : null}
