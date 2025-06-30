@@ -3,7 +3,9 @@ import path from 'path'
 
 import type { SidebarConfig } from '@/types'
 
-export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]) {
+export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]): Promise<{
+  sidebarConfig: SidebarConfig | undefined
+}> {
   let importPath = ''
   let steppedSegments: string[] = []
 
@@ -22,7 +24,5 @@ export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]
     }
   })
 
-  return import(`@/content/${importPath}`) as Promise<{
-    sidebarConfig: SidebarConfig | undefined
-  }>
+  return import(`@/content/${importPath}`)
 }
