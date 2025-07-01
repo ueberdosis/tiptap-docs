@@ -75,42 +75,43 @@ Then, check if the response contains a server-side tool call like the weather to
 Repeat this process until there are no more server-side tool calls in the response.
 
 ```ts
-for (const content of response.content) {
-  if (content.type !== 'tool_use') {
-    continue
-  }
+const isGetWeatherToolUse = (
+  content: Anthropic.Messages.ContentBlock,
+): content is Anthropic.Messages.ToolUseBlock =>
+  content.type === 'tool_use' && content.name === 'get_weather'
 
-  const name = content.name
+let response: Anthropic.Messages.Message | null = null
 
-  if (name !== 'get_weather') {
-    continue
-  }
-
-  // Get weather from an external API
-  const args = content.input
-  const result = getWeather(args)
-
-  formatter.addChatMessage({
-    type: 'toolCallResult',
-    toolName: 'get_weather',
-    toolCallId: content.id,
-    result: result.toString(),
+while (!response || response.content.some(isGetWeatherToolUse)) {
+  // Call the Anthropic Claude Messages API
+  response = await anthropic.messages.create({
+    model: 'claude-4-0',
+    max_tokens: 2048,
+    system: `${systemPrompt}\n${toolkit.getSystemPrompt()}`,
+    messages: formatter.format(),
+    // Include the weather tool in the tools array, beside the other tools in AiAgentToolkit
+    tools: [...toolkit.format(), weatherTool],
   })
-}
 
-// Call the Anthropic Claude Messages API again
-const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-0',
-  max_tokens: 2048,
-  system: `
-<Your system prompt>
-${toolkit.getSystemPrompt()}
-`,
-  messages: formatter.format(),
-  // Include the weather tool in the tools array, beside
-  // the other tools provided by AiAgentToolkit
-  tools: [...toolkit.format(), weatherTool],
-})
+  // Convert the response to the format expected by the AI Agent extension
+  formatter.addAiResponse(response)
+
+  // Process weather tool calls
+  for (const content of response.content) {
+    if (isGetWeatherToolUse(content)) {
+      const weatherResult = await getWeather(content.input)
+
+      // Add the tool call result to the formatter
+      formatter.addChatMessage({
+        type: 'toolCallResult',
+        toolName: 'get_weather',
+        toolCallId: content.id,
+        result: weatherResult,
+        isError: false,
+      })
+    }
+  }
+}
 ```
 
 Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.

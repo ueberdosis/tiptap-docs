@@ -82,37 +82,47 @@ Then, check if the response contains a server-side tool call like the weather to
 Repeat this process until there are no more server-side tool calls in the response.
 
 ```ts
-for (const toolCall of response.output) {
-  if (toolCall.type === 'function_call' && toolCall.name === 'get_weather') {
-    const args = JSON.parse(toolCall.arguments)
-    const weatherResult = await getWeather(args.location)
+const isGetWeatherMessage = (
+  message: OpenAI.Responses.ResponseOutputItem,
+): message is OpenAI.Responses.ResponseFunctionToolCall =>
+  message.type === 'function_call' && message.name === 'get_weather'
 
-    // Add the tool call result to the formatter
-    formatter.addChatMessage({
-      type: 'toolCallResult',
-      toolName: 'get_weather',
-      toolCallId: toolCall.call_id,
-      result: weatherResult.toString(),
-    })
+let response: OpenAI.Responses.Response | null = null
+
+while (!response || response.output?.some(isGetWeatherMessage)) {
+  // Call the OpenAI Responses API
+  response = await openai.responses.create({
+    model: 'gpt-4.1',
+    input: [
+      {
+        role: 'developer',
+        content: `${systemPrompt}\n${toolkit.getSystemPrompt()}`,
+      },
+      ...formatter.format(),
+    ],
+    // Include the weather tool in the tools array, beside the other tools provided by AiAgentToolkit
+    tools: [...toolkit.format(), weatherTool],
+  })
+  // Convert the response to the format expected by the AI Agent extension
+  formatter.addAiResponse(response)
+
+  // Process weather tool calls
+  for (const toolCall of response.output) {
+    if (isGetWeatherMessage(toolCall)) {
+      const args = locationSchema.parse(JSON.parse(toolCall.arguments))
+      const weatherResult = await getWeather(args.location)
+
+      // Add the tool call result to the formatter
+      formatter.addChatMessage({
+        type: 'toolCallResult',
+        toolName: 'get_weather',
+        toolCallId: toolCall.call_id,
+        result: weatherResult,
+        isError: false,
+      })
+    }
   }
 }
-
-// Call the OpenAI Responses API again
-const response = await openai.responses.create({
-  model: 'gpt-4.1',
-  input: [
-    {
-      role: 'developer',
-      content: `
-<Your system prompt>
-${toolkit.getSystemPrompt()}
-`,
-    },
-    ...formatter.format(),
-  ],
-  // Provide the tools that the AI model can call
-  tools: toolkit.format(),
-})
 ```
 
 Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.

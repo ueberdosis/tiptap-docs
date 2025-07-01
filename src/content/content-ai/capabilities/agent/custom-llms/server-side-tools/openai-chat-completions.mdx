@@ -82,48 +82,46 @@ Then, check if the response contains a server-side tool call like the weather to
 Repeat this process until there are no more server-side tool calls in the response.
 
 ```ts
-for (const choice of response.choices) {
-  if (!choice.message.tool_calls) {
-    continue
-  }
+const isGetWeatherToolCall = (toolCall: OpenAI.Chat.Completions.ChatCompletionMessageToolCall) =>
+  toolCall.function.name === 'get_weather'
 
-  for (const toolCall of choice.message.tool_calls) {
-    const name = toolCall.function.name
+let response: OpenAI.Chat.Completions.ChatCompletion | null = null
 
-    if (name !== 'get_weather') {
-      continue
+while (!response || response.choices[0].message.tool_calls?.some(isGetWeatherToolCall)) {
+  // Call the OpenAI Chat Completions API
+  response = await openai.chat.completions.create({
+    model: 'gpt-4.1',
+    messages: [
+      {
+        role: 'system',
+        content: `${systemPrompt}\n${toolkit.getSystemPrompt()}`,
+      },
+      ...formatter.format(),
+    ],
+    // Include the weather tool in the tools array, beside the other tools in AiAgentToolkit
+    tools: [...toolkit.format(), weatherTool],
+  })
+
+  // Convert the response to the format expected by the AI Agent extension
+  formatter.addAiResponse(response)
+
+  // Process weather tool calls
+  for (const toolCall of response.choices[0].message.tool_calls || []) {
+    if (isGetWeatherToolCall(toolCall)) {
+      const args = locationSchema.parse(JSON.parse(toolCall.function.arguments))
+      const weatherResult = await getWeather(args.location)
+
+      // Add the tool call result to the formatter
+      formatter.addChatMessage({
+        type: 'toolCallResult',
+        toolName: 'get_weather',
+        toolCallId: toolCall.id,
+        result: weatherResult,
+        isError: false,
+      })
     }
-
-    // Get weather from an external API
-    const args = JSON.parse(toolCall.function.arguments)
-    const result = getWeather(args)
-
-    formatter.addChatMessage({
-      type: 'toolCallResult',
-      toolName: 'get_weather',
-      toolCallId: toolCall.id,
-      result: result.toString(),
-    })
   }
 }
-
-// Call the OpenAI Chat Completions API again
-const response = await openai.chat.completions.create({
-  model: 'gpt-4.1',
-  messages: [
-    {
-      role: 'system',
-      content: `
-<Your system prompt>
-${toolkit.getSystemPrompt()}
-`,
-    },
-    ...formatter.format(),
-  ],
-  // Include the weather tool in the tools array, beside
-  // the other tools provided by AiAgentToolkit
-  tools: [...toolkit.format(), weatherTool],
-})
 ```
 
 Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.
