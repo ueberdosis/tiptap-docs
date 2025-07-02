@@ -146,6 +146,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'List item',
             },
             {
+              href: '/editor/extensions/nodes/mathematics',
+              title: 'Mathematics',
+            },
+            {
               href: '/editor/extensions/nodes/mention',
               title: 'Mention',
             },
@@ -350,10 +354,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
               tags: ['Beta', 'Pro'],
-            },
-            {
-              href: '/editor/extensions/functionality/mathematics',
-              title: 'Mathematics',
             },
             {
               href: '/editor/extensions/functionality/placeholder',
