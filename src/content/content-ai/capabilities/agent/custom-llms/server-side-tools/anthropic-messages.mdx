@@ -2,11 +2,18 @@
 title: Server-side tools (Anthropic Claude Messages API)
 meta:
   title: Server-side tools (Anthropic Claude Messages API) | Tiptap Content AI
-  description: Learn how to call tools in the server-side using the Anthropic Claude Messages API.
+  description: Learn how to call server-side tools using the Anthropic Claude Messages API.
   category: Content AI
 ---
 
-This guide explains how to call tools in the server-side using the Anthropic Claude Messages API. It presents an example of a tool that returns the weather in a given location.
+import { Callout } from '@/components/ui/Callout'
+
+This guide explains how to call server-side tools using the Anthropic Claude Messages API. It presents an example of a tool that returns the weather in a given location.
+
+<Callout title="Code demo available" variant="info">
+  This guide includes a code demo to help you get started. See the [GitHub
+  repository](https://github.com/ueberdosis/ai-agent-custom-llm-demos).
+</Callout>
 
 First, define the tool in the [Anthropic Claude Messages API tool format](https://docs.anthropic.com/en/docs/tool-use):
 
@@ -27,14 +34,24 @@ const weatherTool = {
 }
 ```
 
-Then, when you call the Anthropic API, include the tool in the `tools` array:
+Then, when you call the Anthropic API, include the tool in the `tools` array.
 
 ```ts
-import { AiAgentToolkit } from '@tiptap-pro/extension-ai-agent-server'
-import { anthropicMessagesAdapter } from '@tiptap-pro/extension-ai-agent'
+import {
+  AiAgentToolkit,
+  anthropicMessagesAdapter,
+  ChatMessagesFormatter,
+} from '@tiptap-pro/extension-ai-agent-server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const toolkit = new AiAgentToolkit()
+const toolkit = new AiAgentToolkit({
+  adapter: anthropicMessagesAdapter,
+})
+
+const formatter = new ChatMessagesFormatter({
+  initialMessages: chatMessages,
+  adapter: anthropicMessagesAdapter,
+})
 
 // Initialize the Anthropic client
 const anthropic = new Anthropic()
@@ -42,66 +59,72 @@ const anthropic = new Anthropic()
 // Call the Anthropic Claude Messages API
 const response = await anthropic.messages.create({
   model: 'claude-sonnet-4-0',
+  max_tokens: 2048,
   system: `
 <Your system prompt>
 ${toolkit.getSystemPrompt()}
 `,
-  messages: llmMessages,
+  messages: formatter.format(),
   // Include the weather tool in the tools array, beside
   // the other tools provided by AiAgentToolkit
-  tools: [...toolkit.getTools(anthropicMessagesAdapter), weatherTool],
+  tools: [...toolkit.format(), weatherTool],
 })
 ```
 
-Then, check if the response contains the weather tool. If so, call the tool and add the result to the `llmMessages` array.
+First, add the response to the formatter so that it is included in the conversation.
 
 ```ts
-for (const content of response.content) {
-  if (content.type !== 'tool_use') {
-    continue
-  }
+formatter.addAiResponse(response)
+```
 
-  const name = content.name
+Then, check if the response contains a server-side tool call like the weather tool. If so, call the tool and add the result to the formatter. Then, call the Anthropic API again.
 
-  if (name !== 'get_weather') {
-    continue
-  }
+Repeat this process until there are no more server-side tool calls in the response.
 
-  const args = content.input
+```ts
+const isGetWeatherToolUse = (
+  content: Anthropic.Messages.ContentBlock,
+): content is Anthropic.Messages.ToolUseBlock =>
+  content.type === 'tool_use' && content.name === 'get_weather'
 
-  const result = getWeather(args)
-  llmMessages.push({
-    role: 'user',
-    content: [
-      {
-        type: 'tool_result',
-        tool_use_id: content.id,
-        content: result.toString(),
-      },
-    ],
+let response: Anthropic.Messages.Message | null = null
+
+while (!response || response.content.some(isGetWeatherToolUse)) {
+  // Call the Anthropic Claude Messages API
+  response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-0',
+    max_tokens: 2048,
+    system: `${systemPrompt}\n${toolkit.getSystemPrompt()}`,
+    messages: formatter.format(),
+    // Include the weather tool in the tools array, beside the other tools in AiAgentToolkit
+    tools: [...toolkit.format(), weatherTool],
   })
+
+  // Convert the response to the format expected by the AI Agent extension
+  formatter.addAiResponse(response)
+
+  // Process weather tool calls
+  for (const content of response.content) {
+    if (isGetWeatherToolUse(content)) {
+      const weatherResult = await getWeather(content.input)
+
+      // Add the tool call result to the formatter
+      formatter.addChatMessage({
+        type: 'toolCallResult',
+        toolName: 'get_weather',
+        toolCallId: content.id,
+        result: weatherResult,
+        isError: false,
+      })
+    }
+  }
 }
 ```
 
-Finally, when there are no more server-side tool calls, use the `anthropicMessagesAdapter` to convert the response to the format expected by the AI Agent extension.
+Finally, when there are no more server-side tool calls, use the `formatter` to convert the response to the format expected by the AI Agent extension.
 
 ```ts
-const result = anthropicMessagesAdapter.parseResponse(response)
+const response = formatter.getResolverResponse()
 ```
 
-The `result` should be the response of the API endpoint, and the return value of the `resolver` function.
-
-You can also add chat messages to the `result` describing the tool that was called. This will display the result of the tool call in the chat conversation.
-
-```ts
-// Add the tool call message to the beginning of the list of new chat messages
-result.chatMessages.unshift({
-  type: 'ai',
-  text: 'The weather in Berlin is sunny.',
-  metadata: {
-    // Include this metadata to mark the message as a server-side tool call
-    // and display it differently in the UI
-    isServerSideToolCall: true,
-  },
-})
-```
+The value returned from `formatter.getResolverResponse()` should be the response of your API endpoint and the return value of the resolver function.
