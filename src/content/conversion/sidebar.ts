@@ -28,7 +28,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'DOCX',
           href: '/conversion/import-export/docx',
-          tags: ['Beta'],
+          beta: true,
           children: [
             {
               title: 'Editor import',

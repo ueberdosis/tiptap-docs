@@ -7,7 +7,6 @@ import { createMetadata } from '@/server/createMetadata'
 import { Search } from '@/components/Search'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN, GTM_ID } from '@/utils/constants'
-
 const inter = Inter({ subsets: ['latin'] })
 
 export async function getMetadata() {

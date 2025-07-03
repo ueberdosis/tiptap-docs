@@ -246,19 +246,27 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
+              href: '/editor/extensions/functionality/ai-agent',
+              title: 'AI Agent',
+              tags: ['Team'],
+              beta: true,
+            },
+            {
               href: '/editor/extensions/functionality/ai-changes',
               title: 'AI Changes',
-              tags: ['Beta', 'Pro'],
+              tags: ['Team'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/ai-generation',
               title: 'AI Generation',
-              tags: ['Pro'],
+              tags: ['Start'],
             },
             {
               href: '/editor/extensions/functionality/ai-suggestion',
               title: 'AI Suggestion',
-              tags: ['Beta', 'Pro'],
+              tags: ['Team'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -287,7 +295,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/comments',
               title: 'Comments',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/drag-handle',
@@ -308,7 +317,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/filehandler',
@@ -353,7 +363,8 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
-              tags: ['Beta', 'Pro'],
+              tags: ['Start'],
+              beta: true,
             },
             {
               href: '/editor/extensions/functionality/placeholder',
@@ -362,12 +373,12 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/snapshot',
               title: 'Snapshot',
-              tags: ['Pro', 'Cloud'],
+              tags: ['Team'],
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
               title: 'Snapshot Compare',
-              tags: ['Pro', 'Cloud'],
+              tags: ['Team'],
             },
             {
               href: '/editor/extensions/functionality/selection',
