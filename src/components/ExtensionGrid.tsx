@@ -14,10 +14,9 @@ import { useQueryParam } from '@/hooks/useQueryParams'
 
 const SEARCH_FILTER = {
   ALL: 'all',
-  FREE: 'free',
-  PRO: 'pro',
-  CLOUD: 'cloud',
-  EXPERIMENT: 'experiment',
+  OPEN_SOURCE: 'opensource',
+  START: 'start',
+  TEAM: 'team',
 } as const
 
 type SearchFilter = (typeof SEARCH_FILTER)[keyof typeof SEARCH_FILTER]
@@ -38,20 +37,16 @@ function useSearch() {
     setFilter(SEARCH_FILTER.ALL)
   }, [])
 
-  const showFree = useCallback(() => {
-    setFilter(SEARCH_FILTER.FREE)
+  const showOpenSource = useCallback(() => {
+    setFilter(SEARCH_FILTER.OPEN_SOURCE)
   }, [])
 
-  const showPro = useCallback(() => {
-    setFilter(SEARCH_FILTER.PRO)
+  const showStart = useCallback(() => {
+    setFilter(SEARCH_FILTER.START)
   }, [])
 
-  const showCloud = useCallback(() => {
-    setFilter(SEARCH_FILTER.CLOUD)
-  }, [])
-
-  const showExperiment = useCallback(() => {
-    setFilter(SEARCH_FILTER.EXPERIMENT)
+  const showTeam = useCallback(() => {
+    setFilter(SEARCH_FILTER.TEAM)
   }, [])
 
   return {
@@ -60,10 +55,9 @@ function useSearch() {
     clear,
     filter,
     showAll,
-    showFree,
-    showPro,
-    showCloud,
-    showExperiment,
+    showOpenSource,
+    showStart,
+    showTeam,
   }
 }
 
@@ -75,10 +69,32 @@ function useFilteredExtensions(
   if (!extensions) return []
 
   return extensions.filter((ext) => {
-    if (filter === SEARCH_FILTER.FREE && ext.isPro) return false
-    if (filter === SEARCH_FILTER.PRO && !ext.isPro) return false
-    if (filter === SEARCH_FILTER.CLOUD && !ext.isCloud) return false
-    if (filter === SEARCH_FILTER.EXPERIMENT && !ext.isExperiment) return false
+    // When "All" is selected, don't filter by extension type (open source, Start, Team)
+    if (filter === SEARCH_FILTER.ALL) {
+      // Only apply search query filtering
+      return (
+        ext.name.toLowerCase().includes(query.toLowerCase()) ||
+        ext.description.toLowerCase().includes(query.toLowerCase())
+      )
+    }
+
+    // When "Team" is selected, show both Team and Start plan extensions
+    if (filter === SEARCH_FILTER.TEAM) {
+      // Check if it's either a Team extension or also has Start tag
+      return (
+        (ext.tags?.includes('Team') || ext.tags?.includes('Start')) &&
+        (ext.name.toLowerCase().includes(query.toLowerCase()) ||
+          ext.description.toLowerCase().includes(query.toLowerCase()))
+      )
+    }
+
+    // Other filter logic remains the same
+    if (
+      filter === SEARCH_FILTER.OPEN_SOURCE &&
+      (ext.tags?.includes('Start') || ext.tags?.includes('Team'))
+    )
+      return false
+    if (filter === SEARCH_FILTER.START && !ext.tags?.includes('Start')) return false
 
     return (
       ext.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -87,7 +103,7 @@ function useFilteredExtensions(
   })
 }
 
-function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl }) {
+function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: SearchFilter }) {
   const Icon = getIcon(ext.icon)
   return (
     <Card isClickable asChild>
@@ -101,9 +117,8 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl }) {
         <div className="font-semibold text-black leading-[140%]">{ext.name}</div>
         <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
-          {ext.isCloud ? <Tag>Cloud</Tag> : null}
-          {ext.isPro ? <Tag>Pro</Tag> : null}
-          {ext.isExperiment ? <Tag variant="warning">Experiment</Tag> : null}
+          {/* Always show all tags regardless of filter */}
+          {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
         </div>
       </Link>
     </Card>
@@ -113,16 +128,18 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl }) {
 function ExtensionGroup({
   extensions,
   title,
+  currentFilter,
 }: {
   extensions: ExtensionMetaWithUrl[]
   title: string
+  currentFilter?: SearchFilter
 }) {
   return (
     <div>
       <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
         {extensions.map((ext) => (
-          <ExtensionCard ext={ext} key={ext.path} />
+          <ExtensionCard ext={ext} key={ext.path} currentFilter={currentFilter} />
         ))}
       </div>
     </div>
@@ -166,9 +183,9 @@ export const ExtensionGrid = ({
   markExtensions,
   nodeExtensions,
   hideAll,
-  hideFree,
 }: ExtensionGridProps) => {
-  const { clear, handleInput, query, filter, showAll, showFree, showPro, showCloud } = useSearch()
+  const { clear, handleInput, query, filter, showAll, showOpenSource, showStart, showTeam } =
+    useSearch()
   const allExtensions = useAllExtensions(nodeExtensions, markExtensions, functionalityExtensions)
   const filteredNodeExtensions = useFilteredExtensions(query, nodeExtensions, filter)
   const filteredMarkExtensions = useFilteredExtensions(query, markExtensions, filter)
@@ -178,10 +195,16 @@ export const ExtensionGrid = ({
     filter,
   )
 
-  const hasFreeExtensions = useMemo(() => allExtensions.some((ext) => !ext.isPro), [allExtensions])
-  const hasProExtensions = useMemo(() => allExtensions.some((ext) => ext.isPro), [allExtensions])
-  const hasCloudExtensions = useMemo(
-    () => allExtensions.some((ext) => ext.isCloud),
+  const hasOpenSourceExtensions = useMemo(
+    () => allExtensions.some((ext) => !ext.tags?.includes('Start') && !ext.tags?.includes('Team')),
+    [allExtensions],
+  )
+  const hasStartExtensions = useMemo(
+    () => allExtensions.some((ext) => ext.tags?.includes('Start')),
+    [allExtensions],
+  )
+  const hasTeamExtensions = useMemo(
+    () => allExtensions.some((ext) => ext.tags?.includes('Team')),
     [allExtensions],
   )
 
@@ -215,19 +238,19 @@ export const ExtensionGrid = ({
               All
             </FilterButton>
           ) : null}
-          {hasFreeExtensions && !hideFree ? (
-            <FilterButton isActive={filter === SEARCH_FILTER.FREE} onClick={showFree}>
-              Free
+          {hasOpenSourceExtensions ? (
+            <FilterButton isActive={filter === SEARCH_FILTER.OPEN_SOURCE} onClick={showOpenSource}>
+              Open Source
             </FilterButton>
           ) : null}
-          {hasProExtensions ? (
-            <FilterButton isActive={filter === SEARCH_FILTER.PRO} onClick={showPro}>
-              Pro
+          {hasStartExtensions ? (
+            <FilterButton isActive={filter === SEARCH_FILTER.START} onClick={showStart}>
+              Start Plan
             </FilterButton>
           ) : null}
-          {hasCloudExtensions ? (
-            <FilterButton isActive={filter === SEARCH_FILTER.CLOUD} onClick={showCloud}>
-              Cloud
+          {hasTeamExtensions ? (
+            <FilterButton isActive={filter === SEARCH_FILTER.TEAM} onClick={showTeam}>
+              Team Plan
             </FilterButton>
           ) : null}
         </div>
@@ -240,13 +263,25 @@ export const ExtensionGrid = ({
           </div>
         ) : null}
         {nodeExtensions && filteredNodeExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredNodeExtensions} title="Nodes" />
+          <ExtensionGroup
+            extensions={filteredNodeExtensions}
+            title="Nodes"
+            currentFilter={filter}
+          />
         ) : null}
         {markExtensions && filteredMarkExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredMarkExtensions} title="Marks" />
+          <ExtensionGroup
+            extensions={filteredMarkExtensions}
+            title="Marks"
+            currentFilter={filter}
+          />
         ) : null}
         {functionalityExtensions && filteredFunctionalityExtensions.length > 0 ? (
-          <ExtensionGroup extensions={filteredFunctionalityExtensions} title="Functionality" />
+          <ExtensionGroup
+            extensions={filteredFunctionalityExtensions}
+            title="Functionality"
+            currentFilter={filter}
+          />
         ) : null}
       </div>
     </div>

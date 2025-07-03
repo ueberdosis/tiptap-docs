@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
+import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tag } from './ui/Tag'
@@ -74,9 +74,21 @@ export const LinkItem = ({
         isActive={isActive}
         onClick={link.href === '' ? toggleOpen : undefined}
       >
-        <Link href={link.href} onClick={onClick}>
-          {link.title}
-          <span className="flex gap-1">
+        <Link
+          href={link.href}
+          onClick={onClick}
+          className="flex items-center justify-between w-full"
+          target={link.external ? '_blank' : undefined}
+          rel={link.external ? 'noopener noreferrer' : undefined}
+        >
+          <span className="flex-grow flex items-baseline">
+            <span>{link.title}</span>
+            {link.beta && (
+              <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+            )}
+          </span>
+          <span className="flex gap-1 items-center">
+            {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
             {link.tags ? (
               <span className="flex items-center gap-0.5">
                 {link.tags.map((tag) => (

@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { ArrowRightIcon } from 'lucide-react'
 import { PageEditStatus } from '../ui/PageEditStatus'
+import PageHelpFeedback from '../PageHelpFeedback'
 import { TiptapLogo } from '../TiptapLogo'
 import { ProductDropdown } from '../ProductDropdown'
 import { NavLink } from '../NavLink'
@@ -34,13 +35,16 @@ export const LayoutCTABar = () => {
     return null
   }
 
+  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
+
   return (
     <Link
       href={CTA_BAR.url}
-      className="flex gap-2 justify-center items-center bg-gradient-to-r from-purple-600 to-purple-800 font-semibold text-white text-sm text-center px-2 py-3 group"
+      target={target}
+      className="flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white bg-gradient-to-r from-purple-600 to-purple-800 group"
     >
       <span className="leading-none">{CTA_BAR.text}</span>
-      <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition" />
+      <ArrowRightIcon className="transition size-4 group-hover:translate-x-1" />
     </Link>
   )
 }
@@ -171,7 +175,7 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
           ref={ref}
         >
           <SidebarTableOfContent />
-          <div id="requirements-slot" className="mt-8 flex flex-col gap-8" />
+          <div id="requirements-slot" className="flex flex-col gap-8 mt-8" />
         </div>
       </>
     )
@@ -196,13 +200,15 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
         <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
-          <div className="flex flex-col items-start justify-between gap-4 lg:flex-row">
-            <div className="flex flex-col items-start flex-none">
+          <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
+            <div className="z-10 flex flex-col items-start flex-none">
               <PageEditFooter />
             </div>
-            <div className="flex flex-col items-end flex-none"></div>
+            <div className="z-20 flex flex-col items-end flex-none w-full lg:absolute lg:right-0 lg:top-0 lg:w-auto lg:static">
+              <PageHelpFeedback />
+            </div>
           </div>
-          <div className="flex flex-col items-start justify-between gap-4 mt-12 text-sm">
+          <div className="flex flex-col items-start justify-between gap-4 text-sm mt-14">
             <div className="flex flex-wrap items-center flex-none gap-3">
               <Link
                 className="hover:underline"

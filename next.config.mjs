@@ -43,6 +43,31 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/feed',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/docsassets/images/tiptap-logo.png',
+        destination: '/assets/images/tiptap-logo.png',
+        permanent: true,
+      },
+      {
+        source: '/docs/resources/pricing',
+        destination: '/pricing',
+        permanent: true,
+      },
+      {
+        source: '/editor/install',
+        destination: '/editor/getting-started/install',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/tiptap-cloud',
+        destination: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
+        permanent: true,
+      },
+      {
         source: '/conversion/import-export/odt',
         destination: '/conversion/import-export/odt/editor-extensions',
         permanent: true,
@@ -55,42 +80,47 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/generation',
         destination: '/content-ai/capabilities/generation/overview',
-        permanent: false,
+        permanent: true,
+      },
+      {
+        source: '/content-ai/custom-llms/integrate',
+        destination: '/content-ai/content-ai/custom-llms',
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/generation',
         destination: '/content-ai/capabilities/generation/overview',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/generation/text-generation',
         destination: '/content-ai/capabilities/generation/text-generation/built-in-commands',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/suggestion',
         destination: '/content-ai/capabilities/suggestion/overview',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/suggestion',
         destination: '/content-ai/capabilities/suggestion/overview',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/suggestion/features',
         destination: '/content-ai/capabilities/suggestion/features/define-rules',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/changes',
         destination: '/content-ai/capabilities/changes/overview',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/changes/features',
         destination: '/content-ai/capabilities/changes/features/review-changes',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/content-ai/capabilities/text-generation',
@@ -125,22 +155,54 @@ const nextConfig = {
       {
         source: '/ui-components/node-components',
         destination: '/ui-components/node-components/code-block-node',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/ui-components/components',
-        destination: '/ui-components/components/heading-button',
-        permanent: false,
+        destination: '/ui-components/components/blockquote-button',
+        permanent: true,
       },
       {
         source: '/ui-components/primitives',
         destination: '/ui-components/primitives/avatar',
-        permanent: false,
+        permanent: true,
       },
       {
         source: '/ui-components/getting-started',
         destination: '/ui-components/getting-started/overview',
-        permanent: false,
+        permanent: true,
+      },
+      {
+        source: '/ui-components/components/highlight-popover',
+        destination: '/ui-components/components/color-highlight-popover',
+        permanent: true,
+      },
+      {
+        source: '/ui-components/components/node-button',
+        destination: '/ui-components/components/blockquote-button',
+        permanent: true,
+      },
+      // The redirects below are temporary and should be moved to the reverse proxy
+      // TODO: add these redirects to the reverse proxy
+      {
+        source: '/content-ai/capabilities/agent/features/state-management',
+        destination: '/content-ai/capabilities/agent/features/state',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/runs',
+        destination: '/content-ai/capabilities/agent/features/lifecycle',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/reading-the-document',
+        destination: '/content-ai/capabilities/agent/features/large-documents',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/add-context',
+        destination: '/content-ai/capabilities/agent/features/context',
+        permanent: true,
       },
     ]
   },

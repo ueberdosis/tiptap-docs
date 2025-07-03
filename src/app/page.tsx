@@ -7,6 +7,7 @@ import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 
 export async function generateMetadata() {
+  // @ts-ignore
   const pageMdx = (await import(`@/content/index.mdx`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter

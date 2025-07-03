@@ -3,6 +3,7 @@ import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
 import React from 'react'
 import { Codeblock } from './components/Codeblock'
+import { Checklist, CheckboxItem } from './components/Checklist'
 import Link from '@/components/Link'
 
 /**
@@ -27,6 +28,7 @@ const hashClass =
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
+    wrapper: ({ children }) => <>{children}</>,
     pre: (props) => (
       <Codeblock>
         <pre className="hljs">{props.children}</pre>
@@ -110,5 +112,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       // @ts-ignore
       return <Link {...props} target={isExternal ? '_blank' : props.target} />
     },
+    // Direct custom component usage
+    Checklist,
+    CheckboxItem,
   }
 }
