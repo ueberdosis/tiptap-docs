@@ -373,7 +373,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/snapshot',
               title: 'Snapshot',
-              tags: ['Team'],
+              tags: ['Starter'],
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
