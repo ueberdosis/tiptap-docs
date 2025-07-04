@@ -18,11 +18,60 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities',
-      title: 'AI Capabilities',
+      href: '',
+      title: 'Capabilities',
       children: [
         {
           title: 'Generate content',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/overview',
+        },
+        {
+          title: 'Autocomplete',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
+        },
+        {
+          title: 'Suggest content',
+          isActive: false,
+          href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Review changes',
+          isActive: false,
+          href: '/content-ai/capabilities/changes/overview',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/custom-llms',
+      title: 'Bring your own AI',
+      children: [
+        {
+          title: 'Integrate a custom LLM',
+          href: '/content-ai/custom-llms',
+        },
+        {
+          title: 'Integrate a custom agent',
+          isActive: false,
+          href: '/content-ai/capabilities/agent/overview',
+          tags: ['New'],
+        },
+        {
+          title: 'Text editing tools',
+          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
+          tags: ['New'],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/capabilities',
+      title: 'AI Extensions',
+      children: [
+        {
+          title: 'AI Generation',
           tags: ['Start'],
           href: '/content-ai/capabilities/generation/',
           children: [
@@ -83,7 +132,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Suggest content',
+          title: 'AI Suggestion',
           href: '/content-ai/capabilities/suggestion',
           tags: ['Team'],
           beta: true,
@@ -145,7 +194,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Review changes',
+          title: 'AI Changes',
           href: '/content-ai/capabilities/changes',
           tags: ['Team'],
           beta: true,
@@ -323,61 +372,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/api-reference',
             },
           ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '',
-      title: 'Tools for Agents',
-      children: [
-        {
-          title: 'Text-editing tools',
-          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
-          tags: ['New'],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '',
-      title: 'Examples',
-      children: [
-        {
-          title: 'Text Generation',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/overview',
-        },
-        {
-          title: 'Autocomplete',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
-        },
-        {
-          title: 'AI Suggestions',
-          isActive: false,
-          href: '/content-ai/capabilities/suggestion/overview',
-        },
-        {
-          title: 'Track AI changes',
-          isActive: false,
-          href: '/content-ai/capabilities/changes/overview',
-        },
-        {
-          title: 'Starter templates',
-          href: 'https://tiptap.dev/product/templates',
-          external: true,
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/custom-llms',
-      title: 'Custom LLMs',
-      children: [
-        {
-          title: 'Integrate your LLM',
-          href: '/content-ai/custom-llms',
         },
       ],
     },
