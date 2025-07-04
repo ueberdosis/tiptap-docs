@@ -83,7 +83,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Suggestions',
+          title: 'Suggest content',
           href: '/content-ai/capabilities/suggestion',
           tags: ['Team'],
           beta: true,
@@ -145,7 +145,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Review AI Edits',
+          title: 'Review changes',
           href: '/content-ai/capabilities/changes',
           tags: ['Team'],
           beta: true,
@@ -183,7 +183,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Agent',
+          title: 'AI Agent',
           href: '/content-ai/capabilities/agent',
           tags: ['Team'],
           beta: true,
