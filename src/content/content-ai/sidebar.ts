@@ -329,6 +329,19 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '',
+      title: 'Tools for AI Agents',
+      children: [
+        {
+          title: 'Text-editing tools',
+          isActive: false,
+          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
+          tags: ['New'],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '',
       title: 'Examples',
       children: [
         {
