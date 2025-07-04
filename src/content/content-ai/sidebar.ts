@@ -19,10 +19,10 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/content-ai/capabilities',
-      title: 'Capabilities',
+      title: 'AI Capabilities',
       children: [
         {
-          title: 'AI Generation',
+          title: 'Generate content',
           tags: ['Start'],
           href: '/content-ai/capabilities/generation/',
           children: [
@@ -83,7 +83,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Suggestion',
+          title: 'Suggestions',
           href: '/content-ai/capabilities/suggestion',
           tags: ['Team'],
           beta: true,
@@ -145,7 +145,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Changes',
+          title: 'Review AI Edits',
           href: '/content-ai/capabilities/changes',
           tags: ['Team'],
           beta: true,
@@ -183,7 +183,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Agent',
+          title: 'Agent',
           href: '/content-ai/capabilities/agent',
           tags: ['Team'],
           beta: true,
@@ -329,11 +329,10 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '',
-      title: 'Tools for AI Agents',
+      title: 'Tools for Agents',
       children: [
         {
           title: 'Text-editing tools',
-          isActive: false,
           href: '/content-ai/tools-for-ai-agents/text-editing-tools',
           tags: ['New'],
         },
