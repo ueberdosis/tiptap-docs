@@ -18,8 +18,57 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities',
+      href: '',
       title: 'Capabilities',
+      children: [
+        {
+          title: 'Generate content',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/overview',
+        },
+        {
+          title: 'Autocomplete',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
+        },
+        {
+          title: 'Suggest content',
+          isActive: false,
+          href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Review changes',
+          isActive: false,
+          href: '/content-ai/capabilities/changes/overview',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/custom-llms',
+      title: 'Bring your own AI',
+      children: [
+        {
+          title: 'Integrate a custom LLM',
+          href: '/content-ai/custom-llms',
+        },
+        {
+          title: 'Integrate a custom agent',
+          isActive: false,
+          href: '/content-ai/capabilities/agent/overview',
+          tags: ['New'],
+        },
+        {
+          title: 'Text editing tools',
+          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
+          tags: ['New'],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/capabilities',
+      title: 'AI Extensions',
       children: [
         {
           title: 'AI Generation',
@@ -197,67 +246,11 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/install',
             },
             {
-              title: 'Use with Content AI Cloud',
+              title: 'Use with Tiptap Cloud',
               href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
             },
             {
-              title: 'Features',
-              href: '/content-ai/capabilities/agent/features',
-              children: [
-                {
-                  title: 'State',
-                  href: '/content-ai/capabilities/agent/features/state',
-                },
-                {
-                  title: 'Events',
-                  href: '/content-ai/capabilities/agent/features/events',
-                },
-                {
-                  title: 'Methods',
-                  href: '/content-ai/capabilities/agent/features/methods',
-                },
-                {
-                  title: 'Lifecycle',
-                  href: '/content-ai/capabilities/agent/features/lifecycle',
-                },
-                {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/agent/features/review',
-                },
-                {
-                  title: 'Checkpoints',
-                  href: '/content-ai/capabilities/agent/features/checkpoints',
-                },
-                {
-                  title: 'Provide context',
-                  href: '/content-ai/capabilities/agent/features/context',
-                },
-                {
-                  title: 'Selection awareness',
-                  href: '/content-ai/capabilities/agent/features/selection-awareness',
-                },
-                {
-                  title: 'Read large documents',
-                  href: '/content-ai/capabilities/agent/features/large-documents',
-                },
-              ],
-            },
-            {
-              title: 'Configure',
-              href: '/content-ai/capabilities/agent/configure',
-              children: [
-                {
-                  title: 'Configuration options',
-                  href: '/content-ai/capabilities/agent/configure/options',
-                },
-                {
-                  title: 'System prompt',
-                  href: '/content-ai/capabilities/agent/configure/system-prompt',
-                },
-              ],
-            },
-            {
-              title: 'Integrate your LLM',
+              title: 'Use with your AI Agent',
               href: '/content-ai/capabilities/agent/custom-llms',
               children: [
                 {
@@ -319,53 +312,66 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
+              title: 'Features',
+              href: '/content-ai/capabilities/agent/features',
+              children: [
+                {
+                  title: 'State',
+                  href: '/content-ai/capabilities/agent/features/state',
+                },
+                {
+                  title: 'Events',
+                  href: '/content-ai/capabilities/agent/features/events',
+                },
+                {
+                  title: 'Methods',
+                  href: '/content-ai/capabilities/agent/features/methods',
+                },
+                {
+                  title: 'Lifecycle',
+                  href: '/content-ai/capabilities/agent/features/lifecycle',
+                },
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/agent/features/review',
+                },
+                {
+                  title: 'Checkpoints',
+                  href: '/content-ai/capabilities/agent/features/checkpoints',
+                },
+                {
+                  title: 'Provide context',
+                  href: '/content-ai/capabilities/agent/features/context',
+                },
+                {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/agent/features/selection-awareness',
+                },
+                {
+                  title: 'Read large documents',
+                  href: '/content-ai/capabilities/agent/features/large-documents',
+                },
+              ],
+            },
+            {
+              title: 'Configure',
+              href: '/content-ai/capabilities/agent/configure',
+              children: [
+                {
+                  title: 'Configuration options',
+                  href: '/content-ai/capabilities/agent/configure/options',
+                },
+                {
+                  title: 'System prompt',
+                  href: '/content-ai/capabilities/agent/configure/system-prompt',
+                },
+              ],
+            },
+            {
               title: 'API Reference',
               href: '/content-ai/capabilities/agent/api-reference',
             },
           ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '',
-      title: 'Examples',
-      children: [
-        {
-          title: 'Text Generation',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/overview',
-        },
-        {
-          title: 'Autocomplete',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
-        },
-        {
-          title: 'AI Suggestions',
-          isActive: false,
-          href: '/content-ai/capabilities/suggestion/overview',
-        },
-        {
-          title: 'Track AI changes',
-          isActive: false,
-          href: '/content-ai/capabilities/changes/overview',
-        },
-        {
-          title: 'Starter templates',
-          href: 'https://tiptap.dev/product/templates',
-          external: true,
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/custom-llms',
-      title: 'Custom LLMs',
-      children: [
-        {
-          title: 'Integrate your LLM',
-          href: '/content-ai/custom-llms',
         },
       ],
     },
