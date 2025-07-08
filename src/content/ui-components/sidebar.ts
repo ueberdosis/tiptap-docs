@@ -62,6 +62,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/install/laravel',
         },
         {
+          title: 'Astro',
+          href: '/ui-components/install/astro',
+        },
+        {
           title: 'Manual',
           href: '/ui-components/install/manual',
         },
