@@ -1,0 +1,89 @@
+---
+title: Server-side tools (Vercel AI SDK)
+meta:
+  title: Server-side tools (Vercel AI SDK) | Tiptap Content AI
+  description: Learn how to call server-side tools using the Vercel AI SDK.
+  category: Content AI
+---
+
+This guide explains how to call server-side tools using the [Vercel AI SDK](https://ai-sdk.dev). It presents an example of a tool that returns the weather in a given location.
+
+First, define the tool in the [Vercel AI SDK tool format](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling):
+
+```ts
+import { z } from 'zod'
+import { tool } from 'ai'
+
+const weatherTool = tool({
+  description: 'Get the weather in a location',
+  parameters: z.object({
+    location: z.string().describe('The location to get the weather for'),
+  }),
+  execute: async (args) => {
+    // Get weather from an external API
+    const result = await getWeather(args)
+    return result
+  },
+})
+```
+
+Then, when you call the Vercel AI SDK, include the tool in the `tools` object.
+
+Do not forget to set `maxSteps` to a value greater than 1, to enable [multi-step tool calls](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#multi-step-calls-using-maxsteps). This parameter lets the AI call multiple tools in sequence. For example, it can call the tool to get the weather report, and then call a tool to edit the document with that information.
+
+```ts
+import {
+  AiAgentToolkit,
+  vercelAiSdkAdapter,
+  ChatMessagesFormatter,
+} from '@tiptap-pro/extension-ai-agent-server'
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+const toolkit = new AiAgentToolkit({
+  adapter: vercelAiSdkAdapter,
+})
+
+const formatter = new ChatMessagesFormatter({
+  // Get the chat messages from the request body
+  initialMessages: chatMessages,
+  adapter: vercelAiSdkAdapter,
+})
+
+// Call the Vercel AI SDK
+const response = await generateText({
+  model: openai('gpt-4.1'),
+  messages: [
+    {
+      role: 'system',
+      content: `
+<Your system prompt>
+${toolkit.getSystemPrompt()}
+`,
+    },
+    ...formatter.format(),
+  ],
+  // Include the weather tool in the tools object, beside
+  // the other tools provided by AiAgentToolkit
+  tools: {
+    ...toolkit.format(),
+    get_weather: weatherTool,
+  },
+  // Enable multi-step tool calls
+  maxSteps: 5,
+})
+```
+
+Then, add the response to the formatter so that it is included in the conversation.
+
+```ts
+formatter.addAiResponse(response)
+```
+
+Finally, use the `formatter` to convert the response to the format expected by the AI Agent extension.
+
+```ts
+const response = formatter.getResolverResponse()
+```
+
+The value returned from `formatter.getResolverResponse()` should be the response of your API endpoint and the return value of the resolver function.

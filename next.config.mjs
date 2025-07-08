@@ -134,12 +134,17 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/agent/features',
-        destination: '/content-ai/capabilities/agent/features/state-management',
+        destination: '/content-ai/capabilities/agent/features/state',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/agent/configure',
         destination: '/content-ai/capabilities/agent/configure/options',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/custom-llms',
+        destination: '/content-ai/capabilities/agent/custom-llms/overview',
         permanent: true,
       },
       {
@@ -180,6 +185,28 @@ const nextConfig = {
       {
         source: '/ui-components/components/node-button',
         destination: '/ui-components/components/blockquote-button',
+        permanent: true,
+      },
+      // The redirects below are temporary and should be moved to the reverse proxy
+      // TODO: add these redirects to the reverse proxy
+      {
+        source: '/content-ai/capabilities/agent/features/state-management',
+        destination: '/content-ai/capabilities/agent/features/state',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/runs',
+        destination: '/content-ai/capabilities/agent/features/lifecycle',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/reading-the-document',
+        destination: '/content-ai/capabilities/agent/features/large-documents',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/agent/features/add-context',
+        destination: '/content-ai/capabilities/agent/features/context',
         permanent: true,
       },
     ]

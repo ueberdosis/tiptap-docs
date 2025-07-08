@@ -1,0 +1,122 @@
+---
+title: Client-side tools
+meta:
+  title: Client-side tools | Tiptap Content AI
+  description: Learn how to call tools in the client-side from the AI Agent.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Client-side tools are tools that run in the browser. Use them to interact with the editor's content. For example:
+
+- Count the number of words in the document
+- Replace all instances of a word in the document
+- Format the document.
+
+All [built-in tools](/content-ai/capabilities/agent/custom-llms/tools#built-in-tools) are client-side tools.
+
+This guide shows how to implement a tool that replaces all occurrences of a word in the document with another word. It assumes you have already [set up the AI Agent extension with your custom backend](/content-ai/capabilities/agent/custom-llms/get-started).
+
+<Callout title="Code demo available" variant="info">
+  This guide includes a code demo to help you get started. See the [GitHub
+  repository](https://github.com/ueberdosis/ai-agent-custom-llm-demos).
+</Callout>
+
+## Client-side setup
+
+Declare a tool call handler for your tool. Tool handlers are functions that apply the tool call in the editor. They must implement the `AiAgentToolHandler` interface.
+
+```ts
+import { z } from 'zod'
+import type { AiAgentToolHandler } from '@tiptap-pro/extension-ai-agent'
+import { ToolCallError, invalidArgumentsResponseFormatter } from '@tiptap-pro/extension-ai-agent'
+
+// Schema for validating tool arguments
+const replaceAllToolSchema = z.object({
+  find: z.string().min(1, 'Find text cannot be empty'),
+  replace: z.string(),
+})
+
+export const replaceAllToolHandler = (): AiAgentToolHandler => ({
+  // Unique identifier for the tool
+  name: 'replace_all',
+  modifiesEditor: true,
+  handleToolCall: ({ editor, state, toolCall }) => {
+    // Validate the arguments
+    const result = replaceAllToolSchema.safeParse(toolCall.arguments)
+    if (!result.success) {
+      // Return an error message to the AI
+      throw new ToolCallError(invalidArgumentsResponseFormatter(result.error))
+    }
+    const args = result.data
+
+    try {
+      // Get the current HTML content
+      const html = editor.getHTML()
+
+      // Replace all occurrences of the find text with the replace text
+      const replacedHtml = html.replaceAll(args.find, args.replace)
+
+      // Set the new content in the editor
+      editor.commands.setContent(replacedHtml)
+
+      // Return a success message
+      return `Successfully replaced all occurrences of "${args.find}" with "${args.replace}".`
+    } catch (error) {
+      console.error(error)
+      throw new ToolCallError(`Failed to replace text: ${error.message}`)
+    }
+  },
+})
+```
+
+Then, add the tool to your AI Agent provider:
+
+```ts
+import { AiAgentProvider, toolHandlersStarterKit } from '@tiptap-pro/extension-ai-agent'
+
+const provider = new AiAgentProvider({
+  toolHandlers: [...toolHandlersStarterKit(), replaceAllToolHandler()],
+})
+```
+
+The `toolHandlersStarterKit` contains the tool handlers for all the [built-in tools](/content-ai/capabilities/agent/custom-llms/tools#built-in-tools). You can add your custom tool handlers to the array.
+
+## Server-side setup
+
+On the server-side, define the tool. The tool definition contains the tool's name, description, and [JSON schema](https://json-schema.org/). This data is sent to the LLM to generate the tool calls. It must implement the `AiAgentTool` interface.
+
+```ts
+import type { AiAgentTool } from '@tiptap-pro/extension-ai-agent-server'
+
+export const replaceAllTool = (): AiAgentTool => ({
+  // Unique identifier for the tool. Must match the one in the tool handler
+  name: 'replace_all',
+  description: 'Replaces all occurrences of a word in the document with another word',
+  parameters: {
+    type: 'object',
+    properties: {
+      find: {
+        type: 'string',
+      },
+      replace: {
+        type: 'string',
+      },
+    },
+    required: ['find', 'replace'],
+  },
+})
+```
+
+Then, add the tool to your AI Agent toolkit:
+
+```ts
+import { AiAgentToolkit, toolsStarterKit } from '@tiptap-pro/extension-ai-agent-server'
+
+const toolkit = new AiAgentToolkit({
+  tools: [...toolsStarterKit(), replaceAllTool()],
+})
+```
+
+The `toolsStarterKit` contains the tool definitions for all the [built-in tools](/content-ai/capabilities/agent/custom-llms/tools#built-in-tools). You can add your custom tool definitions to the array.

@@ -18,8 +18,57 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities',
+      href: '',
       title: 'Capabilities',
+      children: [
+        {
+          title: 'Generate content',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/overview',
+        },
+        {
+          title: 'Autocomplete',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
+        },
+        {
+          title: 'Suggest content',
+          isActive: false,
+          href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Review changes',
+          isActive: false,
+          href: '/content-ai/capabilities/changes/overview',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/custom-llms',
+      title: 'Bring your own AI',
+      children: [
+        {
+          title: 'Integrate a custom LLM',
+          href: '/content-ai/custom-llms',
+        },
+        {
+          title: 'Integrate a custom agent',
+          isActive: false,
+          href: '/content-ai/capabilities/agent/overview',
+          tags: ['New'],
+        },
+        {
+          title: 'Text editing tools',
+          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
+          tags: ['New'],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/capabilities',
+      title: 'AI Extensions',
       children: [
         {
           title: 'AI Generation',
@@ -197,44 +246,110 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/install',
             },
             {
-              title: 'Use with Content AI Cloud',
+              title: 'Use with Tiptap Cloud',
               href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
+            },
+            {
+              title: 'Use with your AI Agent',
+              href: '/content-ai/capabilities/agent/custom-llms',
+              children: [
+                {
+                  title: 'Overview',
+                  href: '/content-ai/capabilities/agent/custom-llms/overview',
+                },
+                {
+                  title: 'Get started',
+                  href: '/content-ai/capabilities/agent/custom-llms/get-started',
+                  children: [
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/vercel-ai-sdk',
+                    },
+                    {
+                      title: 'OpenAI Completions',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-chat-completions',
+                    },
+                    {
+                      title: 'OpenAI Responses',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-responses',
+                    },
+                    {
+                      title: 'Anthropic Claude',
+                      href: '/content-ai/capabilities/agent/custom-llms/get-started/anthropic-messages',
+                    },
+                  ],
+                },
+                {
+                  title: 'Tools overview',
+                  href: '/content-ai/capabilities/agent/custom-llms/tools',
+                },
+                {
+                  title: 'Client-side tools',
+                  href: '/content-ai/capabilities/agent/custom-llms/client-side-tools',
+                },
+                {
+                  title: 'Server-side tools',
+                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools',
+                  children: [
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/vercel-ai-sdk',
+                    },
+                    {
+                      title: 'OpenAI Completions',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-chat-completions',
+                    },
+                    {
+                      title: 'OpenAI Responses',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-responses',
+                    },
+                    {
+                      title: 'Anthropic Claude',
+                      href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/anthropic-messages',
+                    },
+                  ],
+                },
+              ],
             },
             {
               title: 'Features',
               href: '/content-ai/capabilities/agent/features',
               children: [
                 {
-                  title: 'State Management',
-                  href: '/content-ai/capabilities/agent/features/state-management',
+                  title: 'State',
+                  href: '/content-ai/capabilities/agent/features/state',
                 },
                 {
-                  title: 'Listen to events',
+                  title: 'Events',
                   href: '/content-ai/capabilities/agent/features/events',
                 },
                 {
-                  title: 'Available Methods',
+                  title: 'Methods',
                   href: '/content-ai/capabilities/agent/features/methods',
                 },
                 {
-                  title: 'Manage Checkpoints',
-                  href: '/content-ai/capabilities/agent/features/checkpoints',
+                  title: 'Lifecycle',
+                  href: '/content-ai/capabilities/agent/features/lifecycle',
                 },
                 {
-                  title: 'AI Agent Lifecycle',
-                  href: '/content-ai/capabilities/agent/features/runs',
-                },
-                {
-                  title: 'Reading the document',
-                  href: '/content-ai/capabilities/agent/features/reading-the-document',
-                },
-                {
-                  title: 'Review AI-generated changes',
+                  title: 'Review changes',
                   href: '/content-ai/capabilities/agent/features/review',
                 },
                 {
-                  title: 'Add context to messages',
-                  href: '/content-ai/capabilities/agent/features/add-context',
+                  title: 'Checkpoints',
+                  href: '/content-ai/capabilities/agent/features/checkpoints',
+                },
+                {
+                  title: 'Provide context',
+                  href: '/content-ai/capabilities/agent/features/context',
+                },
+                {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/agent/features/selection-awareness',
+                },
+                {
+                  title: 'Read large documents',
+                  href: '/content-ai/capabilities/agent/features/large-documents',
                 },
               ],
             },
@@ -253,57 +368,10 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Integrate your LLM',
-              href: '/content-ai/capabilities/agent/custom-llms',
-            },
-            {
               title: 'API Reference',
               href: '/content-ai/capabilities/agent/api-reference',
             },
           ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '',
-      title: 'Examples',
-      children: [
-        {
-          title: 'Text Generation',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/overview',
-        },
-        {
-          title: 'Autocomplete',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
-        },
-        {
-          title: 'AI Suggestions',
-          isActive: false,
-          href: '/content-ai/capabilities/suggestion/overview',
-        },
-        {
-          title: 'Track AI changes',
-          isActive: false,
-          href: '/content-ai/capabilities/changes/overview',
-        },
-        {
-          title: 'Starter templates',
-          href: 'https://tiptap.dev/product/templates',
-          external: true,
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/custom-llms',
-      title: 'Custom LLMs',
-      children: [
-        {
-          title: 'Integrate your LLM',
-          href: '/content-ai/custom-llms',
         },
       ],
     },
