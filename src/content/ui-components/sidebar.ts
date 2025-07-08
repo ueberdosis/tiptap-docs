@@ -53,6 +53,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Vite',
           href: '/ui-components/install/vite',
         },
+        {
+          title: 'React Router',
+          href: '/ui-components/install/react-router',
+        },
       ],
     },
     {
