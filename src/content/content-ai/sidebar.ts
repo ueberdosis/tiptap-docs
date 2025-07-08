@@ -254,6 +254,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'System prompt',
                   href: '/content-ai/capabilities/agent/configure/system-prompt',
                 },
+                {
+                  title: 'Custom nodes/marks',
+                  href: '/content-ai/capabilities/agent/configure/custom-nodes',
+                },
               ],
             },
             {
