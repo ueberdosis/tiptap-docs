@@ -57,6 +57,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'React Router',
           href: '/ui-components/install/react-router',
         },
+        {
+          title: 'Laravel',
+          href: '/ui-components/install/laravel',
+        },
       ],
     },
     {
