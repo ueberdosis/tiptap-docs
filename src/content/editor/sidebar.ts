@@ -372,12 +372,12 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               href: '/editor/extensions/functionality/snapshot',
-              title: 'Snapshot',
+              title: 'Version',
               tags: ['Starter'],
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
-              title: 'Snapshot Compare',
+              title: 'Version Compare',
               tags: ['Team'],
             },
             {
