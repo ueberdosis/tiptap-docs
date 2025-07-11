@@ -204,6 +204,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/agent/features/context',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/agent/features/review',
+        destination: '/content-ai/capabilities/agent/review-changes',
+        permanent: true,
+      },
     ]
   },
 }
