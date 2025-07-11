@@ -68,6 +68,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'PagesKit: Pages + Table',
           href: '/pages/guides/pageskit-usage',
         },
+        {
+          title: 'Adding collaboration to Pages',
+          href: '/pages/guides/collaboration-with-pages',
+        },
       ],
     },
   ],
