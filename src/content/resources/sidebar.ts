@@ -57,18 +57,6 @@ export const sidebarConfig: SidebarConfig = {
       href: '/resources',
       children: [
         {
-          href: '/guides',
-          title: 'Guides',
-        },
-        {
-          href: '/examples',
-          title: 'Examples',
-        },
-        {
-          href: '/resources/tiptap-trial',
-          title: 'Tiptap trial',
-        },
-        {
           href: '/resources/contributing',
           title: 'Contributing',
         },
@@ -79,6 +67,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
+        },
+        {
+          href: '/resources/tiptap-trial',
+          title: 'Tiptap trial',
         },
       ],
     },
