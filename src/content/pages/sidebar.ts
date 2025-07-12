@@ -65,7 +65,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/guides/table-with-pages',
         },
         {
-          title: 'PageKit: Pages + Table',
+          title: 'PageKit',
           href: '/pages/guides/pagekit-usage',
         },
         {
