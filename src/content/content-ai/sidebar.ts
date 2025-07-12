@@ -332,10 +332,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/agent/features/lifecycle',
                 },
                 {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/agent/features/review',
-                },
-                {
                   title: 'Checkpoints',
                   href: '/content-ai/capabilities/agent/features/checkpoints',
                 },
@@ -368,6 +364,20 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Custom nodes/marks',
                   href: '/content-ai/capabilities/agent/configure/custom-nodes',
+                },
+              ],
+            },
+            {
+              title: 'Review changes',
+              href: '/content-ai/capabilities/agent/review',
+              children: [
+                {
+                  title: 'With AI Suggestion',
+                  href: '/content-ai/capabilities/agent/review/ai-suggestion',
+                },
+                {
+                  title: 'With AI Changes',
+                  href: '/content-ai/capabilities/agent/review/ai-changes',
                 },
               ],
             },
