@@ -50,6 +50,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Conversion',
         },
         {
+          href: '/pages/getting-started/overview',
+          title: 'Pages',
+        },
+        {
           href: '/collaboration/documents/semantic-search',
           title: 'Semantic Search',
         },

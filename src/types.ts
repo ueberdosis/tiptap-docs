@@ -38,6 +38,7 @@ export type GeneralPageTag = {
     | 'editor'
     | 'documents'
     | 'beta'
+    | 'alpha'
     | 'start'
     | 'beginStart'
     | 'team'

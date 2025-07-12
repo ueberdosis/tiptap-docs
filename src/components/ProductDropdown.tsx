@@ -15,6 +15,7 @@ const options = [
   { label: 'Comments', href: '/comments/getting-started/overview' },
   { label: 'History', href: '/collaboration/documents/history' },
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
+  { label: 'Pages', href: '/pages/getting-started/overview' },
   { label: 'Semantic search', href: '/collaboration/documents/semantic-search' },
 ]
 
