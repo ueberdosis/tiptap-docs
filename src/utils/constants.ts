@@ -32,6 +32,6 @@ export const VERSIONS: Array<VersionData> = [
 ]
 
 export const CTA_BAR: CTABarOptions | null = {
-  text: 'Tiptap Editor 3.0 Beta is out. Start here',
-  url: 'https://next.tiptap.dev/docs/resources/whats-new',
+  text: 'Tiptap Editor 3.0 is out. Start here',
+  url: 'https://tiptap.dev/docs/resources/whats-new',
 }
