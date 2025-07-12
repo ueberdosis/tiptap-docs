@@ -17,7 +17,6 @@ export const CURRENT_VERSION = '2.x'
 export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
-    isBeta: true,
     url: 'https://next.tiptap.dev',
   },
   {
