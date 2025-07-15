@@ -191,6 +191,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'API Reference',
               href: '/content-ai/capabilities/suggestion/api-reference',
             },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/suggestion/changelog',
+            },
           ],
         },
         {
@@ -228,6 +232,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'API Reference',
               href: '/content-ai/capabilities/changes/api-reference',
+            },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/changes/changelog',
             },
           ],
         },
@@ -374,6 +382,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'API Reference',
               href: '/content-ai/capabilities/agent/api-reference',
+            },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/agent/changelog',
             },
           ],
         },
