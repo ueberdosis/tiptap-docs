@@ -8,6 +8,7 @@ export type CalloutProps = {
   size: 'sm' | 'md'
   hasCalloutBefore?: boolean
   hasCalloutAfter?: boolean
+  hideIcon?: boolean
 } & React.HTMLAttributes<HTMLDivElement>
 
 export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
@@ -18,6 +19,7 @@ export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
       hasCalloutBefore,
       variant = 'default',
       size = 'sm',
+      hideIcon = false,
       className,
       children,
       ...rest
@@ -57,12 +59,14 @@ export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
 
     return (
       <div className={wrapperClass} ref={ref} {...rest}>
-        <div className="flex-none">
-          {variant === 'default' ? <MessageCircleIcon className={iconClass} /> : null}
-          {variant === 'info' ? <InfoIcon className={iconClass} /> : null}
-          {variant === 'hint' ? <InfoIcon className={iconClass} /> : null}
-          {variant === 'warning' ? <OctagonAlertIcon className={iconClass} /> : null}
-        </div>
+        {!hideIcon && (
+          <div className="flex-none">
+            {variant === 'default' ? <MessageCircleIcon className={iconClass} /> : null}
+            {variant === 'info' ? <InfoIcon className={iconClass} /> : null}
+            {variant === 'hint' ? <InfoIcon className={iconClass} /> : null}
+            {variant === 'warning' ? <OctagonAlertIcon className={iconClass} /> : null}
+          </div>
+        )}
         <div className="flex-1">
           <h3 className={titleClass}>{title}</h3>
           <div className={contentClass}>{children}</div>

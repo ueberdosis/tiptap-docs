@@ -42,6 +42,7 @@ export type GeneralPageTag = {
     | 'start'
     | 'beginStart'
     | 'team'
+    | 'restricted'
   tooltip?: string
 }
 
