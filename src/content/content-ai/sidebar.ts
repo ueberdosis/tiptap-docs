@@ -384,12 +384,12 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/review',
               children: [
                 {
-                  title: 'With AI Suggestion',
-                  href: '/content-ai/capabilities/agent/review/ai-suggestion',
-                },
-                {
                   title: 'With AI Changes',
                   href: '/content-ai/capabilities/agent/review/ai-changes',
+                },
+                {
+                  title: 'With AI Suggestion',
+                  href: '/content-ai/capabilities/agent/review/ai-suggestion',
                 },
               ],
             },
