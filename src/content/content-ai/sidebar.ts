@@ -170,7 +170,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/suggestion/features/lock-content',
                 },
                 {
-                  title: 'Provide LLM Context',
+                  title: 'Provide LLM context',
                   href: '/content-ai/capabilities/suggestion/features/provide-llm-context',
                 },
                 {
