@@ -174,8 +174,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/suggestion/features/provide-llm-context',
                 },
                 {
-                  title: 'Preview changes',
-                  href: '/content-ai/capabilities/suggestion/features/preview-changes',
+                  title: 'Diff view',
+                  href: '/content-ai/capabilities/suggestion/features/diff-view',
                 },
               ],
             },
