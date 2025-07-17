@@ -173,6 +173,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Provide LLM Context',
                   href: '/content-ai/capabilities/suggestion/features/provide-llm-context',
                 },
+                {
+                  title: 'Preview changes',
+                  href: '/content-ai/capabilities/suggestion/features/preview-changes',
+                },
               ],
             },
             {
