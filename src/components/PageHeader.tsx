@@ -166,9 +166,12 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
 
   if (tag.type === 'restricted') {
     return (
-      <Tag 
-        variant="hint" 
-        tooltip={tag.tooltip || 'This is a restricted release only available to our enterprise customers at the moment.'}
+      <Tag
+        variant="hint"
+        tooltip={
+          tag.tooltip ||
+          'This is a restricted release only available to our enterprise customers at the moment.'
+        }
       >
         Restricted Release
       </Tag>
