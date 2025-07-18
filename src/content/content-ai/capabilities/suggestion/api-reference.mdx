@@ -13,41 +13,54 @@ meta:
  * Configuration options for the AI Suggestion extension.
  */
 export interface AiSuggestionOptions {
-  /** Rules to be applied during proofreading
+  /**
+   * Rules to be applied during proofreading
    * @default []
    */
   rules: AiSuggestionRule[]
-  /** Initial suggestions to display before any proofreading is done
+  /**
+   * Initial suggestions to display in the editor
    * @default []
    */
   initialSuggestions: Suggestion[]
-  /** Initial rejections to apply before any proofreading is done
+  /**
+   * Initial rejections to apply before any proofreading is done
    * @default []
    */
   initialRejections: AiSuggestionRejection[]
-  /** Function to customize the decoration of suggestions in the editor
+  /**
+   * Function to customize the decoration of suggestions in the editor
    * @default `getDefaultDecorations()`
-   * @param args - Options for customizing suggestion decorations.
+   * @param options - Options for customizing suggestion decorations.
    * @return An array of `Decoration` objects.
    */
-  getCustomSuggestionDecoration: (args: GetCustomSuggestionDecorationOptions) => Decoration[]
-  /** Time in milliseconds to wait before reloading suggestions after content changes.
+  getCustomSuggestionDecoration: (options: GetCustomSuggestionDecorationOptions) => Decoration[]
+  /**
+   * Time in milliseconds to wait before reloading suggestions after content changes.
    * @default 800
    */
   debounceTimeout: number
-  /** Whether to load suggestions when the editor is initialized
+  /**
+   * Whether to load suggestions when the editor is initialized
    * @default true
    */
   loadOnStart: boolean
-  /** Whether to reload suggestions when the editor content changes
+
+  /**
+   * Whether to reload suggestions when the editor content changes
    * @default true
    */
   reloadOnUpdate: boolean
-  /** Callback for handling errors when loading suggestions
+
+  /**
+   * Callback for handling errors when loading suggestions. If the operation
+   * to load suggestions was aborted, this callback will not be called.
+   *
    * @param error - The error that occurred during suggestion loading.
+   * @param context - The context of the operation, including the Editor instance
    * @default console.error
    */
-  onLoadSuggestionsError: (error: unknown) => void
+  onLoadSuggestionsError: (error: unknown, context: AiSuggestionEventContext) => void
   /**
    * The AI model used to proofread the content and generate suggestions.
    * @default "gpt-4o-mini"
@@ -77,6 +90,7 @@ export interface AiSuggestionOptions {
   /**
    * Optional context to provide additional information to the AI model
    * for generating suggestions.
+   * @default null
    */
   context: string | null
   /**
@@ -118,12 +132,12 @@ declare module '@tiptap/core' {
       /**
        * Load AI suggestions immediately.
        */
-      loadAiSuggestions: () => ReturnType
+      loadAiSuggestions: (options?: LoadAiSuggestionsOptions) => ReturnType
       /**
        * Load AI suggestions after a debounce timeout defined in the
        * extension options.
        */
-      loadAiSuggestionsDebounced: () => ReturnType
+      loadAiSuggestionsDebounced: (options?: LoadAiSuggestionsOptions) => ReturnType
       /**
        * Set the AI suggestions to be displayed.
        *
@@ -147,9 +161,19 @@ declare module '@tiptap/core' {
       /**
        * Marks a suggestion as rejected, removing it from the list of suggestions.
        *
+       * It adds it to a list of rejected suggestions, so that it is ignored
+       * if the AI generates it again.
+       *
        * @param suggestionId The id of the rejected suggestion
        */
       rejectAiSuggestion: (suggestionId: string) => ReturnType
+
+      /**
+       * Deletes a suggestion, removing it from the list of suggestions.
+       *
+       * @param suggestionId The id of the suggestion to delete
+       */
+      removeAiSuggestion: (suggestionId: string) => ReturnType
 
       /**
        * Sets the suggestions to be rejected. This command is useful for undoing
@@ -165,7 +189,7 @@ declare module '@tiptap/core' {
        */
       applyAllAiSuggestions: (options?: ApplyAllAiSuggestionOptions) => ReturnType
       /**
-       * Sets the AI suggestion rules. Lets you update the rules used for
+       * Sets the AI Suggestion rules. Lets you update the rules used for
        * proofreading without having to reload the editor.
        *
        * This command does not reload the suggestions. To reload the suggestions
@@ -191,6 +215,16 @@ declare module '@tiptap/core' {
        * @param context Optional context to provide additional information to the AI model
        */
       setAiSuggestionContext: (context: string | null) => ReturnType
+
+      /**
+       * Sets whether to reload suggestions when the editor content changes.
+       * This allows you to dynamically enable or disable automatic suggestion
+       * reloading on content updates.
+       *
+       * @param reloadOnUpdate Whether to reload suggestions on content updates
+       * @default true
+       */
+      setAiSuggestionReloadOnUpdate: (reloadOnUpdate: boolean) => ReturnType
     }
   }
 }
@@ -233,25 +267,45 @@ export interface ApplyAllAiSuggestionOptions {
  * Internal storage for the AI Suggestion extension.
  */
 export interface AiSuggestionStorage {
-  /** Key for the ProseMirror plugin used by the extension */
+  /**
+   * Key for the ProseMirror plugin used by the extension
+   */
   pluginKey: PluginKey<AiSuggestionProsemirrorPluginState>
-  /** Rules to be applied during proofreading */
+  /**
+   * Rules to be applied during proofreading
+   */
   rules: AiSuggestionRule[]
-  /** Function to get the current suggestions */
+  /**
+   * Function to get the current suggestions
+   */
   getSuggestions: () => Suggestion[]
-  /** Function to get the rejected suggestions */
+  /**
+   * Function to get the rejected suggestions
+   */
   getRejections: () => AiSuggestionRejection[]
-  /** Function to get the currently selected suggestion */
+  /**
+   * Function to get the currently selected suggestion
+   */
   getSelectedSuggestion: () => Suggestion | null
-  /** Whether suggestions are currently being loaded */
+  /**
+   * Whether suggestions are currently being loaded
+   */
   isLoading: boolean
-  /** Whether suggestions have been loaded at least once */
+  /**
+   * Whether suggestions have been loaded at least once
+   */
   firstLoad: boolean
-  /** Error that occurred during the last load attempt, if any */
+  /**
+   * Error that occurred during the last load attempt, if any
+   */
   error: unknown | null
-  /** Debounced function for loading suggestions */
-  debouncedFunction: DebouncedFunction<() => void>
-  /** Controller to abort loading suggestions */
+  /**
+   * Debounced function for loading suggestions
+   */
+  debouncedFunction: DebouncedFunction<(options?: LoadAiSuggestionsOptions) => void>
+  /**
+   * Controller to abort loading suggestions
+   */
   abortController: AbortController
   /**
    * Optional context to provide additional information to the AI model
@@ -262,6 +316,10 @@ export interface AiSuggestionStorage {
    * The cache used to store the suggestions of each chunk of the document.
    */
   cache: AiSuggestionCache
+  /**
+   * Whether to reload suggestions when the editor content changes
+   */
+  reloadOnUpdate: boolean
 }
 
 /**
@@ -291,8 +349,8 @@ export interface AiSuggestionRule {
    */
   id: string
   /**
-   * The title of the rule. Will not be used for proofreading, but for display
-   * purposes.
+   * The title of the rule. Will not be part of the prompt that is sent
+   * to the LLM model. Only used for display purposes.
    */
   title: string
   /**
@@ -309,6 +367,21 @@ export interface AiSuggestionRule {
    * when the suggestion is selected.
    */
   backgroundColor: string
+  /**
+   * Whether to ignore this rule when sending the request to the AI model in Tiptap Cloud.
+   *
+   * If `true`, the rule will not be sent to the AI model in Tiptap Cloud.
+   *
+   * @default false
+   */
+  ignoreInTiptapCloud?: boolean
+  /**
+   * Display suggestions of this rule in a diff format, where the content to delete
+   * is displayed as red and the content to add is displayed as green.
+   *
+   * @default false
+   */
+  displayAsDiff?: boolean
   /**
    * Extra metadata for the rule, that can be used to store additional
    * information about it (e.g. its source or its category). It is not used
