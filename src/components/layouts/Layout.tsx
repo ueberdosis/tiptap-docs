@@ -14,6 +14,7 @@ import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
 import { VersionSwitch } from '../VersionSwitch'
+import styles from './Layout.module.css'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
 import { getAllMetadata } from '@/server/getAllMetadata'
@@ -41,7 +42,10 @@ export const LayoutCTABar = () => {
     <Link
       href={CTA_BAR.url}
       target={target}
-      className="flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white bg-gradient-to-r from-gray-500 to-gray-700 group"
+      className={cn(
+        styles.notificationBar,
+        'flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white group',
+      )}
     >
       <span className="leading-none">{CTA_BAR.text}</span>
       <ArrowRightIcon className="transition size-4 group-hover:translate-x-1" />
