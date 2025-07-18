@@ -158,6 +158,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/ui-components/utils-components',
+        destination: '/ui-components/utils-components/floating-element',
+        permanent: true,
+      },
+      {
         source: '/ui-components/components',
         destination: '/ui-components/components/blockquote-button',
         permanent: true,

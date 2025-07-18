@@ -34,6 +34,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/templates/simple-editor',
           tags: ['Open Source'],
         },
+        {
+          title: 'Notion Editor',
+          href: '/ui-components/templates/notion-like-editor',
+        },
       ],
     },
     {
@@ -48,6 +52,22 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Vite',
           href: '/ui-components/install/vite',
+        },
+        {
+          title: 'React Router',
+          href: '/ui-components/install/react-router',
+        },
+        {
+          title: 'Laravel',
+          href: '/ui-components/install/laravel',
+        },
+        {
+          title: 'Astro',
+          href: '/ui-components/install/astro',
+        },
+        {
+          title: 'Manual',
+          href: '/ui-components/install/manual',
         },
       ],
     },
@@ -73,8 +93,40 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/code-block-button',
             },
             {
+              title: 'Color highlight button',
+              href: '/ui-components/components/color-highlight-button',
+            },
+            {
               title: 'Color highlight popover',
               href: '/ui-components/components/color-highlight-popover',
+            },
+            {
+              title: 'Color text button',
+              href: '/ui-components/components/color-text-button',
+            },
+            {
+              title: 'Color text popover',
+              href: '/ui-components/components/color-text-popover',
+            },
+            {
+              title: 'Copy to clipboard button',
+              href: '/ui-components/components/copy-to-clipboard-button',
+            },
+            {
+              title: 'Delete node button',
+              href: '/ui-components/components/delete-node-button',
+            },
+            {
+              title: 'Duplicate button',
+              href: '/ui-components/components/duplicate-button',
+            },
+            {
+              title: 'Emoji dropdown menu',
+              href: '/ui-components/components/emoji-dropdown-menu',
+            },
+            {
+              title: 'Emoji trigger button',
+              href: '/ui-components/components/emoji-trigger-button',
             },
             {
               title: 'Heading button',
@@ -105,49 +157,51 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/mark-button',
             },
             {
+              title: 'Mention dropdown',
+              href: '/ui-components/components/mention-dropdown-menu',
+            },
+            {
+              title: 'Mention trigger button',
+              href: '/ui-components/components/mention-trigger-button',
+            },
+            {
+              title: 'Reset all formatting button',
+              href: '/ui-components/components/reset-all-formatting-button',
+            },
+            {
+              title: 'Slash trigger button',
+              href: '/ui-components/components/slash-command-trigger-button',
+            },
+            {
+              title: 'Slash dropdown menu',
+              href: '/ui-components/components/slash-dropdown-menu',
+            },
+            {
               title: 'Text align button',
               href: '/ui-components/components/text-align-button',
+            },
+            {
+              title: 'Text button',
+              href: '/ui-components/components/text-button',
             },
             {
               title: 'Undo redo button',
               href: '/ui-components/components/undo-redo-button',
             },
-            // {
-            //   title: 'Comment button',
-            //   href: '/ui-components/components/comment-button',
-            // },
-            // {
-            //   title: 'Emoji dropdown',
-            //   href: '/ui-components/components/emoji-dropdown-menu',
-            // },
-            // {
-            //   title: 'Floating element',
-            //   href: '/ui-components/components/floating-element',
-            // },
-            // {
-            //   title: 'Floating toolbar',
-            //   href: '/ui-components/components/floating-toolbar',
-            // },
-            // {
-            //   title: 'Math button',
-            //   href: '/ui-components/components/math-button',
-            // },
-            // {
-            //   title: 'Mention dropdown',
-            //   href: '/ui-components/components/mention-dropdown-menu',
-            // },
-            // {
-            //   title: 'Slash menu',
-            //   href: '/ui-components/components/slash-dropdown-menu',
-            // },
-            // {
-            //   title: 'Thread',
-            //   href: '/ui-components/components/thread',
-            // },
-            // {
-            //   title: 'Trigger button',
-            //   href: '/ui-components/components/trigger-button',
-            // },
+          ],
+        },
+        {
+          title: 'Utils components',
+          href: '/ui-components/utils-components',
+          children: [
+            {
+              title: 'Floating element',
+              href: '/ui-components/utils-components/floating-element',
+            },
+            {
+              title: 'Suggestion menu',
+              href: '/ui-components/utils-components/suggestion-menu',
+            },
           ],
         },
         {
