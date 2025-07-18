@@ -152,8 +152,30 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
     )
   }
 
+  if (tag.type === 'alpha') {
+    return (
+      <Tag variant="neutral" tooltip={tag.tooltip}>
+        Alpha
+      </Tag>
+    )
+  }
+
   if (tag.type === 'experiment') {
     return <Tag tooltip={tag.tooltip}>Experiment</Tag>
+  }
+
+  if (tag.type === 'restricted') {
+    return (
+      <Tag
+        variant="hint"
+        tooltip={
+          tag.tooltip ||
+          'This is a restricted release only available to our enterprise customers at the moment.'
+        }
+      >
+        Restricted Release
+      </Tag>
+    )
   }
 }
 

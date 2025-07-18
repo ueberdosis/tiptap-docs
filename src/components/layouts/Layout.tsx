@@ -41,7 +41,7 @@ export const LayoutCTABar = () => {
     <Link
       href={CTA_BAR.url}
       target={target}
-      className="flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white bg-gradient-to-r from-purple-600 to-purple-800 group"
+      className="flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white bg-gradient-to-r from-gray-500 to-gray-700 group"
     >
       <span className="leading-none">{CTA_BAR.text}</span>
       <ArrowRightIcon className="transition size-4 group-hover:translate-x-1" />

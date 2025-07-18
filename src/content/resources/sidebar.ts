@@ -16,7 +16,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/resources/whats-new',
-          title: "What's new in V3",
+          title: "What's new in 3.0",
         },
       ],
     },
@@ -48,6 +48,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/conversion/getting-started/overview',
           title: 'Conversion',
+        },
+        {
+          href: '/pages/getting-started/overview',
+          title: 'Pages',
         },
         {
           href: '/collaboration/documents/semantic-search',
