@@ -36,7 +36,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Notion Editor',
-          href: '/ui-components/templates/notion-editor',
+          href: '/ui-components/templates/notion-like-editor',
         },
       ],
     },
