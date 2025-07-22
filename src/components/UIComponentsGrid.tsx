@@ -7,6 +7,7 @@ import { getIcon } from '@/utils/iconKit'
 
 interface UIComponentsGridProps {
   components: UIComponentMetaWithUrl[]
+  utilsComponents: UIComponentMetaWithUrl[]
   nodeComponents: UIComponentMetaWithUrl[]
   primitives: UIComponentMetaWithUrl[]
 }
@@ -49,12 +50,14 @@ function UIComponentGroup({ comps, title }: { comps: UIComponentMetaWithUrl[]; t
 
 export function UIComponentsGrid({
   components,
+  utilsComponents,
   nodeComponents,
   primitives,
 }: UIComponentsGridProps) {
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
       <UIComponentGroup comps={components} title="Components" />
+      <UIComponentGroup comps={utilsComponents} title="Utils Components" />
       <UIComponentGroup comps={nodeComponents} title="Node Components" />
       <UIComponentGroup comps={primitives} title="Primitives" />
     </div>

@@ -209,8 +209,20 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/node-components',
           children: [
             {
+              title: 'Blockquote node',
+              href: '/ui-components/node-components/blockquote-node',
+            },
+            {
               title: 'Code block node',
               href: '/ui-components/node-components/code-block-node',
+            },
+            {
+              title: 'Heading node',
+              href: '/ui-components/node-components/heading-node',
+            },
+            {
+              title: 'Horizontal rule node',
+              href: '/ui-components/node-components/horizontal-rule-node',
             },
             {
               title: 'Image node',

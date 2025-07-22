@@ -154,7 +154,7 @@ const nextConfig = {
       },
       {
         source: '/ui-components/node-components',
-        destination: '/ui-components/node-components/code-block-node',
+        destination: '/ui-components/node-components/blockquote-node',
         permanent: true,
       },
       {
