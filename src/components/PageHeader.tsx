@@ -113,11 +113,27 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'start') {
-    return <Tag tooltip={tag.tooltip}>Available in Start plan</Tag>
+    return (
+      <Tag tooltip={tag.tooltip || 'Integrate and use while subscribed to the Start plan.'}>
+        Available in Start plan
+      </Tag>
+    )
+  }
+
+  if (tag.type === 'mit') {
+    return (
+      <Tag variant="invert" tooltip={tag.tooltip || 'Free to use under MIT license.'}>
+        MIT licensed
+      </Tag>
+    )
   }
 
   if (tag.type === 'team') {
-    return <Tag tooltip={tag.tooltip}>Available in Team plan</Tag>
+    return (
+      <Tag tooltip={tag.tooltip || 'Integrate and use while subscribed to the Team plan.'}>
+        Available in Team plan
+      </Tag>
+    )
   }
 
   if (tag.type === 'ai') {

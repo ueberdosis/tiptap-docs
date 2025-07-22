@@ -32,11 +32,12 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
-          tags: ['Open Source'],
+          tags: ['MIT licensed'],
         },
         {
           title: 'Notion Editor',
           href: '/ui-components/templates/notion-like-editor',
+          tags: ['Start'],
         },
       ],
     },
@@ -271,6 +272,27 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/primitives/tooltip',
             },
           ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Resources',
+      href: '/ui-components/resources',
+      children: [
+        {
+          href: 'https://tiptap.dev/pro-license',
+          title: 'Pro license',
+        },
+        {
+          href: 'https://example.com/feedback-form',
+          title: 'Provide feedback',
+          external: true,
+        },
+        {
+          href: 'https://example.com/report-issue',
+          title: 'Report an issue',
+          external: true,
         },
       ],
     },
