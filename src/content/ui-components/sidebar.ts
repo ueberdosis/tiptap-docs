@@ -117,6 +117,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/delete-node-button',
             },
             {
+              title: 'Drag context menu',
+              href: '/ui-components/components/drag-context-menu',
+            },
+            {
               title: 'Duplicate button',
               href: '/ui-components/components/duplicate-button',
             },
