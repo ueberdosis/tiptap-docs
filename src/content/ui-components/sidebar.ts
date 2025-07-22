@@ -246,21 +246,41 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Primitives',
           href: '/ui-components/primitives',
           children: [
-            // {
-            //   title: 'Avatar',
-            //   href: '/ui-components/primitives/avatar',
-            // },
-            // {
-            //   title: 'Badge',
-            //   href: '/ui-components/primitives/badge',
-            // },
+            {
+              title: 'Avatar',
+              href: '/ui-components/primitives/avatar',
+            },
+            {
+              title: 'Badge',
+              href: '/ui-components/primitives/badge',
+            },
             {
               title: 'Button',
               href: '/ui-components/primitives/button',
             },
             {
+              title: 'Card',
+              href: '/ui-components/primitives/card',
+            },
+            {
+              title: 'Combobox',
+              href: '/ui-components/primitives/combobox',
+            },
+            {
               title: 'Dropdown menu',
               href: '/ui-components/primitives/dropdown-menu',
+            },
+            {
+              title: 'Input',
+              href: '/ui-components/primitives/input',
+            },
+            {
+              title: 'Label',
+              href: '/ui-components/primitives/label',
+            },
+            {
+              title: 'Menu',
+              href: '/ui-components/primitives/menu',
             },
             {
               title: 'Popover',
@@ -273,6 +293,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Spacer',
               href: '/ui-components/primitives/spacer',
+            },
+            {
+              title: 'Textarea Autosize',
+              href: '/ui-components/primitives/textarea-autosize',
             },
             {
               title: 'Toolbar',
