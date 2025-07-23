@@ -67,6 +67,7 @@ export type PageFrontmatter = {
   meta?: FrontmatterMeta
   sidebars?: FrontmatterSidebar
   extension?: ExtensionMeta
+  incident?: IncidentMeta
   tags?: PageTag[]
 }
 
@@ -191,3 +192,43 @@ export interface CTABarOptions {
   text: string
   url: string
 }
+
+export interface IncidentMeta {
+  product: string
+  date: string
+  status: 'resolved' | 'investigating' | 'monitoring'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+}
+
+export interface IncidentData {
+  title: string
+  meta: {
+    title: string
+    description: string
+    category: string
+  }
+  incident: IncidentMeta
+  path: string
+  url: string
+}
+
+export const INCIDENT_STATUS_COLORS = {
+  resolved: 'success',
+  investigating: 'warning',
+  monitoring: 'info',
+} as const
+
+export const INCIDENT_SEVERITY_COLORS = {
+  low: 'neutral',
+  medium: 'hint',
+  high: 'warning',
+  critical: 'danger',
+} as const
+
+export const INCIDENT_TYPE_COLORS = {
+  xss: 'warning',
+  csrf: 'warning',
+  injection: 'danger',
+  disclosure: 'info',
+  dos: 'hint',
+} as const
