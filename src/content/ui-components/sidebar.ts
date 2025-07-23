@@ -85,6 +85,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components/',
           children: [
             {
+              title: 'Ai Menu',
+              href: '/ui-components/components/ai-menu',
+            },
+            {
               title: 'Blockquote button',
               href: '/ui-components/components/blockquote-button',
             },
