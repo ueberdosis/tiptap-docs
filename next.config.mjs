@@ -164,7 +164,7 @@ const nextConfig = {
       },
       {
         source: '/ui-components/components',
-        destination: '/ui-components/components/ai-menu',
+        destination: '/ui-components/components/ai-ask-button',
         permanent: true,
       },
       {
