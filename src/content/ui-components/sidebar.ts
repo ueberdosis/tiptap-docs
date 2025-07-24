@@ -86,6 +86,14 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components/',
           children: [
             {
+              title: 'Ai ask button',
+              href: '/ui-components/components/ai-ask-button',
+            },
+            {
+              title: 'Ai Menu',
+              href: '/ui-components/components/ai-menu',
+            },
+            {
               title: 'Blockquote button',
               href: '/ui-components/components/blockquote-button',
             },
@@ -118,12 +126,20 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/delete-node-button',
             },
             {
+              title: 'Drag context menu',
+              href: '/ui-components/components/drag-context-menu',
+            },
+            {
               title: 'Duplicate button',
               href: '/ui-components/components/duplicate-button',
             },
             {
               title: 'Emoji dropdown menu',
               href: '/ui-components/components/emoji-dropdown-menu',
+            },
+            {
+              title: 'Emoji menu',
+              href: '/ui-components/components/emoji-menu',
             },
             {
               title: 'Emoji trigger button',
@@ -140,6 +156,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Image upload button',
               href: '/ui-components/components/image-upload-button',
+            },
+            {
+              title: 'Improve dropdown',
+              href: '/ui-components/components/improve-dropdown',
             },
             {
               title: 'Link popover',
@@ -186,6 +206,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/text-button',
             },
             {
+              title: 'Turn into dropdown',
+              href: '/ui-components/components/turn-into-dropdown',
+            },
+            {
               title: 'Undo redo button',
               href: '/ui-components/components/undo-redo-button',
             },
@@ -210,8 +234,20 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/node-components',
           children: [
             {
+              title: 'Blockquote node',
+              href: '/ui-components/node-components/blockquote-node',
+            },
+            {
               title: 'Code block node',
               href: '/ui-components/node-components/code-block-node',
+            },
+            {
+              title: 'Heading node',
+              href: '/ui-components/node-components/heading-node',
+            },
+            {
+              title: 'Horizontal rule node',
+              href: '/ui-components/node-components/horizontal-rule-node',
             },
             {
               title: 'Image node',
@@ -235,21 +271,41 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Primitives',
           href: '/ui-components/primitives',
           children: [
-            // {
-            //   title: 'Avatar',
-            //   href: '/ui-components/primitives/avatar',
-            // },
-            // {
-            //   title: 'Badge',
-            //   href: '/ui-components/primitives/badge',
-            // },
+            {
+              title: 'Avatar',
+              href: '/ui-components/primitives/avatar',
+            },
+            {
+              title: 'Badge',
+              href: '/ui-components/primitives/badge',
+            },
             {
               title: 'Button',
               href: '/ui-components/primitives/button',
             },
             {
+              title: 'Card',
+              href: '/ui-components/primitives/card',
+            },
+            {
+              title: 'Combobox',
+              href: '/ui-components/primitives/combobox',
+            },
+            {
               title: 'Dropdown menu',
               href: '/ui-components/primitives/dropdown-menu',
+            },
+            {
+              title: 'Input',
+              href: '/ui-components/primitives/input',
+            },
+            {
+              title: 'Label',
+              href: '/ui-components/primitives/label',
+            },
+            {
+              title: 'Menu',
+              href: '/ui-components/primitives/menu',
             },
             {
               title: 'Popover',
@@ -262,6 +318,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Spacer',
               href: '/ui-components/primitives/spacer',
+            },
+            {
+              title: 'Textarea Autosize',
+              href: '/ui-components/primitives/textarea-autosize',
             },
             {
               title: 'Toolbar',
