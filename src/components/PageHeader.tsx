@@ -114,7 +114,12 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
 
   if (tag.type === 'start') {
     return (
-      <Tag tooltip={tag.tooltip || 'Integrate and use while subscribed to the Start plan.'}>
+      <Tag
+        tooltip={
+          tag.tooltip ||
+          'Integrate and use while subscribed to the Start plan. Usage of this template is subject to our Pro License and ToS.'
+        }
+      >
         Available in Start plan
       </Tag>
     )
@@ -123,14 +128,19 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   if (tag.type === 'mit') {
     return (
       <Tag variant="invert" tooltip={tag.tooltip || 'Free to use under MIT license.'}>
-        MIT licensed
+        Available for free
       </Tag>
     )
   }
 
   if (tag.type === 'team') {
     return (
-      <Tag tooltip={tag.tooltip || 'Integrate and use while subscribed to the Team plan.'}>
+      <Tag
+        tooltip={
+          tag.tooltip ||
+          'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
+        }
+      >
         Available in Team plan
       </Tag>
     )
