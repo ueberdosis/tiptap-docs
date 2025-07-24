@@ -53,6 +53,25 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/pages/utilities',
+      title: 'Utilities',
+      children: [
+        {
+          title: 'Page formats',
+          href: '/pages/utilities/page-formats',
+        },
+        {
+          title: 'cmToPixels',
+          href: '/pages/utilities/cm-to-pixels',
+        },
+        {
+          title: 'inchToPixels',
+          href: '/pages/utilities/inch-to-pixels',
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/pages/guides',
       title: 'Guides',
       children: [
