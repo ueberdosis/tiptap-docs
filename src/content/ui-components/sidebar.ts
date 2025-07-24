@@ -85,6 +85,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components/',
           children: [
             {
+              title: 'Ai ask button',
+              href: '/ui-components/components/ai-ask-button',
+            },
+            {
               title: 'Ai Menu',
               href: '/ui-components/components/ai-menu',
             },
@@ -133,6 +137,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/emoji-dropdown-menu',
             },
             {
+              title: 'Emoji menu',
+              href: '/ui-components/components/emoji-menu',
+            },
+            {
               title: 'Emoji trigger button',
               href: '/ui-components/components/emoji-trigger-button',
             },
@@ -147,6 +155,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Image upload button',
               href: '/ui-components/components/image-upload-button',
+            },
+            {
+              title: 'Improve dropdown',
+              href: '/ui-components/components/improve-dropdown',
             },
             {
               title: 'Link popover',
@@ -191,6 +203,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Text button',
               href: '/ui-components/components/text-button',
+            },
+            {
+              title: 'Turn into dropdown',
+              href: '/ui-components/components/turn-into-dropdown',
             },
             {
               title: 'Undo redo button',
