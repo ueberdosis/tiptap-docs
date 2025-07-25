@@ -17,11 +17,11 @@ export const CURRENT_VERSION = '2.x'
 export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
-    url: 'https://next.tiptap.dev',
+    url: 'https://tiptap.dev/docs',
   },
   {
     version: '2.x',
-    url: 'https://tiptap.dev/docs',
+    url: 'https://v2.tiptap.dev/docs',
   },
   {
     version: '1.x',
