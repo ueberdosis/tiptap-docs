@@ -43,6 +43,11 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/import-export/docx/rest-api',
             },
             {
+              title: 'Custom page layout',
+              href: '/conversion/import-export/docx/custom-page-layout',
+              tags: ['New'],
+            },
+            {
               title: 'Convert custom nodes',
               href: '/conversion/import-export/docx/custom-node-conversion',
             },
