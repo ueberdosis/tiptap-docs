@@ -63,6 +63,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/editor/extensions/functionality/mathematics',
+        destination: '/editor/extensions/nodes/mathematics',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/agent/tiptap-cloud',
         destination: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
         permanent: true,

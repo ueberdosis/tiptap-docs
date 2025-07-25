@@ -22,7 +22,12 @@ const VersionItem = ({ version }: { version: VersionData }) => {
 
   return (
     <DropdownMenu.Item asChild>
-      <NavLink href={version.url} target={!isCurrentVersion ? '_blank' : ''} hideIcon>
+      <NavLink
+        isActive={isCurrentVersion}
+        href={version.url}
+        target={!isCurrentVersion ? '_blank' : ''}
+        hideIcon
+      >
         {version.version}
         {label ? <Tag className="ml-1">{label}</Tag> : null}
       </NavLink>
