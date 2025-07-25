@@ -99,6 +99,115 @@ Collaboration and AI features require a valid server-generated JWT token passed 
 
 Use the `room` prop to distinguish collaborative documents. Each session should use a unique room ID.
 
+### Image uploads
+
+Image uploads require a server side that is not part of our ui components. You can find an example server
+that accepts an image, uploads it to s3 and then returns the permanent URL for it below. Note that you may want
+to implement additional checks when running this in production to prevent abuse.
+
+server side (run with `node --experimental-strip-types`)
+```typescript
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { Hono } from 'hono'
+import { serve } from '@hono/node-server'
+import { cors } from 'hono/cors'
+import { v4 } from 'uuid'
+
+const S3_REGION = 'xxx'
+const S3_BUCKET = 'xxx'
+const S3_ACCESS_KEY= 'xxx'
+const S3_ACCESS_SECRET_KEY='xxx'
+
+const PORT = 1234
+const BASE_URL = `http://127.0.0.1:${PORT}`
+
+const app = new Hono()
+const client = new S3Client({
+  region: S3_REGION,
+  credentials: {
+    accessKeyId: S3_ACCESS_KEY,
+    secretAccessKey: S3_ACCESS_SECRET_KEY,
+  }
+});
+
+// in production, make sure to set up restrictive cors rules
+app.use('/upload', cors())
+
+// in prod, you should add sensitive rate limits for both endpoints
+// you probably want to add content-type and/or filename and filesize validation
+app.post('/upload', async (c) => {
+  const body = await c.req.arrayBuffer()
+  const remoteFileKey = `upload-${v4()}`
+
+  const command = new PutObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: remoteFileKey,
+    Body: body,
+    ContentType: c.req.header('content-type') ?? ''
+  });
+
+  try{
+    await client.send(command)
+  } catch(e) {
+    console.error(e)
+    c.status(500)
+    return c.text('')
+  }
+
+  return c.text(`${BASE_URL}/files/${remoteFileKey}`)
+})
+
+app.get('/files/:name', async (c) => {
+  const { name } = c.req.param()
+  const remoteFileKey = `${name}`
+
+  // you may want to implement caching when using this in production
+  // or, maybe you want to use pre-signed URLs to the client can directly fetch
+  // the document from S3.
+  const command = new GetObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: remoteFileKey,
+  })
+
+  try{
+    const r = await client.send(command)
+    return c.body(r.Body, 200, {
+      'content-type': r.ContentType ?? ''
+    })
+  } catch(e) {
+    console.error(e)
+    c.status(500)
+    return c.text('')
+  }
+
+})
+
+serve({...app, port: PORT})
+```
+
+In order to use the endpoint, adjust `handleImageUpload` in `tiptap-utils.ts`. You will want to remove all code after the validation
+and replace it with something similar to this:
+
+```typescript
+const response = await fetch('http://YOUR_URL/upload', {
+    body: file,
+    method: 'post',
+    headers: {
+        'content-type': file.type,
+    }
+})
+
+if( response.ok ) {
+    return response.text()
+}
+
+throw new Error('upload failed')
+```
+
 ## Usage
 
 Import and render the `NotionEditor` component in your React app:
