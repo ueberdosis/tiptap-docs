@@ -32,6 +32,15 @@ export const VERSIONS: Array<VersionData> = [
 ]
 
 export const CTA_BAR: CTABarOptions | null = {
-  text: "Find out what's new in Tiptap Editor 3.0",
-  url: '/resources/whats-new',
+  text: (
+    <span className="flex items-center gap-2">
+      <span>Now Available: Notion-like editor template</span>
+      <img
+        src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=998808&theme=light&t=1753774012794"
+        alt="Notion-style editor for Tiptap Cloud"
+        className="block h-8"
+      />
+    </span>
+  ),
+  url: 'https://www.producthunt.com/products/tiptap?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-notion&#0045;style&#0045;editor&#0045;for&#0045;tiptap&#0045;cloud',
 }

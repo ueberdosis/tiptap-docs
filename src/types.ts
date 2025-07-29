@@ -191,6 +191,6 @@ export interface VersionData {
 }
 
 export interface CTABarOptions {
-  text: string
+  text: string | JSX.Element
   url: string
 }
