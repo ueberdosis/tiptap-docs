@@ -90,7 +90,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/ai-ask-button',
             },
             {
-              title: 'Ai Menu',
+              title: 'Ai menu',
               href: '/ui-components/components/ai-menu',
             },
             {
@@ -184,6 +184,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Mention trigger button',
               href: '/ui-components/components/mention-trigger-button',
+            },
+            {
+              title: 'Move node button',
+              href: '/ui-components/components/move-node-button',
             },
             {
               title: 'Reset all formatting button',
