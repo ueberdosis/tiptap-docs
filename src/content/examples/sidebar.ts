@@ -135,10 +135,6 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Slash commands',
           href: '/examples/experiments/slash-commands',
         },
-        {
-          title: 'Trailing node',
-          href: '/examples/experiments/trailing-node',
-        },
       ],
     },
   ],
