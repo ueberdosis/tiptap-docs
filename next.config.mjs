@@ -219,6 +219,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/agent/review',
         permanent: true,
       },
+      {
+        source: '/editor/api/extensions/collaboration-caret',
+        destination: '/editor/extensions/functionality/collaboration-caret',
+        permanent: true,
+      },
     ]
   },
 }
