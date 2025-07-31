@@ -808,6 +808,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/editor/api/input-rules',
           title: 'Input Rules',
         },
+        {
+          href: '/editor/api/paste-rules',
+          title: 'Paste Rules',
+        },
       ],
     },
     {
