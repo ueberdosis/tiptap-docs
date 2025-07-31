@@ -518,6 +518,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Keyboard shortcuts',
         },
         {
+          title: 'Persistence',
+          href: '/editor/core-concepts/persistence',
+        },
+        {
           title: 'ProseMirror',
           href: '/editor/core-concepts/prosemirror',
         },
