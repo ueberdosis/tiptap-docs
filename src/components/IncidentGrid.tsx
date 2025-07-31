@@ -4,10 +4,10 @@ import { useCallback, useMemo } from 'react'
 import { Tag } from './ui/Tag'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
+import { TagProps } from './ui/Tag'
 import Link from '@/components/Link'
 import { IncidentData, INCIDENT_SEVERITY_COLORS } from '@/types'
 import { useQueryParam } from '@/hooks/useQueryParams'
-import { TagProps } from './ui/Tag'
 
 // Constants
 const INCIDENT_FILTER = {
@@ -51,7 +51,7 @@ function getProductVariant(product: string): 'gray' | 'info' {
 
 function getSeverityVariant(severity: string): TagProps['variant'] {
   const severityColor = INCIDENT_SEVERITY_COLORS[severity as keyof typeof INCIDENT_SEVERITY_COLORS]
-  
+
   // Map severity colors to valid Tag variants
   switch (severityColor) {
     case 'neutral':
@@ -79,7 +79,6 @@ function FilterButton({ onClick, children, isActive }: FilterButtonProps) {
 }
 
 function IncidentCard({ incident }: { incident: IncidentData }) {
-  const severityColor = INCIDENT_SEVERITY_COLORS[incident.incident.severity] || 'neutral'
   const productVariant = getProductVariant(incident.incident.product)
   const severityTooltip = getSeverityTooltip(incident.incident.severity)
 
