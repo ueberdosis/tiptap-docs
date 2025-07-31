@@ -7,6 +7,7 @@ import { Button } from './ui/Button'
 import Link from '@/components/Link'
 import { IncidentData, INCIDENT_SEVERITY_COLORS } from '@/types'
 import { useQueryParam } from '@/hooks/useQueryParams'
+import { TagProps } from './ui/Tag'
 
 // Constants
 const INCIDENT_FILTER = {
@@ -48,6 +49,26 @@ function getProductVariant(product: string): 'gray' | 'info' {
   return product === 'UI Component' ? 'gray' : 'info'
 }
 
+function getSeverityVariant(severity: string): TagProps['variant'] {
+  const severityColor = INCIDENT_SEVERITY_COLORS[severity as keyof typeof INCIDENT_SEVERITY_COLORS]
+  
+  // Map severity colors to valid Tag variants
+  switch (severityColor) {
+    case 'neutral':
+    case 'hint':
+    case 'warning':
+      return severityColor
+    case 'danger':
+      return 'warning' // Map 'danger' to 'warning' since Tag doesn't have 'danger'
+    default:
+      return 'neutral'
+  }
+}
+
+function capitalizeFirstLetter(string: string): string {
+  return string.charAt(0).toUpperCase() + string.slice(1)
+}
+
 // Components
 function FilterButton({ onClick, children, isActive }: FilterButtonProps) {
   return (
@@ -72,7 +93,7 @@ function IncidentCard({ incident }: { incident: IncidentData }) {
           </div>
           <div className="flex-shrink-0">
             <Tag
-              variant={severityColor as any}
+              variant={getSeverityVariant(incident.incident.severity)}
               className="text-xs font-medium"
               tooltip={severityTooltip}
             >
@@ -87,7 +108,7 @@ function IncidentCard({ incident }: { incident: IncidentData }) {
         {/* Meta information row */}
         <div className="mt-3 flex items-center flex-wrap gap-1 text-sm text-grayAlpha-600">
           <span>
-            {incident.incident.status} {incident.incident.date}
+            {capitalizeFirstLetter(incident.incident.status)} {incident.incident.date}
           </span>
           <span className="mx-1">•</span>
           <Tag variant={productVariant}>{incident.incident.product}</Tag>

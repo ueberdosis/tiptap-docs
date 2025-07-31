@@ -224,11 +224,3 @@ export const INCIDENT_SEVERITY_COLORS = {
   high: 'warning',
   critical: 'danger',
 } as const
-
-export const INCIDENT_TYPE_COLORS = {
-  xss: 'warning',
-  csrf: 'warning',
-  injection: 'danger',
-  disclosure: 'info',
-  dos: 'hint',
-} as const
