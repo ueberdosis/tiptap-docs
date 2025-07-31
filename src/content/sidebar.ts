@@ -85,6 +85,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Editor changelog',
         },
         {
+          href: '/resources/incidents',
+          title: 'Incidents',
+        },
+        {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
