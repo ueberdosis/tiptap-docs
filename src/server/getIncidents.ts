@@ -8,7 +8,7 @@ function parseDateSafely(dateString: string): Date | null {
   if (!dateString || typeof dateString !== 'string') {
     return null
   }
-  
+
   const date = new Date(dateString)
   return isNaN(date.getTime()) ? null : date
 }
@@ -52,16 +52,16 @@ export async function getIncidents(): Promise<IncidentData[]> {
     incidents.sort((a, b) => {
       const dateA = parseDateSafely(a.incident.date)
       const dateB = parseDateSafely(b.incident.date)
-      
+
       // If both dates are invalid, maintain original order
       if (!dateA && !dateB) {
         return 0
       }
-      
+
       // If only one date is invalid, put invalid dates at the end
       if (!dateA) return 1
       if (!dateB) return -1
-      
+
       // Both dates are valid, sort normally (newest first)
       return dateB.getTime() - dateA.getTime()
     })
