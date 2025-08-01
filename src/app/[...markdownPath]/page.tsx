@@ -104,7 +104,11 @@ export default async function MarkdownPage({ params }: Props) {
               ) : null}
               {['high', 'critical'].includes(pageMdx.frontmatter?.incident?.severity) ? (
                 <div className="mt-6">
-                  <Tag variant="warning">Severity: {pageMdx.frontmatter.incident.severity.charAt(0).toUpperCase() + pageMdx.frontmatter.incident.severity.slice(1)}</Tag>
+                  <Tag variant="warning">
+                    Severity:{' '}
+                    {pageMdx.frontmatter.incident.severity.charAt(0).toUpperCase() +
+                      pageMdx.frontmatter.incident.severity.slice(1)}
+                  </Tag>
                 </div>
               ) : null}
               {pageMdx.frontmatter?.tags ? (
