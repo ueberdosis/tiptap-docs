@@ -102,7 +102,8 @@ export default async function MarkdownPage({ params }: Props) {
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               ) : null}
-              {['high', 'critical'].includes(pageMdx.frontmatter?.incident?.severity) ? (
+              {pageMdx.frontmatter?.incident?.severity &&
+              ['high', 'critical'].includes(pageMdx.frontmatter.incident.severity) ? (
                 <div className="mt-6">
                   <Tag variant="warning">
                     Severity:{' '}
