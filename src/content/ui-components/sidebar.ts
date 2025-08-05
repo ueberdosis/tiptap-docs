@@ -118,6 +118,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/color-text-popover',
             },
             {
+              title: 'Copy anchor link button',
+              href: '/ui-components/components/copy-anchor-link-button',
+            },
+            {
               title: 'Copy to clipboard button',
               href: '/ui-components/components/copy-to-clipboard-button',
             },
