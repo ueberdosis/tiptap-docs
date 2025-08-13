@@ -13,7 +13,8 @@ export async function generateMetadata() {
     frontmatter?: PageFrontmatter
   }
 
-  const canonicalUrl = createCanonicalUrl([])
+  const canonicalUrl =
+    process.env.NEXT_PUBLIC_DISABLE_CANONICAL !== 'true' ? createCanonicalUrl([]) : undefined
 
   return await createMetadata({
     title: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
