@@ -20,7 +20,10 @@ export async function generateMetadata({ params }: Props) {
   const directPath = `${params.markdownPath.join('/')}.mdx`
   const indexPath = `${params.markdownPath.join('/')}/index.mdx`
 
-  const canonicalUrl = createCanonicalUrl(params.markdownPath)
+  const canonicalUrl =
+    process.env.NEXT_PUBLIC_DISABLE_CANONICAL !== 'true'
+      ? createCanonicalUrl(params.markdownPath)
+      : undefined
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))

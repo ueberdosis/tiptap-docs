@@ -13,7 +13,7 @@ export async function createMetadata({
   description: string
   ogTitle: string
   category?: string
-  canonicalUrl: string
+  canonicalUrl?: string
 }): Promise<Metadata> {
   return {
     title,
