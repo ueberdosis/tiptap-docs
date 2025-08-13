@@ -30,15 +30,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/core-concepts/options',
         },
         {
-          title: 'Headers & Footers',
-          href: '/pages/core-concepts/headers-footers',
-        },
-        {
           title: 'Page format',
           href: '/pages/core-concepts/page-format',
         },
         {
-          title: 'Page header and footer',
+          title: 'Headers & Footers',
           href: '/pages/core-concepts/page-header-footer',
         },
         {
