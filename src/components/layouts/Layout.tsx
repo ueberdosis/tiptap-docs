@@ -32,7 +32,7 @@ const PageEditFooter = async () => {
 }
 
 export const LayoutCTABar = () => {
-  if (!CTA_BAR) {
+  if (!CTA_BAR || !CTA_BAR.enabled) {
     return null
   }
 

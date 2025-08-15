@@ -192,6 +192,7 @@ export interface VersionData {
 }
 
 export interface CTABarOptions {
+  enabled?: boolean
   text: string | JSX.Element
   url: string
 }

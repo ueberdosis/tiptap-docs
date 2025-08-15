@@ -32,6 +32,7 @@ export const VERSIONS: Array<VersionData> = [
 ]
 
 export const CTA_BAR: CTABarOptions | null = {
+  enabled: false,
   text: (
     <span className="flex items-center gap-2">
       <span>Now Available: Notion-like editor template</span>
