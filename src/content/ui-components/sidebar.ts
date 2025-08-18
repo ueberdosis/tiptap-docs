@@ -158,6 +158,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/heading-dropdown-menu',
             },
             {
+              title: 'Image align button',
+              href: '/ui-components/components/image-align-button',
+            },
+            {
               title: 'Image upload button',
               href: '/ui-components/components/image-upload-button',
             },
