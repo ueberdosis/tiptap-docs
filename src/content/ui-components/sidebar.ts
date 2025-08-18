@@ -262,6 +262,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/node-components/image-node',
             },
             {
+              title: 'Image node pro',
+              href: '/ui-components/node-components/image-node-pro',
+            },
+            {
               title: 'Image upload node',
               href: '/ui-components/node-components/image-upload-node',
             },
