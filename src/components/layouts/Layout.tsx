@@ -14,6 +14,7 @@ import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
 import { VersionSwitch } from '../VersionSwitch'
+import { EnterpriseCalloutAuto } from '../EnterpriseCalloutAuto'
 import styles from './Layout.module.css'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
@@ -180,6 +181,7 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
         >
           <SidebarTableOfContent />
           <div id="requirements-slot" className="flex flex-col gap-8 mt-8" />
+          <EnterpriseCalloutAuto />
         </div>
       </>
     )
