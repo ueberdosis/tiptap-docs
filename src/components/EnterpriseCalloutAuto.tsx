@@ -9,16 +9,16 @@ export type EnterpriseCalloutAutoProps = {
   placement?: 'inline' | 'sidebar'
 }
 
-export const EnterpriseCalloutAuto = ({ 
-  variant, 
-  placement = 'sidebar' 
+export const EnterpriseCalloutAuto = ({
+  variant,
+  placement = 'sidebar',
 }: EnterpriseCalloutAutoProps) => {
   const [mounted, setMounted] = useState(false)
   const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
 
   useEffect(() => {
     setMounted(true)
-    
+
     if (placement === 'sidebar') {
       // Find the secondary sidebar by looking for the requirements-slot's parent
       const requirementsSlot = document.getElementById('requirements-slot')
@@ -37,19 +37,16 @@ export const EnterpriseCalloutAuto = ({
       }
     }
   }, [placement])
-  
+
   // Render inline
   if (placement === 'inline') {
     return <EnterpriseCallout variant={variant} inline className="mt-12" />
   }
-  
+
   // Render in sidebar via portal
   if (mounted && sidebarElement && placement === 'sidebar') {
-    return createPortal(
-      <EnterpriseCallout variant={variant} />,
-      sidebarElement
-    )
+    return createPortal(<EnterpriseCallout variant={variant} />, sidebarElement)
   }
-  
+
   return null
 }
