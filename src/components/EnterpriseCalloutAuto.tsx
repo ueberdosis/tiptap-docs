@@ -1,70 +1,55 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { EnterpriseCallout } from './EnterpriseCallout'
 
-type CalloutConfig = {
-  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search'
-  paths: string[]
-}
-
-// Define which pages should show which callout variant
-const CALLOUT_CONFIGS: CalloutConfig[] = [
-  {
-    variant: 'migration',
-    paths: [
-      '/guides/migrate-from-quill',
-      '/guides/migrate-from-draftjs',
-      '/guides/migrate-from-ckeditor5',
-      '/guides/migrate-from-ckeditor4',
-      '/guides/migrate-from-lexical',
-      '/guides/migrate-from-editorjs',
-      '/guides/upgrade-tiptap-v2',
-    ],
-  },
-  {
-    variant: 'ai-agent',
-    paths: [
-      '/editor/extensions/functionality/ai-agent',
-      '/content-ai/tools-for-ai-agents',
-      '/content-ai/capabilities/agent',
-    ],
-  },
-  {
-    variant: 'pages',
-    paths: ['/pages'],
-  },
-  {
-    variant: 'semantic-search',
-    paths: ['/collaboration/documents/semantic-search'],
-  },
-]
-
 export type EnterpriseCalloutAutoProps = {
-  inline?: boolean
+  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search'
+  placement?: 'inline' | 'sidebar'
 }
 
-export const EnterpriseCalloutAuto = ({ inline = false }: EnterpriseCalloutAutoProps) => {
-  const pathname = usePathname()
+export const EnterpriseCalloutAuto = ({ 
+  variant, 
+  placement = 'sidebar' 
+}: EnterpriseCalloutAutoProps) => {
+  const [mounted, setMounted] = useState(false)
+  const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    
+    if (placement === 'sidebar') {
+      // Find the secondary sidebar by looking for the requirements-slot's parent
+      const requirementsSlot = document.getElementById('requirements-slot')
+      if (requirementsSlot && requirementsSlot.parentElement) {
+        const sidebar = requirementsSlot.parentElement
+        // Find or create a container for the callout after requirements-slot
+        let container = sidebar.querySelector('#enterprise-callout-slot')
+        if (!container) {
+          container = document.createElement('div')
+          container.id = 'enterprise-callout-slot'
+          container.className = 'mt-8'
+          // Insert after requirements-slot
+          requirementsSlot.insertAdjacentElement('afterend', container)
+        }
+        setSidebarElement(container)
+      }
+    }
+  }, [placement])
   
-  // Find the matching config for the current path
-  const config = CALLOUT_CONFIGS.find(({ paths }) =>
-    paths.some((path) => pathname.startsWith(path))
-  )
-  
-  if (!config) {
-    return null
+  // Render inline
+  if (placement === 'inline') {
+    return <EnterpriseCallout variant={variant} inline className="mt-12" />
   }
   
-  // Render based on explicit inline prop
-  if (inline) {
-    return <EnterpriseCallout variant={config.variant} inline className="mt-12" />
+  // Render in sidebar via portal
+  if (mounted && sidebarElement && placement === 'sidebar') {
+    return createPortal(
+      <EnterpriseCallout variant={variant} />,
+      sidebarElement
+    )
   }
   
-  // Otherwise render for sidebar
-  return (
-    <div className="mt-8">
-      <EnterpriseCallout variant={config.variant} />
-    </div>
-  )
+  return null
 }
