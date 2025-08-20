@@ -61,7 +61,9 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
             <div className="md:col-span-2">
               <p className="text-sm text-grayAlpha-700 mb-3">{finalDescription.split('\n\n')[0]}</p>
               {finalDescription.split('\n\n')[1] && (
-                <p className="text-sm text-grayAlpha-700 mb-3">{finalDescription.split('\n\n')[1]}</p>
+                <p className="text-sm text-grayAlpha-700 mb-3">
+                  {finalDescription.split('\n\n')[1]}
+                </p>
               )}
 
               <p className="text-xs text-grayAlpha-600 mt-4">
