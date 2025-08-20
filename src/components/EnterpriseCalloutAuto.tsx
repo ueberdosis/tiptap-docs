@@ -6,12 +6,12 @@ import { EnterpriseCallout } from './EnterpriseCallout'
 
 export type EnterpriseCalloutAutoProps = {
   variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search'
-  placement?: 'inline' | 'sidebar'
+  renderMode?: 'inline' | 'portal-sidebar'
 }
 
 export const EnterpriseCalloutAuto = ({
   variant,
-  placement = 'sidebar',
+  renderMode = 'portal-sidebar',
 }: EnterpriseCalloutAutoProps) => {
   const [mounted, setMounted] = useState(false)
   const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
@@ -19,7 +19,7 @@ export const EnterpriseCalloutAuto = ({
   useEffect(() => {
     setMounted(true)
 
-    if (placement === 'sidebar') {
+    if (renderMode === 'portal-sidebar') {
       // Find the secondary sidebar by looking for the requirements-slot's parent
       const requirementsSlot = document.getElementById('requirements-slot')
       if (requirementsSlot && requirementsSlot.parentElement) {
@@ -36,15 +36,15 @@ export const EnterpriseCalloutAuto = ({
         setSidebarElement(container)
       }
     }
-  }, [placement])
+  }, [renderMode])
 
   // Render inline
-  if (placement === 'inline') {
+  if (renderMode === 'inline') {
     return <EnterpriseCallout variant={variant} inline className="mt-12" />
   }
 
   // Render in sidebar via portal
-  if (mounted && sidebarElement && placement === 'sidebar') {
+  if (mounted && sidebarElement && renderMode === 'portal-sidebar') {
     return createPortal(<EnterpriseCallout variant={variant} />, sidebarElement)
   }
 
