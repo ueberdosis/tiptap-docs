@@ -148,7 +148,7 @@ export const dependencies = {
 export const proDependencies = {
   '@tiptap-pro/extension-ai': 'next',
   '@tiptap-pro/extension-annotation': 'next',
-  '@tiptap-pro/extension-collaboration-history': 'next',
+  '@tiptap-pro/extension-snapshot': 'next',
   '@tiptap-pro/extension-comments': 'next',
   '@tiptap-pro/extension-iframely': 'next',
 }
