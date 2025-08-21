@@ -5,13 +5,15 @@ import { createPortal } from 'react-dom'
 import { EnterpriseCallout } from './EnterpriseCallout'
 
 export type EnterpriseCalloutAutoProps = {
-  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search'
-  renderMode?: 'inline' | 'portal-sidebar'
+  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search' | 'docx'
+  renderMode?: 'inline' | 'sidebar'
+  disableWaitlist?: boolean
 }
 
 export const EnterpriseCalloutAuto = ({
   variant,
-  renderMode = 'portal-sidebar',
+  renderMode = 'sidebar',
+  disableWaitlist = false,
 }: EnterpriseCalloutAutoProps) => {
   const [mounted, setMounted] = useState(false)
   const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
@@ -19,7 +21,7 @@ export const EnterpriseCalloutAuto = ({
   useEffect(() => {
     setMounted(true)
 
-    if (renderMode === 'portal-sidebar') {
+    if (renderMode === 'sidebar') {
       // Find the secondary sidebar by looking for the requirements-slot's parent
       const requirementsSlot = document.getElementById('requirements-slot')
       if (requirementsSlot && requirementsSlot.parentElement) {
@@ -40,12 +42,22 @@ export const EnterpriseCalloutAuto = ({
 
   // Render inline
   if (renderMode === 'inline') {
-    return <EnterpriseCallout variant={variant} inline className="mt-12" />
+    return (
+      <EnterpriseCallout
+        variant={variant}
+        inline
+        disableWaitlist={disableWaitlist}
+        className="mt-12"
+      />
+    )
   }
 
   // Render in sidebar via portal
-  if (mounted && sidebarElement && renderMode === 'portal-sidebar') {
-    return createPortal(<EnterpriseCallout variant={variant} />, sidebarElement)
+  if (mounted && sidebarElement && renderMode === 'sidebar') {
+    return createPortal(
+      <EnterpriseCallout variant={variant} disableWaitlist={disableWaitlist} />,
+      sidebarElement,
+    )
   }
 
   return null
