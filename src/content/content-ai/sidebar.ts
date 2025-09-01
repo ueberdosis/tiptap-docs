@@ -417,7 +417,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/guides',
               children: [
                 {
-                  title: 'AI Agent Chatbot',
+                  title: 'AI agent chatbot',
                   href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
                 },
                 {
@@ -431,7 +431,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/primitives',
               children: [
                 {
-                  title: 'Execute AI Agent tools',
+                  title: 'Execute AI agent tools',
                   href: '/content-ai/capabilities/ai-toolkit/primitives/execute-ai-agent-tools',
                 },
                 {
