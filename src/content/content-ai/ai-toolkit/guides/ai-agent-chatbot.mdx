@@ -1,0 +1,170 @@
+---
+title: AI Agent Chatbot
+meta:
+  title: AI Agent Chatbot | Tiptap Content AI
+  description: Build an AI Agent that can read and edit Tiptap documents using the AI Toolkit and Vercel AI SDK.
+  category: Content AI
+---
+
+Build a simple but powerful AI Agent chatbot that can read and edit Tiptap documents.
+
+## Tech stack
+
+- React + Next.js
+- AI SDK by Vercel
+- Tiptap AI Toolkit
+
+## Installation
+
+Create a Next.js project:
+
+```bash
+npx create-next-app@latest ai-agent-chatbot
+```
+
+Install the Vercel AI SDK for OpenAI:
+
+```bash
+npm install ai @ai-sdk/react @ai-sdk/openai
+```
+
+Install the Tiptap AI Toolkit and the tool definitions for the Vercel AI SDK:
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-ai-sdk
+```
+
+## API endpoint
+
+Create an API endpoint that uses the Vercel AI SDK to call the OpenAI model. Include, in the API request, the tool definitions for the Tiptap AI Toolkit.
+
+```ts
+// app/api/chat/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+  const system = `You are an assistant that can edit rich text documents.`
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    messages: convertToModelMessages(messages),
+    tools: toolDefinitions(),
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+To access the OpenAI API, configure the API key in a `.env` file:
+
+```env
+OPENAI_API_KEY=your-api-key
+```
+
+## Client
+
+Create a client-side React component that renders the Tiptap Editor and a simple chat UI. This component uses the `useChat` hook from the Vercel AI SDK to call the API endpoint and manage the chat conversation. When the AI model outputs a tool call, it uses the Tiptap AI Toolkit to execute the tool.
+
+```tsx
+// App.tsx
+'use client'
+
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useState } from 'react'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+
+export default function App() {
+  const editor = useEditor({
+    extensions: [StarterKit, AiToolkit],
+    content: `<h1>AI Agent Demo</h1><p>Ask the AI to improve this.</p>`,
+  })
+
+  // The AI Agent reads the document in chunks, so we need to keep track of the current chunk
+  // that the AI Agent is reading.
+  const currentChunk = useRef(0)
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const { toolName, input } = toolCall
+
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName,
+        input,
+        currentChunk: currentChunk.current,
+      })
+
+      currentChunk.current = result.currentChunk
+
+      addToolResult({ tool: toolName, toolCallId: toolCall.toolCallId, output: result.output })
+    },
+  })
+
+  const [input, setInput] = useState('')
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id}>
+          <strong>{`${message.role}: `}</strong>
+          {message.parts
+            .map((part) => {
+              switch (part.type) {
+                // render text parts as simple text:
+                case 'text':
+                  return part.text
+
+                // for tool parts, render a message with the tool name and state:
+                default: {
+                  const callId = part.toolCallId
+
+                  switch (part.state) {
+                    case 'input-streaming':
+                      return `Loading tool ${part.type}...`
+                    case 'input-available':
+                      return `Applying tool ${part.type}`
+                    case 'output-available':
+                      return `Tool ${part.type} applied:`
+                    case 'output-error':
+                      return `Error applying tool ${part.type}`
+                  }
+                  break
+                }
+              }
+            })
+            .map((text) => (
+              <p key={text}>{text}</p>
+            ))}
+          <br />
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (input.trim()) {
+            sendMessage({ text: input })
+            setInput('')
+          }
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+    </div>
+  )
+}
+```
+
+## Next steps
+
+Let your users review AI-generated changes with the [Review changes guide](/content-ai/ai-toolkit/guides/review-changes).

@@ -67,6 +67,84 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      title: 'AI Toolkit',
+      href: '/content-ai/ai-toolkit/overview',
+      tags: ['New', 'Alpha'],
+      children: [
+        {
+          title: 'Overview',
+          href: '/content-ai/ai-toolkit/overview',
+        },
+        {
+          title: 'Quickstart guides',
+          href: '/content-ai/ai-toolkit/guides/ai-agent-chatbot',
+          children: [
+            {
+              title: 'AI Agent Chatbot',
+              href: '/content-ai/ai-toolkit/guides/ai-agent-chatbot',
+            },
+            {
+              title: 'Review changes',
+              href: '/content-ai/ai-toolkit/guides/review-changes',
+            },
+          ],
+        },
+        {
+          title: 'Primitives',
+          href: '/content-ai/ai-toolkit/primitives/run-ai-agent-tools',
+          children: [
+            {
+              title: 'Execute AI Agent tools',
+              href: '/content-ai/ai-toolkit/primitives/execute-ai-agent-tools',
+            },
+            {
+              title: 'Read the document',
+              href: '/content-ai/ai-toolkit/primitives/read-the-document',
+            },
+            {
+              title: 'Edit the document',
+              href: '/content-ai/ai-toolkit/primitives/edit-the-document',
+            },
+            {
+              title: 'Get document metadata',
+              href: '/content-ai/ai-toolkit/primitives/get-document-metadata',
+            },
+            {
+              title: 'Display suggestions',
+              href: '/content-ai/ai-toolkit/primitives/display-suggestions',
+            },
+            {
+              title: 'Compare documents',
+              href: '/content-ai/ai-toolkit/primitives/compare-documents',
+            },
+            {
+              title: 'Diff utility',
+              href: '/content-ai/ai-toolkit/primitives/diff-utility',
+            },
+          ],
+        },
+        {
+          title: 'AI Agent tools',
+          href: '/content-ai/ai-toolkit/tools/available-tools',
+          children: [
+            {
+              title: 'Available tools',
+              href: '/content-ai/ai-toolkit/tools/available-tools',
+            },
+            {
+              title: 'Vercel AI SDK',
+              href: '/content-ai/ai-toolkit/tools/ai-sdk',
+            },
+            {
+              title: 'Other providers',
+              href: '/content-ai/ai-toolkit/tools/other-providers',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/content-ai/capabilities',
       title: 'AI Extensions',
       children: [
