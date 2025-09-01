@@ -5,7 +5,7 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search' | 'docx'
+  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'pages' | 'semantic-search' | 'docx'
   inline?: boolean
   disableWaitlist?: boolean
 } & React.HTMLAttributes<HTMLDivElement>
@@ -16,34 +16,29 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
       variant === 'migration'
         ? 'Migration support'
         : variant === 'ai-agent'
-          ? 'Build AI Agents with expert Support'
-          : variant === 'pages'
-            ? 'Integrate Pages with expert support'
-            : variant === 'docx'
-              ? 'Ship DOCX faster with expert support'
-              : 'Join the semantic search beta'
+          ? 'Build AI Agents with expert support'
+          : variant === 'ai-toolkit'
+            ? 'Integrate AI Toolkit with expert support'
+            : variant === 'pages'
+              ? 'Integrate Pages with expert support'
+              : variant === 'docx'
+                ? 'Ship DOCX faster with expert support'
+                : 'Join the semantic search beta'
 
     const description =
       variant === 'migration'
         ? 'Get hands-on help migrating your content as part of Enterprise onboarding.'
         : variant === 'ai-agent'
           ? "We're onboarding Enterprise teams building real-time editors. Get direct support for Agent setup, LLM integration, and performance tuning."
-          : variant === 'pages'
-            ? "We're onboarding Enterprise teams ready to implement the page layout. Get direct engineering support and shape the product roadmap."
-            : variant === 'docx'
-              ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
-              : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
+          : variant === 'ai-toolkit'
+            ? "We're onboarding Enterprise teams building custom AI agents and extensions with the AI Toolkit. Get direct engineering support and shape the product roadmap."
+            : variant === 'pages'
+              ? "We're onboarding Enterprise teams ready to implement the page layout. Get direct engineering support and shape the product roadmap."
+              : variant === 'docx'
+                ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
+                : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
 
-    const waitlistText =
-      variant === 'migration'
-        ? 'On a different plan? Join the'
-        : variant === 'ai-agent'
-          ? 'On a different plan? Join the'
-          : variant === 'pages'
-            ? 'On a different plan? Join the'
-            : variant === 'docx'
-              ? 'On a different plan? Join the'
-              : 'On a different plan? Join the'
+    const waitlistText = 'On a different plan? Join the'
 
     if (inline) {
       return (
