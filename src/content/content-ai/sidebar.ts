@@ -461,7 +461,7 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'AI Agent tools',
+              title: 'AI agent tools',
               href: '/content-ai/capabilities/ai-toolkit/tools',
               children: [
                 {
