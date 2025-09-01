@@ -244,6 +244,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog',
+        destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        permanent: true,
+      },
     ]
   },
 }

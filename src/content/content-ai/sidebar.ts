@@ -478,6 +478,20 @@ export const sidebarConfig: SidebarConfig = {
                 },
               ],
             },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/ai-toolkit/changelog',
+              children: [
+                {
+                  title: 'AI Toolkit',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+                },
+                {
+                  title: 'AI SDK tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
+                },
+              ],
+            },
           ],
         },
       ],
