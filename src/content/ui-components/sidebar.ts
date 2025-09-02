@@ -360,16 +360,6 @@ export const sidebarConfig: SidebarConfig = {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
-        {
-          href: 'https://example.com/feedback-form',
-          title: 'Provide feedback',
-          external: true,
-        },
-        {
-          href: 'https://example.com/report-issue',
-          title: 'Report an issue',
-          external: true,
-        },
       ],
     },
   ],
