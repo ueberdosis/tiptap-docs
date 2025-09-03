@@ -236,7 +236,7 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/primitives',
-        destination: '/content-ai/capabilities/ai-toolkit/primitives/execute-ai-agent-tools',
+        destination: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
         permanent: true,
       },
       {

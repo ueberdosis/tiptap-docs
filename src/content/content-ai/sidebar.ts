@@ -431,8 +431,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/primitives',
               children: [
                 {
-                  title: 'Execute AI agent tools',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/execute-ai-agent-tools',
+                  title: 'Execute tool (AI agents)',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
                 },
                 {
                   title: 'Read the document',
@@ -443,8 +443,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
                 },
                 {
-                  title: 'Get document metadata',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/get-document-metadata',
+                  title: 'Schema awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
                 },
                 {
                   title: 'Display suggestions',
