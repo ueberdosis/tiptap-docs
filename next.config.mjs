@@ -224,6 +224,31 @@ const nextConfig = {
         destination: '/editor/extensions/functionality/collaboration-caret',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/ai-toolkit',
+        destination: '/content-ai/capabilities/ai-toolkit/overview',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides',
+        destination: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives',
+        destination: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools',
+        destination: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog',
+        destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        permanent: true,
+      },
     ]
   },
 }
