@@ -16,7 +16,7 @@ import { CodeDemo } from '@/components/CodeDemo'
 
 After the AI agent chatbot has finished its work, you can show a summary of the changes to the user.
 
-This guide is a variation of the [Review changes guide](/content-ai/capabilities/ai-toolkit/guides/review-changes). In that guide, the AI agent chatbot previews the changes before they are applied, every time it wants to make a change to the document. In this guide, the AI agent chatbot can do as many changes as it wants, and then the user can review all of them at once.
+In the [Review changes guide](/content-ai/capabilities/ai-toolkit/guides/review-changes), we built an AI agent chatbot that previews the changes before they are applied, every time it wants to edit the document. However, in this guide, the AI agent chatbot can do as many changes as it wants, and then the user reviews all of them together.
 
 To implement this, we'll use the AI Toolkit's built-in functionality to [compare documents in real time](/content-ai/capabilities/ai-toolkit/primitives/compare-documents).
 
@@ -73,12 +73,12 @@ toolkit.stopComparingDocuments()
 
 ## Accept/reject individual changes
 
-You can also display buttons or a popover over a suggestion, with actions to accept or reject its associated change..
+You can also display buttons or a popover over a suggestion, with actions to accept or reject its associated change.
 
 To render custom elements in the UI, set the `reviewOptions.displayOptions` parameter. There, you can set the `renderDecorations` option. It's a function that returns a list of [ProseMirror decorations](https://prosemirror.net/docs/ref/#view.Decorations).
 
 ```tsx
-const result = toolkit.startComparingDocuments({
+toolkit.startComparingDocuments({
   displayOptions: {
     renderDecorations(options) {
       return [
@@ -108,3 +108,157 @@ const result = toolkit.startComparingDocuments({
   },
 })
 ```
+
+## Full demo code
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useRef, useState } from 'react'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import './suggestions.css'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: `<h1>AI Agent Demo</h1><p>Ask the AI to improve this.</p>`,
+  })
+
+  // Fixes issue: https://github.com/vercel/ai/issues/8148
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  // The AI Agent reads the document in chunks. This variable keeps track of the current chunk
+  // that the AI Agent is reading.
+  const currentChunk = useRef(0)
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const editor = editorRef.current
+      if (!editor) return
+
+      const { toolName, input, toolCallId } = toolCall
+
+      // Use the AI Toolkit to execute the tool
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName,
+        input,
+        currentChunk: currentChunk.current,
+      })
+
+      currentChunk.current = result.currentChunk
+
+      addToolResult({ tool: toolName, toolCallId, output: result.output })
+    },
+  })
+
+  const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
+  const [isComparing, setIsComparing] = useState(false)
+
+  if (!editor) return null
+
+  const toolkit = getAiToolkit(editor)
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+
+          if (isComparing) return
+
+          toolkit.startComparingDocuments({
+            displayOptions: {
+              renderDecorations(options) {
+                return [
+                  ...options.defaultRenderDecorations(),
+
+                  // Accept button
+                  Decoration.widget(options.range.to, () => {
+                    const element = document.createElement('button')
+                    element.textContent = 'Accept'
+                    element.addEventListener('click', () => {
+                      toolkit.acceptChange(options.change.id)
+                    })
+                    return element
+                  }),
+
+                  // Reject button
+                  Decoration.widget(options.range.to, () => {
+                    const element = document.createElement('button')
+                    element.textContent = 'Reject'
+                    element.addEventListener('click', () => {
+                      toolkit.rejectChange(options.change.id)
+                    })
+                    return element
+                  }),
+                ]
+              },
+            },
+          })
+          setIsComparing(true)
+
+          sendMessage({ text: input })
+          setInput('')
+        }}
+      >
+        <input disabled={isComparing} value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+      {isComparing && (
+        <div>
+          <h2>Reviewing Changes</h2>
+          <button
+            onClick={() => {
+              toolkit.stopComparingDocuments()
+              setIsComparing(false)
+            }}
+          >
+            Accept all
+          </button>
+          <button
+            onClick={() => {
+              toolkit.rejectAllSuggestions()
+              toolkit.stopComparingDocuments()
+              setIsComparing(false)
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application where users can review AI-generated changes:
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/review-changes-as-summary"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
