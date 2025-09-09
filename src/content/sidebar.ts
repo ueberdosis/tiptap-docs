@@ -42,8 +42,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Content AI',
         },
         {
-          href: '/collaboration/documents/history',
-          title: 'History',
+          href: '/collaboration/documents/snapshot',
+          title: 'Snapshots',
         },
         {
           href: '/conversion/getting-started/overview',
