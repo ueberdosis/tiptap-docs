@@ -158,6 +158,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/collaboration/documents/history',
+        destination: '/collaboration/documents/snapshot',
+        permanent: true,
+      },
+      {
         source: '/ui-components/node-components',
         destination: '/ui-components/node-components/blockquote-node',
         permanent: true,
