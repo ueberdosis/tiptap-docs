@@ -424,6 +424,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Review changes',
                   href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
                 },
+                {
+                  title: 'Review as summary',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
+                },
               ],
             },
             {
