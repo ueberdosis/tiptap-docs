@@ -477,6 +477,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
                 },
                 {
+                  title: 'LangChain.js',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+                },
+                {
                   title: 'Other providers',
                   href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
                 },
@@ -493,6 +497,14 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'AI SDK tools',
                   href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
+                },
+                {
+                  title: 'LangChain.js tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
+                },
+                {
+                  title: 'Tool definitions',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
                 },
               ],
             },
