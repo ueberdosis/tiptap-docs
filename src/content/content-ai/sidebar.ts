@@ -482,7 +482,7 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'OpenAI',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/openai-responses',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
                 },
                 {
                   title: 'Other providers',
@@ -508,7 +508,7 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'OpenAI tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai-responses',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
                 },
                 {
                   title: 'Tool definitions',
