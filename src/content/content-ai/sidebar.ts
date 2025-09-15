@@ -262,7 +262,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
             },
             {
-              title: 'Use with your AI Agent',
+              title: 'Use with your AI agent',
               href: '/content-ai/capabilities/agent/custom-llms',
               children: [
                 {
@@ -481,6 +481,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
                 },
                 {
+                  title: 'OpenAI',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
+                },
+                {
                   title: 'Other providers',
                   href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
                 },
@@ -501,6 +505,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'LangChain.js tools',
                   href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
+                },
+                {
+                  title: 'OpenAI tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
                 },
                 {
                   title: 'Tool definitions',
