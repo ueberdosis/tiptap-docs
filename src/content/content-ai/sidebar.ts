@@ -428,6 +428,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Review as summary',
                   href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
                 },
+                {
+                  title: 'Tool streaming',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
+                },
               ],
             },
             {
