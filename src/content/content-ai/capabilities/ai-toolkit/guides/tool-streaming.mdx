@@ -14,40 +14,53 @@ import { CodeDemo } from '@/components/CodeDemo'
   guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot). Read it first.
 </Callout>
 
-Instead of calling the `executeTool` method, call `streamTool` to see changes in real-time as the AI generates them. This creates a more engaging user experience where users can watch the AI make changes incrementally.
+Activate the AI Toolkit's tool streaming capabilities so that the document updates in real-time while the AI is generating content.
 
 ## Key changes
 
-The main difference is that instead of calling `executeTool` when the tool call is complete, you call `streamTool` both during streaming and when the tool call is finished.
+To add streaming to the AI agent chatbot we built in [the previous guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot), we need to replace the `executeTool` method with the `streamTool` method.
 
-### 1. Update the onToolCall handler
-
-Replace the `executeTool` call with `streamTool` and set `hasFinished: true` when the tool call is complete:
+First, while the tool call is streaming, you can call `streamTool` repeatedly, every time a new streaming part is received. This will update the document incrementally.
 
 ```tsx
-async onToolCall({ toolCall }) {
-  const editor = editorRef.current
-  if (!editor) return
+const aiToolkit = getAiToolkit(editor)
 
-  const { toolName, input, toolCallId } = toolCall
-
-  // Use the AI Toolkit to stream the tool
-  const toolkit = getAiToolkit(editor)
-  const result = toolkit.streamTool({
-    toolCallId,
-    toolName,
-    input,
-    // This parameter indicates that the tool streaming is complete
-    hasFinished: true,
-  })
-
-  addToolResult({ tool: toolName, toolCallId, output: result.output })
-},
+const result = aiToolkit.streamTool({
+  toolCallId: 'call_123',
+  toolName: 'insertContent',
+  // Content is still streaming, so we pass a partial object.
+  input: {
+    position: 'documentEnd',
+    // The HTML content has not fully been received yet
+    html: '<p>HTML cont',
+  },
+  // This parameter indicates that the tool streaming has not finished yet
+  hasFinished: false,
+})
 ```
 
-### 2. Add streaming updates
+Then, when the tool call is complete, call the `streamTool` method again with `hasFinished: true` to indicate that the tool call has finished streaming. This will update the document with the final content.
 
-Add a `useEffect` hook to handle streaming updates while the tool call is in progress:
+```tsx
+const result = aiToolkit.streamTool({
+  toolCallId: 'call_123',
+  toolName: 'insertContent',
+  // Streaming is complete, so we can pass the full object
+  input: {
+    position: 'documentEnd',
+    // The HTML content has fully been received
+    html: '<p>HTML content</p>',
+  },
+  // This parameter indicates that the tool streaming has finished
+  hasFinished: true,
+})
+```
+
+To implement this process in the AI agent chatbot we built in [the previous guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot), follow these steps:
+
+### 1. Handle streaming updates
+
+Add a `useEffect` hook to handle streaming updates while the tool call is in progress. Inside this hook, we call `streamTool` repeatedly, every time a new streaming part is received.
 
 ```tsx
 // While the tool streaming is in progress, we need to update the document
@@ -81,8 +94,41 @@ useEffect(() => {
     toolCallId: part.toolCallId,
     toolName,
     input: part.input,
+    // This parameter indicates that the tool streaming has not finished yet
+    hasFinished: false,
   })
 }, [addToolResult, editor, messages])
+```
+
+### 2. Handle streaming completion
+
+In our demo, we use the `useChat` hook from the [AI SDK by Vercel](https://ai-sdk.vercel.app/) to implement the AI agent chatbot. This hook contains an `onToolCall` event handler that runs when the tool call finishes streaming.
+
+Inside this handler, we call `streamTool` with `hasFinished: true` to indicate that the tool call has finished streaming.
+
+```tsx
+const { messages, sendMessage, addToolResult } = useChat({
+  transport: new DefaultChatTransport({ api: '/api/chat' }),
+  sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  async onToolCall({ toolCall }) {
+    const editor = editorRef.current
+    if (!editor) return
+
+    const { toolName, input, toolCallId } = toolCall
+
+    // Use the AI Toolkit to stream the tool
+    const toolkit = getAiToolkit(editor)
+    const result = toolkit.streamTool({
+      toolCallId,
+      toolName,
+      input,
+      // This parameter indicates that the tool streaming is complete
+      hasFinished: true,
+    })
+
+    addToolResult({ tool: toolName, toolCallId, output: result.output })
+  },
+})
 ```
 
 ## Complete implementation
@@ -169,6 +215,8 @@ export default function Page() {
       toolCallId: part.toolCallId,
       toolName,
       input: part.input,
+      // This parameter indicates that the tool streaming has not finished yet
+      hasFinished: false,
     })
   }, [addToolResult, editor, messages])
 
