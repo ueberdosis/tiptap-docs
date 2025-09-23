@@ -30,24 +30,39 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/core-concepts/options',
         },
         {
-          title: 'Headers & Footers',
-          href: '/pages/core-concepts/headers-footers',
-        },
-        {
           title: 'Page format',
           href: '/pages/core-concepts/page-format',
         },
         {
-          title: 'Page layout',
-          href: '/pages/core-concepts/page-layout',
+          title: 'Headers & Footers',
+          href: '/pages/core-concepts/page-header-footer',
         },
         {
-          title: 'Page break background',
-          href: '/pages/core-concepts/page-break-background',
+          title: 'Page break',
+          href: '/pages/core-concepts/page-break',
         },
         {
           title: 'Limitations',
           href: '/pages/core-concepts/limitations',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/pages/utilities',
+      title: 'Utilities',
+      children: [
+        {
+          title: 'Page formats',
+          href: '/pages/utilities/page-formats',
+        },
+        {
+          title: 'cmToPixels',
+          href: '/pages/utilities/cm-to-pixels',
+        },
+        {
+          title: 'inchToPixels',
+          href: '/pages/utilities/inch-to-pixels',
         },
       ],
     },

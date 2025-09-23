@@ -1,0 +1,190 @@
+---
+title: AI agent chatbot
+meta:
+  title: AI agent chatbot | Tiptap Content AI
+  description: Build an AI agent that can read and edit Tiptap documents using the AI Toolkit and Vercel AI SDK.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="ai-toolkit" renderMode="sidebar" />
+<Requirements>
+  <RequirementItem label="1. Request access">
+    <a href="https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd?pvs=105">
+      Share your use case
+    </a>{' '}
+    to be considered for early access to Tiptap AI Toolkit.
+  </RequirementItem>
+  <RequirementItem label="2. Access the private registry">
+    The AI Toolkit extension is published in Tiptap’s private npm registry. Authenticate to Tiptap’s
+    private npm registry by following the <a href="/guides/pro-extensions">setup guide</a>.
+  </RequirementItem>
+  <RequirementItem label="3. Install the extension">
+    Install the extension from the private registry using npm or your preferred package manager.
+  </RequirementItem>
+</Requirements>
+
+Build a simple AI agent chatbot that can read and edit Tiptap documents.
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/)
+- [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest ai-agent-chatbot
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai
+```
+
+Install the Tiptap AI Toolkit and the tool definitions for the Vercel AI SDK.
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-ai-sdk
+```
+
+## API endpoint
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model. Include the [tool definitions](/content-ai/capabilities/ai-toolkit/tools/ai-sdk) for the Tiptap AI Toolkit.
+
+```ts
+// app/api/chat/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    system: 'You are an assistant that can edit rich text documents.',
+    messages: convertToModelMessages(messages),
+    tools: toolDefinitions(),
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+To access the OpenAI API, create an API key in the [OpenAI Dashboard](https://platform.openai.com/account/api-keys) and add it as an [environment variable](https://nextjs.org/docs/app/guides/environment-variables). The environment variable will be detected automatically by the Vercel AI SDK.
+
+```sh
+# .env
+OPENAI_API_KEY=your-api-key
+```
+
+## Client
+
+Create a client-side React component that renders the Tiptap Editor and a simple chat UI. This component leverages the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation. When the AI model outputs a tool call, it uses the Tiptap AI Toolkit to execute the tool.
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useRef, useState } from 'react'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: `<h1>AI agent demo</h1><p>Ask the AI to improve this.</p>`,
+  })
+
+  // Fixes issue: https://github.com/vercel/ai/issues/8148
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  // The AI agent reads the document in chunks. This variable keeps track of the current chunk
+  // that the AI agent is reading.
+  const currentChunk = useRef(0)
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const editor = editorRef.current
+      if (!editor) return
+
+      const { toolName, input, toolCallId } = toolCall
+
+      // Use the AI Toolkit to execute the tool
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName,
+        input,
+        currentChunk: currentChunk.current,
+      })
+
+      currentChunk.current = result.currentChunk
+
+      addToolResult({ tool: toolName, toolCallId, output: result.output })
+    },
+  })
+
+  const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          sendMessage({ text: input })
+          setInput('')
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application:
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/ai-agent-chatbot" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+Let your users review AI-generated changes with the [review changes guide](/content-ai/capabilities/ai-toolkit/guides/review-changes).

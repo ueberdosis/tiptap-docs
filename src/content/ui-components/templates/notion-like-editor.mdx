@@ -6,22 +6,22 @@ meta:
   category: UI Components
 sidebars:
   hideSecondary: true
+tags:
+  - type: start
 ---
 
+import { ArrowRightIcon } from 'lucide-react'
 import { CodeDemo } from '@/components/CodeDemo'
 import { Callout } from '@/components/ui/Callout'
-import { ArrowRightIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Link } from '@/components/Link'
 
 The **Notion-like Editor Template** is a fully featured block-based editor that replicates the familiar Notion experience. It supports collaboration, AI assistance, emoji, drag & drop, advanced formatting—and it’s fully customizable.
 
-<CodeDemo isScrollable isLarge src="https://template.tiptap.dev/preview/templates/notion-like" />
-
 <div className="flex items-center gap-4 mt-8">
   <Button variant="primary" size="medium">
     <Link
-      href="https://template.tiptap.dev/preview/templates/notion-like/"
+      href="https://template.tiptap.dev/preview/templates/notion-like"
       className="flex items-center justify-center gap-2"
     >
       View in Full Screen
@@ -30,22 +30,39 @@ The **Notion-like Editor Template** is a fully featured block-based editor that 
   </Button>
 </div>
 
+<CodeDemo isScrollable isLarge src="https://template.tiptap.dev/preview/templates/notion-like" />
+
+<Callout title="Start plan required" variant="warning">
+  The Notion-like template requires at least a **Start plan** subscription to use in production. You
+  can integrate and test it during your trial period. Usage of this template is subject to our
+  [Terms of Service](https://tiptap.dev/terms-of-service) and [Pro
+  License](https://tiptap.dev/pro-license).
+</Callout>
+
 ## Installation
 
-Install the Notion-like editor with the Tiptap CLI:
+You'll need a Tiptap account with an active subscription or trial. Create one at [cloud.tiptap.dev/register](https://cloud.tiptap.dev/register).
+
+### For existing projects
 
 ```bash
 npx @tiptap/cli@latest add notion-like-editor
 ```
 
-## Styling
+### For new projects
 
-<Callout title="Missing styles?" variant="info">
-  If the editor doesn&apos;t look right, make sure you&apos;ve followed the [style setup
-  guide](/ui-components/getting-started/style).
-</Callout>
+```bash
+npx @tiptap/cli@latest init notion-like-editor
+```
 
-## Configuration
+This template requires styling and configuration setup.
+
+### Styling
+
+We stay unopinionated about styling frameworks, so you'll need to integrate it with your setup.
+Follow the [style setup guide](/ui-components/getting-started/style) to ensure the editor displays correctly.
+
+### Configuration
 
 Before running the app, configure the required constants inside `tiptap-collab-utils.ts`. This is necessary to enable features like AI or collaboration
 
@@ -53,7 +70,7 @@ Before running the app, configure the required constants inside `tiptap-collab-u
 
 Provide values for the following environment variables:
 
-- `COLLAB_DOC_PREFIX` - Prefix for identifying collaborative documents
+- `TIPTAP_COLLAB_DOC_PREFIX` - Prefix for identifying collaborative documents
 - `TIPTAP_COLLAB_APP_ID` - Your collaboration App ID
 - `TIPTAP_COLLAB_TOKEN` - JWT token for accessing Collaboration services
 - `TIPTAP_AI_APP_ID` - Your AI App ID
@@ -61,8 +78,8 @@ Provide values for the following environment variables:
 
 The above environment variables should be available in the client-side. Depending on your framework, use the following prefixes to expose them to the client:
 
-- [Next.js](/ui-components/install/next): `NEXT_PUBLIC_`. For example, `NEXT_PUBLIC_COLLAB_DOC_PREFIX`.
-- [Vite + React](/ui-components/install/vite): `VITE_`. For example, `VITE_COLLAB_DOC_PREFIX`.
+- [Next.js](/ui-components/install/next): `NEXT_PUBLIC_`. For example, `NEXT_PUBLIC_TIPTAP_COLLAB_DOC_PREFIX`.
+- [Vite + React](/ui-components/install/vite): `VITE_`. For example, `VITE_TIPTAP_COLLAB_DOC_PREFIX`.
 - Other frameworks: Follow the specific rules of your framework, and define the variables in the `tiptap-collab-utils.ts` file.
 
 ### JWT Authentication
@@ -81,6 +98,115 @@ Collaboration and AI features require a valid server-generated JWT token passed 
 ### `room` prop
 
 Use the `room` prop to distinguish collaborative documents. Each session should use a unique room ID.
+
+### Image uploads
+
+Image uploads require a server side that is not part of our ui components. You can find an example server
+that accepts an image, uploads it to s3 and then returns the permanent URL for it below. Note that you may want
+to implement additional checks when running this in production to prevent abuse.
+
+server side (run with `node --experimental-strip-types`)
+```typescript
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { Hono } from 'hono'
+import { serve } from '@hono/node-server'
+import { cors } from 'hono/cors'
+import { v4 } from 'uuid'
+
+const S3_REGION = 'xxx'
+const S3_BUCKET = 'xxx'
+const S3_ACCESS_KEY= 'xxx'
+const S3_ACCESS_SECRET_KEY='xxx'
+
+const PORT = 1234
+const BASE_URL = `http://127.0.0.1:${PORT}`
+
+const app = new Hono()
+const client = new S3Client({
+  region: S3_REGION,
+  credentials: {
+    accessKeyId: S3_ACCESS_KEY,
+    secretAccessKey: S3_ACCESS_SECRET_KEY,
+  }
+});
+
+// in production, make sure to set up restrictive cors rules
+app.use('/upload', cors())
+
+// in prod, you should add sensitive rate limits for both endpoints
+// you probably want to add content-type and/or filename and filesize validation
+app.post('/upload', async (c) => {
+  const body = await c.req.arrayBuffer()
+  const remoteFileKey = `upload-${v4()}`
+
+  const command = new PutObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: remoteFileKey,
+    Body: body,
+    ContentType: c.req.header('content-type') ?? ''
+  });
+
+  try{
+    await client.send(command)
+  } catch(e) {
+    console.error(e)
+    c.status(500)
+    return c.text('')
+  }
+
+  return c.text(`${BASE_URL}/files/${remoteFileKey}`)
+})
+
+app.get('/files/:name', async (c) => {
+  const { name } = c.req.param()
+  const remoteFileKey = `${name}`
+
+  // you may want to implement caching when using this in production
+  // or, maybe you want to use pre-signed URLs to the client can directly fetch
+  // the document from S3.
+  const command = new GetObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: remoteFileKey,
+  })
+
+  try{
+    const r = await client.send(command)
+    return c.body(r.Body, 200, {
+      'content-type': r.ContentType ?? ''
+    })
+  } catch(e) {
+    console.error(e)
+    c.status(500)
+    return c.text('')
+  }
+
+})
+
+serve({...app, port: PORT})
+```
+
+In order to use the endpoint, adjust `handleImageUpload` in `tiptap-utils.ts`. You will want to remove all code after the validation
+and replace it with something similar to this:
+
+```typescript
+const response = await fetch('http://YOUR_URL/upload', {
+    body: file,
+    method: 'post',
+    headers: {
+        'content-type': file.type,
+    }
+})
+
+if( response.ok ) {
+    return response.text()
+}
+
+throw new Error('upload failed')
+```
 
 ## Usage
 

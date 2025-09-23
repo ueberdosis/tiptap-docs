@@ -42,8 +42,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Content AI',
         },
         {
-          href: '/collaboration/documents/history',
-          title: 'History',
+          href: '/collaboration/documents/snapshot',
+          title: 'Snapshots',
         },
         {
           href: '/conversion/getting-started/overview',
@@ -83,6 +83,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/resources/changelog',
           title: 'Editor changelog',
+        },
+        {
+          href: '/resources/incidents',
+          title: 'Incidents',
         },
         {
           href: 'https://tiptap.dev/pro-license',

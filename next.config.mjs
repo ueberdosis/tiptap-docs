@@ -63,6 +63,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/editor/extensions/functionality/mathematics',
+        destination: '/editor/extensions/nodes/mathematics',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/agent/tiptap-cloud',
         destination: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
         permanent: true,
@@ -153,8 +158,13 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/collaboration/documents/history',
+        destination: '/collaboration/documents/snapshot',
+        permanent: true,
+      },
+      {
         source: '/ui-components/node-components',
-        destination: '/ui-components/node-components/code-block-node',
+        destination: '/ui-components/node-components/blockquote-node',
         permanent: true,
       },
       {
@@ -164,7 +174,7 @@ const nextConfig = {
       },
       {
         source: '/ui-components/components',
-        destination: '/ui-components/components/blockquote-button',
+        destination: '/ui-components/components/ai-ask-button',
         permanent: true,
       },
       {
@@ -212,6 +222,36 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/agent/features/review',
         destination: '/content-ai/capabilities/agent/review',
+        permanent: true,
+      },
+      {
+        source: '/editor/api/extensions/collaboration-caret',
+        destination: '/editor/extensions/functionality/collaboration-caret',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit',
+        destination: '/content-ai/capabilities/ai-toolkit/overview',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides',
+        destination: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives',
+        destination: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools',
+        destination: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog',
+        destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
         permanent: true,
       },
     ]

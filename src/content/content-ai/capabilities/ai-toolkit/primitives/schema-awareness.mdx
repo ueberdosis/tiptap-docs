@@ -1,0 +1,162 @@
+---
+title: Schema awareness
+meta:
+  title: Schema awareness | Tiptap Content AI
+  description: Provide schema awareness to AI models so they understand nodes, marks, and attributes.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+A Tiptap [schema](/editor/core-concepts/schema) describes the elements the document can (and cannot) contain. Tiptap's **schema awareness** capabilities allow AI models to understand the document better.
+
+<Callout title="Why schema awareness?" variant="default">
+  Without schema awareness, the AI model might generate content that the Tiptap editor does not
+  support. For example, it might generate a table in a document that does not support tables. With
+  schema awareness enabled, the AI model will know that table nodes are not supported and will
+  refuse to generate them.
+</Callout>
+
+## Guide: give schema awareness to your AI model
+
+Integrate the schema awareness feature to an AI agent like the one built in the [AI agent chatbot guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot).
+
+### Step 1: get the schema awareness string
+
+Get the schema awareness string from the AI Toolkit. This string contains a message describing the document's schema, that is optimized for the AI model.
+
+```ts
+const toolkit = getAiToolkit(editor)
+// Retrieve the schema awareness string
+const schemaAwareness = toolkit.getSchemaAwareness()
+```
+
+### Step 2 (optional): configure custom nodes
+
+If your document contains [custom nodes and marks](/editor/extensions/custom-extensions), you can configure them with the `customNodes` option. This way, the AI model will be able to generate these custom elements accurately. For example, if you have a custom node called `'alert'`, you can allow the AI model to generate it by configuring it like this:
+
+```ts
+const toolkit = getAiToolkit(editor)
+// Retrieve the schema awareness string with custom elements included
+const schemaAwareness = toolkit.getSchemaAwareness({
+  customNodes: [
+    {
+      // The `name` property of the custom node extension
+      extensionName: 'alert',
+      // The HTML tag name for the custom node
+      tag: 'div',
+      // The human-readable name of the element in English
+      name: 'Alert Box',
+      // The description of the element in English
+      description:
+        'A highlighted box used to display important information, warnings, or tips to the user',
+      // Describe the HTML attributes of the node as it is rendered in HTML
+      attributes: [
+        {
+          // The name of the attribute in the HTML code
+          name: 'data-alert',
+          // Specify the "value" property if the attribute always has that value
+          value: '',
+          // A description of the attribute in English
+          description: 'Indicates that this is an alert box',
+        },
+        {
+          name: 'data-type',
+          description: 'The type of alert: info, warning, error, or success',
+        },
+      ],
+    },
+  ],
+})
+```
+
+Learn more about the configuration options in the [API Reference](#getschemaawareness).
+
+### Step 3: add the schema awareness string to the system prompt
+
+When you call the AI model, send the schema awareness string as a parameter to the API endpoint that returns the AI model response.
+
+The code below shows an API endpoint built with Next.js and the Vercel AI SDK, like the one in the [AI agent chatbot guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot).
+
+```ts
+// app/page.tsx
+
+// Inside the React component
+
+const editor = useEditor()
+const toolkit = getAiToolkit(editor)
+
+// Get the schema awareness string
+const schemaAwareness = toolkit.getSchemaAwareness()
+
+const { messages } = useChat({
+  transport: new DefaultChatTransport({
+    api: '/api/chat',
+    // Send the schema awareness string as a parameter to the API endpoint
+    body: { schemaAwareness },
+  }),
+  // ...
+})
+```
+
+Then, inside the API endpoint handler, add the schema awareness string to the end of the system prompt.
+
+```ts
+// app/api/chat/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  // Get the schema awareness string from the request body
+  const { messages, schemaAwareness }: { messages: UIMessage[]; schemaAwareness: string } =
+    await req.json()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    // Add the schema awareness string to end of the system prompt
+    system: `You are an assistant that can edit rich text documents.
+${schemaAwareness}`,
+    messages: convertToModelMessages(messages),
+    tools: toolDefinitions(),
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+You've now set up schema awareness for your AI model.
+
+## API Reference
+
+## `getSchemaAwareness`
+
+Returns a string describing the document's schema. This string should be added to the end of the system prompt that is sent to the AI model.
+
+Currently, the `getSchemaAwareness` method only supports AI models that generate HTML content. We plan to add support for other formats in the future.
+
+### Parameters (`GetSchemaAwarenessOptions`)
+
+- `customNodes?` (`SchemaAwarenessItem[]`): Custom schema awareness items to include in addition to the default ones. Default: `[]`.
+
+Every `SchemaAwarenessItem` object contains these properties:
+
+- `extensionName` (`string`): The [name of the extension](/editor/extensions/custom-extensions/create-new/extension#name) that provides this element
+- `tag` (`string`): The HTML tag name for this element
+- `name` (`string`): The human-readable name of the element in English
+- `description?` (`string | null`): Explanation of what the element is and how it is displayed
+- `attributes?` (`SchemaAwarenessItemAttribute[]`): Possible attributes of the HTML tag. If `undefined`, there are no attributes. Each `SchemaAwarenessItemAttribute` object contains these properties:
+  - `name` (`string`): The name of the attribute in the HTML code
+  - `value?` (`string`): If `value` is not `undefined`, the attribute always has that value for this element. This is used for attributes that have fixed values
+  - `description?` (`string | null`): Explanation of the attribute in English for AI model understanding
+
+### Returns
+
+`string`: Human-readable schema awareness text suitable for system prompts
+
+### Example
+
+```ts
+// Retrieve the schema awareness string
+const schemaAwareness = toolkit.getSchemaAwareness()
+```

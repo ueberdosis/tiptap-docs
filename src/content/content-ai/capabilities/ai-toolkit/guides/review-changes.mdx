@@ -1,0 +1,397 @@
+---
+title: Review changes
+meta:
+  title: Review AI changes | Tiptap Content AI
+  description: Preview and approve AI-inserted changes using suggestions with customizable rendering.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+<Callout title="Continuation from the AI agent chatbot guide" variant="info">
+  This guide continues the [AI agent chatbot
+  guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot). Read it first.
+</Callout>
+
+The AI Toolkit lets you show AI-generated changes in a beautiful diff UI, so your users can review and accept or reject them.
+
+First, configure the `reviewOptions` parameter. Set the mode to `'preview'` to show a preview of the changes before they are applied.
+
+```ts
+// inside the useChat hook
+const result = toolkit.executeTool({
+  toolName,
+  input
+  currentChunk: currentChunk.current,
+  reviewOptions: { mode: 'preview' },
+})
+```
+
+After executing the tool, several **suggestions** will be displayed inside the editor. Each suggestion represents a change that the AI model wants to make to the document.
+
+Before continuing the conversation, the AI agent has to wait for the user to review the changes. So if the tool call modifies the document, then `addToolResult` should not be called immediately, and instead a review UI should be displayed.
+
+Edit the code so that the chatbot stops and waits for the user to review the changes:
+
+```tsx
+const [reviewState, setReviewState] = useState({
+  // Whether to display a review UI
+  isReviewing: false,
+  // Data for the tool call result
+  tool: '',
+  toolCallId: '',
+  output: '',
+})
+
+const { messages, sendMessage, addToolResult } = useChat({
+  transport: new DefaultChatTransport({ api: '/api/chat' }),
+  sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  async onToolCall({ toolCall }) {
+    const editor = editorRef.current
+    if (!editor) return
+
+    const { toolName, input, toolCallId } = toolCall
+
+    // Use the AI Toolkit to execute the tool
+    const toolkit = getAiToolkit(editor)
+    const result = toolkit.executeTool({
+      toolName,
+      input,
+      currentChunk: currentChunk.current,
+      reviewOptions: {
+        mode: 'preview',
+      },
+    })
+
+    currentChunk.current = result.currentChunk
+
+    // If the tool call modifies the document, stop and display a review UI
+    if (result.docChanged) {
+      // Show the review UI
+      setReviewState({
+        isReviewing: true,
+        tool: toolName,
+        toolCallId,
+        output: result.output,
+      })
+    } else {
+      // Continue the conversation
+      addToolResult({ tool: toolName, toolCallId, output: result.output })
+    }
+  },
+})
+```
+
+## Style suggestions
+
+Create a CSS file (`app/suggestions.css`) to style suggestions in red/green.
+
+```css
+/* Highlight deleted text in red */
+.tiptap-ai-suggestion,
+.tiptap-ai-suggestion > * {
+  background-color: oklch(80.8% 0.114 19.571);
+}
+.tiptap-ai-suggestion--selected,
+.tiptap-ai-suggestion--selected > * {
+  background-color: oklch(70.4% 0.191 22.216);
+}
+/* Highlight inserted text in green */
+.tiptap-ai-suggestion-diff,
+.tiptap-ai-suggestion-diff > * {
+  background-color: oklch(87.1% 0.15 154.449);
+}
+.tiptap-ai-suggestion-diff--selected,
+.tiptap-ai-suggestion-diff--selected > * {
+  background-color: oklch(79.2% 0.209 151.711);
+}
+```
+
+Import the stylesheet in your app:
+
+```ts
+// app/page.tsx
+import './suggestions.css'
+```
+
+## Accept/reject all suggestions
+
+Then, in the React component, display a button to reject/accept the changes:
+
+```tsx
+{
+  reviewState.isReviewing && (
+    <div>
+      <h2>Reviewing Changes</h2>
+      <button
+        onClick={() => {
+          const toolkit = getAiToolkit(editor)
+          toolkit.applyAllSuggestions()
+          addToolResult(reviewState)
+          return setReviewState({
+            ...reviewState,
+            isReviewing: false,
+          })
+        }}
+      >
+        Accept all
+      </button>
+      <button
+        onClick={() => {
+          const toolkit = getAiToolkit(editor)
+          toolkit.setSuggestions([])
+          addToolResult({
+            ...reviewState,
+            output:
+              'The changes were rejected. Ask the user why, and what you can do to improve them.',
+          })
+          return setReviewState({
+            ...reviewState,
+            isReviewing: false,
+          })
+        }}
+      >
+        Reject all
+      </button>
+    </div>
+  )
+}
+```
+
+## Accept/reject individual suggestions
+
+You can also display buttons or a popover over a suggestion, with actions to accept or reject it.
+
+To render custom elements in the UI, set the `reviewOptions.displayOptions` parameter. There, you can set the `renderDecorations` option. It's a function that returns a list of [ProseMirror decorations](https://prosemirror.net/docs/ref/#view.Decorations).
+
+```tsx
+const result = toolkit.executeTool({
+  toolName,
+  input,
+  currentChunk: currentChunk.current,
+  reviewOptions: {
+    mode: 'preview',
+    displayOptions: {
+      renderDecorations(options) {
+        return [
+          ...options.defaultRenderDecorations(),
+
+          // Accept button
+          Decoration.widget(options.range.to, () => {
+            const element = document.createElement('button')
+            element.textContent = 'Accept'
+            element.addEventListener('click', () => {
+              toolkit.applySuggestion(options.suggestion.id)
+            })
+            return element
+          }),
+
+          // Reject button
+          Decoration.widget(options.range.to, () => {
+            const element = document.createElement('button')
+            element.textContent = 'Reject'
+            element.addEventListener('click', () => {
+              toolkit.removeSuggestion(options.suggestion.id)
+            })
+            return element
+          }),
+        ]
+      },
+    },
+  },
+})
+```
+
+## Full demo code
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { useChat } from '@ai-sdk/react'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { Decoration } from '@tiptap/pm/view'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useRef, useState } from 'react'
+import './suggestions.css'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: `<h1>AI agent demo</h1><p>Ask the AI to improve this.</p>`,
+  })
+
+  // Fixes issue: https://github.com/vercel/ai/issues/8148
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  // The AI agent reads the document in chunks. This variable keeps track of the current chunk
+  // that the AI agent is reading.
+  const currentChunk = useRef(0)
+
+  const [reviewState, setReviewState] = useState({
+    // Whether to display the review UI
+    isReviewing: false,
+    // Data for the tool call result
+    tool: '',
+    toolCallId: '',
+    output: '',
+  })
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const editor = editorRef.current
+      if (!editor) return
+
+      const { toolName, input, toolCallId } = toolCall
+
+      // Use the AI Toolkit to execute the tool
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName,
+        input,
+        currentChunk: currentChunk.current,
+        reviewOptions: {
+          mode: 'preview',
+          displayOptions: {
+            renderDecorations(options) {
+              return [
+                ...options.defaultRenderDecorations(),
+
+                // Accept button
+                Decoration.widget(options.range.to, () => {
+                  const element = document.createElement('button')
+                  element.textContent = 'Accept'
+                  element.addEventListener('click', () => {
+                    toolkit.applySuggestion(options.suggestion.id)
+                  })
+                  return element
+                }),
+
+                // Reject button
+                Decoration.widget(options.range.to, () => {
+                  const element = document.createElement('button')
+                  element.textContent = 'Reject'
+                  element.addEventListener('click', () => {
+                    toolkit.removeSuggestion(options.suggestion.id)
+                  })
+                  return element
+                }),
+              ]
+            },
+          },
+        },
+      })
+
+      currentChunk.current = result.currentChunk
+
+      // If the tool call modifies the document, halt the conversation and display the review UI
+      if (result.docChanged) {
+        // Show the review UI
+        setReviewState({
+          isReviewing: true,
+          tool: toolName,
+          toolCallId,
+          output: result.output,
+        })
+      } else {
+        // Continue the conversation
+        addToolResult({ tool: toolName, toolCallId, output: result.output })
+      }
+    },
+  })
+
+  const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+      {!reviewState.isReviewing && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            sendMessage({ text: input })
+            setInput('')
+          }}
+        >
+          <input value={input} onChange={(e) => setInput(e.target.value)} />
+        </form>
+      )}
+      {reviewState.isReviewing && (
+        <div>
+          <h2>Reviewing Changes</h2>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.applyAllSuggestions()
+              addToolResult(reviewState)
+              return setReviewState({
+                ...reviewState,
+                isReviewing: false,
+              })
+            }}
+          >
+            Accept all
+          </button>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.setSuggestions([])
+              addToolResult({
+                ...reviewState,
+                output:
+                  'The changes were rejected. Ask the user why, and what you can do to improve them.',
+              })
+              return setReviewState({
+                ...reviewState,
+                isReviewing: false,
+              })
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application where users can review AI-generated changes:
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/review-changes" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Advanced review options
+
+The `reviewOptions` parameter gives you full control over the review workflow and the UI.
+
+With the `reviewOptions.mode` parameter you can control when the changes are applied to the document.
+
+- `preview`: Show a preview of the changes before they are applied. Changes are not applied to the document until the user has accepted them.
+- `review`: Apply changes immediately, and review them after they are applied to the document.
+
+See a complete reference of the `reviewOptions` parameter in the [API reference](/content-ai/capabilities/ai-toolkit/primitives/execute-tool) for the `executeTool` method.
+
+Popular AI agent chatbots like [Cursor](https://www.cursor.com/) call multiple tools in a row and show a summary of all changes after the AI agent has finished all its work. To implement this type of workflow, follow the [Review changes as a summary](/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary) guide.

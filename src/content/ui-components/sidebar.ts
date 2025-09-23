@@ -32,11 +32,12 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
-          tags: ['Open Source'],
+          tags: ['MIT licensed'],
         },
         {
           title: 'Notion Editor',
           href: '/ui-components/templates/notion-like-editor',
+          tags: ['Start'],
         },
       ],
     },
@@ -85,6 +86,14 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/components/',
           children: [
             {
+              title: 'Ai ask button',
+              href: '/ui-components/components/ai-ask-button',
+            },
+            {
+              title: 'Ai menu',
+              href: '/ui-components/components/ai-menu',
+            },
+            {
               title: 'Blockquote button',
               href: '/ui-components/components/blockquote-button',
             },
@@ -109,6 +118,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/color-text-popover',
             },
             {
+              title: 'Copy anchor link button',
+              href: '/ui-components/components/copy-anchor-link-button',
+            },
+            {
               title: 'Copy to clipboard button',
               href: '/ui-components/components/copy-to-clipboard-button',
             },
@@ -117,12 +130,20 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/delete-node-button',
             },
             {
+              title: 'Drag context menu',
+              href: '/ui-components/components/drag-context-menu',
+            },
+            {
               title: 'Duplicate button',
               href: '/ui-components/components/duplicate-button',
             },
             {
               title: 'Emoji dropdown menu',
               href: '/ui-components/components/emoji-dropdown-menu',
+            },
+            {
+              title: 'Emoji menu',
+              href: '/ui-components/components/emoji-menu',
             },
             {
               title: 'Emoji trigger button',
@@ -137,8 +158,16 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/heading-dropdown-menu',
             },
             {
+              title: 'Image align button',
+              href: '/ui-components/components/image-align-button',
+            },
+            {
               title: 'Image upload button',
               href: '/ui-components/components/image-upload-button',
+            },
+            {
+              title: 'Improve dropdown',
+              href: '/ui-components/components/improve-dropdown',
             },
             {
               title: 'Link popover',
@@ -165,6 +194,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/mention-trigger-button',
             },
             {
+              title: 'Move node button',
+              href: '/ui-components/components/move-node-button',
+            },
+            {
               title: 'Reset all formatting button',
               href: '/ui-components/components/reset-all-formatting-button',
             },
@@ -183,6 +216,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Text button',
               href: '/ui-components/components/text-button',
+            },
+            {
+              title: 'Turn into dropdown',
+              href: '/ui-components/components/turn-into-dropdown',
             },
             {
               title: 'Undo redo button',
@@ -209,12 +246,28 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/node-components',
           children: [
             {
+              title: 'Blockquote node',
+              href: '/ui-components/node-components/blockquote-node',
+            },
+            {
               title: 'Code block node',
               href: '/ui-components/node-components/code-block-node',
             },
             {
+              title: 'Heading node',
+              href: '/ui-components/node-components/heading-node',
+            },
+            {
+              title: 'Horizontal rule node',
+              href: '/ui-components/node-components/horizontal-rule-node',
+            },
+            {
               title: 'Image node',
               href: '/ui-components/node-components/image-node',
+            },
+            {
+              title: 'Image node pro',
+              href: '/ui-components/node-components/image-node-pro',
             },
             {
               title: 'Image upload node',
@@ -234,21 +287,41 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Primitives',
           href: '/ui-components/primitives',
           children: [
-            // {
-            //   title: 'Avatar',
-            //   href: '/ui-components/primitives/avatar',
-            // },
-            // {
-            //   title: 'Badge',
-            //   href: '/ui-components/primitives/badge',
-            // },
+            {
+              title: 'Avatar',
+              href: '/ui-components/primitives/avatar',
+            },
+            {
+              title: 'Badge',
+              href: '/ui-components/primitives/badge',
+            },
             {
               title: 'Button',
               href: '/ui-components/primitives/button',
             },
             {
+              title: 'Card',
+              href: '/ui-components/primitives/card',
+            },
+            {
+              title: 'Combobox',
+              href: '/ui-components/primitives/combobox',
+            },
+            {
               title: 'Dropdown menu',
               href: '/ui-components/primitives/dropdown-menu',
+            },
+            {
+              title: 'Input',
+              href: '/ui-components/primitives/input',
+            },
+            {
+              title: 'Label',
+              href: '/ui-components/primitives/label',
+            },
+            {
+              title: 'Menu',
+              href: '/ui-components/primitives/menu',
             },
             {
               title: 'Popover',
@@ -263,6 +336,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/primitives/spacer',
             },
             {
+              title: 'Textarea Autosize',
+              href: '/ui-components/primitives/textarea-autosize',
+            },
+            {
               title: 'Toolbar',
               href: '/ui-components/primitives/toolbar',
             },
@@ -271,6 +348,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/primitives/tooltip',
             },
           ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Resources',
+      href: '/ui-components/resources',
+      children: [
+        {
+          href: 'https://tiptap.dev/pro-license',
+          title: 'Pro license',
         },
       ],
     },

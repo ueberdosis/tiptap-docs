@@ -518,6 +518,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Keyboard shortcuts',
         },
         {
+          title: 'Persistence',
+          href: '/editor/core-concepts/persistence',
+        },
+        {
           title: 'ProseMirror',
           href: '/editor/core-concepts/prosemirror',
         },
@@ -803,6 +807,14 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/events',
           title: 'Events',
+        },
+        {
+          href: '/editor/api/input-rules',
+          title: 'Input Rules',
+        },
+        {
+          href: '/editor/api/paste-rules',
+          title: 'Paste Rules',
         },
       ],
     },
