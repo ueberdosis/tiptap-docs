@@ -7,6 +7,7 @@ export const UIComponents = async ({ path = '/' }: { path?: string }) => {
   const componentsArray = Object.values(uiComponents)
 
   const components = componentsArray.filter((c) => c.type === UIComponentType.Component)
+  const utilsComponents = componentsArray.filter((c) => c.type === UIComponentType.UtilsComponent)
   const nodeComponents = componentsArray.filter((c) => c.type === UIComponentType.NodeComponent)
   const primitives = componentsArray.filter((c) => c.type === UIComponentType.Primitive)
 
@@ -14,6 +15,7 @@ export const UIComponents = async ({ path = '/' }: { path?: string }) => {
     <div className="my-20 first:mt-0 last:mb-0">
       <UIComponentsGrid
         components={components}
+        utilsComponents={utilsComponents}
         nodeComponents={nodeComponents}
         primitives={primitives}
       />

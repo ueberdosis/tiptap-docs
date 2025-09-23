@@ -11,13 +11,26 @@ export type NavLinkProps = {
   children: React.ReactNode
   className?: string
   target?: HTMLAttributeAnchorTarget
+  isActive?: boolean
   isDirectActive?: boolean
   hideIcon?: boolean
   variant?: 'default' | 'invert'
 }
 
 export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
-  ({ children, className, href, hideIcon, variant = 'default', target, isDirectActive }, ref) => {
+  (
+    {
+      children,
+      className,
+      href,
+      hideIcon,
+      variant = 'default',
+      target,
+      isDirectActive,
+      isActive: isActiveProp,
+    },
+    ref,
+  ) => {
     const pathname = usePathname()
     const isExternal = href.startsWith('http')
 
@@ -26,7 +39,9 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
 
     return (
       <NavLinkButton
-        isActive={isDirectActive ? isActive : isActive || isActiveParent}
+        isActive={
+          isDirectActive ? isActiveProp || isActive : isActiveProp || isActive || isActiveParent
+        }
         asChild
         variant={variant}
         className={className}

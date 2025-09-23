@@ -75,19 +75,26 @@ const isImageTag = (tag: PageTag): tag is ImagePageTag => {
 
 export type PageHeaderTagsProps = {
   tags: PageTag[]
+  isTemplate?: boolean
 }
 
-export const PageHeaderTags = ({ tags }: PageHeaderTagsProps) => {
+export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
   return (
     <div className="flex items-center gap-1 flex-wrap mt-6 last:mb-12">
       {tags.map((tag, index) => (
-        <PageHeaderTag tag={tag} key={index} />
+        <PageHeaderTag tag={tag} isTemplate={isTemplate} key={index} />
       ))}
     </div>
   )
 }
 
-export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
+export const PageHeaderTag = ({
+  tag,
+  isTemplate = false,
+}: {
+  tag: PageTag
+  isTemplate?: boolean
+}) => {
   if (isImageTag(tag)) {
     return (
       <Link href={tag.url} target="_blank" rel="noopener noreferrer">
@@ -113,16 +120,10 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'start') {
-    return (
-      <Tag
-        tooltip={
-          tag.tooltip ||
-          'Integrate and use while subscribed to the Start plan. Usage of this template is subject to our Pro License and ToS.'
-        }
-      >
-        Available in Start plan
-      </Tag>
-    )
+    const defaultTooltip = isTemplate
+      ? 'Integrate and use while subscribed to the Start plan. Usage of this template is subject to our Pro License and ToS.'
+      : 'Integrate and use while subscribed to the Start plan.'
+    return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Start plan</Tag>
   }
 
   if (tag.type === 'mit') {
@@ -134,16 +135,10 @@ export const PageHeaderTag = ({ tag }: { tag: PageTag }) => {
   }
 
   if (tag.type === 'team') {
-    return (
-      <Tag
-        tooltip={
-          tag.tooltip ||
-          'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
-        }
-      >
-        Available in Team plan
-      </Tag>
-    )
+    const defaultTooltip = isTemplate
+      ? 'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
+      : 'Integrate and use while subscribed to the Team plan.'
+    return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Team plan</Tag>
   }
 
   if (tag.type === 'ai') {

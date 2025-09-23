@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
+import { Tag } from '@/components/ui/Tag'
 
 type Props = {
   params: {
@@ -101,8 +102,21 @@ export default async function MarkdownPage({ params }: Props) {
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               ) : null}
+              {pageMdx.frontmatter?.incident?.severity &&
+              ['high', 'critical'].includes(pageMdx.frontmatter.incident.severity) ? (
+                <div className="mt-6">
+                  <Tag variant="warning">
+                    Severity:{' '}
+                    {pageMdx.frontmatter.incident.severity.charAt(0).toUpperCase() +
+                      pageMdx.frontmatter.incident.severity.slice(1)}
+                  </Tag>
+                </div>
+              ) : null}
               {pageMdx.frontmatter?.tags ? (
-                <PageHeader.Tags tags={pageMdx.frontmatter.tags} />
+                <PageHeader.Tags
+                  tags={pageMdx.frontmatter.tags}
+                  isTemplate={params.markdownPath.includes('templates')}
+                />
               ) : null}
               {pageMdx.frontmatter.description ? (
                 <PageHeader.Description
