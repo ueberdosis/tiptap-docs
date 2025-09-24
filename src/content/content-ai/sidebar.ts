@@ -58,7 +58,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Generation',
           tags: ['Start'],
-          href: '/content-ai/capabilities/generation/',
+          href: '/content-ai/capabilities/generation',
           children: [
             {
               title: 'Overview',
