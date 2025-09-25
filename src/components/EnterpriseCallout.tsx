@@ -40,6 +40,16 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
 
     const waitlistText = 'On a different plan? Join the'
 
+    const waitlistUrl =
+      variant === 'ai-toolkit'
+        ? 'https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105'
+        : 'https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd?pvs=105'
+
+    const talkToEngineerUrl =
+      variant === 'ai-toolkit'
+        ? 'https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105'
+        : 'https://tiptap.dev/contact-sales'
+
     if (inline) {
       return (
         <div
@@ -63,7 +73,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                 <p className="text-xs text-grayAlpha-600 mt-4">
                   {waitlistText}{' '}
                   <Link
-                    href="https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd?pvs=105"
+                    href={waitlistUrl}
                     target="_blank"
                     className="font-medium text-purpleAlpha-600 hover:text-purpleAlpha-700 underline whitespace-nowrap"
                   >
@@ -76,7 +86,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
             <div className="md:col-span-1 flex flex-col gap-2">
               <Button asChild className="w-full">
                 <Link
-                  href="https://tiptap.dev/contact-sales"
+                  href={talkToEngineerUrl}
                   target="_blank"
                   className="inline-flex items-center justify-center gap-2"
                 >
@@ -105,7 +115,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
 
         <Button asChild className="w-full mb-3">
           <Link
-            href="https://tiptap.dev/contact-sales"
+            href={talkToEngineerUrl}
             target="_blank"
             className="inline-flex items-center justify-center gap-2"
           >
@@ -119,7 +129,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
             <p className="text-xs text-grayAlpha-600">
               {waitlistText}{' '}
               <Link
-                href="https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd?pvs=105"
+                href={waitlistUrl}
                 target="_blank"
                 className="font-medium text-purpleAlpha-600 hover:text-purpleAlpha-700 underline whitespace-nowrap"
               >
