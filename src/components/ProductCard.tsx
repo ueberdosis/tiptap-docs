@@ -13,6 +13,7 @@ export type ProductCardProps = {
   documentationUrl: string
   secondaryUrl?: string
   asChild?: boolean
+  doubleWidth?: boolean
 } & HTMLProps<HTMLDivElement>
 
 export const ProductCard = ({
@@ -23,9 +24,10 @@ export const ProductCard = ({
   tags,
   title,
   secondaryUrl,
+  doubleWidth = false,
   ...rest
 }: ProductCardProps) => {
-  const wrapperClassName = cn('no-markdown', className)
+  const wrapperClassName = cn('no-markdown', doubleWidth ? 'sm:col-span-2' : undefined, className)
 
   return (
     <Card isClickable className={wrapperClassName} {...rest}>

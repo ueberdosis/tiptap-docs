@@ -18,7 +18,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         : variant === 'ai-agent'
           ? 'Build AI Agents with expert support'
           : variant === 'ai-toolkit'
-            ? 'Integrate AI Toolkit with expert support'
+            ? 'Integrate the AI Toolkit with expert support'
             : variant === 'pages'
               ? 'Integrate Pages with expert support'
               : variant === 'docx'
