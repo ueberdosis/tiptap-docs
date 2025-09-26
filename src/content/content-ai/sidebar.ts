@@ -432,6 +432,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Tool streaming',
                   href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
                 },
+                {
+                  title: 'Inline edits',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+                },
               ],
             },
             {
