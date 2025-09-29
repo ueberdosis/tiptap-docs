@@ -1,0 +1,429 @@
+---
+title: Multi-document AI agent
+meta:
+  title: Multi-document AI agent | Tiptap Content AI
+  description: Add multi-document support to your AI agent chatbot to edit multiple Tiptap documents.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="ai-toolkit" renderMode="sidebar" />
+<Requirements>
+  <RequirementItem label="1. Request access">
+    <a href="https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105">
+      Share your use case
+    </a>{' '}
+    to be considered for early access to Tiptap AI Toolkit.
+  </RequirementItem>
+  <RequirementItem label="2. Access the private registry">
+    The AI Toolkit extension is published in Tiptap’s private npm registry. Authenticate to Tiptap’s
+    private npm registry by following the <a href="/guides/pro-extensions">setup guide</a>.
+  </RequirementItem>
+  <RequirementItem label="3. Install the extension">
+    Install the extension from the private registry using npm or your preferred package manager.
+  </RequirementItem>
+</Requirements>
+
+<Callout title="Variant of the AI agent chatbot guide" variant="info">
+  This guide is a variant of the [AI agent chatbot
+  guide](/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot). Read it first.
+</Callout>
+
+Build an AI agent chatbot that can edit multiple Tiptap documents at once.
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+In this guide, we'll create an AI chatbot that can edit multiple documents. We'll achieve this by creating custom tools to create, delete, and switch between documents. Then, we'll combine them with the tools from the Tiptap AI Toolkit, to let the AI edit the document's content.
+
+The project has two files:
+
+- `app/api/chat/route.ts`: The API endpoint that handles the AI agent requests.
+- `app/page.tsx`: The React component that renders the Tiptap Editor, the document switcher, and a simple chat UI.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest multi-document-ai-agent
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai
+```
+
+Install the Tiptap AI Toolkit and the tool definitions for the Vercel AI SDK.
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-ai-sdk
+```
+
+## Server setup
+
+We'll define a API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+Include the [tool definitions](/content-ai/capabilities/ai-toolkit/tools/ai-sdk) for the Tiptap AI Toolkit (`...toolDefinitions()`), and combine them with the custom tools we'll define below:
+
+- `createDocument`: Creates a new document
+- `listDocuments`: Lists all the documents
+- `setActiveDocument`: Switches to a specific document
+- `deleteDocument`: Deletes a document
+
+```ts
+// app/api/chat/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, tool, UIMessage } from 'ai'
+import { z } from 'zod'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  const result = streamText({
+    model: openai('gpt-5'),
+    system: `You are an assistant that can edit rich text documents. 
+    You have access to multiple documents and can switch between them. 
+    At any point in time, the "active document" is the document that is open in the editor.
+    When you call the tools to read and edit the document, they will read and edit the active document.
+    To read and edit another document, you should use the tools to switch to that document and then read and edit it.
+    Before making any edits, you should always list the documents and see which is the active document.
+    `,
+    messages: convertToModelMessages(messages),
+    tools: {
+      ...toolDefinitions(),
+      createDocument: tool({
+        description: 'Create a new document',
+        inputSchema: z.object({
+          documentName: z.string(),
+        }),
+      }),
+      listDocuments: tool({
+        description:
+          'See a list of all the documents you have access to, and see which is the active document',
+        inputSchema: z.object({}),
+      }),
+      setActiveDocument: tool({
+        description: 'Switch to a specific document, so that it becomes the active document',
+        inputSchema: z.object({
+          documentName: z.string(),
+        }),
+      }),
+      deleteDocument: tool({
+        description: 'Delete a document',
+        inputSchema: z.object({
+          documentName: z.string(),
+        }),
+      }),
+    },
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+## Client setup
+
+Create a client-side React component that renders the Tiptap Editor, the document switcher, and a simple chat UI.
+
+This component will use the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation. When the AI model outputs a tool call, it is executed in one of two ways:
+
+- If the tool is one of the custom tools we defined, we handle it directly.
+- Otherwise, we use the Tiptap AI Toolkit's `executeTool` method to execute the tool.
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { Editor, EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useEffect, useRef, useState } from 'react'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+
+/**
+ * One of the documents available in the app. Each
+ * document has a name and a content.
+ */
+interface Document {
+  /** The name/title of the document */
+  name: string
+  /** The HTML content of the document */
+  content: string
+}
+
+/**
+ * Initial set of documents available when the application starts
+ */
+const initialDocuments: Document[] = [
+  {
+    name: 'Document 1',
+    content: '<h1>Document 1</h1><p>This is the content of the first document.</p>',
+  },
+]
+
+export default function Page() {
+  // The editor instance of the current active document
+  const editorRef = useRef<Editor | null>(null)
+  // The list of documents
+  const [documents, setDocuments] = useState(initialDocuments)
+  // The name of the active document
+  const [activeDocumentName, setActiveDocumentName] = useState('Document 1')
+
+  /**
+   * Find a document by name
+   * @param documentName
+   * @returns
+   */
+  const findDocument = (documentName: string) => {
+    return documents.find((doc) => doc.name === documentName)
+  }
+
+  /**
+   * The active document is the one that is open in the editor
+   */
+  const activeDocument = findDocument(activeDocumentName)
+
+  /**
+   * Call this function before switching to a new document, to save
+   * the content of the active document
+   */
+  const saveActiveDocument = () => {
+    const editor = editorRef.current
+    if (!editor) return
+    const content = editor.getHTML()
+    setDocuments((documents) =>
+      documents.map((doc) => (doc.name === activeDocumentName ? { ...doc, content } : doc)),
+    )
+  }
+
+  /**
+   * Create a new document
+   * @param documentName The name of the new document
+   * @returns A message indicating the result of the operation
+   */
+  const createDocument = (documentName: string) => {
+    saveActiveDocument()
+    const existingDocument = findDocument(documentName)
+    if (existingDocument) {
+      setActiveDocumentName(documentName)
+      return `Document already exists. Active document is now "${existingDocument.name}"`
+    }
+    const newDocument = {
+      name: documentName,
+      content: '<p></p>',
+    }
+    setDocuments((documents) => [...documents, newDocument])
+    setActiveDocumentName(documentName)
+    return `Document created. Active document is now "${documentName}"`
+  }
+
+  /**
+   * Delete a document
+   * @param documentName The name of the document to delete
+   * @returns A message indicating the result of the operation
+   */
+  const deleteDocument = (documentName: string) => {
+    if (documentName === activeDocumentName) {
+      return `Cannot delete the active document. Active document is "${activeDocumentName}". Switch to another document first.`
+    }
+    const existingDocument = findDocument(documentName)
+    if (!existingDocument) {
+      return `Document does not exist. Active document is still "${activeDocumentName}"`
+    }
+    setDocuments((documents) => documents.filter((doc) => doc.name !== documentName))
+    return `Deleted document "${documentName}".`
+  }
+
+  /**
+   * Switch to a different document as the active document
+   * @param documentName The name of the document to switch to
+   * @returns A message indicating the result of the operation
+   */
+  const setActiveDocument = (documentName: string) => {
+    const existingDocument = findDocument(documentName)
+    if (!existingDocument) {
+      return `Document does not exist.`
+    }
+    saveActiveDocument()
+    setActiveDocumentName(documentName)
+    return `Switched to document "${documentName}".`
+  }
+
+  /**
+   * Get a formatted list of all documents and the currently active document
+   * @returns A string containing the list of documents and active document name
+   */
+  const listDocuments = () => {
+    return `Documents: ${documents
+      .map((doc) => `"${doc.name}"`)
+      .join(', ')}. Active document is "${activeDocumentName}".`
+  }
+
+  /**
+   * Handle tool calls from the AI agent, routing them to appropriate functions
+   * @param toolCall The tool call object containing tool name, input, and ID
+   * @returns The result of the tool execution with tool name, ID, and output
+   */
+  const handleToolCall = (toolCall: { toolName: string; input: unknown }): string => {
+    const editor = editorRef.current
+    if (!editor) return ''
+
+    const { toolName, input } = toolCall
+
+    if (toolName === 'createDocument') {
+      return createDocument((input as { documentName: string }).documentName)
+    } else if (toolName === 'listDocuments') {
+      return listDocuments()
+    } else if (toolName === 'setActiveDocument') {
+      return setActiveDocument((input as { documentName: string }).documentName)
+    } else if (toolName === 'deleteDocument') {
+      return deleteDocument((input as { documentName: string }).documentName)
+    }
+
+    // Use the AI Toolkit to execute the tool
+    const toolkit = getAiToolkit(editor)
+    const result = toolkit.executeTool({
+      toolName,
+      input,
+    })
+
+    return result.output
+  }
+
+  /**
+   * Reference to the handleToolCall function to avoid stale closure issues
+   * Fixes issue: https://github.com/vercel/ai/issues/8148
+   */
+  const handleToolCallRef = useRef(handleToolCall)
+  handleToolCallRef.current = handleToolCall
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/multi-document' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const output = handleToolCallRef.current(toolCall)
+      if (output) {
+        addToolResult({ tool: toolCall.toolName, toolCallId: toolCall.toolCallId, output })
+      }
+    },
+  })
+
+  const [input, setInput] = useState(
+    'Create two documents, one with a short poem and another with a short story about Tiptap',
+  )
+
+  return (
+    <div>
+      {documents.map((doc) => (
+        <button
+          key={doc.name}
+          disabled={doc.name === activeDocumentName}
+          onClick={() => setActiveDocument(doc.name)}
+        >
+          {doc.name}
+        </button>
+      ))}
+
+      {activeDocument && (
+        <EditorComponent
+          key={activeDocument.name}
+          initialContent={activeDocument.content}
+          onEditorInitialized={(editor) => (editorRef.current = editor)}
+        />
+      )}
+
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          sendMessage({ text: input })
+          setInput('')
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+    </div>
+  )
+}
+
+/**
+ * Editor component that wraps the Tiptap editor with AI toolkit support
+ * @param initialContent The initial HTML content to display in the editor
+ * @param onEditorInitialized Callback function called when the editor is initialized
+ */
+function EditorComponent({
+  initialContent,
+  onEditorInitialized,
+}: {
+  /** The initial HTML content to display in the editor */
+  initialContent: string
+  /** Callback function called when the editor is initialized */
+  onEditorInitialized: (editor: Editor) => void
+}) {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: initialContent,
+  })
+
+  useEffect(() => {
+    if (editor) {
+      onEditorInitialized(editor)
+    }
+  }, [editor, onEditorInitialized])
+
+  return <EditorContent editor={editor} content={initialContent} />
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application that can edit multiple documents:
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/multi-document" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+The multi-document system we created in this guide is very simple, because it is stored in memory and not persisted. You can persist the documents in your database, in a file system, or save them as collaborative documents in [Tiptap Cloud](/collaboration/getting-started/overview).
+
+Besides that, you can also make the document structure more sophisticated by, for example, allowing the AI to create folders to organize the documents.
+
+Besides that, we recommend combining the multi-document system with the following AI Toolkit capabilities:
+
+- Let your users review AI-generated changes with the [review changes guide](/content-ai/capabilities/ai-toolkit/guides/review-changes)
+- Add real-time tool streaming to see changes as they happen with the [tool streaming guide](/content-ai/capabilities/ai-toolkit/guides/tool-streaming)
