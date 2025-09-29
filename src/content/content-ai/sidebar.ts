@@ -52,6 +52,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
                 },
                 {
+                  title: 'Multi-document AI agent',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
+                },
+                {
                   title: 'Inline edits',
                   href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
                 },
