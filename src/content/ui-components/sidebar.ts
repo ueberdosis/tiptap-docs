@@ -254,6 +254,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/table-header-row-column-button',
             },
             {
+              title: 'Table Merge Split Cell Button',
+              href: '/ui-components/components/table-merge-split-cell-button',
+            },
+            {
               title: 'Table Move Row/Column Button',
               href: '/ui-components/components/table-move-row-column-button',
             },
