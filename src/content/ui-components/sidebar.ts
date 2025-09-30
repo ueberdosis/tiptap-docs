@@ -210,6 +210,62 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/slash-dropdown-menu',
             },
             {
+              title: 'Table Add Row/Column Button',
+              href: '/ui-components/components/table-add-row-column-button',
+            },
+            {
+              title: 'Table Align Cell Button',
+              href: '/ui-components/components/table-align-cell-button',
+            },
+            {
+              title: 'Table Cell Handle Menu',
+              href: '/ui-components/components/table-cell-handle-menu',
+            },
+            {
+              title: 'Table Clear Row/Column Content Button',
+              href: '/ui-components/components/table-clear-row-column-content-button',
+            },
+            {
+              title: 'Table Delete Row/Column Button',
+              href: '/ui-components/components/table-delete-row-column-button',
+            },
+            {
+              title: 'Table Duplicate Row/Column Button',
+              href: '/ui-components/components/table-duplicate-row-column-button',
+            },
+            {
+              title: 'Table Extend Row/Column Button',
+              href: '/ui-components/components/table-extend-row-column-button',
+            },
+            {
+              title: 'Table Fit to Width Button',
+              href: '/ui-components/components/table-fit-to-width-button',
+            },
+            {
+              title: 'Table Handle',
+              href: '/ui-components/components/table-handle',
+            },
+            {
+              title: 'Table Handle Menu',
+              href: '/ui-components/components/table-handle-menu',
+            },
+            {
+              title: 'Table Header Row/Column Button',
+              href: '/ui-components/components/table-header-row-column-button',
+            },
+            {
+              title: 'Table Move Row/Column Button',
+              href: '/ui-components/components/table-move-row-column-button',
+            },
+            {
+              title: 'Table Selection Overlay',
+              href: '/ui-components/components/table-selection-overlay',
+            },
+            {
+              title: 'Table Sort Row/Column Button',
+              href: '/ui-components/components/table-sort-row-column-button',
+            },
+            {
               title: 'Text align button',
               href: '/ui-components/components/text-align-button',
             },
