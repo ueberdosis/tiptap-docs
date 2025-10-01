@@ -116,6 +116,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/tools/openai',
                 },
                 {
+                  title: 'Anthropic',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+                },
+                {
                   title: 'Other providers',
                   href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
                 },
@@ -140,6 +144,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'OpenAI tools',
                   href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
+                },
+                {
+                  title: 'Anthropic tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-anthropic',
                 },
                 {
                   title: 'Tool definitions',
