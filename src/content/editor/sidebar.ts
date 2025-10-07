@@ -526,7 +526,7 @@ export const sidebarConfig: SidebarConfig = {
             { href: '/editor/core-concepts/markdown/examples', title: 'Examples' },
             { href: '/editor/core-concepts/markdown/installation', title: 'Installation' },
             { href: '/editor/core-concepts/markdown/basic-usage', title: 'Basic Usage' },
-            { href: '/editor/core-concepts/markdown/advanced', title: 'Advanced Usage' },
+            { href: '/editor/core-concepts/markdown/advanced-usage', title: 'Advanced Usage' },
             {
               href: '/editor/core-concepts/markdown/custom-tokenizers',
               title: 'Custom Tokenizers',
