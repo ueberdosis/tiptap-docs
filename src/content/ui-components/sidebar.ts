@@ -281,6 +281,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Paragraph node',
               href: '/ui-components/node-components/paragraph-node',
             },
+            {
+              title: 'Table node',
+              href: '/ui-components/node-components/table-node',
+            },
           ],
         },
         {
