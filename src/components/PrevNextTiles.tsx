@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react'
 import Link from '@/components/Link'
-import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
+import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 
 type Props = {
   config?: SidebarConfig
@@ -11,31 +11,42 @@ function normalize(href: string) {
   if (!href) return '/'
   // keep absolute URLs untouched
   if (href.startsWith('http://') || href.startsWith('https://')) return href
-  // ensure leading slash
-  return href.startsWith('/')
-    ? href === '/'
-      ? '/'
-      : href.replace(/\/$/, '')
-    : `/${href.replace(/\/$/, '')}`
+
+  // remove trailing slash and ensure leading slash
+  const trimmed = href.replace(/\/$/, '')
+  if (trimmed === '') return '/'
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
 }
 
-function flatten(
-  items: Array<SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>>,
-): SidebarLink[] {
+type SidebarItem = SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>
+
+function isGroup(item: SidebarItem): item is SidebarGroup {
+  return (item as SidebarGroup).type === 'group'
+}
+
+function flatten(items: SidebarItem[]): SidebarLink[] {
   const out: SidebarLink[] = []
 
-  for (const item of items as any[]) {
-    if (item.type === 'group') {
+  for (const item of items) {
+    if (isGroup(item)) {
       const group = item as SidebarGroup
       if (group.children) {
-        out.push(...flatten(group.children))
+        out.push(...flatten(group.children as SidebarItem[]))
       }
     } else {
       // children from sidebar sometimes omit the `type` field, ensure shape
-      const link = item as SidebarLink
-      if (link.href) out.push(link)
-      if ((link as any).children) {
-        out.push(...flatten((link as any).children))
+      const linkLike = item as SidebarLink | Omit<SidebarLink, 'type'>
+      let normalizedLink: SidebarLink
+
+      if ('type' in linkLike) {
+        normalizedLink = linkLike as SidebarLink
+      } else {
+        normalizedLink = { ...(linkLike as Omit<SidebarLink, 'type'>), type: 'link' } as SidebarLink
+      }
+
+      if (normalizedLink.href) out.push(normalizedLink)
+      if (normalizedLink.children) {
+        out.push(...flatten(normalizedLink.children as SidebarItem[]))
       }
     }
   }

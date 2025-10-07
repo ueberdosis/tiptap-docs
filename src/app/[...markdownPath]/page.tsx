@@ -129,7 +129,10 @@ export default async function MarkdownPage({ params }: Props) {
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
-          <PrevNextTiles config={sidebar.sidebarConfig} currentPath={`/${params.markdownPath.join('/')}`} />
+          <PrevNextTiles
+            config={sidebar.sidebarConfig}
+            currentPath={`/${params.markdownPath.join('/')}`}
+          />
         </Layout.Content>
         {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
       </Layout.Wrapper>
