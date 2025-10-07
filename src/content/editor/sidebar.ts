@@ -518,6 +518,28 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Keyboard shortcuts',
         },
         {
+          href: '/editor/core-concepts/markdown',
+          title: 'Markdown',
+          beta: true,
+          children: [
+            { href: '/editor/core-concepts/markdown/introduction', title: 'Introduction' },
+            { href: '/editor/core-concepts/markdown/examples', title: 'Examples' },
+            { href: '/editor/core-concepts/markdown/installation', title: 'Installation' },
+            { href: '/editor/core-concepts/markdown/basic-usage', title: 'Basic Usage' },
+            { href: '/editor/core-concepts/markdown/advanced', title: 'Advanced Usage' },
+            {
+              href: '/editor/core-concepts/markdown/custom-tokenizers',
+              title: 'Custom Tokenizers',
+            },
+            {
+              href: '/editor/core-concepts/markdown/extension-integration',
+              title: 'Extension Integration',
+            },
+            { href: '/editor/core-concepts/markdown/utilities', title: 'Utilities' },
+            { href: '/editor/core-concepts/markdown/api', title: 'API Reference' },
+          ],
+        },
+        {
           title: 'Persistence',
           href: '/editor/core-concepts/persistence',
         },

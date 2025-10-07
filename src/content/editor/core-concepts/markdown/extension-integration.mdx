@@ -1,0 +1,593 @@
+---
+title: Integration Markdown in Custom Extensions
+tags:
+  - type: beta
+meta:
+  title: Markdown Extension Integration | Tiptap Editor Docs
+  description: Learn how to integrate markdown support into your custom Tiptap extensions. This guide covers extending parsing and serialization for custom nodes and marks.
+  category: Editor
+---
+
+This guide shows you how to add markdown support to your Tiptap extensions.
+
+**Tip**: For standard patterns like Pandoc blocks (`:::name`) or shortcodes (`[name]`), check out the [Utility Functions](./utilities) to generate markdown specs with minimal code.
+
+## Basic Extension Integration
+
+To add markdown support to an extension, define a `markdown` object in your extension configuration:
+
+```typescript
+import { Node } from '@tiptap/core'
+
+const MyNode = Node.create({
+  name: 'myNode',
+
+  // ... other configuration (parseHTML, renderHTML, etc.)
+
+  markdown: {
+    name: 'tokenName', // Token type from marked.js
+    parse: (token, helpers) => {
+      /* ... */
+    },
+    render: (node, helpers) => {
+      /* ... */
+    },
+  },
+})
+```
+
+## The Markdown Configuration Object
+
+The `markdown` object can contain these properties:
+
+```typescript
+type ExtendableMarkdownSpec = {
+  parseName?: string // Token name for parsing
+  renderName?: string // Node type name for rendering
+  parse?: (token, helpers) => MarkdownParseResult
+  render?: (node, helpers, context) => string
+  isIndenting?: boolean // Whether this node increases indent level
+  tokenizer?: MarkdownTokenizer // Custom tokenizer
+}
+```
+
+### Using `parseName` and `renderName`
+
+```typescript
+markdown: {
+  parseName: 'strong',   // Match 'strong' tokens when parsing
+  renderName: 'bold',    // Use when rendering 'bold' nodes
+
+  parse: (token, helpers) => { /* ... */ },
+  render: (node, helpers) => { /* ... */ },
+}
+```
+
+## Node Extensions
+
+### Basic Node Example
+
+```typescript
+import { Node } from '@tiptap/core'
+
+const Paragraph = Node.create({
+  name: 'paragraph',
+
+  group: 'block',
+  content: 'inline*',
+
+  parseHTML() {
+    return [{ tag: 'p' }]
+  },
+
+  renderHTML() {
+    return ['p', 0]
+  },
+
+  markdown: {
+    name: 'paragraph',
+
+    parse: (token, helpers) => {
+      return {
+        type: 'paragraph',
+        content: helpers.parseInline(token.tokens || []),
+      }
+    },
+
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `${content}\n\n`
+    },
+  },
+})
+```
+
+### Node with Attributes
+
+```typescript
+const Heading = Node.create({
+  name: 'heading',
+
+  addAttributes() {
+    return {
+      level: {
+        default: 1,
+      },
+    }
+  },
+
+  markdown: {
+    name: 'heading',
+
+    parse: (token, helpers) => {
+      return {
+        type: 'heading',
+        attrs: {
+          level: token.depth || 1,
+        },
+        content: helpers.parseInline(token.tokens || []),
+      }
+    },
+
+    render: (node, helpers) => {
+      const level = node.attrs?.level || 1
+      const content = helpers.renderChildren(node.content || [])
+      const prefix = '#'.repeat(level)
+
+      return `${prefix} ${content}\n\n`
+    },
+  },
+})
+```
+
+### Nested Block Node
+
+```typescript
+const Blockquote = Node.create({
+  name: 'blockquote',
+
+  group: 'block',
+  content: 'block+',
+  defining: true,
+
+  parseHTML() {
+    return [{ tag: 'blockquote' }]
+  },
+
+  renderHTML() {
+    return ['blockquote', 0]
+  },
+
+  markdown: {
+    name: 'blockquote',
+
+    parse: (token, helpers) => {
+      return {
+        type: 'blockquote',
+        content: helpers.parseChildren(token.tokens || []),
+      }
+    },
+
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      // Add '> ' prefix to each line
+      return helpers.wrapInBlock('> ', content) + '\n\n'
+    },
+  },
+})
+```
+
+### List Node with Indentation
+
+```typescript
+const BulletList = Node.create({
+  name: 'bulletList',
+
+  group: 'block',
+  content: 'listItem+',
+
+  parseHTML() {
+    return [{ tag: 'ul' }]
+  },
+
+  renderHTML() {
+    return ['ul', 0]
+  },
+
+  markdown: {
+    name: 'list',
+    isIndenting: true, // Important for nested lists
+
+    parse: (token, helpers) => {
+      // Only handle unordered lists
+      if (token.ordered) {
+        return null
+      }
+
+      return {
+        type: 'bulletList',
+        content: helpers.parseChildren(token.items || []),
+      }
+    },
+
+    render: (node, helpers, context) => {
+      const items = (node.content || [])
+        .map((item, index) => {
+          const content = helpers.renderChildren([item], '')
+          return `- ${content}`
+        })
+        .join('\n')
+
+      return items + '\n\n'
+    },
+  },
+})
+```
+
+### Code Block Node
+
+```typescript
+const CodeBlock = Node.create({
+  name: 'codeBlock',
+
+  group: 'block',
+  content: 'text*',
+  code: true,
+
+  addAttributes() {
+    return {
+      language: {
+        default: null,
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'pre', preserveWhitespace: 'full' }]
+  },
+
+  renderHTML({ node }) {
+    return ['pre', ['code', { class: node.attrs.language }, 0]]
+  },
+
+  markdown: {
+    name: 'code',
+
+    parse: (token, helpers) => {
+      return {
+        type: 'codeBlock',
+        attrs: {
+          language: token.lang || null,
+        },
+        content: token.text ? [helpers.createTextNode(token.text)] : [],
+      }
+    },
+
+    render: (node, helpers) => {
+      const language = node.attrs?.language || ''
+      const content = helpers.renderChildren(node.content || [])
+
+      return `\`\`\`${language}\n${content}\n\`\`\`\n\n`
+    },
+  },
+})
+```
+
+## Mark Extensions
+
+Marks work differently because they wrap inline content:
+
+### Basic Mark Example
+
+```typescript
+import { Mark } from '@tiptap/core'
+
+const Bold = Mark.create({
+  name: 'bold',
+
+  parseHTML() {
+    return [{ tag: 'strong' }, { tag: 'b' }]
+  },
+
+  renderHTML() {
+    return ['strong', 0]
+  },
+
+  markdown: {
+    name: 'strong',
+
+    parse: (token, helpers) => {
+      // Parse the content and apply the bold mark
+      const content = helpers.parseInline(token.tokens || [])
+      return helpers.applyMark('bold', content)
+    },
+
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `**${content}**`
+    },
+  },
+})
+```
+
+### Mark with Attributes
+
+```typescript
+const Link = Mark.create({
+  name: 'link',
+
+  addAttributes() {
+    return {
+      href: { default: null },
+      title: { default: null },
+      target: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'a[href]' }]
+  },
+
+  renderHTML({ mark }) {
+    return ['a', { href: mark.attrs.href, title: mark.attrs.title }, 0]
+  },
+
+  markdown: {
+    name: 'link',
+
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      const attrs = {
+        href: token.href || '',
+        title: token.title || null,
+      }
+
+      return helpers.applyMark('link', content, attrs)
+    },
+
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      const href = node.attrs?.href || ''
+      const title = node.attrs?.title
+
+      if (title) {
+        return `[${content}](${href} "${title}")`
+      }
+
+      return `[${content}](${href})`
+    },
+  },
+})
+```
+
+### Inline Code Mark
+
+```typescript
+const Code = Mark.create({
+  name: 'code',
+
+  parseHTML() {
+    return [{ tag: 'code' }]
+  },
+
+  renderHTML() {
+    return ['code', 0]
+  },
+
+  markdown: {
+    name: 'codespan',
+
+    parse: (token, helpers) => {
+      // Inline code doesn't need token parsing, just use the text
+      const content = [helpers.createTextNode(token.text || '')]
+      return helpers.applyMark('code', content)
+    },
+
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `\`${content}\``
+    },
+  },
+})
+```
+
+## Extension with Custom Tokenizer
+
+Combine a custom tokenizer with parse and render handlers:
+
+```typescript
+import { Mark } from '@tiptap/core'
+
+const Highlight = Mark.create({
+  name: 'highlight',
+
+  parseHTML() {
+    return [{ tag: 'mark' }]
+  },
+
+  renderHTML() {
+    return ['mark', 0]
+  },
+
+  markdown: {
+    name: 'highlight',
+
+    // Custom tokenizer for ==text==
+    tokenizer: {
+      name: 'highlight',
+      level: 'inline',
+      start: src => src.indexOf('=='),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^==([^=]+)==/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'highlight',
+          raw: match[0],
+          text: match[1],
+          tokens: lexer.inlineTokens(match[1]),
+        }
+      },
+    },
+
+    // Parse tokenizer output
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      return helpers.applyMark('highlight', content)
+    },
+
+    // Render to markdown
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `==${content}==`
+    },
+  },
+})
+```
+
+## Testing Your Extension
+
+### Unit Test Parse Handler
+
+```typescript
+import { describe, it, expect } from 'vitest'
+
+describe('Heading markdown', () => {
+  it('should parse heading tokens', () => {
+    const token = {
+      type: 'heading',
+      depth: 2,
+      tokens: [{ type: 'text', text: 'Hello' }],
+    }
+
+    const helpers = {
+      parseInline: tokens => [{ type: 'text', text: 'Hello' }],
+    }
+
+    const result = Heading.options.markdown.parse(token, helpers)
+
+    expect(result).toEqual({
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Hello' }],
+    })
+  })
+})
+```
+
+### Unit Test Render Handler
+
+```typescript
+describe('Heading markdown', () => {
+  it('should render heading nodes', () => {
+    const node = {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Hello' }],
+    }
+
+    const helpers = {
+      renderChildren: () => 'Hello',
+    }
+
+    const result = Heading.options.markdown.render(node, helpers, {})
+
+    expect(result).toBe('## Hello\n\n')
+  })
+})
+```
+
+### Integration Test
+
+```typescript
+import { Editor } from '@tiptap/core'
+import { Markdown } from '@tiptap/markdown'
+import MyExtension from './MyExtension'
+
+describe('MyExtension integration', () => {
+  it('should parse and serialize correctly', () => {
+    const editor = new Editor({
+      extensions: [Document, Paragraph, Text, MyExtension, Markdown],
+    })
+
+    const markdown = '# Hello World'
+    editor.commands.setContent(markdown, { asMarkdown: true })
+
+    const json = editor.getJSON()
+    expect(json.content[0].type).toBe('heading')
+
+    const result = editor.getMarkdown()
+    expect(result).toBe('# Hello World\n\n')
+
+    editor.destroy()
+  })
+})
+```
+
+## Common Patterns
+
+### Handle Optional Token Properties
+
+```typescript
+parse: (token, helpers) => {
+  return {
+    type: 'myNode',
+    attrs: {
+      level: token.depth || 1, // Default if missing
+      id: token.id ?? null, // Nullish coalescing
+      text: token.text?.trim() || '', // Optional chaining
+    },
+    content: helpers.parseInline(token.tokens || []),
+  }
+}
+```
+
+### Conditional Parsing
+
+```typescript
+parse: (token, helpers) => {
+  // Only handle specific types
+  if (token.ordered) {
+    return null // Let another handler process it
+  }
+
+  // Or use different logic based on token properties
+  if (token.depth > 6) {
+    // Treat as paragraph instead
+    return {
+      type: 'paragraph',
+      content: helpers.parseInline(token.tokens || []),
+    }
+  }
+
+  return {
+    type: 'heading',
+    attrs: { level: token.depth },
+    content: helpers.parseInline(token.tokens || []),
+  }
+}
+```
+
+### Context-Aware Rendering
+
+```typescript
+render: (node, helpers, context) => {
+  const content = helpers.renderChildren(node.content || [])
+
+  // Adjust rendering based on context
+  if (context.level > 0) {
+    // Nested - add extra indentation
+    return helpers.indent(`- ${content}`) + '\n'
+  }
+
+  // Top-level
+  return `- ${content}\n`
+}
+```
+
+## Next Steps
+
+- Use [Utility Functions](./utilities) for quick, standard implementations
+- Check the [API Reference](./api) for complete documentation
+- Explore [Examples](./examples) for real-world implementations
+- Review the [Tokenizers guide](./custom-tokenizers) for custom syntax

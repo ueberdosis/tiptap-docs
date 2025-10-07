@@ -1,0 +1,629 @@
+---
+title: Custom Markdown Tokenizers
+tags:
+  - type: beta
+meta:
+  title: Custom Markdown Tokenizers | Tiptap Editor Docs
+  description: Learn how to extend the markdown parser in Tiptap with custom tokenizers for non-standard syntax. Follow our step-by-step guide in the docs!
+  category: Editor
+---
+
+Custom tokenizers extend the markdown parser to support non-standard or custom syntax. This guide explains how tokenizers work and how to create your own.
+
+**Tip**: For standard patterns like Pandoc blocks or shortcodes, check the [Utility Functions](./utilities) first—they provide ready-made tokenizers.
+
+## What are Tokenizers?
+
+Tokenizers are functions that identify and parse custom markdown syntax into tokens. They're registered with marked.js and run during the lexing phase, before Tiptap's parse handlers process the tokens.
+
+### The Tokenization Flow
+
+```
+Markdown String
+      ↓
+Custom Tokenizers (identify custom syntax)
+      ↓
+Standard marked.js Lexer
+      ↓
+Markdown Tokens
+      ↓
+Extension Parse Handlers
+      ↓
+Tiptap JSON
+```
+
+## When to Use Custom Tokenizers
+
+Use custom tokenizers when you want to support:
+
+- Custom inline syntax (e.g., `++inserted text++`, `==highlighted==`)
+- Custom block syntax (e.g., `:::note`, `!!!warning`)
+- Shortcodes (e.g., `[[embed:video-id]]`)
+- Custom markdown extensions
+- Domain-specific notation
+
+## Tokenizer Structure
+
+A tokenizer is an object with these properties:
+
+```typescript
+type MarkdownTokenizer = {
+  name: string // Token name (must be unique)
+  level?: 'block' | 'inline' // Level: block or inline
+  start?: (src: string) => number // Where the token starts
+  tokenize: (src, tokens, lexer) => MarkdownToken | undefined
+}
+```
+
+### Properties Explained
+
+#### `name` (required)
+
+A unique identifier for your token type:
+
+```typescript
+{
+  name: 'highlight',
+  // ...
+}
+```
+
+This name will be used when registering parse handlers.
+
+#### `level` (optional)
+
+Whether this tokenizer operates at block or inline level:
+
+```typescript
+{
+  level: 'inline', // 'block' or 'inline'
+  // ...
+}
+```
+
+- **`inline`**: For inline elements like bold, italic, custom marks (default)
+- **`block`**: For block elements like custom containers, admonitions
+
+#### `start` (optional)
+
+A function that returns the index where your token might start:
+
+```typescript
+{
+  start: (src) => {
+    // Find where '==' appears in the source
+    return src.indexOf('==')
+  },
+  // ...
+}
+```
+
+This optimization helps marked.js skip irrelevant parts of the text. If omitted, marked.js will try your tokenizer at every position.
+
+#### `tokenize` (required)
+
+The main parsing function that identifies and tokenizes your syntax:
+
+```typescript
+{
+  tokenize: (src, tokens, lexer) => {
+    // Try to match your syntax at the start of src
+    const match = /^==(.+?)==/.exec(src)
+
+    if (match) {
+      return {
+        type: 'highlight',
+        raw: match[0],        // Full matched string
+        text: match[1],       // Captured content
+        tokens: lexer.inlineTokens(match[1]), // Parsed content
+      }
+    }
+
+    // Return undefined if no match
+    return undefined
+  },
+}
+```
+
+The function receives:
+
+- `src`: Remaining source text to parse
+- `tokens`: Previously parsed tokens (usually not needed)
+- `lexer`: Helper functions for tokenizing child content
+
+## Creating a Simple Inline Tokenizer
+
+Let's create a tokenizer for highlight syntax (`==text==`):
+
+```typescript
+import { Node } from '@tiptap/core'
+
+const Highlight = Node.create({
+  name: 'highlight',
+
+  // ... other config (parseHTML, renderHTML, etc.)
+
+  markdown: {
+    name: 'highlight',
+
+    // Define the custom tokenizer
+    tokenizer: {
+      name: 'highlight',
+      level: 'inline',
+
+      start: src => {
+        return src.indexOf('==')
+      },
+
+      tokenize: (src, tokens, lexer) => {
+        // Match ==text== at the start of src
+        const match = /^==([^=]+)==/.exec(src)
+
+        if (!match) {
+          return undefined
+        }
+
+        return {
+          type: 'highlight',
+          raw: match[0], // '==text=='
+          text: match[1], // 'text'
+          tokens: lexer.inlineTokens(match[1]), // Parse inline content
+        }
+      },
+    },
+
+    // Parse the token to Tiptap JSON
+    parse: (token, helpers) => {
+      return helpers.applyMark('highlight', helpers.parseInline(token.tokens || []))
+    },
+
+    // Render back to markdown
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `==${content}==`
+    },
+  },
+})
+```
+
+### Using the Extension
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+import Highlight from './Highlight'
+
+const editor = new Editor({
+  extensions: [StarterKit, Markdown, Highlight],
+})
+
+// Parse markdown with custom syntax
+editor.commands.setContent('This is ==highlighted text==!', { asMarkdown: true })
+
+// Get markdown back
+console.log(editor.getMarkdown())
+// This is ==highlighted text==!
+```
+
+## Creating a Block-Level Tokenizer
+
+Let's create a tokenizer for admonition blocks:
+
+```markdown
+:::note
+This is a note
+:::
+```
+
+```typescript
+import { Node } from '@tiptap/core'
+
+const Admonition = Node.create({
+  name: 'admonition',
+
+  group: 'block',
+  content: 'block+',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-admonition]',
+        getAttrs: node => ({
+          type: node.getAttribute('data-type'),
+        }),
+      },
+    ]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      'div',
+      { 'data-admonition': '', 'data-type': node.attrs.type },
+      0, // Content
+    ]
+  },
+
+  markdown: {
+    name: 'admonition',
+
+    tokenizer: {
+      name: 'admonition',
+      level: 'block',
+
+      start: src => {
+        return src.indexOf(':::')
+      },
+
+      tokenize: (src, tokens, lexer) => {
+        // Match :::type\ncontent\n:::
+        const match = /^:::(\w+)\n([\s\S]*?)\n:::/.exec(src)
+
+        if (!match) {
+          return undefined
+        }
+
+        return {
+          type: 'admonition',
+          raw: match[0],
+          admonitionType: match[1], // 'note', 'warning', etc.
+          text: match[2], // Content
+          tokens: lexer.blockTokens(match[2]), // Parse block content
+        }
+      },
+    },
+
+    parse: (token, helpers) => {
+      return {
+        type: 'admonition',
+        attrs: {
+          type: token.admonitionType || 'note',
+        },
+        content: helpers.parseChildren(token.tokens || []),
+      }
+    },
+
+    render: (node, helpers) => {
+      const type = node.attrs?.type || 'note'
+      const content = helpers.renderChildren(node.content || [])
+
+      return `:::${type}\n${content}\n:::\n\n`
+    },
+  },
+})
+```
+
+### Using Block-Level Tokenizers
+
+```typescript
+const markdown = `
+# Document
+
+:::note
+This is a note with **bold** text.
+:::
+
+:::warning
+This is a warning!
+:::
+`
+
+editor.commands.setContent(markdown, { asMarkdown: true })
+```
+
+## Tokenizer with Nested Content
+
+Let's create a tokenizer that supports nested inline parsing:
+
+```typescript
+const Emoji = Node.create({
+  name: 'emoji',
+
+  group: 'inline',
+  inline: true,
+
+  addAttributes() {
+    return {
+      name: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'emoji',
+        getAttrs: node => ({ name: node.getAttribute('data-name') }),
+      },
+    ]
+  },
+
+  renderHTML({ node }) {
+    return ['emoji', { 'data-name': node.attrs.name }]
+  },
+
+  markdown: {
+    name: 'emoji',
+
+    tokenizer: {
+      name: 'emoji',
+      level: 'inline',
+
+      start: src => {
+        return src.indexOf(':')
+      },
+
+      tokenize: (src, tokens, lexer) => {
+        // Match :emoji_name:
+        const match = /^:([a-z0-9_+]+):/.exec(src)
+
+        if (!match) {
+          return undefined
+        }
+
+        return {
+          type: 'emoji',
+          raw: match[0],
+          emojiName: match[1],
+        }
+      },
+    },
+
+    parse: (token, helpers) => {
+      return {
+        type: 'emoji',
+        attrs: {
+          name: token.emojiName,
+        },
+      }
+    },
+
+    render: (node, helpers) => {
+      return `:${node.attrs?.name || 'unknown'}:`
+    },
+  },
+})
+```
+
+## Using the Lexer Helpers
+
+The `lexer` parameter provides helper functions to parse nested content:
+
+### `lexer.inlineTokens(src)`
+
+Parse inline content (for inline-level tokenizers):
+
+```typescript
+tokenize: (src, tokens, lexer) => {
+  const match = /^\[\[([^\]]+)\]\]/.exec(src)
+
+  if (match) {
+    return {
+      type: 'custom',
+      raw: match[0],
+      tokens: lexer.inlineTokens(match[1]), // Parse inline content
+    }
+  }
+}
+```
+
+### `lexer.blockTokens(src)`
+
+Parse block-level content (for block-level tokenizers):
+
+```typescript
+tokenize: (src, tokens, lexer) => {
+  const match = /^:::\w+\n([\s\S]*?)\n:::/.exec(src)
+
+  if (match) {
+    return {
+      type: 'container',
+      raw: match[0],
+      tokens: lexer.blockTokens(match[1]), // Parse block content
+    }
+  }
+}
+```
+
+## Regular Expression Best Practices
+
+### Use `^` to Match from Start
+
+Always anchor your regex to the start of the string:
+
+```typescript
+// ✅ Good - matches from start
+/^==(.+?)==/
+
+// ❌ Bad - can match anywhere
+/==(.+?)==/
+```
+
+### Use Non-Greedy Matching
+
+Use `+?` or `*?` instead of `+` or `*` for better control:
+
+```typescript
+// ✅ Good - stops at first closing
+/^==(.+?)==/
+
+// ❌ Bad - matches too much
+/^==(.+)==/
+```
+
+### Test Edge Cases
+
+Test your regex with:
+
+- Empty content: `====`
+- Nested syntax: `==text **bold** text==`
+- Multiple occurrences: `==one== ==two==`
+- Unclosed syntax: `==text`
+
+```typescript
+// Handle unclosed syntax
+const match = /^==([^=]+)==/.exec(src)
+if (!match) {
+  return undefined // Not matched, let standard parser handle it
+}
+```
+
+## Debugging Tokenizers
+
+### Log the Token Output
+
+```typescript
+tokenize: (src, tokens, lexer) => {
+  const match = /^==(.+?)==/.exec(src)
+
+  if (match) {
+    const token = {
+      type: 'highlight',
+      raw: match[0],
+      tokens: lexer.inlineTokens(match[1]),
+    }
+
+    console.log('Tokenized:', token)
+    return token
+  }
+
+  console.log('No match for:', src.substring(0, 20))
+  return undefined
+}
+```
+
+### Test in Isolation
+
+Test your tokenizer independently:
+
+```typescript
+const src = '==highlighted text== and more'
+const match = /^==(.+?)==/.exec(src)
+
+console.log('Match:', match)
+// ['==highlighted text==', 'highlighted text==']
+
+// Adjust regex
+const betterMatch = /^==([^=]+)==/.exec(src)
+console.log('Better match:', betterMatch)
+// ['==highlighted text==', 'highlighted text']
+```
+
+### Check Token Registry
+
+Verify your tokenizer is registered:
+
+```typescript
+console.log(editor.markdown.instance)
+// Check the marked instance configuration
+```
+
+## Common Pitfalls
+
+### 1. Forgetting to Return `undefined`
+
+Always return `undefined` when your syntax doesn't match:
+
+```typescript
+// ✅ Good
+tokenize: (src, tokens, lexer) => {
+  const match = /^==(.+?)==/.exec(src)
+  if (!match) {
+    return undefined // Important!
+  }
+  return {
+    /* token */
+  }
+}
+
+// ❌ Bad - returns falsy value
+tokenize: (src, tokens, lexer) => {
+  const match = /^==(.+?)==/.exec(src)
+  return match
+    ? {
+        /* token */
+      }
+    : null // Should be undefined
+}
+```
+
+### 2. Not Including `raw`
+
+Always include the full matched string in `raw`:
+
+```typescript
+return {
+  type: 'highlight',
+  raw: match[0], // Full match including delimiters
+  text: match[1], // Content only
+}
+```
+
+### 3. Wrong Level
+
+Make sure `level` matches your tokenizer's purpose:
+
+```typescript
+// Inline element (within text)
+{
+  level: 'inline'
+}
+
+// Block element (standalone)
+{
+  level: 'block'
+}
+```
+
+### 4. Consuming Too Much
+
+Be careful not to consume content beyond your syntax:
+
+```typescript
+// ✅ Good - stops at closing delimiter
+/^==([^=]+)==/
+
+// ❌ Bad - might consume multiple blocks
+/^==([\s\S]+)==/
+```
+
+## Advanced: Stateful Tokenizers
+
+For complex syntax, maintain state across tokenization:
+
+```typescript
+let nestedLevel = 0
+
+const tokenizer = {
+  name: 'nested',
+  level: 'block',
+
+  tokenize: (src, tokens, lexer) => {
+    if (src.startsWith('{{')) {
+      nestedLevel++
+      // Handle opening
+    }
+
+    if (src.startsWith('}}')) {
+      nestedLevel--
+      // Handle closing
+    }
+
+    // Process based on state
+  },
+}
+```
+
+## Next Steps
+
+- Try [Utility Functions](./utilities) for standard patterns before creating custom tokenizers
+- Learn how to [integrate markdown support into custom extensions](./extension-integration)
+- Check the [API Reference](./api) for complete documentation
+- Explore [Examples](./examples) for real-world tokenizer implementations

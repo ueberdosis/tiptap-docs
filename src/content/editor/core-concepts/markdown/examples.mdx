@@ -1,0 +1,776 @@
+---
+title: Markdown Examples
+tags:
+  - type: beta
+meta:
+  title: Markdown Examples | Tiptap Editor Docs
+  description: Explore practical examples of using the Markdown extension in Tiptap. Learn how to parse, serialize, and customize markdown content in your editor.
+  category: Editor
+---
+
+Real-world examples and recipes for common use cases with the Markdown extension.
+
+## Basic Examples
+
+### File Operations & Common Patterns
+
+This example demonstrates the most common markdown operations:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Markdown], // Add Markdown extension for bidirectional support
+  content: '# Hello World\n\nStart typing...', // Initial content as markdown string
+  contentAsMarkdown: true, // Tell Tiptap to parse content as markdown
+  onUpdate: ({ editor }) => {
+    // Live preview: serialize editor content to markdown on every change
+    document.querySelector('#preview').textContent = editor.getMarkdown()
+  },
+})
+
+// Import markdown file
+async function importFile(file: File) {
+  const text = await file.text()
+  // Parse the markdown file content and load it into the editor
+  editor.commands.setContent(text, { asMarkdown: true })
+}
+
+// Export markdown file
+function exportFile() {
+  // Serialize current editor content to markdown
+  const markdown = editor.getMarkdown()
+  const blob = new Blob([markdown], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'document.md'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// Copy to clipboard
+async function copyMarkdown() {
+  // Get markdown and copy to clipboard
+  await navigator.clipboard.writeText(editor.getMarkdown())
+}
+
+// Event handlers
+document.querySelector('#import').addEventListener('change', e => {
+  const file = e.target.files[0]
+  if (file) importFile(file)
+})
+document.querySelector('#export').addEventListener('click', exportFile)
+document.querySelector('#copy').addEventListener('click', copyMarkdown)
+```
+
+**HTML structure:**
+
+```html
+<div class="editor-pane"><div id="editor"></div></div>
+<div class="preview-pane"><pre id="preview"></pre></div>
+<button id="import">Import</button>
+<button id="export">Export</button>
+<button id="copy">Copy</button>
+```
+
+---
+
+### Paste Markdown Detection
+
+Automatically detect and parse pasted markdown:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+import { Plugin } from '@tiptap/pm/state'
+
+const PasteMarkdown = Extension.create({
+  name: 'pasteMarkdown',
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          handlePaste(view, event, slice) {
+            const text = event.clipboardData?.getData('text/plain')
+
+            if (!text) {
+              return false
+            }
+
+            // Check if text looks like markdown
+            if (looksLikeMarkdown(text)) {
+              const { state, dispatch } = view
+              // Parse the markdown text to Tiptap JSON using the markdown manager
+              const json = editor.markdown.parse(text)
+
+              // Insert the parsed JSON content at cursor position
+              editor.commands.insertContent(json)
+              return true
+            }
+
+            return false
+          },
+        },
+      }),
+    ]
+  },
+})
+
+function looksLikeMarkdown(text: string): boolean {
+  // Simple heuristic: check for markdown syntax
+  return (
+    /^#{1,6}\s/.test(text) || // Headings
+    /\*\*[^*]+\*\*/.test(text) || // Bold
+    /\[.+\]\(.+\)/.test(text) || // Links
+    /^[-*+]\s/.test(text)
+  ) // Lists
+}
+
+const editor = new Editor({
+  extensions: [StarterKit, Markdown, PasteMarkdown],
+})
+```
+
+---
+
+## Custom Extensions
+
+### Highlight Mark
+
+Add a custom highlight mark with `==syntax==`:
+
+```typescript
+import { Mark } from '@tiptap/core'
+
+export const Highlight = Mark.create({
+  name: 'highlight',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'mark' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', HTMLAttributes, 0]
+  },
+
+  markdown: {
+    name: 'highlight',
+
+    // Custom tokenizer to recognize ==text== syntax
+    tokenizer: {
+      name: 'highlight',
+      level: 'inline', // This is an inline element
+      start: src => src.indexOf('=='), // Optimize: where to start looking
+      tokenize: (src, tokens, lexer) => {
+        // Match ==text== at the start of the remaining source
+        const match = /^==([^=]+)==/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'highlight', // Token type (matches markdown.name)
+          raw: match[0], // Full matched string: ==text==
+          text: match[1], // Content inside: text
+          tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+        }
+      },
+    },
+
+    // Parse markdown token to Tiptap JSON
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      // Apply the 'highlight' mark to the parsed content
+      return helpers.applyMark('highlight', content)
+    },
+
+    // Render Tiptap node back to markdown
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `==${content}==` // Wrap content in == syntax
+    },
+  },
+
+  addCommands() {
+    return {
+      toggleHighlight:
+        () =>
+        ({ commands }) => {
+          return commands.toggleMark(this.name)
+        },
+    }
+  },
+})
+```
+
+Usage:
+
+```typescript
+const editor = new Editor({
+  extensions: [StarterKit, Markdown, Highlight],
+})
+
+editor.commands.setContent('This is ==highlighted== text', { asMarkdown: true })
+```
+
+---
+
+### Admonition Block
+
+Create admonition blocks with `:::type` syntax:
+
+```typescript
+import { Node } from '@tiptap/core'
+
+export const Admonition = Node.create({
+  name: 'admonition',
+
+  group: 'block',
+  content: 'block+',
+  defining: true,
+
+  addOptions() {
+    return {
+      types: ['note', 'warning', 'tip', 'danger'],
+    }
+  },
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+        parseHTML: element => element.getAttribute('data-type'),
+        renderHTML: attributes => ({
+          'data-type': attributes.type,
+        }),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-admonition]' }]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['div', { 'data-admonition': '', ...HTMLAttributes }, 0]
+  },
+
+  markdown: {
+    name: 'admonition',
+
+    // Custom tokenizer for :::type...:::  block syntax
+    tokenizer: {
+      name: 'admonition',
+      level: 'block', // This is a block-level element
+      start: src => src.indexOf(':::'),
+      tokenize: (src, tokens, lexer) => {
+        // Match :::type\ncontent\n::: pattern
+        const match = /^:::(\w+)\n([\s\S]*?)\n:::/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'admonition',
+          raw: match[0], // Full matched string
+          admonitionType: match[1], // The type (note, warning, etc.)
+          text: match[2], // Content inside
+          tokens: lexer.blockTokens(match[2]), // Parse nested block content
+        }
+      },
+    },
+
+    // Parse markdown token to Tiptap JSON
+    parse: (token, helpers) => {
+      return {
+        type: 'admonition',
+        attrs: { type: token.admonitionType || 'note' }, // Store type as attribute
+        content: helpers.parseChildren(token.tokens || []), // Parse nested blocks
+      }
+    },
+
+    // Render Tiptap node back to markdown
+    render: (node, helpers) => {
+      const type = node.attrs?.type || 'note'
+      const content = helpers.renderChildren(node.content || [])
+      return `:::${type}\n${content}:::\n\n` // Reconstruct :::type...:::
+    },
+  },
+})
+```
+
+Usage:
+
+```typescript
+const markdown = `
+:::warning
+This is a warning message with **bold** text.
+:::
+`
+
+editor.commands.setContent(markdown, { asMarkdown: true })
+```
+
+---
+
+### Emoji Shortcode
+
+Support emoji shortcodes like `:smile:`:
+
+```typescript
+import { Node } from '@tiptap/core'
+
+const emojiMap = {
+  smile: '😊',
+  heart: '❤️',
+  thumbsup: '👍',
+  fire: '🔥',
+  // ... add more
+}
+
+export const Emoji = Node.create({
+  name: 'emoji',
+
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      name: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-emoji]' }]
+  },
+
+  renderHTML({ node }) {
+    const emoji = emojiMap[node.attrs.name] || node.attrs.name
+    return ['span', { 'data-emoji': node.attrs.name }, emoji]
+  },
+
+  markdown: {
+    name: 'emoji',
+
+    // Custom tokenizer for :emoji: shortcode syntax
+    tokenizer: {
+      name: 'emoji',
+      level: 'inline',
+      start: src => src.indexOf(':'),
+      tokenize: (src, tokens, lexer) => {
+        // Match :name: pattern (e.g., :smile:, :heart:)
+        const match = /^:([a-z0-9_+]+):/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'emoji',
+          raw: match[0], // Full match: :smile:
+          emojiName: match[1], // Emoji name: smile
+        }
+      },
+    },
+
+    // Parse token to Tiptap JSON (emoji is an atomic node)
+    parse: (token, helpers) => {
+      return {
+        type: 'emoji',
+        attrs: { name: token.emojiName }, // Store emoji name
+      }
+    },
+
+    // Render node back to :emoji: syntax
+    render: (node, helpers) => {
+      return `:${node.attrs?.name || 'unknown'}:`
+    },
+  },
+})
+```
+
+Usage:
+
+```typescript
+editor.commands.setContent('Hello :smile: :heart: :thumbsup:', { asMarkdown: true })
+```
+
+---
+
+## Custom Tokenizers
+
+### Subscript and Superscript
+
+Support `~subscript~` and `^superscript^`:
+
+```typescript
+import { Mark } from '@tiptap/core'
+
+export const Subscript = Mark.create({
+  name: 'subscript',
+
+  parseHTML() {
+    return [{ tag: 'sub' }]
+  },
+
+  renderHTML() {
+    return ['sub', 0]
+  },
+
+  markdown: {
+    name: 'subscript',
+
+    // Custom tokenizer for ~text~ subscript syntax
+    tokenizer: {
+      name: 'subscript',
+      level: 'inline',
+      start: src => src.indexOf('~'),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^~([^~]+)~/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'subscript',
+          raw: match[0], // Full match: ~text~
+          text: match[1], // Content: text
+          tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+        }
+      },
+    },
+
+    // Parse token and apply subscript mark to content
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      return helpers.applyMark('subscript', content)
+    },
+
+    // Render back to ~text~ syntax
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `~${content}~`
+    },
+  },
+})
+
+export const Superscript = Mark.create({
+  name: 'superscript',
+
+  parseHTML() {
+    return [{ tag: 'sup' }]
+  },
+
+  renderHTML() {
+    return ['sup', 0]
+  },
+
+  markdown: {
+    name: 'superscript',
+
+    // Custom tokenizer for ^text^ superscript syntax
+    tokenizer: {
+      name: 'superscript',
+      level: 'inline',
+      start: src => src.indexOf('^'),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^\^([^^]+)\^/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'superscript',
+          raw: match[0], // Full match: ^text^
+          text: match[1], // Content: text
+          tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+        }
+      },
+    },
+
+    // Parse token and apply superscript mark to content
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      return helpers.applyMark('superscript', content)
+    },
+
+    // Render back to ^text^ syntax
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      return `^${content}^`
+    },
+  },
+})
+```
+
+Usage:
+
+```typescript
+editor.commands.setContent('H~2~O and E = mc^2^', { asMarkdown: true })
+```
+
+---
+
+### Details/Summary (Collapsible)
+
+Support HTML5 `<details>` element:
+
+```typescript
+import { Node } from '@tiptap/core'
+
+export const Details = Node.create({
+  name: 'details',
+
+  group: 'block',
+  content: 'detailsSummary detailsContent',
+  defining: true,
+
+  parseHTML() {
+    return [{ tag: 'details' }]
+  },
+
+  renderHTML() {
+    return ['details', 0]
+  },
+
+  markdown: {
+    name: 'details',
+
+    tokenizer: {
+      name: 'details',
+      level: 'block',
+      start: src => src.indexOf('<details>'),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^<details>\s*<summary>([^<]+)<\/summary>\s*([\s\S]*?)<\/details>/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'details',
+          raw: match[0],
+          summary: match[1],
+          content: match[2],
+          tokens: lexer.blockTokens(match[2]),
+        }
+      },
+    },
+
+    parse: (token, helpers) => {
+      return {
+        type: 'details',
+        content: [
+          {
+            type: 'detailsSummary',
+            content: [helpers.createTextNode(token.summary)],
+          },
+          {
+            type: 'detailsContent',
+            content: helpers.parseChildren(token.tokens || []),
+          },
+        ],
+      }
+    },
+
+    render: (node, helpers) => {
+      const summary = helpers.renderChildren([node.content[0]])
+      const content = helpers.renderChildren([node.content[1]])
+
+      return `<details>\n<summary>${summary}</summary>\n\n${content}\n</details>\n\n`
+    },
+  },
+})
+```
+
+---
+
+## Integration Examples
+
+### React Component
+
+Integrate with React:
+
+```tsx
+import React, { useEffect, useRef, useState } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+
+export function MarkdownEditor({ initialContent = '', onChange }) {
+  const editor = useEditor({
+    extensions: [StarterKit, Markdown], // Include Markdown extension
+    content: initialContent,
+    contentAsMarkdown: true, // Parse initial content as markdown
+    onUpdate: ({ editor }) => {
+      // Serialize to markdown on every update
+      const markdown = editor.getMarkdown()
+      onChange?.(markdown)
+    },
+  })
+
+  const [markdown, setMarkdown] = useState('')
+
+  useEffect(() => {
+    if (editor) {
+      // Update markdown preview when content changes
+      setMarkdown(editor.getMarkdown())
+    }
+  }, [editor?.state.doc.content])
+
+  return (
+    <div className="markdown-editor">
+      <div className="editor">
+        <EditorContent editor={editor} />
+      </div>
+      <div className="preview">
+        <pre>{markdown}</pre>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+### Vue Component
+
+Integrate with Vue:
+
+```vue
+<template>
+  <div class="markdown-editor">
+    <div class="editor">
+      <editor-content :editor="editor" />
+    </div>
+    <div class="preview">
+      <pre>{{ markdown }}</pre>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { Editor, EditorContent } from '@tiptap/vue-3'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+
+const props = defineProps({
+  initialContent: {
+    type: String,
+    default: '',
+  },
+})
+
+const emit = defineEmits(['update'])
+
+const editor = ref(null)
+const markdown = ref('')
+
+onMounted(() => {
+  editor.value = new Editor({
+    extensions: [StarterKit, Markdown], // Include Markdown extension
+    content: props.initialContent,
+    contentAsMarkdown: true, // Parse initial content as markdown
+    onUpdate: ({ editor }) => {
+      // Serialize to markdown and emit to parent on every update
+      markdown.value = editor.getMarkdown()
+      emit('update', markdown.value)
+    },
+  })
+
+  // Get initial markdown
+  markdown.value = editor.value.getMarkdown()
+})
+
+onBeforeUnmount(() => {
+  editor.value?.destroy()
+})
+</script>
+```
+
+---
+
+### Server-Side Rendering
+
+Render markdown on the server:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+import { generateHTML } from '@tiptap/html'
+
+// Parse markdown to JSON on server
+function parseMarkdown(markdown: string) {
+  const editor = new Editor({
+    extensions: [StarterKit, Markdown], // Include Markdown extension
+  })
+
+  // Use the markdown manager to parse markdown string to JSON
+  const json = editor.markdown.parse(markdown)
+  editor.destroy()
+
+  return json
+}
+
+// Convert JSON to HTML for rendering
+function renderToHTML(json: JSONContent) {
+  // Generate HTML from Tiptap JSON (no markdown involved here)
+  return generateHTML(json, [StarterKit])
+}
+
+// Full pipeline: Markdown → JSON → HTML
+function markdownToHTML(markdown: string) {
+  const json = parseMarkdown(markdown) // Parse markdown to JSON
+  return renderToHTML(json) // Render JSON to HTML
+}
+
+// Express route example
+app.get('/document/:id', async (req, res) => {
+  const doc = await db.getDocument(req.params.id)
+  const json = parseMarkdown(doc.markdown) // Parse stored markdown
+  const html = renderToHTML(json) // Convert to HTML for display
+
+  res.render('document', { content: html })
+})
+```
+
+---
+
+## Advanced Patterns
+
+### Lazy Loading Large Documents
+
+Load large documents progressively:
+
+```typescript
+async function loadLargeDocument(documentId: string) {
+  // Load metadata first
+  const meta = await fetchDocumentMeta(documentId)
+
+  // Show skeleton
+  showSkeleton()
+
+  // Load in chunks
+  const chunks = await fetchDocumentChunks(documentId, meta.chunkCount)
+
+  // Parse each markdown chunk and insert at correct position
+  for (const chunk of chunks) {
+    const json = editor.markdown.parse(chunk.markdown) // Parse markdown to JSON
+    editor.commands.insertContentAt(chunk.position, json) // Insert at position
+  }
+
+  hideSkeleton()
+}
+```
+
+---
+
+## See Also
+
+- [Installation](./installation)
+- [Basic Usage](./basic-usage)
+- [Advanced Customization](./advanced)
+- [Custom Tokenizers](./custom-tokenizers)
+- [Extension Integration](./extension-integration)
+- [API Reference](./api)
