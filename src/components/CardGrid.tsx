@@ -11,7 +11,7 @@ export type CardGridWrapperProps = {
 
 export const Wrapper = forwardRef<HTMLDivElement, CardGridWrapperProps>(
   ({ asChild, children, className, ...rest }, ref) => {
-    const cardGridClass = cn('no-markdown grid grid-cols-1 gap-5 sm:grid-cols-2', className)
+    const cardGridClass = cn('no-markdown grid grid-cols-1 gap-5 my-6 sm:grid-cols-2', className)
     const Component = asChild ? Slot : 'div'
 
     return (
