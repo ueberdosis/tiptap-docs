@@ -10,13 +10,16 @@ meta:
 
 This guide covers advanced topics for customizing markdown parsing and serialization behavior in your Tiptap editor.
 
-## Custom Parsing Logic
+## Parsing Markdown content to Tiptap
 
 Extensions can provide custom parsing logic to handle specific markdown tokens. This is done through the `markdown.parse` handler.
 
 ### Understanding Parse Handlers
 
-A parse handler receives a markdown token from marked.js and returns Tiptap JSON:
+A parse handler receives a markdown token from marked.js and returns Tiptap JSON content that can be consumed by the editor.
+In addition to the token, the parse function also receives a `helpers` object with utility functions to assist in parsing.
+
+These can be helpful for creating nodes, marks or parsing child `marked.js` tokens from `token.tokens`.
 
 ```typescript
 markdown: {
@@ -31,17 +34,27 @@ markdown: {
 }
 ```
 
+In this example the parse handler processes a `heading` token which is passed through by marked.js to our Markdown manager.
+This token is picked up in this example and transformed into a Tiptap node with the node type `heading`.
+
+The appropriate `level` attribute is extracted from the token and it's inline content (as headlines can only contain marks or inline text) are parsed using the `helpers.parseInline()` function.
+
+**Important**: Attributes on tokens can vary depending on how the [Tokenizer](./introduction#tokenizer) is configured.
+
 ### Parse Helper Functions
 
-The `helpers` object provides utility functions for parsing:
+As described in the section above, the `helpers` object provides utility functions for parsing child tokens or creating nodes and marks.
+Let us go through each helper and see how they can be used.
 
 #### `helpers.parseInline(tokens)`
 
-Parse inline tokens (bold, italic, links, etc.) into text nodes with marks:
+This helper takes a list of tokens and **tries** to parse them as inline content (text nodes with marks).
+It will not verify if the tokens are actually inline tokens so make sure to only pass inline tokens here.
+
+The function returns `TiptapJSON[]` that can be used as the `content` of a Tiptap Node.
 
 ```typescript
 parse: (token, helpers) => {
-  // Parse inline content like "Hello **world**"
   const content = helpers.parseInline(token.tokens || [])
 
   return {
@@ -53,7 +66,10 @@ parse: (token, helpers) => {
 
 #### `helpers.parseChildren(tokens)`
 
-Parse block-level child tokens recursively:
+Similar to `parseInline()`, but parses tokens as block-level content (e.g., list items, blockquotes, code blocks and more).
+It will not verify if the tokens are actually block-level tokens so make sure to only pass block-level tokens here.
+
+The function returns `TiptapJSON[]` that can be used as the `content` of a Tiptap Node.
 
 ```typescript
 parse: (token, helpers) => {
@@ -67,42 +83,11 @@ parse: (token, helpers) => {
 }
 ```
 
-#### `helpers.createTextNode(text, marks)`
+### Examples
 
-Create a text node with optional marks:
+#### Custom Heading Parser
 
-```typescript
-parse: (token, helpers) => {
-  return helpers.createTextNode('Hello', [{ type: 'bold' }, { type: 'italic' }])
-}
-```
-
-#### `helpers.createNode(type, attrs, content)`
-
-Create any node with attributes and content:
-
-```typescript
-parse: (token, helpers) => {
-  return helpers.createNode('heading', { level: 2 }, [helpers.createTextNode('Title')])
-}
-```
-
-#### `helpers.applyMark(markType, content, attrs)`
-
-Apply a mark to content (for inline formatting):
-
-```typescript
-parse: (token, helpers) => {
-  // Parse the token's content
-  const content = helpers.parseInline(token.tokens || [])
-
-  // Apply bold mark
-  return helpers.applyMark('bold', content)
-}
-```
-
-
-### Example: Custom Heading Parser
+Let's build a custom heading parser for a `customHeading` extension that will extract the heading level and also generate a unique ID for each heading.
 
 ```typescript
 import { Node } from '@tiptap/core'
@@ -113,9 +98,8 @@ const CustomHeading = Node.create({
   // ... other config
 
   markdown: {
-    name: 'heading',
     parse: (token, helpers) => {
-      const level = token.depth || 1
+      const level = token.depth || 1 // we can get the heading level from the token
 
       // Add custom attributes
       return {
@@ -124,44 +108,70 @@ const CustomHeading = Node.create({
           level,
           id: `heading-${Math.random()}`, // Generate ID
         },
-        content: helpers.parseInline(token.tokens || []),
+        content: helpers.parseInline(token.tokens || []), // parse the inline content of the heading token
       }
     },
   },
 })
 ```
 
+#### Custom YouTube Embed Parser
 
-### Example: Custom List Parser
+Let's create a custom parser for a `youtube` token that turns the token into a `youtubeEmbed` node with the appropriate embed attributes.
 
 ```typescript
-const CustomList = Node.create({
-  name: 'bulletList',
+import { Node } from '@tiptap/core'
+
+const YoutubeEmbed = Node.create({
+  name: 'youtubeEmbed',
+  atom: true, // this is a self-contained node
+
+  // ... other config
 
   markdown: {
-    name: 'list',
-    parse: (token, helpers) => {
-      // Only handle unordered lists
-      if (token.ordered) {
-        return null // Let another handler process it
-      }
+    parse: (token) => {
+      // Those attributes are extracted from the youtube token
+      // we assume that a custom tokenizer is providing these tokens
+      // from the markdown syntax like: ![youtube](videoId?start=60&width=800&height=450)
+      const videoId = token.videoId || ''
+      const start = token.start || 0
+      const width = token.width || 560
+      const height = token.height || 315
 
+
+      // Because this is an atom node, we don't require the helpers
+      // to parse any children, as this node is self-contained.
       return {
-        type: 'bulletList',
-        content: helpers.parseChildren(token.items || []),
+        type: 'youtubeEmbed',
+        attrs: {
+          videoId,
+          start,
+          width,
+          height,
+        },
       }
     },
   },
 })
 ```
 
-## Custom Serialization Logic
+## Serializing Tiptap Content to Markdown
 
-Extensions can provide custom serialization logic to convert Tiptap nodes back to markdown.
+Serializing Tiptap JSON content to markdown is done through the `markdown.render` handler.
 
 ### Understanding Render Handlers
 
-A render handler receives a Tiptap JSON node and returns a markdown string:
+The process of turning Tiptap JSON nodes into markdown strings is handled by the `render` function defined in the `markdown` config of an extension.
+
+This function can range in complexity from a simple string return to more complex logic that takes into account the node's attributes, its children, nesting and the context in which it appears.
+
+The following parameters are passed to the render function:
+
+- `node`: The Tiptap JSON node to be serialized.
+- `helpers`: An object containing utility functions to assist in rendering (see [Render Helper Functions](#render-helper-functions) for details).
+- `context`: An object providing additional context about the node's position in the document tree (see [Render Context](#render-context) for details).
+
+The returned value of the render function should be a string representing the markdown equivalent of the node that will be concatenated with other strings to form the complete markdown document.
 
 ```typescript
 markdown: {
@@ -174,11 +184,14 @@ markdown: {
 
 ### Render Helper Functions
 
-The `helpers` object provides utility functions for rendering:
+As described above, the `helpers` object provides utility functions for rendering child nodes and formatting content.
+Let us go through each helper and see how they can be used.
 
 #### `helpers.renderChildren(nodes, separator)`
 
-Render child nodes and join them with an optional separator:
+The `helpers.renderChildren` function will take a list of Tiptap JSON nodes and render each of them to a markdown string using their respective render handlers.
+
+It accepts an optional `separator` parameter that can be used to join the rendered child nodes with a specific string (defaults to `''`).
 
 ```typescript
 render: (node, helpers) => {
@@ -189,7 +202,7 @@ render: (node, helpers) => {
 }
 ```
 
-With a custom separator:
+or with a custom separator:
 
 ```typescript
 render: (node, helpers) => {
@@ -202,20 +215,21 @@ render: (node, helpers) => {
 
 #### `helpers.indent(content)`
 
-Add indentation to content (respects the configured indent style):
+The `helpers.indent(content)` function will add indentation to each line of the provided content string based on the current context level and the configured indentation style (spaces or tabs).
+
+This is helpful for example when rendering nested structures like lists.
 
 ```typescript
 render: (node, helpers) => {
   const content = helpers.renderChildren(node.content || [])
-  const indented = helpers.indent(content)
 
-  return indented
+  return helpers.indent(content) // indent the rendered content based off the current context level
 }
 ```
 
 #### `helpers.wrapInBlock(prefix, content)`
 
-Wrap content with a prefix on each line:
+The `helpers.wrapInBlock` function will wrap content with a prefix on each line which is useful for block-level elements like blockquotes or code blocks.
 
 ```typescript
 render: (node, helpers) => {
@@ -228,64 +242,145 @@ render: (node, helpers) => {
 
 ### Render Context
 
-The third parameter to render handlers is a context object:
+The third parameter to render handlers is a context object that holds information about the current node's position in the document tree, like index, level, parent type and custom metadata.
 
 ```typescript
 render: (node, helpers, context) => {
-  console.log(context.index) // Node index in parent
-  console.log(context.level) // Nesting level
-  console.log(context.parentType) // Parent node type
-  console.log(context.meta) // Custom metadata
+  const lines = []
 
-  // Use context to adjust rendering
-  if (context.level > 0) {
-    // We're nested, add extra indentation
-  }
+  lines.push(`I am the ${context.index}th child in my parent context.`) // zero-based index of this node in its parent
+  lines.push(`My current nesting level is ${context.level}`) // current nesting level (increased by 1 for each parent that has `indenting: true`)
+  lines.push(`My parent node type is ${context.parentType}`) // type of the parent node
+  lines.push(`My custom metadata is ${JSON.stringify(context.meta)}`) // custom metadata that can be set by parent nodes
 
-  return '...'
+  return lines.join('\n')
 }
 ```
 
-### Example: Custom Heading Renderer
+### Examples
+
+#### Custom Heading Renderer
 
 ```typescript
 const CustomHeading = Node.create({
-  name: 'heading',
+  name: 'customHeading',
 
   markdown: {
     render: (node, helpers, context) => {
-      const level = node.attrs?.level || 1
-      const prefix = '#'.repeat(level)
-      const content = helpers.renderChildren(node.content || [])
+      const level = node.attrs?.level || 1 // lets get the heading level from the node attributes
+      const prefix = '#'.repeat(level) // now create the appropriate prefix based on the level
+      const content = helpers.renderChildren(node.content || []) // render the inline content of the heading
 
-      return `${prefix} ${content}\n\n`
+      return `${prefix} ${content}\n\n` // we build the markdown string here based off the information we have
     },
   },
 })
 ```
 
-### Example: Custom List Renderer
+#### YouTube Embed Renderer
+
+In this scenario we want to serialize a `youtubeEmbed` node back to a markdown string that could be parsed by our custom YouTube tokenizer.
+
+For this example, the syntax will be `![youtube](videoId?start=60&width=800&height=450)`
 
 ```typescript
-const BulletList = Node.create({
-  name: 'bulletList',
+const YouTubeEmbed = Node.create({
+  name: 'youtubeEmbed',
 
   markdown: {
-    isIndenting: true, // Mark as indenting for proper nesting
-    render: (node, helpers, context) => {
-      const items = (node.content || [])
-        .map((item, index) => {
-          const content = helpers.renderChildren([item], '')
-          const prefix = context.level > 0 ? '  ' : '' // Add indent if nested
-          return `${prefix}- ${content}`
-        })
-        .join('\n')
+    isBlock: true,
+    render: (node, helpers) => {
+      // we can extract the attributes from the node
+      const videoId = node.attrs?.videoId || ''
+      const start = node.attrs?.start || 0
+      const width = node.attrs?.width || 800
+      const height = node.attrs?.height || 450
 
-      return items + '\n\n'
+      // and just pass the attributes to the markdown string
+      return `![youtube](${videoId}?start=${start}&width=${width}&height=${height})\n\n`
     },
   },
 })
 ```
+
+#### Rendering list items with indentation
+
+For this example we want to render a custom list node that contains list items, each list items syntax should look like `=> item`.
+
+```typescript
+const CustomList = Node.create({
+  name: 'customList',
+
+  // ...
+
+  markdown: {
+    isIndenting: true, // This tells the MarkdownManager that this node increases the nesting level
+
+    render: (node, helpers, context) => {
+      // We use a custom separator to join list items with newlines
+      const items = helpers.renderChildren(node.content || [], '\n')
+
+      return items
+    },
+  },
+})
+
+const CustomListItem = Node.create({
+  name: 'customListItem',
+
+  // ...
+
+  markdown: {
+    render: (node, helpers, context) => {
+      // First we extract the first child of the list item as the content (the paragraph node)
+      // and keep the rest of the children to manually render them afterwards
+      const [content, ...children] = node.content
+      const output = [`=> ${content}`]
+
+      // now we just render the direct child content for now
+      const mainContent = helpers.renderChildren(node.content || [])
+
+      // now we need to go through the children and render them indented as well
+      if (children && children.length > 0) {
+        children.forEach((child) => {
+          const childContent = helpers.renderChildren([child]) // render the child node - this also will recursively render its children
+          if (childContent) {
+            // split the lines of the child content and indent each line
+            const indentedChild = childContent
+              .split('\n')
+              .map((line) => (line ? helpers.indent(line) : ''))
+              .join('\n')
+            output.push(indentedChild) // this will push the child with correct indentation for this level
+          }
+        })
+      }
+
+      return output.join('\n') // join all lines with newlines
+    },
+  },
+})
+```
+
+Because this is very verbose, Tiptap exports a `renderNestedMarkdownContent()` helper from the `@tiptap/markdown` package that can be used to simplify this:
+
+```typescript
+import { Node } from '@tiptap/core'
+import { renderNestedMarkdownContent } from '@tiptap/markdown'
+
+const CustomListItem = Node.create({
+  name: 'customListItem',
+
+  // ...
+
+  markdown: {
+    render: (node, helpers, context) => {
+      return renderNestedMarkdownContent(node, helpers, '=> ', context)
+    },
+  },
+})
+```
+
+Read more on our [utilities](./utilities#rendernestedmarkdowncontent) page.
 
 ## Handling Marks (Inline Formatting)
 
@@ -302,8 +397,8 @@ const Bold = Mark.create({
   markdown: {
     name: 'strong',
     parse: (token, helpers) => {
-      const content = helpers.parseInline(token.tokens || [])
-      return helpers.applyMark('bold', content)
+      const content = helpers.parseInline(token.tokens || []) // parse the inline content inside the mark
+      return helpers.applyMark('bold', content) // apply the 'bold' mark to the parsed content
     },
   },
 })
@@ -319,8 +414,8 @@ const Bold = Mark.create({
 
   markdown: {
     render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      return `**${content}**`
+      const content = helpers.renderChildren(node) // directly render the node
+      return `**${content}**` // and return your markup syntax
     },
   },
 })
@@ -336,13 +431,15 @@ const Link = Mark.create({
     name: 'link',
     parse: (token, helpers) => {
       const content = helpers.parseInline(token.tokens || [])
+
+      // we can use the third argument to apply attributes to the mark
       return helpers.applyMark('link', content, {
         href: token.href,
-        title: token.title,
+        title: token.title || null,
       })
     },
     render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
+      const content = helpers.renderChildren(node)
       const href = node.attrs?.href || ''
       const title = node.attrs?.title
 
@@ -363,7 +460,7 @@ The `isIndenting` flag tells the MarkdownManager that a node increases the nesti
 markdown: {
   isIndenting: true,
   render: (node, helpers, context) => {
-    // Children will be rendered at context.level + 1
+    // Children will be rendered at context.level + 1 if helpers.indent() is used
     const children = helpers.renderChildren(node.content || [])
     return children
   },
@@ -425,7 +522,7 @@ const Bold = Mark.create({
     },
 
     render: (node, helpers) => {
-      return `**${helpers.renderChildren(node.content || [])}**`
+      return `**${helpers.renderChildren(node)}**`
     },
   },
 })
@@ -444,7 +541,7 @@ You can override this by providing your own handler for these token types.
 
 ## HTML Parsing in Markdown
 
-When markdown contains HTML, it's parsed using your extensions' existing `parseHTML` methods:
+When markdown contains HTML, it's parsed using your extensions' existing `parseHTML` methods.
 
 ```markdown
 # Regular Markdown
@@ -454,27 +551,6 @@ When markdown contains HTML, it's parsed using your extensions' existing `parseH
 </custom-component>
 
 More **markdown** here.
-```
-
-This allows you to support custom HTML nodes in your markdown:
-
-```typescript
-const CustomComponent = Node.create({
-  name: 'customComponent',
-
-  parseHTML() {
-    return [
-      {
-        tag: 'custom-component',
-        getAttrs: node => ({
-          foo: node.getAttribute('data-foo'),
-        }),
-      },
-    ]
-  },
-
-  // The HTML in markdown will be parsed using the parseHTML rules
-})
 ```
 
 ## Debugging Parse and Render
