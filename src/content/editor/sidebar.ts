@@ -528,12 +528,12 @@ export const sidebarConfig: SidebarConfig = {
             { href: '/editor/core-concepts/markdown/basic-usage', title: 'Basic Usage' },
             { href: '/editor/core-concepts/markdown/advanced-usage', title: 'Advanced Usage' },
             {
-              href: '/editor/core-concepts/markdown/custom-tokenizers',
-              title: 'Custom Tokenizers',
-            },
-            {
               href: '/editor/core-concepts/markdown/extension-integration',
               title: 'Extension Integration',
+            },
+            {
+              href: '/editor/core-concepts/markdown/custom-tokenizers',
+              title: 'Custom Tokenizers',
             },
             { href: '/editor/core-concepts/markdown/utilities', title: 'Utilities' },
             { href: '/editor/core-concepts/markdown/api', title: 'API Reference' },

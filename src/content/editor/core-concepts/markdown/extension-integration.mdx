@@ -51,6 +51,13 @@ type ExtendableMarkdownSpec = {
 }
 ```
 
+- `parseName` (string): The token name from marked.js to handle. Required if `parse` is defined.
+- `renderName` (string): The Tiptap node type name to match when rendering. Required if `render` is defined.
+- `parse` (function): Function to convert a marked.js token to a Tiptap node. Receives the token and helper functions.
+- `render` (function): Function to convert a Tiptap node to a markdown string
+- `isIndenting` (boolean): For list nodes, indicates if this node increases the indentation level for nested items.
+- `tokenizer` (object): Define a custom tokenizer to recognize new markdown syntax.
+
 ### Using `parseName` and `renderName`
 
 ```typescript
@@ -65,13 +72,18 @@ markdown: {
 
 ## Node Extensions
 
-### Basic Node Example
+Creating markdown support for nodes is straightforward. Here are some common patterns.
+
+Depending on the type of content your expects, you may need to use different helper functions in your `parse` and `render` methods.
+
+- If your extension is a node with block-level content, use `helpers.parseChildren` and `helpers.renderChildren`.
+- If your extension is a node with inline-level content, use `helpers.parseInline` and `helpers.renderChildren`.
 
 ```typescript
 import { Node } from '@tiptap/core'
 
-const Paragraph = Node.create({
-  name: 'paragraph',
+const Heading = Node.create({
+  name: 'heading',
 
   group: 'block',
   content: 'inline*',
@@ -85,189 +97,23 @@ const Paragraph = Node.create({
   },
 
   markdown: {
-    name: 'paragraph',
-
     parse: (token, helpers) => {
-      return {
-        type: 'paragraph',
-        content: helpers.parseInline(token.tokens || []),
-      }
-    },
+      const level = token.depth || 1
 
-    render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      return `${content}\n\n`
-    },
-  },
-})
-```
-
-### Node with Attributes
-
-```typescript
-const Heading = Node.create({
-  name: 'heading',
-
-  addAttributes() {
-    return {
-      level: {
-        default: 1,
-      },
-    }
-  },
-
-  markdown: {
-    name: 'heading',
-
-    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || []) // we parse inline here because headings contain inline content
       return {
         type: 'heading',
-        attrs: {
-          level: token.depth || 1,
-        },
-        content: helpers.parseInline(token.tokens || []),
+        attrs: { level },
+        content,
       }
     },
 
     render: (node, helpers) => {
       const level = node.attrs?.level || 1
-      const content = helpers.renderChildren(node.content || [])
       const prefix = '#'.repeat(level)
 
-      return `${prefix} ${content}\n\n`
-    },
-  },
-})
-```
-
-### Nested Block Node
-
-```typescript
-const Blockquote = Node.create({
-  name: 'blockquote',
-
-  group: 'block',
-  content: 'block+',
-  defining: true,
-
-  parseHTML() {
-    return [{ tag: 'blockquote' }]
-  },
-
-  renderHTML() {
-    return ['blockquote', 0]
-  },
-
-  markdown: {
-    name: 'blockquote',
-
-    parse: (token, helpers) => {
-      return {
-        type: 'blockquote',
-        content: helpers.parseChildren(token.tokens || []),
-      }
-    },
-
-    render: (node, helpers) => {
       const content = helpers.renderChildren(node.content || [])
-      // Add '> ' prefix to each line
-      return helpers.wrapInBlock('> ', content) + '\n\n'
-    },
-  },
-})
-```
-
-### List Node with Indentation
-
-```typescript
-const BulletList = Node.create({
-  name: 'bulletList',
-
-  group: 'block',
-  content: 'listItem+',
-
-  parseHTML() {
-    return [{ tag: 'ul' }]
-  },
-
-  renderHTML() {
-    return ['ul', 0]
-  },
-
-  markdown: {
-    name: 'list',
-    isIndenting: true, // Important for nested lists
-
-    parse: (token, helpers) => {
-      // Only handle unordered lists
-      if (token.ordered) {
-        return null
-      }
-
-      return {
-        type: 'bulletList',
-        content: helpers.parseChildren(token.items || []),
-      }
-    },
-
-    render: (node, helpers, context) => {
-      const items = (node.content || [])
-        .map((item, index) => {
-          const content = helpers.renderChildren([item], '')
-          return `- ${content}`
-        })
-        .join('\n')
-
-      return items + '\n\n'
-    },
-  },
-})
-```
-
-### Code Block Node
-
-```typescript
-const CodeBlock = Node.create({
-  name: 'codeBlock',
-
-  group: 'block',
-  content: 'text*',
-  code: true,
-
-  addAttributes() {
-    return {
-      language: {
-        default: null,
-      },
-    }
-  },
-
-  parseHTML() {
-    return [{ tag: 'pre', preserveWhitespace: 'full' }]
-  },
-
-  renderHTML({ node }) {
-    return ['pre', ['code', { class: node.attrs.language }, 0]]
-  },
-
-  markdown: {
-    name: 'code',
-
-    parse: (token, helpers) => {
-      return {
-        type: 'codeBlock',
-        attrs: {
-          language: token.lang || null,
-        },
-        content: token.text ? [helpers.createTextNode(token.text)] : [],
-      }
-    },
-
-    render: (node, helpers) => {
-      const language = node.attrs?.language || ''
-      const content = helpers.renderChildren(node.content || [])
-
-      return `\`\`\`${language}\n${content}\n\`\`\`\n\n`
+      return `${prefix} ${content}`
     },
   },
 })
@@ -275,9 +121,7 @@ const CodeBlock = Node.create({
 
 ## Mark Extensions
 
-Marks work differently because they wrap inline content:
-
-### Basic Mark Example
+Marks work differently because they wrap inline content. To add markdown support to your mark extensions, use the `applyMark` and `renderChildren` helper functions.
 
 ```typescript
 import { Mark } from '@tiptap/core'
@@ -310,138 +154,12 @@ const Bold = Mark.create({
 })
 ```
 
-### Mark with Attributes
+If you want to apply attributes to your marks, use the `applyMark` helper with an attributes object.
 
 ```typescript
-const Link = Mark.create({
-  name: 'link',
-
-  addAttributes() {
-    return {
-      href: { default: null },
-      title: { default: null },
-      target: { default: null },
-    }
-  },
-
-  parseHTML() {
-    return [{ tag: 'a[href]' }]
-  },
-
-  renderHTML({ mark }) {
-    return ['a', { href: mark.attrs.href, title: mark.attrs.title }, 0]
-  },
-
-  markdown: {
-    name: 'link',
-
-    parse: (token, helpers) => {
-      const content = helpers.parseInline(token.tokens || [])
-      const attrs = {
-        href: token.href || '',
-        title: token.title || null,
-      }
-
-      return helpers.applyMark('link', content, attrs)
-    },
-
-    render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      const href = node.attrs?.href || ''
-      const title = node.attrs?.title
-
-      if (title) {
-        return `[${content}](${href} "${title}")`
-      }
-
-      return `[${content}](${href})`
-    },
-  },
-})
-```
-
-### Inline Code Mark
-
-```typescript
-const Code = Mark.create({
-  name: 'code',
-
-  parseHTML() {
-    return [{ tag: 'code' }]
-  },
-
-  renderHTML() {
-    return ['code', 0]
-  },
-
-  markdown: {
-    name: 'codespan',
-
-    parse: (token, helpers) => {
-      // Inline code doesn't need token parsing, just use the text
-      const content = [helpers.createTextNode(token.text || '')]
-      return helpers.applyMark('code', content)
-    },
-
-    render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      return `\`${content}\``
-    },
-  },
-})
-```
-
-## Extension with Custom Tokenizer
-
-Combine a custom tokenizer with parse and render handlers:
-
-```typescript
-import { Mark } from '@tiptap/core'
-
-const Highlight = Mark.create({
-  name: 'highlight',
-
-  parseHTML() {
-    return [{ tag: 'mark' }]
-  },
-
-  renderHTML() {
-    return ['mark', 0]
-  },
-
-  markdown: {
-    name: 'highlight',
-
-    // Custom tokenizer for ==text==
-    tokenizer: {
-      name: 'highlight',
-      level: 'inline',
-      start: src => src.indexOf('=='),
-      tokenize: (src, tokens, lexer) => {
-        const match = /^==([^=]+)==/.exec(src)
-        if (!match) return undefined
-
-        return {
-          type: 'highlight',
-          raw: match[0],
-          text: match[1],
-          tokens: lexer.inlineTokens(match[1]),
-        }
-      },
-    },
-
-    // Parse tokenizer output
-    parse: (token, helpers) => {
-      const content = helpers.parseInline(token.tokens || [])
-      return helpers.applyMark('highlight', content)
-    },
-
-    // Render to markdown
-    render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      return `==${content}==`
-    },
-  },
+const content = helpers.applyMark('link', helpers.parseInline(token.tokens || []), {
+  href: token.href || '',
+  title: token.title || null,
 })
 ```
 
