@@ -89,9 +89,17 @@ export default function PrevNextTiles({ config, currentPath }: Props) {
   return (
     <div className="mt-12">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {prev ? <Card href={prev.href} title={prev.title} /> : <div />}
+        {prev ? (
+          <div className="sm:col-start-1">
+            <Card href={prev.href} title={prev.title} />
+          </div>
+        ) : null}
 
-        {next ? <Card isNext href={next.href} title={next.title} /> : <div />}
+        {next ? (
+          <div className={!prev ? 'sm:col-start-2' : ''}>
+            <Card isNext href={next.href} title={next.title} />
+          </div>
+        ) : null}
       </div>
     </div>
   )
