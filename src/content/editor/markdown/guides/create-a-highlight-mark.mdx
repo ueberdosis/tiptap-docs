@@ -8,9 +8,137 @@ meta:
   category: Editor
 ---
 
-Add a custom highlight mark with `==syntax==`:
+This guide walks through adding Markdown support for a small inline `highlight` mark that uses the `==text==` shorthand (common in some markdown flavors) to produce a `mark` element in HTML.
 
-```typescript
+We'll follow four clear steps and at each step include a full example so you always have the complete context:
+
+1. Create the basic Tiptap `Mark` extension (without Markdown support).
+2. Add a custom Markdown tokenizer to produce tokens from the raw Markdown.
+3. Add a parser that converts those tokens into Tiptap JSON (applying the mark).
+4. Add a renderer (serializer) that converts the Tiptap content back to Markdown.
+
+Example shorthand we'll support:
+
+```js
+This is ==highlighted== text.
+```
+
+---
+
+## Step 1: Create the basic `highlight` Mark
+
+Start with a minimal `Mark` definition that describes the mark name, HTML parse/render behavior and any options. Keep Markdown integration out for now so you can focus on schema and HTML input/output first.
+
+```js
+import { Mark } from '@tiptap/core'
+
+export const Highlight = Mark.create({
+  name: 'highlight',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'mark' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', HTMLAttributes, 0]
+  },
+
+  addCommands() {
+    return {
+      toggleHighlight:
+        () =>
+        ({ commands }) => {
+          return commands.toggleMark(this.name)
+        },
+    }
+  },
+})
+```
+
+**Notes:**
+- This mark simply maps to the HTML `<mark>` tag.
+- The command `toggleHighlight` allows toggling the mark programmatically.
+
+---
+
+## Step 2: Add a custom Markdown tokenizer
+
+The tokenizer is responsible for recognizing `==text==` in the raw Markdown and returning a token containing the inner text and any nested inline tokens. Keep this step focused on the tokenizer so you can test recognition independently.
+
+```js
+import { Mark } from '@tiptap/core'
+
+export const Highlight = Mark.create({
+  name: 'highlight',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'mark' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', HTMLAttributes, 0]
+  },
+
+  // Markdown integration: tokenizer only (parse/render will be added later)
+  markdown: {
+    name: 'highlight',
+
+    tokenizer: {
+      name: 'highlight',
+      level: 'inline', // inline element
+      // fast hint for the lexer to find candidate positions
+      start: (src) => src.indexOf('=='),
+      tokenize: (src, tokens, lexer) => {
+        // Match ==text== at the start of the remaining source
+        const match = /^==([^=]+)==/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'highlight',       // token type (must match markdown.name)
+          raw: match[0],           // full matched string: ==text==
+          text: match[1],          // inner content: text
+          // Let the markdown lexer process nested inline formatting
+          tokens: lexer.inlineTokens(match[1]),
+        }
+      },
+    },
+  },
+
+  addCommands() {
+    return {
+      toggleHighlight:
+        () =>
+        ({ commands }) => {
+          return commands.toggleMark(this.name)
+        },
+    }
+  },
+})
+```
+
+**Implementation notes:**
+- `start` is an optimization used by the lexer to quickly locate potential matches.
+- The tokenizer returns `tokens: lexer.inlineTokens(match[1])` so nested inline formatting (bold, emphasis, links, etc.) is preserved.
+
+---
+
+## Step 3: Add the parser
+
+The `parse` function converts the token produced by the tokenizer into a Tiptap representation. For marks, you'll typically parse the inner tokens into inline nodes and then apply the mark to that content.
+
+```js
 import { Mark } from '@tiptap/core'
 
 export const Highlight = Mark.create({
@@ -33,36 +161,29 @@ export const Highlight = Mark.create({
   markdown: {
     name: 'highlight',
 
-    // Custom tokenizer to recognize ==text== syntax
     tokenizer: {
       name: 'highlight',
-      level: 'inline', // This is an inline element
-      start: (src) => src.indexOf('=='), // Optimize: where to start looking
+      level: 'inline',
+      start: (src) => src.indexOf('=='),
       tokenize: (src, tokens, lexer) => {
-        // Match ==text== at the start of the remaining source
         const match = /^==([^=]+)==/.exec(src)
         if (!match) return undefined
 
         return {
-          type: 'highlight', // Token type (matches markdown.name)
-          raw: match[0], // Full matched string: ==text==
-          text: match[1], // Content inside: text
-          tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+          type: 'highlight',
+          raw: match[0],
+          text: match[1],
+          tokens: lexer.inlineTokens(match[1]),
         }
       },
     },
 
     // Parse markdown token to Tiptap JSON
     parse: (token, helpers) => {
+      // Parse nested inline tokens into Tiptap inline content
       const content = helpers.parseInline(token.tokens || [])
       // Apply the 'highlight' mark to the parsed content
       return helpers.applyMark('highlight', content)
-    },
-
-    // Render Tiptap node back to markdown
-    render: (node, helpers) => {
-      const content = helpers.renderChildren(node.content || [])
-      return `==${content}==` // Wrap content in == syntax
     },
   },
 
@@ -78,12 +199,113 @@ export const Highlight = Mark.create({
 })
 ```
 
-Usage:
+**Notes:**
+- `helpers.parseInline` converts nested inline tokens into the tiptap-compatible `content` array.
+- `helpers.applyMark('highlight', content)` applies the mark to the parsed inline content and returns the structure the Markdown parser expects.
 
-```typescript
+---
+
+## Step 4: Add the renderer
+
+To support serializing editor state back to Markdown, implement the `render` function. It receives a Tiptap node (or mark node structure) and should return the Markdown string. Use `helpers.renderChildren` to serialize nested content.
+
+```js
+import { Mark } from '@tiptap/core'
+
+export const Highlight = Mark.create({
+  name: 'highlight',
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'mark' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['mark', HTMLAttributes, 0]
+  },
+
+  markdown: {
+    name: 'highlight',
+
+    tokenizer: {
+      name: 'highlight',
+      level: 'inline',
+      start: (src) => src.indexOf('=='),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^==([^=]+)==/.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'highlight',
+          raw: match[0],
+          text: match[1],
+          tokens: lexer.inlineTokens(match[1]),
+        }
+      },
+    },
+
+    parse: (token, helpers) => {
+      const content = helpers.parseInline(token.tokens || [])
+      return helpers.applyMark('highlight', content)
+    },
+
+    // Render Tiptap node back to markdown
+    render: (node, helpers) => {
+      const content = helpers.renderChildren(node.content || [])
+      // Wrap serialized children in == delimiters
+      return `==${content}==`
+    },
+  },
+
+  addCommands() {
+    return {
+      toggleHighlight:
+        () =>
+        ({ commands }) => {
+          return commands.toggleMark(this.name)
+        },
+    }
+  },
+})
+```
+
+**Notes:**
+- `helpers.renderChildren` serializes the node/mark children back to Markdown respecting nested formatting.
+- Ensure the `render` output matches the tokenizer's expectations (spacing/newlines). For inline marks like this the simple `==content==` form is appropriate.
+
+---
+
+## Usage
+
+Add the extension to your editor and set content from Markdown:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import Markdown from 'some-markdown-integration' // replace with your markdown integration
+import { Highlight } from './highlight'
+
 const editor = new Editor({
   extensions: [StarterKit, Markdown, Highlight],
 })
 
+// Set markdown content (the Markdown integration must support 'asMarkdown' or similar option)
 editor.commands.setContent('This is ==highlighted== text', { asMarkdown: true })
+
+// Toggle highlight programmatically
+editor.commands.toggleHighlight()
 ```
+
+---
+
+## Testing and edge cases
+
+- Nested inline formatting: The tokenizer used `lexer.inlineTokens(match[1])` so nested inline tokens (bold, emphasis, links) should be parsed and rendered correctly.
+- Greedy matches: The tokenizer uses a simple `^==([^=]+)==` regex — this will not match content containing `==` inside. If you need to support nested `==` or multiline highlights, extend the regex accordingly.
+- Whitespace handling: Some Markdown flavors permit spaces inside delimiters (e.g., `== text ==`). If you want to support that, update the tokenizer and the `render` output to preserve the chosen formatting.
+- Conflicts with other tokenizers: The `start` optimization helps the lexer pick candidate positions, but ensure your regex doesn't conflict with other inline tokenizers in your Markdown toolchain.

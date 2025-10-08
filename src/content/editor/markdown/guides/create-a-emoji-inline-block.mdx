@@ -1,16 +1,33 @@
 ---
-title: Create a Emoji Inline Block with Markdown Support
+title: Create an Emoji Inline Node with Markdown Support
 tags:
   - type: beta
 meta:
-  title: Create a Emoji Block with Markdown | Tiptap Editor Docs
-  description: Learn how to create a custom Emoji Inline Block with Markdown support in Tiptap Editor.
+  title: Create an Emoji Inline Node with Markdown | Tiptap Editor Docs
+  description: Learn how to create a custom Emoji inline node in Tiptap that supports shortcode Markdown (e.g., :smile:).
   category: Editor
 ---
 
-Support emoji shortcodes like `:smile:`:
+This guide shows how to add Markdown support for a small atomic inline node that renders emoji shortcodes (for example `:smile:`). We'll walk through four clear steps and include a full example at each step so you always have the complete context:
 
-```typescript
+1. Create the basic `emoji` Node (no Markdown).
+2. Step 2: Add a tokenizer to convert `:name:` into tokens.
+3. Step 3: Add the parser to turn tokens into Tiptap JSON.
+4. Step 4: Add the renderer to serialize Tiptap JSON back to Markdown.
+
+Example shorthand we'll support:
+
+```md
+Hello :smile: world!
+```
+
+---
+
+## Step 1: Create the basic `emoji` node
+
+Start by defining a small atomic inline node that stores a `name` attribute and renders an emoji in HTML.
+
+```js
 import { Node } from '@tiptap/core'
 
 const emojiMap = {
@@ -18,7 +35,7 @@ const emojiMap = {
   heart: '❤️',
   thumbsup: '👍',
   fire: '🔥',
-  // ... add more
+  // add more mappings as needed
 }
 
 export const Emoji = Node.create({
@@ -30,7 +47,7 @@ export const Emoji = Node.create({
 
   addAttributes() {
     return {
-      name: { default: null },
+      name: { default: 'smile' },
     }
   },
 
@@ -39,49 +56,249 @@ export const Emoji = Node.create({
   },
 
   renderHTML({ node }) {
-    const emoji = emojiMap[node.attrs.name] || node.attrs.name
+    const emoji = emojiMap[node.attrs.name] || node.attrs.name || 'smile'
+    return ['span', { 'data-emoji': node.attrs.name }, emoji]
+  },
+})
+```
+
+**Notes:**
+- The node is `atom: true` and `inline` so it behaves like an indivisible inline piece of content.
+- `emojiMap` is used to map short names to actual emoji characters for HTML output.
+
+---
+
+## Step 2: Add a custom Markdown tokenizer
+
+The tokenizer recognizes `:name:` shortcodes in inline Markdown and returns a token with the emoji name. Below is the full extension including the tokenizer so you can see how it integrates with the base Node.
+
+```js
+import { Node } from '@tiptap/core'
+
+const emojiMap = {
+  smile: '😊',
+  heart: '❤️',
+  thumbsup: '👍',
+  fire: '🔥',
+  // add more mappings as needed
+}
+
+export const Emoji = Node.create({
+  name: 'emoji',
+
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      name: { default: 'smile' },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-emoji]' }]
+  },
+
+  renderHTML({ node }) {
+    const emoji = emojiMap[node.attrs.name] || node.attrs.name || 'smile'
+    return ['span', { 'data-emoji': node.attrs.name }, emoji]
+  },
+
+  // Markdown integration: tokenizer only (parse & render will be added later)
+  markdown: {
+    name: 'emoji',
+
+    tokenizer: {
+      name: 'emoji',
+      level: 'inline',
+      // Fast hint for the lexer
+      start: (src) => src.indexOf(':'),
+      tokenize: (src, tokens, lexer) => {
+        // Match :name: where name can include letters, numbers, underscores, plus signs
+        const match = /^:([a-z0-9_+]+):/i.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'emoji',
+          raw: match[0],      // full match like ":smile:"
+          emojiName: match[1], // captured name like "smile"
+        }
+      },
+    },
+  },
+})
+```
+
+**Implementation notes:**
+- `start` is an optimization used by the lexer to quickly find candidate positions.
+- The tokenizer returns a token object with `type`, `raw`, and `emojiName` fields that the parser will consume.
+- Keep the tokenizer inline-level (`level: 'inline'`) so it integrates with inline parsing.
+
+---
+
+## Step 3: Add the parser
+
+The `parse` function converts the tokenizer token into a Tiptap node. For an atomic inline node, it should return a node object with the `type` and `attrs`. Here's the full extension now including tokenizer + parse.
+
+```js
+import { Node } from '@tiptap/core'
+
+const emojiMap = {
+  smile: '😊',
+  heart: '❤️',
+  thumbsup: '👍',
+  fire: '🔥',
+  // add more mappings as needed
+}
+
+export const Emoji = Node.create({
+  name: 'emoji',
+
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      name: { default: 'smile' },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-emoji]' }]
+  },
+
+  renderHTML({ node }) {
+    const emoji = emojiMap[node.attrs.name] || node.attrs.name || 'smile'
+    return ['span', { 'data-emoji': node.attrs.name }, emoji]
+  },
+
+  // Markdown integration: tokenizer + parse
+  markdown: {
+    name: 'emoji',
+
+    tokenizer: {
+      name: 'emoji',
+      level: 'inline',
+      start: (src) => src.indexOf(':'),
+      tokenize: (src, tokens, lexer) => {
+        const match = /^:([a-z0-9_+]+):/i.exec(src)
+        if (!match) return undefined
+
+        return {
+          type: 'emoji',
+          raw: match[0],
+          emojiName: match[1],
+        }
+      },
+    },
+
+    // Parse token into a tiptap node
+    parse: (token, helpers) => {
+      return {
+        type: 'emoji',
+        attrs: { name: token.emojiName },
+      }
+    },
+  },
+})
+```
+
+**Notes:**
+- The `parse` function should return an object where `type` matches the node `name`.
+- Atomic nodes do not supply `content`; they are standalone nodes with attributes.
+
+---
+
+## Step 4: Add the renderer
+
+To support serializing the editor state back to Markdown shortcodes, implement the `render` function. It receives a Tiptap node and should return a Markdown string representing that node. Below is the full extension with tokenizer, parse, and render included.
+
+```js
+import { Node } from '@tiptap/core'
+
+const emojiMap = {
+  smile: '😊',
+  heart: '❤️',
+  thumbsup: '👍',
+  fire: '🔥',
+  // add more mappings as needed
+}
+
+export const Emoji = Node.create({
+  name: 'emoji',
+
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      name: { default: 'smile' },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-emoji]' }]
+  },
+
+  renderHTML({ node }) {
+    const emoji = emojiMap[node.attrs.name] || node.attrs.name || 'smile'
     return ['span', { 'data-emoji': node.attrs.name }, emoji]
   },
 
   markdown: {
     name: 'emoji',
 
-    // Custom tokenizer for :emoji: shortcode syntax
     tokenizer: {
       name: 'emoji',
       level: 'inline',
       start: (src) => src.indexOf(':'),
       tokenize: (src, tokens, lexer) => {
-        // Match :name: pattern (e.g., :smile:, :heart:)
-        const match = /^:([a-z0-9_+]+):/.exec(src)
+        const match = /^:([a-z0-9_+]+):/i.exec(src)
         if (!match) return undefined
 
         return {
           type: 'emoji',
-          raw: match[0], // Full match: :smile:
-          emojiName: match[1], // Emoji name: smile
+          raw: match[0],
+          emojiName: match[1],
         }
       },
     },
 
-    // Parse token to Tiptap JSON (emoji is an atomic node)
     parse: (token, helpers) => {
       return {
         type: 'emoji',
-        attrs: { name: token.emojiName }, // Store emoji name
+        attrs: { name: token.emojiName },
       }
     },
 
-    // Render node back to :emoji: syntax
     render: (node, helpers) => {
+      // Serialize back to :name: shortcode. Use the stored name attribute.
       return `:${node.attrs?.name || 'unknown'}:`
     },
   },
 })
 ```
 
-Usage:
+---
 
-```typescript
+## Usage
+
+Set the editor content from Markdown that contains emoji shortcodes. Depending on your Markdown integration, pass `asMarkdown: true` or use the API your setup provides:
+
+```js
 editor.commands.setContent('Hello :smile: :heart: :thumbsup:', { asMarkdown: true })
 ```
+
+This will produce inline `emoji` nodes with corresponding `name` attributes, and HTML rendering will display the mapped emoji characters (via `emojiMap`).
+
+---
+
+## Testing and edge cases
+
+- Unknown names: If a shortcode isn't in `emojiMap`, the node currently renders the raw `name` in the span (you may prefer to show a fallback or remove the node). Validate or normalize names in `tokenize` or `parse` if needed.
+- Case sensitivity: The tokenizer uses an `i` flag to allow case-insensitive names; ensure your `emojiMap` keys match your chosen convention or normalize them with `.toLowerCase()`.
+- Inline parsing: Because this is an inline tokenizer, it will be tried within paragraph and inline contexts — ensure it doesn't conflict with other inline tokenizers (like emphasis) by adjusting the regex or using surrounding whitespace checks if necessary.
+- Atomic behavior: The node is atomic, so it won't be editable as text. This is appropriate for emoji elements but might need different behavior for editable shortcodes.
