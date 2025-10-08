@@ -518,34 +518,103 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Keyboard shortcuts',
         },
         {
-          href: '/editor/core-concepts/markdown',
-          title: 'Markdown',
-          beta: true,
-          children: [
-            { href: '/editor/core-concepts/markdown/introduction', title: 'Introduction' },
-            { href: '/editor/core-concepts/markdown/examples', title: 'Examples' },
-            { href: '/editor/core-concepts/markdown/installation', title: 'Installation' },
-            { href: '/editor/core-concepts/markdown/basic-usage', title: 'Basic Usage' },
-            { href: '/editor/core-concepts/markdown/advanced-usage', title: 'Advanced Usage' },
-            {
-              href: '/editor/core-concepts/markdown/extension-integration',
-              title: 'Extension Integration',
-            },
-            {
-              href: '/editor/core-concepts/markdown/custom-tokenizers',
-              title: 'Custom Tokenizers',
-            },
-            { href: '/editor/core-concepts/markdown/utilities', title: 'Utilities' },
-            { href: '/editor/core-concepts/markdown/api', title: 'API Reference' },
-          ],
-        },
-        {
           title: 'Persistence',
           href: '/editor/core-concepts/persistence',
         },
         {
           title: 'ProseMirror',
           href: '/editor/core-concepts/prosemirror',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/editor/markdown',
+      title: 'Markdown',
+      tags: ['beta'],
+      children: [
+        { href: '/editor/markdown', title: 'Introduction' },
+        { href: '/editor/markdown/glossary', title: 'Glossary' },
+        {
+          href: '/editor/markdown/getting-started',
+          title: 'Getting Started',
+          children: [
+            {
+              title: 'Installation & Setup',
+              href: '/editor/markdown/getting-started/installation',
+            },
+            {
+              title: 'Basic Usage',
+              href: '/editor/markdown/getting-started/basic-usage',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/advanced-usage',
+          title: 'Advanced Usage',
+          children: [
+            {
+              title: 'Custom Tokenizer',
+              href: '/editor/markdown/advanced-usage/custom-tokenizer',
+            },
+            {
+              title: 'Custom Parsing',
+              href: '/editor/markdown/advanced-usage/custom-parsing',
+            },
+            {
+              title: 'Custom Serializing',
+              href: '/editor/markdown/advanced-usage/custom-serializing',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/guides',
+          title: 'Guides',
+          children: [
+            {
+              title: 'Integrate Markdown in your Extension',
+              href: '/editor/markdown/guides/integrate-markdown-in-your-extension',
+            },
+            {
+              title: 'Create a Highlight extension',
+              href: '/editor/markdown/guides/create-a-highlight-mark',
+            },
+            {
+              title: 'Create a Admonition extension',
+              href: '/editor/markdown/guides/create-a-admonition-block',
+            },
+            {
+              title: 'Create a Emoji extension',
+              href: '/editor/markdown/guides/create-a-emoji-inline-block',
+            },
+          ],
+        },
+        { href: '/editor/markdown/examples', title: 'Examples' },
+        {
+          href: '/editor/markdown/api',
+          title: 'API Reference',
+          children: [
+            {
+              title: 'Editor',
+              href: '/editor/markdown/api/editor',
+            },
+            {
+              title: 'MarkdownManager',
+              href: '/editor/markdown/api/markdown-manager',
+            },
+            {
+              title: 'Extension',
+              href: '/editor/markdown/api/extension',
+            },
+            {
+              title: 'Utilities',
+              href: '/editor/markdown/api/utilities',
+            },
+            {
+              title: 'Types',
+              href: '/editor/markdown/api/types',
+            },
+          ],
         },
       ],
     },
