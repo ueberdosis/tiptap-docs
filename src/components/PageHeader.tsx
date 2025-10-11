@@ -35,7 +35,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[18ch]',
+      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[45ch]',
       className,
     )
 
