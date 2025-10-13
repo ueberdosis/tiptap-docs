@@ -534,7 +534,6 @@ export const sidebarConfig: SidebarConfig = {
       tags: ['beta'],
       children: [
         { href: '/editor/markdown', title: 'Introduction' },
-        { href: '/editor/markdown/glossary', title: 'Glossary' },
         {
           href: '/editor/markdown/getting-started',
           title: 'Getting Started',
@@ -616,6 +615,7 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+        { href: '/editor/markdown/glossary', title: 'Glossary' },
       ],
     },
     {
