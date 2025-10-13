@@ -575,15 +575,15 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/markdown/guides/integrate-markdown-in-your-extension',
             },
             {
-              title: 'Create a Highlight extension',
+              title: 'Create a Highlight Extension',
               href: '/editor/markdown/guides/create-a-highlight-mark',
             },
             {
-              title: 'Create a Admonition extension',
+              title: 'Create a Admonition Extension',
               href: '/editor/markdown/guides/create-a-admonition-block',
             },
             {
-              title: 'Create a Emoji extension',
+              title: 'Create a Emoji Extension',
               href: '/editor/markdown/guides/create-a-emoji-inline-block',
             },
           ],
