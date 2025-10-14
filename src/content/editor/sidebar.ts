@@ -795,6 +795,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Suggestion',
             },
             {
+              href: '/editor/api/utilities/create-resizable-node-view',
+              title: 'Resizable Node Views',
+            },
+            {
               href: '/editor/api/utilities/tiptap-for-php',
               title: 'Tiptap for PHP',
             },
