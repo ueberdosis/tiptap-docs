@@ -529,6 +529,97 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/editor/markdown',
+      title: 'Markdown',
+      tags: ['beta'],
+      children: [
+        { href: '/editor/markdown', title: 'Introduction' },
+        {
+          href: '/editor/markdown/getting-started',
+          title: 'Getting Started',
+          children: [
+            {
+              title: 'Installation & Setup',
+              href: '/editor/markdown/getting-started/installation',
+            },
+            {
+              title: 'Basic Usage',
+              href: '/editor/markdown/getting-started/basic-usage',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/advanced-usage',
+          title: 'Advanced Usage',
+          children: [
+            {
+              title: 'Custom Tokenizer',
+              href: '/editor/markdown/advanced-usage/custom-tokenizer',
+            },
+            {
+              title: 'Custom Parsing',
+              href: '/editor/markdown/advanced-usage/custom-parsing',
+            },
+            {
+              title: 'Custom Serializing',
+              href: '/editor/markdown/advanced-usage/custom-serializing',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/guides',
+          title: 'Guides',
+          children: [
+            {
+              title: 'Integrate Markdown in your Extension',
+              href: '/editor/markdown/guides/integrate-markdown-in-your-extension',
+            },
+            {
+              title: 'Create a Highlight Extension',
+              href: '/editor/markdown/guides/create-a-highlight-mark',
+            },
+            {
+              title: 'Create a Admonition Extension',
+              href: '/editor/markdown/guides/create-a-admonition-block',
+            },
+            {
+              title: 'Create a Emoji Extension',
+              href: '/editor/markdown/guides/create-a-emoji-inline-block',
+            },
+          ],
+        },
+        { href: '/editor/markdown/examples', title: 'Examples' },
+        {
+          href: '/editor/markdown/api',
+          title: 'API Reference',
+          children: [
+            {
+              title: 'Editor',
+              href: '/editor/markdown/api/editor',
+            },
+            {
+              title: 'MarkdownManager',
+              href: '/editor/markdown/api/markdown-manager',
+            },
+            {
+              title: 'Extension',
+              href: '/editor/markdown/api/extension',
+            },
+            {
+              title: 'Utilities',
+              href: '/editor/markdown/api/utilities',
+            },
+            {
+              title: 'Types',
+              href: '/editor/markdown/api/types',
+            },
+          ],
+        },
+        { href: '/editor/markdown/glossary', title: 'Glossary' },
+      ],
+    },
+    {
+      type: 'group',
       href: '/editor/api',
       title: 'API',
       children: [
