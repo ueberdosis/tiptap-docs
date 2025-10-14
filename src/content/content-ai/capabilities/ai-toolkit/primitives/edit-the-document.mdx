@@ -2,7 +2,7 @@
 title: Edit the document
 meta:
   title: Edit the document | Tiptap Content AI
-  description: Insert Text/HTML/JSON and apply precise HTML diffs with review options.
+  description: Edit the document with AI in different formats.
   category: Content AI
 ---
 
@@ -104,7 +104,7 @@ Stream plain text content into the editor in real-time.
 
 ### Parameters
 
-- `stream` (`AsyncIterable<string | Uint8Array>`): The stream of text content. It can be any object that implements the [Async Iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols), such as a [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) or a [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_generators).
+- `stream` (`AsyncIterable<string | Uint8Array>`): The stream of text content. It can be any object that implements the [Async Iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols), such as a [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_generators).
 - `options?` (`StreamTextOptions`): Options for the `streamText` method
   - `position?` (`InsertPosition`): Where to insert. [See options](#insertposition-type). Default: `'selection'`
   - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior
@@ -140,7 +140,7 @@ Stream HTML content into the editor in real-time.
 
 ### Parameters
 
-- `stream` (`AsyncIterable<string | Uint8Array>`): The stream of text content. It can be any object that implements the [Async Iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols), such as a [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) or a [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_generators).
+- `stream` (`AsyncIterable<string | Uint8Array> | ReadableStream<string | Uint8Array>`): The stream of HTML content. It can be any object that implements the [Async Iterable protocol](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols), such as a [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) or a [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_generators).
 - `options?` (`StreamHtmlOptions`): Options for the `streamHtml` method
   - `position?` (`InsertPosition`): Where to insert. [See options](#insertposition-type). Default: `'selection'`
   - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior
@@ -169,17 +169,14 @@ const stream = response.body
 toolkit.streamHtml(stream)
 ```
 
-## `applyHtmlDiff`
+## `applyHtmlPatch`
 
 Apply context-aware HTML diffs to a chunk or the whole document.
 
 ### Parameters
 
-- `diffs` (`HtmlDiff[]`): Each item has:
-  - `context?` (`string`): Text/HTML that appears before `delete` to anchor the change
-  - `delete` (`string`): Exact HTML to remove
-  - `insert` (`string`): HTML to insert
-- `options?` (`ApplyHtmlDiffOptions`): Options for the `applyHtmlDiff` method
+- `operations` (`PatchOperation[]`): A list of patch operations.
+- `options?` (`ApplyHtmlPatchOptions`): Options for the `applyHtmlPatch` method
   - `chunkIndex?` (`number`): Target chunk index. Default: `0`
   - `chunkSize?` (`number`): The maximum size of a string that can be passed as input to the AI model. Prevents the AI from reading too much content at once so that the context window of the AI model is not exceeded. Default: `32000`
   - `reviewOptions?` (`Omit<ReviewOptions, 'diffMode'>`): Control preview/review behavior.
@@ -191,15 +188,44 @@ Apply context-aware HTML diffs to a chunk or the whole document.
       - `renderDecorations?` (`RenderDecorations<{ suggestion: Suggestion }>`): A function to render the suggestion as ProseMirror decorations
     - `metadata?` (`Record<string, any>`): Extra metadata for the suggestions that can be used to store additional information about them (e.g. their source or their category). It is not used internally by the extension but it may help developers customize how the suggestions are displayed in the UI.
 
-### Returns (`ApplyHtmlDiffResult`)
+#### `PatchOperation` (type)
 
-- `errorMessage` (`string | null`): `null` when all diffs applied; error message otherwise
+A `PatchOperation` can be one of two types:
+
+`JumpOperation`: A navigation operation that moves the cursor to a specific context in the document.
+
+- `type` (`'jump'`): The operation type identifier
+- `context` (`string`): The context string to search for and position the cursor after
+
+`ReplaceOperation`: A replace operation that deletes and inserts text at the current cursor position.
+
+Replace operations perform the actual content modifications by removing specified text and replacing it with new text. The delete text must be found at the current cursor position for the operation to succeed.
+
+- `type` (`'replace'`): The operation type identifier
+- `delete` (`string`): The exact text to delete from the document (can be empty for pure insertions)
+- `insert` (`string`): The text to insert in place of the deleted text
+
+### Returns (`ApplyHtmlPatchResult`)
+
+- `docChanged` (`boolean`): Whether the document was modified
+- `error` (`ApplyPatchError | null`): Error if the diff application failed because not all diffs could be applied, null if successful
+
+The method can edit the document but return an error at the same time. This happens when some operations are applied but some fail.
+
+#### `ApplyPatchError` (type)
+
+Error thrown when applying a Universal Patch Format operation fails. This error provides comprehensive context about the failure, including which operation failed, what operations succeeded before it, and the current state of the content.
+
+- `operationIndex` (`number`): The zero-based index of the operation that failed
+- `previousOperations` (`PatchOperation[]`): Array of operations that were successfully applied before the failure
+- `operation` (`PatchOperation`): The operation that failed to apply
+- `contentAfterCursor` (`string`): The content after the current cursor position when the error occurred
 
 ### Example
 
 ```ts
 // Replace "fine" with emphasized "great" in the first chunk
-toolkit.applyHtmlDiff([{ context: '<p>This is ', delete: 'fine', insert: '<em>great</em>' }])
+toolkit.applyHtmlPatch([{ type: 'replace', delete: 'fine', insert: '<em>great</em>' }])
 ```
 
 ---

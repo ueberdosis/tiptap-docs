@@ -10,6 +10,7 @@ import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 import { Tag } from '@/components/ui/Tag'
+import PrevNextTiles from '@/components/PrevNextTiles'
 
 type Props = {
   params: {
@@ -128,6 +129,10 @@ export default async function MarkdownPage({ params }: Props) {
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
+          <PrevNextTiles
+            config={sidebar.sidebarConfig}
+            currentPath={`/${params.markdownPath.join('/')}`}
+          />
         </Layout.Content>
         {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
       </Layout.Wrapper>

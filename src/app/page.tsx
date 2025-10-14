@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
+import PrevNextTiles from '@/components/PrevNextTiles'
 
 export async function generateMetadata() {
   // @ts-ignore
@@ -75,6 +76,7 @@ export default async function HomePage() {
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
+          <PrevNextTiles config={sidebar.sidebarConfig} currentPath="/" />
         </Layout.Content>
         <Layout.SecondarySidebar />
       </Layout.Wrapper>

@@ -18,62 +18,149 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '',
-      title: 'Capabilities',
-      children: [
-        {
-          title: 'Generate content',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/overview',
-        },
-        {
-          title: 'Autocomplete',
-          isActive: false,
-          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
-        },
-        {
-          title: 'Suggest content',
-          isActive: false,
-          href: '/content-ai/capabilities/suggestion/overview',
-        },
-        {
-          title: 'Review changes',
-          isActive: false,
-          href: '/content-ai/capabilities/changes/overview',
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/content-ai/custom-llms',
-      title: 'Bring your own AI',
-      children: [
-        {
-          title: 'Integrate a custom LLM',
-          href: '/content-ai/custom-llms',
-        },
-        {
-          title: 'Integrate a custom agent',
-          isActive: false,
-          href: '/content-ai/capabilities/agent/overview',
-          tags: ['New'],
-        },
-        {
-          title: 'Text editing tools',
-          href: '/content-ai/tools-for-ai-agents/text-editing-tools',
-          tags: ['New'],
-        },
-      ],
-    },
-    {
-      type: 'group',
       href: '/content-ai/capabilities',
       title: 'AI Extensions',
       children: [
         {
+          title: 'AI Toolkit',
+          href: '/content-ai/capabilities/ai-toolkit',
+          tags: ['New'],
+          beta: true,
+          children: [
+            {
+              title: 'Overview',
+              href: '/content-ai/capabilities/ai-toolkit/overview',
+            },
+            {
+              title: 'Quickstart guides',
+              href: '/content-ai/capabilities/ai-toolkit/guides',
+              children: [
+                {
+                  title: 'AI agent chatbot',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+                },
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
+                },
+                {
+                  title: 'Review as summary',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
+                },
+                {
+                  title: 'Tool streaming',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
+                },
+                {
+                  title: 'Multi-document AI agent',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
+                },
+                {
+                  title: 'Inline edits',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+                },
+              ],
+            },
+            {
+              title: 'Primitives',
+              href: '/content-ai/capabilities/ai-toolkit/primitives',
+              children: [
+                {
+                  title: 'Execute tool (AI agents)',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+                },
+                {
+                  title: 'Read the document',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/read-the-document',
+                },
+                {
+                  title: 'Edit the document',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
+                },
+                {
+                  title: 'Schema awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
+                },
+                {
+                  title: 'Display suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
+                },
+                {
+                  title: 'Compare documents',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
+                },
+                {
+                  title: 'Diff utility',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
+                },
+              ],
+            },
+            {
+              title: 'AI agent tools',
+              href: '/content-ai/capabilities/ai-toolkit/tools',
+              children: [
+                {
+                  title: 'Available tools',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+                },
+                {
+                  title: 'Vercel AI SDK',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
+                },
+                {
+                  title: 'LangChain.js',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+                },
+                {
+                  title: 'OpenAI',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
+                },
+                {
+                  title: 'Anthropic',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+                },
+                {
+                  title: 'Other providers',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+                },
+              ],
+            },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/ai-toolkit/changelog',
+              children: [
+                {
+                  title: 'AI Toolkit',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+                },
+                {
+                  title: 'AI SDK tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
+                },
+                {
+                  title: 'LangChain.js tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
+                },
+                {
+                  title: 'OpenAI tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
+                },
+                {
+                  title: 'Anthropic tools',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-anthropic',
+                },
+                {
+                  title: 'Tool definitions',
+                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
+                },
+              ],
+            },
+          ],
+        },
+        {
           title: 'AI Generation',
           tags: ['Start'],
-          href: '/content-ai/capabilities/generation/',
+          href: '/content-ai/capabilities/generation',
           children: [
             {
               title: 'Overview',
@@ -244,7 +331,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Agent',
+          title: 'AI Assistant',
           href: '/content-ai/capabilities/agent',
           tags: ['Team'],
           beta: true,
@@ -403,124 +490,45 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+      ],
+    },
+    {
+      type: 'group',
+      href: '',
+      title: 'Guides',
+      children: [
         {
-          title: 'AI Toolkit',
-          href: '/content-ai/capabilities/ai-toolkit',
-          tags: ['Alpha'],
-          children: [
-            {
-              title: 'Overview',
-              href: '/content-ai/capabilities/ai-toolkit/overview',
-            },
-            {
-              title: 'Quickstart guides',
-              href: '/content-ai/capabilities/ai-toolkit/guides',
-              children: [
-                {
-                  title: 'AI agent chatbot',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
-                },
-                {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
-                },
-                {
-                  title: 'Review as summary',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
-                },
-                {
-                  title: 'Tool streaming',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
-                },
-              ],
-            },
-            {
-              title: 'Primitives',
-              href: '/content-ai/capabilities/ai-toolkit/primitives',
-              children: [
-                {
-                  title: 'Execute tool (AI agents)',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
-                },
-                {
-                  title: 'Read the document',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/read-the-document',
-                },
-                {
-                  title: 'Edit the document',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
-                },
-                {
-                  title: 'Schema awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
-                },
-                {
-                  title: 'Display suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
-                },
-                {
-                  title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
-                },
-                {
-                  title: 'Diff utility',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
-                },
-              ],
-            },
-            {
-              title: 'AI agent tools',
-              href: '/content-ai/capabilities/ai-toolkit/tools',
-              children: [
-                {
-                  title: 'Available tools',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
-                },
-                {
-                  title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
-                },
-                {
-                  title: 'LangChain.js',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
-                },
-                {
-                  title: 'OpenAI',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
-                },
-                {
-                  title: 'Other providers',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
-                },
-              ],
-            },
-            {
-              title: 'Changelog',
-              href: '/content-ai/capabilities/ai-toolkit/changelog',
-              children: [
-                {
-                  title: 'AI Toolkit',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
-                },
-                {
-                  title: 'AI SDK tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
-                },
-                {
-                  title: 'LangChain.js tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
-                },
-                {
-                  title: 'OpenAI tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
-                },
-                {
-                  title: 'Tool definitions',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
-                },
-              ],
-            },
-          ],
+          title: 'Generate content',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/overview',
+        },
+        {
+          title: 'Autocomplete',
+          isActive: false,
+          href: '/content-ai/capabilities/generation/text-generation/autocompletion',
+        },
+        {
+          title: 'Suggest content',
+          isActive: false,
+          href: '/content-ai/capabilities/suggestion/overview',
+        },
+        {
+          title: 'Build an AI agent',
+          isActive: false,
+          href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+          tags: ['New'],
+        },
+        {
+          title: 'Review changes',
+          isActive: false,
+          href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
+          tags: ['New'],
+        },
+        {
+          title: 'Compare documents',
+          isActive: false,
+          href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
+          tags: ['New'],
         },
       ],
     },
@@ -529,6 +537,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '/content-ai/resources',
       title: 'Resources',
       children: [
+        {
+          title: 'Custom AI models',
+          href: '/content-ai/custom-llms',
+        },
         {
           title: 'Privacy',
           href: '/content-ai/resources/privacy',
