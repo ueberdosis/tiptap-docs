@@ -59,6 +59,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Inline edits',
                   href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
                 },
+                {
+                  title: 'AI engineering guide',
+                  href: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
+                },
               ],
             },
             {

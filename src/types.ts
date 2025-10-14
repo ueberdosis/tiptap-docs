@@ -44,6 +44,7 @@ export type GeneralPageTag = {
     | 'team'
     | 'restricted'
     | 'mit'
+    | 'business'
   tooltip?: string
 }
 
