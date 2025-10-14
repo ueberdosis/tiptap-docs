@@ -141,6 +141,18 @@ export const PageHeaderTag = ({
     return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Team plan</Tag>
   }
 
+  if (tag.type === 'business') {
+    return (
+      <Tag
+        tooltip={
+          tag.tooltip || 'Integrate and use while subscribed to the Business or Enterprise plan.'
+        }
+      >
+        Business plan
+      </Tag>
+    )
+  }
+
   if (tag.type === 'ai') {
     return <Tag tooltip={tag.tooltip}>Content AI</Tag>
   }
