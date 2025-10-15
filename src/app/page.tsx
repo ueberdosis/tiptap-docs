@@ -62,10 +62,10 @@ export default async function HomePage() {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeaderBreadcrumbs
-                  config={sidebar.sidebarConfig}
-                  rightContent={<CopyMarkdownButton markdownPath={['index']} />}
-                />
+                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
+                  <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
+                  <CopyMarkdownButton markdownPath={['index']} />
+                </div>
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               {pageMdx.frontmatter?.tags ? (

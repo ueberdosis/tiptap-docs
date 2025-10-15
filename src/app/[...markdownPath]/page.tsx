@@ -100,10 +100,10 @@ export default async function MarkdownPage({ params }: Props) {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeaderBreadcrumbs
-                  config={sidebar.sidebarConfig}
-                  rightContent={<CopyMarkdownButton markdownPath={params.markdownPath} />}
-                />
+                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
+                  <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
+                  <CopyMarkdownButton markdownPath={params.markdownPath} />
+                </div>
               ) : null}
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>

@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { forwardRef, ReactNode } from 'react'
+import { forwardRef } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import Link from '@/components/Link'
 import { SidebarConfig } from '@/types'
@@ -11,11 +11,10 @@ import { generateBreadcrumbs } from '@/utils/generateBreadcrumbs'
 export type PageHeaderBreadcrumbsProps = {
   asChild?: boolean
   config: SidebarConfig
-  rightContent?: ReactNode
 } & React.HTMLAttributes<HTMLDivElement>
 
 export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadcrumbsProps>(
-  ({ asChild, config, className, rightContent, ...props }, ref) => {
+  ({ asChild, config, className, ...props }, ref) => {
     'use client'
 
     const Component = asChild ? Slot : 'div'
@@ -45,7 +44,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
     }
 
     return (
-      <div className={cn('flex items-start justify-between flex-wrap gap-y-2 mb-4', className)}>
+      <>
         <Component className={wrapperClass} {...props} ref={ref}>
           {crumbs.map((crumb, i) => (
             <div key={crumb.href}>
@@ -62,12 +61,11 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
             </div>
           ))}
         </Component>
-        {rightContent}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaLdJson) }}
         ></script>
-      </div>
+      </>
     )
   },
 )
