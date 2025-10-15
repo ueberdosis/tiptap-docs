@@ -1,9 +1,8 @@
 'use client'
 
 import { useClipboard } from '@mantine/hooks'
-import { CopyIcon } from 'lucide-react'
-import { useCallback } from 'react'
-import { toast } from 'sonner'
+import { CheckIcon, CopyIcon } from 'lucide-react'
+import { useState } from 'react'
 import { cn } from '@/utils'
 
 export type CopyMarkdownButtonClientProps = {
@@ -13,24 +12,28 @@ export type CopyMarkdownButtonClientProps = {
 
 export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownButtonClientProps) => {
   const clipboard = useClipboard({ timeout: 500 })
+  const [isCopied, setIsCopied] = useState(false)
 
-  const handleCopy = useCallback(() => {
+  const handleCopy = () => {
+    if (isCopied) return
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 1500)
     clipboard.copy(content)
-    toast('Copied markdown to clipboard', { duration: 1200 })
-  }, [content, clipboard])
+  }
+
+  const IconComponent = isCopied ? CheckIcon : CopyIcon
 
   return (
     <button
       onClick={handleCopy}
       className={cn(
-        'flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700',
-        'bg-gray-50 border border-gray-200 rounded-lg',
-        'hover:bg-gray-100 hover:border-gray-300',
+        'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
+        'hover:bg-grayAlpha-100 rounded-lg',
         'transition-colors duration-200',
         className,
       )}
     >
-      <CopyIcon className="size-4" />
+      <IconComponent className="size-4" />
       Copy markdown
     </button>
   )
