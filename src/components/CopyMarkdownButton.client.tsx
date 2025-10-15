@@ -25,8 +25,9 @@ export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownBut
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      aria-disabled={isCopied}
+      disabled={isCopied}
       aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
       className={cn(
         'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
