@@ -5,13 +5,14 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
-import { PageHeaderWithCopyButton } from '@/components/PageHeaderWithCopyButton'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
+import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 
 type Props = {
   params: {
@@ -99,9 +100,9 @@ export default async function MarkdownPage({ params }: Props) {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeaderWithCopyButton
+                <PageHeaderBreadcrumbs
                   config={sidebar.sidebarConfig}
-                  markdownPath={params.markdownPath}
+                  rightContent={<CopyMarkdownButton markdownPath={params.markdownPath} />}
                 />
               ) : null}
               {pageMdx.frontmatter?.title ? (

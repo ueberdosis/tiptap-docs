@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { forwardRef } from 'react'
+import { forwardRef, ReactNode } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import Link from '@/components/Link'
 import { SidebarConfig } from '@/types'
@@ -11,10 +11,11 @@ import { generateBreadcrumbs } from '@/utils/generateBreadcrumbs'
 export type PageHeaderBreadcrumbsProps = {
   asChild?: boolean
   config: SidebarConfig
+  rightContent?: ReactNode
 } & React.HTMLAttributes<HTMLDivElement>
 
 export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadcrumbsProps>(
-  ({ asChild, config, className, ...props }, ref) => {
+  ({ asChild, config, className, rightContent, ...props }, ref) => {
     'use client'
 
     const Component = asChild ? Slot : 'div'
@@ -22,7 +23,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
 
     const crumbs = generateBreadcrumbs(config, pathname)
 
-    const wrapperClass = cn('flex items-center gap-2 mb-3', className)
+    const wrapperClass = cn('flex items-center gap-2 mb-3 flex-wrap', className)
 
     const breadcrumbClass = cn(
       'text-sm leading-[110%] text-grayAlpha-500 font-semibold select-none',
@@ -44,7 +45,16 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
     }
 
     return (
-      <>
+      <div
+        className={cn(
+          'flex items-start justify-between flex-wrap gap-y-2 mb-4',
+          // // If the text is too long, display the in a single line
+          // crumbs.map((crumb) => crumb.text).join(' / ').length > 27
+          //   ? 'flex-col md:flex-row gap-2'
+          //   : '',
+          className,
+        )}
+      >
         <Component className={wrapperClass} {...props} ref={ref}>
           {crumbs.map((crumb, i) => (
             <div key={crumb.href}>
@@ -61,11 +71,12 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
             </div>
           ))}
         </Component>
+        {rightContent}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaLdJson) }}
         ></script>
-      </>
+      </div>
     )
   },
 )
