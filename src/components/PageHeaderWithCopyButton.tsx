@@ -10,12 +10,15 @@ export type PageHeaderWithCopyButtonProps = {
   config: SidebarConfig
 
   /**
-   * Path to the markdown file. Used by the CopyMarkdownButton component.
+   * Path to the markdown file. Used by the CopyMarkdownButton component. It is
+   * formatted as an array of strings where each string is a segment of the
+   * path.
    */
   markdownPath?: string[]
 
   /**
-   * Class name for the wrapper div element that organizes the layout of the breadcrumbs and the copy button.
+   * Class name for the wrapper div element that organizes the layout of the
+   * breadcrumbs and the copy button.
    */
   className?: string
 }
