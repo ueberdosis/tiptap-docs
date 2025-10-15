@@ -1,12 +1,13 @@
+import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 import { Layout } from '@/components/layouts/Layout'
-import { createMetadata } from '@/server/createMetadata'
-import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
-import { PageHeaderWithCopyButton } from '@/components/PageHeaderWithCopyButton'
-import { createCanonicalUrl } from '@/server/createCanonicalUrl'
-import { FULL_DOMAIN } from '@/utils/constants'
-import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
+import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import PrevNextTiles from '@/components/PrevNextTiles'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
+import { createMetadata } from '@/server/createMetadata'
+import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
+import { PageFrontmatter } from '@/types'
+import { FULL_DOMAIN } from '@/utils/constants'
 
 export async function generateMetadata() {
   // @ts-ignore
@@ -61,7 +62,10 @@ export default async function HomePage() {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeaderWithCopyButton config={sidebar.sidebarConfig} markdownPath={['index']} />
+                <PageHeaderBreadcrumbs
+                  config={sidebar.sidebarConfig}
+                  rightContent={<CopyMarkdownButton markdownPath={['index']} />}
+                />
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               {pageMdx.frontmatter?.tags ? (
