@@ -27,38 +27,33 @@ export const CopyMarkdownButton = async ({ markdownPath, className }: CopyMarkdo
   try {
     // Sanitize path segments to prevent directory traversal
     const sanitizedSegments = markdownPath.map(sanitizePathSegment)
-    const directPath = `${sanitizedSegments.join('/')}.mdx`
-    const indexPath = `${sanitizedSegments.join('/')}/index.mdx`
-
     const contentDir = path.join(process.cwd(), 'src/content')
-
-    // Resolve paths and validate they stay within contentDir
-    const directFilePath = path.resolve(contentDir, directPath)
-    const indexFilePath = path.resolve(contentDir, indexPath)
-
-    // Security check: ensure resolved paths are within contentDir
-    if (
-      !isPathWithinContentDir(directFilePath, contentDir) ||
-      !isPathWithinContentDir(indexFilePath, contentDir)
-    ) {
-      console.error('Path traversal attempt detected')
-      return null
-    }
+    const basePath = path.join(contentDir, ...sanitizedSegments)
+    const directFilePath = `${basePath}.mdx`
+    const indexFilePath = path.join(basePath, 'index.mdx')
 
     let filePath: string | null = null
 
-    // Check for direct path first using async I/O
-    try {
-      await fs.access(directFilePath)
-      filePath = directFilePath
-    } catch {
-      // Check for index path
+    // Try direct file path first
+    const resolvedDirectFilePath = path.resolve(directFilePath)
+    if (isPathWithinContentDir(resolvedDirectFilePath, contentDir)) {
       try {
-        await fs.access(indexFilePath)
-        filePath = indexFilePath
+        await fs.access(resolvedDirectFilePath)
+        filePath = resolvedDirectFilePath
       } catch {
-        // Neither file exists
-        return null
+        // Not found, try index file path
+      }
+    }
+
+    if (!filePath) {
+      const resolvedIndexFilePath = path.resolve(indexFilePath)
+      if (isPathWithinContentDir(resolvedIndexFilePath, contentDir)) {
+        try {
+          await fs.access(resolvedIndexFilePath)
+          filePath = resolvedIndexFilePath
+        } catch {
+          // Not found
+        }
       }
     }
 
