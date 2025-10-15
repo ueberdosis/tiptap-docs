@@ -45,16 +45,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
     }
 
     return (
-      <div
-        className={cn(
-          'flex items-start justify-between flex-wrap gap-y-2 mb-4',
-          // // If the text is too long, display the in a single line
-          // crumbs.map((crumb) => crumb.text).join(' / ').length > 27
-          //   ? 'flex-col md:flex-row gap-2'
-          //   : '',
-          className,
-        )}
-      >
+      <div className={cn('flex items-start justify-between flex-wrap gap-y-2 mb-4', className)}>
         <Component className={wrapperClass} {...props} ref={ref}>
           {crumbs.map((crumb, i) => (
             <div key={crumb.href}>
