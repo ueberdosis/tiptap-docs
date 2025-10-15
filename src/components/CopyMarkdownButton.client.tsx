@@ -11,7 +11,7 @@ export type CopyMarkdownButtonClientProps = {
 }
 
 export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownButtonClientProps) => {
-  const clipboard = useClipboard({ timeout: 500 })
+  const clipboard = useClipboard()
   const [isCopied, setIsCopied] = useState(false)
 
   const handleCopy = () => {
@@ -26,6 +26,8 @@ export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownBut
   return (
     <button
       onClick={handleCopy}
+      aria-disabled={isCopied}
+      aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
       className={cn(
         'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
         'hover:bg-grayAlpha-100 rounded-lg',
