@@ -14,7 +14,7 @@ const PageHeaderWrapper = forwardRef<HTMLDivElement, PageHeaderWrapperProps>(
   ({ asChild, children, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'header'
 
-    const wrapperClass = cn('mb-12 max-w-[42rem]', className)
+    const wrapperClass = cn('mb-12', className)
 
     return (
       <Component className={wrapperClass} {...props} ref={ref}>
@@ -35,7 +35,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[45ch]',
+      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[42rem]',
       className,
     )
 

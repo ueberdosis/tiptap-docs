@@ -2,6 +2,7 @@ import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+import { PageHeaderWithCopyButton } from '@/components/PageHeaderWithCopyButton'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
@@ -60,7 +61,7 @@ export default async function HomePage() {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeader.Breadcrumbs config={sidebar.sidebarConfig} />
+                <PageHeaderWithCopyButton config={sidebar.sidebarConfig} markdownPath={['index']} />
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               {pageMdx.frontmatter?.tags ? (
