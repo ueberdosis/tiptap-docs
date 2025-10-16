@@ -1,3 +1,4 @@
+import { AskAi } from '@/components/AskAi'
 import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
@@ -64,7 +65,10 @@ export default async function HomePage() {
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
-                  <CopyMarkdownButton markdownPath={['index']} />
+                  <div className="flex items-center gap-2">
+                    <CopyMarkdownButton markdownPath={['index']} />
+                    <AskAi />
+                  </div>
                 </div>
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>

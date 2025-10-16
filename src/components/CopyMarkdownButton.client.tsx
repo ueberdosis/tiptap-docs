@@ -3,14 +3,13 @@
 import { useClipboard } from '@mantine/hooks'
 import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useState } from 'react'
-import { cn } from '@/utils'
+import { Button } from './ui/Button'
 
 export type CopyMarkdownButtonClientProps = {
   content: string
-  className?: string
 }
 
-export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownButtonClientProps) => {
+export const CopyMarkdownButtonClient = ({ content }: CopyMarkdownButtonClientProps) => {
   const clipboard = useClipboard()
   const [isCopied, setIsCopied] = useState(false)
 
@@ -24,20 +23,16 @@ export const CopyMarkdownButtonClient = ({ content, className }: CopyMarkdownBut
   const IconComponent = isCopied ? CheckIcon : CopyIcon
 
   return (
-    <button
+    <Button
       type="button"
+      size="small"
+      variant="tertiary"
       onClick={handleCopy}
       disabled={isCopied}
       aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
-      className={cn(
-        'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
-        'hover:bg-grayAlpha-100 rounded-lg',
-        'transition-colors duration-200',
-        className,
-      )}
     >
-      <IconComponent className="size-4" />
+      <IconComponent className="size-3" />
       Copy markdown
-    </button>
+    </Button>
   )
 }

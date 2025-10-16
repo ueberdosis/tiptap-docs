@@ -13,6 +13,7 @@ import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
+import { AskAi } from '@/components/AskAi'
 
 type Props = {
   params: {
@@ -102,7 +103,10 @@ export default async function MarkdownPage({ params }: Props) {
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
-                  <CopyMarkdownButton markdownPath={params.markdownPath} />
+                  <div className="flex items-center gap-2">
+                    <CopyMarkdownButton markdownPath={params.markdownPath} />
+                    <AskAi />
+                  </div>
                 </div>
               ) : null}
               {pageMdx.frontmatter?.title ? (
