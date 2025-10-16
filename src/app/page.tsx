@@ -1,4 +1,5 @@
-import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
@@ -8,6 +9,13 @@ import { createMetadata } from '@/server/createMetadata'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 import { PageFrontmatter } from '@/types'
 import { FULL_DOMAIN } from '@/utils/constants'
+
+const CopyMarkdownButton = dynamic(
+  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
+  {
+    ssr: false,
+  },
+)
 
 export async function generateMetadata() {
   // @ts-ignore
@@ -64,7 +72,12 @@ export default async function HomePage() {
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
-                  <CopyMarkdownButton markdownPath={['index']} />
+                  <Suspense>
+                    <CopyMarkdownButton
+                      title={pageMdx.frontmatter?.title}
+                      content={pageMdx.default()}
+                    />
+                  </Suspense>
                 </div>
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>

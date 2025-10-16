@@ -1,72 +1,63 @@
-import fs from 'fs/promises'
-import path from 'path'
-import { CopyMarkdownButtonClient } from './CopyMarkdownButton.client'
+'use client'
 
-export type CopyMarkdownButtonProps = {
-  markdownPath: string[]
+import { useClipboard } from '@mantine/hooks'
+import { CheckIcon, CopyIcon } from 'lucide-react'
+import { useState } from 'react'
+import TurndownService from 'turndown'
+import { renderToString } from 'react-dom/server'
+import { cn } from '@/utils'
+
+export type CopyMarkdownButtonClientProps = {
+  title?: string
+  content: JSX.Element
   className?: string
 }
 
-// Helper function to sanitize path segments
-const sanitizePathSegment = (segment: string): string => {
-  // Remove any path separators and dangerous characters
-  return segment.replace(/[\/\\]/g, '').replace(/\.{2,}/g, '')
-}
+export const CopyMarkdownButton = ({
+  title,
+  content,
+  className,
+}: CopyMarkdownButtonClientProps) => {
+  const clipboard = useClipboard()
+  const [isCopied, setIsCopied] = useState(false)
 
-// Helper function to validate that a resolved path is within the content directory
-const isPathWithinContentDir = (resolvedPath: string, contentDir: string): boolean => {
-  const normalizedResolved = path.normalize(resolvedPath)
-  const normalizedContentDir = path.normalize(contentDir)
-  return (
-    normalizedResolved.startsWith(normalizedContentDir + path.sep) ||
-    normalizedResolved === normalizedContentDir
-  )
-}
+  const handleCopy = () => {
+    if (isCopied) return
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 1500)
+    // Convert HTML to markdown using turndown
+    const turndownService = new TurndownService({
+      headingStyle: 'atx',
+      bulletListMarker: '-',
+      codeBlockStyle: 'fenced',
+    })
 
-export const CopyMarkdownButton = async ({ markdownPath, className }: CopyMarkdownButtonProps) => {
-  try {
-    // Sanitize path segments to prevent directory traversal
-    const sanitizedSegments = markdownPath.map(sanitizePathSegment)
-    const contentDir = path.join(process.cwd(), 'src/content')
-    const basePath = path.join(contentDir, ...sanitizedSegments)
-    const directFilePath = `${basePath}.mdx`
-    const indexFilePath = path.join(basePath, 'index.mdx')
+    const html = renderToString(content)
 
-    let filePath: string | null = null
+    let markdown = turndownService.turndown(html)
 
-    // Try direct file path first
-    const resolvedDirectFilePath = path.resolve(directFilePath)
-    if (isPathWithinContentDir(resolvedDirectFilePath, contentDir)) {
-      try {
-        await fs.access(resolvedDirectFilePath)
-        filePath = resolvedDirectFilePath
-      } catch {
-        // Not found, try index file path
-      }
-    }
+    markdown = `# ${title}\n\n${markdown}`
 
-    if (!filePath) {
-      const resolvedIndexFilePath = path.resolve(indexFilePath)
-      if (isPathWithinContentDir(resolvedIndexFilePath, contentDir)) {
-        try {
-          await fs.access(resolvedIndexFilePath)
-          filePath = resolvedIndexFilePath
-        } catch {
-          // Not found
-        }
-      }
-    }
-
-    if (!filePath) {
-      return null
-    }
-
-    // Read file content asynchronously
-    const content = await fs.readFile(filePath, 'utf-8')
-
-    return <CopyMarkdownButtonClient content={content} className={className} />
-  } catch (error) {
-    console.error('Error reading markdown file:', error)
-    return null
+    clipboard.copy(markdown)
   }
+
+  const IconComponent = isCopied ? CheckIcon : CopyIcon
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={isCopied}
+      aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
+      className={cn(
+        'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
+        'hover:bg-grayAlpha-100 rounded-lg',
+        'transition-colors duration-200',
+        className,
+      )}
+    >
+      <IconComponent className="size-4" />
+      Copy markdown
+    </button>
+  )
 }
