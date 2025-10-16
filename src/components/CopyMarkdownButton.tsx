@@ -4,7 +4,6 @@ import { CopyMarkdownButtonClient } from './CopyMarkdownButton.client'
 
 export type CopyMarkdownButtonProps = {
   markdownPath: string[]
-  className?: string
 }
 
 // Helper function to sanitize path segments
@@ -23,7 +22,7 @@ const isPathWithinContentDir = (resolvedPath: string, contentDir: string): boole
   )
 }
 
-export const CopyMarkdownButton = async ({ markdownPath, className }: CopyMarkdownButtonProps) => {
+export const CopyMarkdownButton = async ({ markdownPath }: CopyMarkdownButtonProps) => {
   try {
     // Sanitize path segments to prevent directory traversal
     const sanitizedSegments = markdownPath.map(sanitizePathSegment)
@@ -64,7 +63,7 @@ export const CopyMarkdownButton = async ({ markdownPath, className }: CopyMarkdo
     // Read file content asynchronously
     const content = await fs.readFile(filePath, 'utf-8')
 
-    return <CopyMarkdownButtonClient content={content} className={className} />
+    return <CopyMarkdownButtonClient content={content} />
   } catch (error) {
     console.error('Error reading markdown file:', error)
     return null
