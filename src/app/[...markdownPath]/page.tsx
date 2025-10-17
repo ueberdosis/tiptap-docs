@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
@@ -12,8 +14,14 @@ import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfi
 import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
-import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 import { AskAi } from '@/components/AskAi'
+
+const CopyMarkdownButton = dynamic(
+  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
+  {
+    ssr: false,
+  },
+)
 
 type Props = {
   params: {
@@ -104,7 +112,12 @@ export default async function MarkdownPage({ params }: Props) {
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <CopyMarkdownButton markdownPath={params.markdownPath} />
+                    <Suspense>
+                      <CopyMarkdownButton
+                        title={pageMdx.frontmatter?.title}
+                        content={pageMdx.default()}
+                      />
+                    </Suspense>
                     <AskAi />
                   </div>
                 </div>

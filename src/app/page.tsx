@@ -1,5 +1,5 @@
-import { AskAi } from '@/components/AskAi'
-import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
@@ -9,6 +9,14 @@ import { createMetadata } from '@/server/createMetadata'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 import { PageFrontmatter } from '@/types'
 import { FULL_DOMAIN } from '@/utils/constants'
+import { AskAi } from '@/components/AskAi'
+
+const CopyMarkdownButton = dynamic(
+  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
+  {
+    ssr: false,
+  },
+)
 
 export async function generateMetadata() {
   // @ts-ignore
@@ -66,7 +74,12 @@ export default async function HomePage() {
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <CopyMarkdownButton markdownPath={['index']} />
+                    <Suspense>
+                      <CopyMarkdownButton
+                        title={pageMdx.frontmatter?.title}
+                        content={pageMdx.default()}
+                      />
+                    </Suspense>
                     <AskAi />
                   </div>
                 </div>
