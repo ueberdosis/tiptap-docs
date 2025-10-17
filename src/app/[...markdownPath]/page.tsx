@@ -14,6 +14,7 @@ import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfi
 import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import { AskAi } from '@/components/AskAi'
 
 const CopyMarkdownButton = dynamic(
   () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
@@ -110,12 +111,15 @@ export default async function MarkdownPage({ params }: Props) {
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
-                  <Suspense>
-                    <CopyMarkdownButton
-                      title={pageMdx.frontmatter?.title}
-                      content={pageMdx.default()}
-                    />
-                  </Suspense>
+                  <div className="flex items-center gap-2">
+                    <Suspense>
+                      <CopyMarkdownButton
+                        title={pageMdx.frontmatter?.title}
+                        content={pageMdx.default()}
+                      />
+                    </Suspense>
+                    <AskAi />
+                  </div>
                 </div>
               ) : null}
               {pageMdx.frontmatter?.title ? (

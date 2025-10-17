@@ -5,7 +5,7 @@ import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useState } from 'react'
 import TurndownService from 'turndown'
 import { renderToString } from 'react-dom/server'
-import { cn } from '@/utils'
+import { Button } from './ui/Button'
 
 export type CopyMarkdownButtonClientProps = {
   title?: string
@@ -25,15 +25,15 @@ export const CopyMarkdownButton = ({
     if (isCopied) return
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 1500)
+
     // Convert HTML to markdown using turndown
+    const html = renderToString(content)
+
     const turndownService = new TurndownService({
       headingStyle: 'atx',
       bulletListMarker: '-',
       codeBlockStyle: 'fenced',
     })
-
-    const html = renderToString(content)
-
     let markdown = turndownService.turndown(html)
 
     markdown = `# ${title}\n\n${markdown}`
@@ -44,20 +44,17 @@ export const CopyMarkdownButton = ({
   const IconComponent = isCopied ? CheckIcon : CopyIcon
 
   return (
-    <button
+    <Button
       type="button"
+      size="small"
+      variant="tertiary"
       onClick={handleCopy}
       disabled={isCopied}
       aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
-      className={cn(
-        'flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-700',
-        'hover:bg-grayAlpha-100 rounded-lg',
-        'transition-colors duration-200',
-        className,
-      )}
+      className={className}
     >
-      <IconComponent className="size-4" />
+      <IconComponent className="size-3" />
       Copy markdown
-    </button>
+    </Button>
   )
 }
