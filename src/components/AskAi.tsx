@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronDownIcon, SparklesIcon } from 'lucide-react'
 import { Button } from './ui/Button'
 import { FULL_DOMAIN } from '@/utils/constants'
 
@@ -63,7 +63,9 @@ Output format:
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild className="outline-none ring-0">
         <Button size="small" variant="tertiary">
-          Ask AI <ChevronDownIcon className="size-4" />
+          <SparklesIcon className="size-3" />
+          <span>Ask AI</span>
+          <ChevronDownIcon className="size-3" />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
