@@ -40,6 +40,11 @@ Output format:
       label: 'Ask OpenAI',
     },
     {
+      key: 't3',
+      url: `https://t3.chat/new?q=${encoded}`,
+      label: 'Ask T3 Chat',
+    },
+    {
       key: 'perplexity',
       url: `https://www.perplexity.ai/search?q=${encoded}`,
       label: 'Ask Perplexity',
