@@ -52,16 +52,26 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
                 },
                 {
-                  title: 'Multi-document AI agent',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
-                },
-                {
                   title: 'Inline edits',
                   href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
                 },
+              ],
+            },
+            {
+              title: 'Advanced guides',
+              href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+              children: [
+                {
+                  title: 'Multi-document AI agent',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+                },
+                {
+                  title: 'Add comments',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
+                },
                 {
                   title: 'AI engineering guide',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
               ],
             },
