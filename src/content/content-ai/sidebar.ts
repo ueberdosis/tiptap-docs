@@ -124,6 +124,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
                 },
                 {
+                  title: 'Mastra',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
+                },
+                {
                   title: 'Other providers',
                   href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
                 },
