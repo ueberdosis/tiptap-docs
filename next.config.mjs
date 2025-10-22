@@ -275,6 +275,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
         destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
         permanent: true,
