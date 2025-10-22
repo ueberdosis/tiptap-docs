@@ -274,6 +274,16 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+        permanent: true,
+      },
     ]
   },
 }
