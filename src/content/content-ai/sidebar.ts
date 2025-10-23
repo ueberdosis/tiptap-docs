@@ -307,48 +307,6 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Changes',
-          href: '/content-ai/capabilities/changes',
-          tags: ['Team'],
-          beta: true,
-          children: [
-            {
-              title: 'Overview',
-              href: '/content-ai/capabilities/changes/overview',
-            },
-            {
-              title: 'Install',
-              href: '/content-ai/capabilities/changes/install',
-            },
-            {
-              title: 'Features',
-              href: '/content-ai/capabilities/changes/features',
-              children: [
-                {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/changes/features/review-changes',
-                },
-                {
-                  title: 'Display changes',
-                  href: '/content-ai/capabilities/changes/features/display-changes',
-                },
-              ],
-            },
-            {
-              title: 'Configure',
-              href: '/content-ai/capabilities/changes/configure',
-            },
-            {
-              title: 'API Reference',
-              href: '/content-ai/capabilities/changes/api-reference',
-            },
-            {
-              title: 'Changelog',
-              href: '/content-ai/capabilities/changes/changelog',
-            },
-          ],
-        },
-        {
           title: 'AI Assistant',
           href: '/content-ai/capabilities/agent',
           tags: ['Team'],
@@ -566,6 +524,55 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Collaboration',
           href: '/content-ai/resources/collaboration',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/content-ai/capabilities/changes',
+      title: 'Legacy extensions',
+      children: [
+        {
+          title: 'AI Changes',
+          href: '/content-ai/capabilities/changes',
+          tags: ['Team'],
+          beta: true,
+          children: [
+            {
+              title: 'Overview',
+              href: '/content-ai/capabilities/changes/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/capabilities/changes/install',
+            },
+            {
+              title: 'Features',
+              href: '/content-ai/capabilities/changes/features',
+              children: [
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/changes/features/review-changes',
+                },
+                {
+                  title: 'Display changes',
+                  href: '/content-ai/capabilities/changes/features/display-changes',
+                },
+              ],
+            },
+            {
+              title: 'Configure',
+              href: '/content-ai/capabilities/changes/configure',
+            },
+            {
+              title: 'API Reference',
+              href: '/content-ai/capabilities/changes/api-reference',
+            },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/changes/changelog',
+            },
+          ],
         },
       ],
     },
