@@ -247,7 +247,7 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             {
               href: '/editor/extensions/functionality/ai-agent',
-              title: 'AI Agent',
+              title: 'AI Assistant',
               tags: ['Team'],
               beta: true,
             },
@@ -266,6 +266,12 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/ai-suggestion',
               title: 'AI Suggestion',
               tags: ['Team'],
+              beta: true,
+            },
+            {
+              href: '/content-ai/capabilities/ai-toolkit',
+              title: 'AI Toolkit',
+              tags: ['Business'],
               beta: true,
             },
             {
