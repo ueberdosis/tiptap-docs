@@ -1,10 +1,22 @@
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
-import { createMetadata } from '@/server/createMetadata'
-import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import PrevNextTiles from '@/components/PrevNextTiles'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
-import { FULL_DOMAIN } from '@/utils/constants'
+import { createMetadata } from '@/server/createMetadata'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
+import { PageFrontmatter } from '@/types'
+import { FULL_DOMAIN } from '@/utils/constants'
+import { AskAi } from '@/components/AskAi'
+
+const CopyMarkdownButton = dynamic(
+  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
+  {
+    ssr: false,
+  },
+)
 
 export async function generateMetadata() {
   // @ts-ignore
@@ -59,7 +71,18 @@ export default async function HomePage() {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeader.Breadcrumbs config={sidebar.sidebarConfig} />
+                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
+                  <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
+                  <div className="flex items-center gap-2">
+                    <Suspense>
+                      <CopyMarkdownButton
+                        title={pageMdx.frontmatter?.title}
+                        content={pageMdx.default()}
+                      />
+                    </Suspense>
+                    <AskAi />
+                  </div>
+                </div>
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
               {pageMdx.frontmatter?.tags ? (
@@ -75,6 +98,7 @@ export default async function HomePage() {
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
+          <PrevNextTiles config={sidebar.sidebarConfig} currentPath="/" />
         </Layout.Content>
         <Layout.SecondarySidebar />
       </Layout.Wrapper>

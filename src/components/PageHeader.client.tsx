@@ -22,7 +22,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
 
     const crumbs = generateBreadcrumbs(config, pathname)
 
-    const wrapperClass = cn('flex items-center gap-2 mb-3', className)
+    const wrapperClass = cn('flex items-center gap-2 mb-3 flex-wrap', className)
 
     const breadcrumbClass = cn(
       'text-sm leading-[110%] text-grayAlpha-500 font-semibold select-none',

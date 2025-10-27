@@ -1,0 +1,159 @@
+---
+title: Add comments with the AI Toolkit
+meta:
+  title: Add comments with the AI Toolkit | Tiptap Content AI
+  description: Give your AI agents the ability to read, write and edit comments in your documents.
+  category: Content AI
+sidebars:
+  hideSecondary: true
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Give your AI agents the ability to read, write and edit comments in your document.
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/comments" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Initial setup
+
+First, build a Tiptap Editor with comments by following the [comments guide](/comments/getting-started/overview).
+
+## API endpoint
+
+Create an API endpoint that calls the AI model. In our example, we build the API endpoint with the [Next.js framework](https://nextjs.org/), and use the [AI SDK by Vercel](https://ai-sdk.dev/) to call the AI model.
+
+Provide the [tool definitions](/content-ai/capabilities/ai-toolkit/tools/ai-sdk) for the Tiptap AI Toolkit. Enable the `getThreads` and `editThreads` tools so that the AI agent can read and edit comments in your document. 
+
+Optionally, you can disable the `insertContent` and `applyPatch` tools to prevent the AI from making changes to the document.
+
+```ts
+// app/api/chat/route.ts
+import { anthropic } from '@ai-sdk/anthropic'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  const result = streamText({
+    model: anthropic('claude-haiku-4-5-20251001'),
+    system: 'You are an assistant that can add comments to a rich text document.',
+    messages: convertToModelMessages(messages),
+    tools: toolDefinitions({
+      tools: {
+        // Enable the tools for reading and editing comments
+        getThreads: true,
+        editThreads: true,
+        // (Optional) Prevent the AI from making changes to the document
+        insertContent: false,
+        applyPatch: false,
+      },
+    }),
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+## Client-side setup
+
+In your frontend, create a React component that renders a chatbot UI. This component leverages the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation.
+
+When the AI model outputs a tool call, it uses the Tiptap AI Toolkit to execute the tool:
+
+- If the tool is the `getThreads` tool, it will read the comments in the document.
+- If the tool is the `editThreads` tool, it will edit the comments in the document.
+
+Here's an example of how to implement this:
+
+```tsx
+import { useChat } from '@ai-sdk/react'
+import { getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useRef, useState } from 'react'
+
+export function CommentsAiChatbot({ editor }) {
+  const [input, setInput] = useState(
+    "Add a comment to the first sentence of the last paragraph, that says 'well done'",
+  )
+
+  // Fixes issue: https://github.com/vercel/ai/issues/8148
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  const { messages, sendMessage, addToolResult } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/comments' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      const editor = editorRef.current
+      if (!editor) return
+
+      const { toolName, input, toolCallId } = toolCall
+
+      // Use the AI Toolkit to execute the tool
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName,
+        input,
+      })
+
+      addToolResult({ tool: toolName, toolCallId, output: result.output })
+    },
+  })
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          sendMessage({ text: input })
+          setInput('')
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application:
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/comments" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Customize the AI agent's behaviour
+
+You can influence the commenting behaviour of the AI agent by providing a custom system prompt. For example, the AI can be instructed to add comments in a specific style or format.
+
+```
+You are an assistant that can add comments to a rich text document. The content of the comments should always be in Markdown format.
+```
+
+The AI can also be instructed to perform specific actions. Thanks to the [tool definitions](/content-ai/capabilities/ai-toolkit/tools/available-tools), the AI understands the concepts of threads, comments, resolved threads, and replies.
+
+```
+Never resolve threads, even if the user asks you to. Only users can resolve threads by clicking on the resolve button.
+```
+
+Learn more about prompt engineering in the [AI engineering guide](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering).
+
+## Roadmap
+
+In future releases, we aim to support streaming comments into the editor, to allow for a faster user experience. We are also exploring ways to improve token usage, speed, and developer experience.

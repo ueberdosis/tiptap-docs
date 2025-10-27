@@ -14,7 +14,7 @@ const PageHeaderWrapper = forwardRef<HTMLDivElement, PageHeaderWrapperProps>(
   ({ asChild, children, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'header'
 
-    const wrapperClass = cn('mb-12 max-w-[42rem]', className)
+    const wrapperClass = cn('mb-12', className)
 
     return (
       <Component className={wrapperClass} {...props} ref={ref}>
@@ -35,7 +35,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[18ch]',
+      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[42rem]',
       className,
     )
 
@@ -139,6 +139,18 @@ export const PageHeaderTag = ({
       ? 'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
       : 'Integrate and use while subscribed to the Team plan.'
     return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Team plan</Tag>
+  }
+
+  if (tag.type === 'business') {
+    return (
+      <Tag
+        tooltip={
+          tag.tooltip || 'Integrate and use while subscribed to the Business or Enterprise plan.'
+        }
+      >
+        Business plan
+      </Tag>
+    )
   }
 
   if (tag.type === 'ai') {

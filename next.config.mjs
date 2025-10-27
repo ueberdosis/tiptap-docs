@@ -63,6 +63,26 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/editor/markdown/getting-started',
+        destination: '/editor/markdown/getting-started/installation',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/advanced-usage',
+        destination: '/editor/markdown/advanced-usage/custom-tokenizer',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/guides',
+        destination: '/editor/markdown/guides/integrate-markdown-in-your-extension',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/api',
+        destination: '/editor/markdown/api/editor',
+        permanent: true,
+      },
+      {
         source: '/editor/extensions/functionality/mathematics',
         destination: '/editor/extensions/nodes/mathematics',
         permanent: true,
@@ -252,6 +272,21 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/ai-toolkit/changelog',
         destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
         permanent: true,
       },
     ]
