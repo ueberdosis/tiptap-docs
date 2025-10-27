@@ -1,0 +1,382 @@
+---
+title: Build a proofreader with the AI Toolkit
+meta:
+  title: Build a proofreader with the AI Toolkit | Tiptap Content AI
+  description: Use the AI Toolkit to build a proofreader that detects and corrects grammar and spelling errors in your documents.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="ai-toolkit" renderMode="sidebar" />
+<Requirements>
+  <RequirementItem label="1. Request access">
+    <a href="https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105">
+      Share your use case
+    </a>
+    to be considered for early access to Tiptap AI Toolkit.
+  </RequirementItem>
+  <RequirementItem label="2. Access the private registry">
+    The AI Toolkit extension is published in Tiptap&apos;s private npm registry. Authenticate to
+    Tiptap&apos;s private npm registry by following the{' '}
+    <a href="/guides/pro-extensions">setup guide</a>.
+  </RequirementItem>
+  <RequirementItem label="3. Install the extension">
+    Install the extension from the private registry using npm or your preferred package manager.
+  </RequirementItem>
+</Requirements>
+
+Build a proofreader that detects and corrects grammar and spelling errors in your Tiptap documents using AI.
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/proofreader" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+The AI Toolkit's `setHtmlSuggestions()` method supports two different modes for displaying corrections:
+
+1. **Granular Changes Mode**: Provide an array of specific insert/delete pairs. Each correction is highlighted individually, perfect for streaming suggestions as they're generated.
+
+2. **Full Content Mode**: Provide the complete corrected HTML. The toolkit automatically detects the differences and highlights all changes at once.
+
+Both modes use the same review UI, allowing users to accept or reject suggestions individually or all at once.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest proofreader
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/openai
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit
+```
+
+## Server setup
+
+We'll create two API endpoints that use the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model for grammar checking.
+
+### Granular Changes Mode (streaming)
+
+This endpoint streams corrections as they're generated, allowing for progressive display. It uses `streamObject` to generate an array of specific insert/delete pairs that will be passed to `setHtmlSuggestions()`.
+
+```ts
+// app/api/grammar-check-changes/route.ts
+import { openai } from '@ai-sdk/openai'
+import { streamObject } from 'ai'
+import { z } from 'zod'
+
+export async function POST(req: Request) {
+  const { html } = await req.json()
+
+  // Generate corrections as an array of insert/delete pairs
+  const result = streamObject({
+    model: openai('gpt-4o-mini'),
+    prompt: `Fix all spelling and grammar errors in the HTML below. Return a list of specific changes that need to be made.
+
+For each error found:
+- Provide ONLY the exact text that needs to be changed, not the entire sentence
+- Example: If "I didn't knew" needs to become "I didn't know", only provide delete: "knew" and insert: "know"
+- Both "insert" and "delete" fields MUST contain non-empty text
+- Each change should be minimal and specific
+
+HTML to correct:
+${html}`,
+    schema: z.object({
+      changes: z.array(
+        z.object({
+          insert: z.string().describe('The corrected text to insert'),
+          delete: z.string().describe('The incorrect text to delete'),
+        }),
+      ),
+    }),
+  })
+
+  // Stream the corrections as newline-delimited JSON
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const partial of result.partialObjectStream) {
+          if (partial.changes && Array.isArray(partial.changes)) {
+            // Filter out invalid changes
+            partial.changes = partial.changes.filter(
+              (change) => change?.insert?.trim() && change?.delete?.trim(),
+            )
+          }
+
+          controller.enqueue(encoder.encode(`${JSON.stringify(partial)}\n`))
+        }
+        controller.close()
+      } catch (error) {
+        console.error('Stream error:', error)
+        controller.error(error)
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Transfer-Encoding': 'chunked',
+    },
+  })
+}
+```
+
+### Full Content Mode (non-streaming)
+
+This endpoint generates the complete corrected HTML in a single response. The AI Toolkit will automatically detect the differences when you pass the corrected content to `setHtmlSuggestions()`.
+
+```ts
+// app/api/grammar-check-content/route.ts
+import { openai } from '@ai-sdk/openai'
+import { generateObject } from 'ai'
+import { z } from 'zod'
+
+export async function POST(req: Request) {
+  const { html } = await req.json()
+
+  // Generate the fully corrected HTML
+  const result = await generateObject({
+    model: openai('gpt-4o-mini'),
+    prompt: `Fix all spelling and grammar errors in the HTML below. Return the complete corrected HTML with all errors fixed.
+
+HTML to correct:
+${html}`,
+    schema: z.object({
+      content: z
+        .string()
+        .describe('The fully corrected HTML with all grammar and spelling errors fixed'),
+    }),
+  })
+
+  return Response.json(result.object)
+}
+```
+
+## Client setup
+
+Create a React component that renders the editor and handles grammar checking. The component uses the AI Toolkit's `setHtmlSuggestions()` method to display corrections to the user.
+
+### Granular Changes Mode
+
+For the granular changes mode, stream the corrections and apply them incrementally as they're generated:
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { useState, useRef } from 'react'
+
+const INITIAL_CONTENT = `<h1>Grammar Check Demo</h1><p>This is a excelent editor for writng documents. It have many feature's that makes it very powerfull.</p>`
+
+// Helper: Process streaming response and yield parsed JSON objects
+async function* processStreamResponse(reader: ReadableStreamDefaultReader<Uint8Array>) {
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      if (!line.trim()) continue
+
+      try {
+        yield JSON.parse(line)
+      } catch (parseError) {
+        console.debug('Parse error (incomplete JSON):', parseError)
+      }
+    }
+  }
+}
+
+// Helper: Filter out invalid changes
+function filterValidChanges(changes: Array<{ insert: string; delete: string }>) {
+  return changes.filter((change) => change.insert?.trim() && change.delete?.trim())
+}
+
+export default function ProofreaderChangesMode() {
+  const editor = useEditor({
+    extensions: [StarterKit, AiToolkit],
+    content: INITIAL_CONTENT,
+  })
+
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  const [isChecking, setIsChecking] = useState(false)
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  /**
+   * Check grammar and stream corrections as insert/delete pairs
+   */
+  const checkGrammar = async () => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    setIsChecking(true)
+    const toolkit = getAiToolkit(editor)
+    const htmlToCheck = editor.getHTML()
+
+    try {
+      const response = await fetch('/api/grammar-check-changes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: htmlToCheck }),
+      })
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No reader available')
+
+      let previousChangeCount = 0
+
+      // Process streaming response using helper function
+      for await (const parsed of processStreamResponse(reader)) {
+        if (parsed.changes && Array.isArray(parsed.changes)) {
+          const allChanges = parsed.changes
+          const currentChangeCount = allChanges.length
+
+          // Only process if we have new changes
+          if (currentChangeCount > previousChangeCount) {
+            const validChanges = filterValidChanges(allChanges)
+
+            if (validChanges.length > 0) {
+              // Display suggestions using the AI Toolkit
+              toolkit.setHtmlSuggestions({ changes: validChanges })
+
+              if (previousChangeCount === 0) {
+                setIsReviewing(true)
+              }
+            }
+
+            previousChangeCount = currentChangeCount
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Grammar check error:', error)
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      {!isReviewing && (
+        <button onClick={checkGrammar} disabled={isChecking}>
+          {isChecking ? 'Checking...' : 'Check Grammar'}
+        </button>
+      )}
+
+      {isReviewing && (
+        <div>
+          <p>Individual corrections are highlighted in the document.</p>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.applyAllSuggestions()
+              setIsReviewing(false)
+            }}
+          >
+            Accept all
+          </button>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.setSuggestions([])
+              setIsReviewing(false)
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+### Full Content Mode
+
+For the full content mode, pass the complete corrected HTML to `setHtmlSuggestions()`. The toolkit will automatically detect the differences and create suggestions:
+
+```tsx
+/**
+ * Check grammar and receive the full corrected content
+ */
+const checkGrammar = async () => {
+  const editor = editorRef.current
+  if (!editor) return
+
+  setIsChecking(true)
+  const toolkit = getAiToolkit(editor)
+  const htmlToCheck = editor.getHTML()
+
+  try {
+    const response = await fetch('/api/grammar-check-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: htmlToCheck }),
+    })
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+
+    const result = await response.json()
+
+    if (result.content && typeof result.content === 'string') {
+      // Display suggestions using the AI Toolkit - it automatically detects differences
+      toolkit.setHtmlSuggestions({ content: result.content })
+      setIsReviewing(true)
+    }
+  } catch (error) {
+    console.error('Grammar check error:', error)
+  } finally {
+    setIsChecking(false)
+  }
+}
+```
+
+## Related guides
+
+- [Display suggestions](/content-ai/capabilities/ai-toolkit/primitives/display-suggestions) - Learn more about the `setHtmlSuggestions()` method
+- [Review changes](/content-ai/capabilities/ai-toolkit/guides/review-changes) - Build a review changes UI
+- [AI engineering guide](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering) - Best practices for AI integration
