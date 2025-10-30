@@ -902,7 +902,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Node Positions',
         },
         {
-          title: 'Resizable Nodeviews',
+          title: 'Resizable Node views',
           href: '/editor/api/resizable-nodeviews',
         },
         {
