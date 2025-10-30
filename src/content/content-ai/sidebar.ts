@@ -73,6 +73,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'AI engineering guide',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
+                {
+                  title: 'Proofreader',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+                },
               ],
             },
             {

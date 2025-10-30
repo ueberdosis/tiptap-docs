@@ -1,0 +1,228 @@
+---
+title: Build a proofreader with the AI Toolkit
+meta:
+  title: Build a proofreader with the AI Toolkit | Tiptap Content AI
+  description: Use the AI Toolkit to build a proofreader that detects and corrects grammar and spelling errors in your documents.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="ai-toolkit" renderMode="sidebar" />
+<Requirements>
+  <RequirementItem label="1. Request access">
+    <a href="https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105">
+      Share your use case
+    </a>
+    to be considered for early access to Tiptap AI Toolkit.
+  </RequirementItem>
+  <RequirementItem label="2. Access the private registry">
+    The AI Toolkit extension is published in Tiptap&apos;s private npm registry. Authenticate to
+    Tiptap&apos;s private npm registry by following the{' '}
+    <a href="/guides/pro-extensions">setup guide</a>.
+  </RequirementItem>
+  <RequirementItem label="3. Install the extension">
+    Install the extension from the private registry using npm or your preferred package manager.
+  </RequirementItem>
+</Requirements>
+
+Build a proofreader that detects and corrects grammar and spelling errors in your Tiptap documents using AI.
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/proofreader" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+This demo uses the AI Toolkit's `setHtmlSuggestions()` method with streaming to provide real-time grammar checking. As the AI finds corrections, they are immediately highlighted in the editor, creating a responsive user experience. Users can then accept or reject suggestions individually or all at once.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest proofreader
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai zod
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model for grammar checking. The endpoint streams corrections as they're generated, allowing for real-time display.
+
+```ts
+// app/api/grammar-check-changes/route.ts
+import { openai } from '@ai-sdk/openai'
+import { streamObject } from 'ai'
+import { z } from 'zod'
+
+export async function POST(req: Request) {
+  const { html } = await req.json()
+
+  const result = streamObject({
+    model: openai('gpt-4o-mini'),
+    prompt: `Fix all spelling and grammar errors in the HTML below. Return a list of specific changes that need to be made.
+
+For each error found:
+- Provide ONLY the exact text that needs to be changed, not the entire sentence
+- Example: If "I didn't knew" needs to become "I didn't know", only provide delete: "knew" and insert: "know"
+- Both "insert" and "delete" fields MUST contain non-empty text
+- Each change should be minimal and specific
+
+HTML to correct:
+${html}`,
+    schema: z.object({
+      changes: z.array(
+        z.object({
+          insert: z.string().describe('The corrected text to insert'),
+          delete: z.string().describe('The incorrect text to delete'),
+        }),
+      ),
+    }),
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+## Client setup
+
+Create a React component that renders the editor and handles grammar checking. The component uses Vercel AI SDK's `useObject` hook to handle streaming, and the AI Toolkit's `setHtmlSuggestions()` method to display corrections in real-time.
+
+```tsx
+// app/proofreader/page.tsx
+'use client'
+
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
+
+const INITIAL_CONTENT = `<h1>Grammar Check Demo</h1><p>This is a excelent editor for writng documents. It have many feature's that makes it very powerfull.</p>`
+
+// Helper: Filter out invalid partial changes during streaming
+function filterValidChanges(changes: Array<{ insert?: string; delete?: string } | undefined>) {
+  return changes.filter(
+    (change): change is { insert: string; delete: string } =>
+      !!change && !!change.insert?.trim() && !!change.delete?.trim(),
+  )
+}
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: INITIAL_CONTENT,
+  })
+
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const { submit, isLoading, object } = useObject({
+    api: '/api/grammar-check-changes',
+    schema: z.object({
+      changes: z.array(
+        z.object({
+          insert: z.string(),
+          delete: z.string(),
+        }),
+      ),
+    }),
+    onFinish: () => {
+      setIsReviewing(true)
+    },
+  })
+
+  // Apply streaming suggestions in real-time as they arrive
+  useEffect(() => {
+    const currentEditor = editorRef.current
+    if (!currentEditor || !object?.changes) return
+
+    const validChanges = filterValidChanges(object.changes)
+    if (validChanges.length > 0) {
+      const toolkit = getAiToolkit(currentEditor)
+      toolkit.setHtmlSuggestions({ changes: validChanges })
+    }
+  }, [object?.changes])
+
+  const checkGrammar = () => {
+    const currentEditor = editorRef.current
+    if (!currentEditor) return
+
+    const htmlToCheck = currentEditor.getHTML()
+    submit({ html: htmlToCheck })
+  }
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      {!isReviewing && (
+        <button onClick={checkGrammar} disabled={isLoading}>
+          {isLoading ? 'Checking...' : 'Check Grammar'}
+        </button>
+      )}
+
+      {isReviewing && (
+        <div>
+          <p>Corrections are highlighted in the document above.</p>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.applyAllSuggestions()
+              setIsReviewing(false)
+            }}
+          >
+            Accept all
+          </button>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.setSuggestions([])
+              setIsReviewing(false)
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+## Related guides
+
+- [Display suggestions](/content-ai/capabilities/ai-toolkit/primitives/display-suggestions) - Learn more about the `setHtmlSuggestions()` method
+- [Review changes](/content-ai/capabilities/ai-toolkit/guides/review-changes) - Build a review changes UI
+- [AI engineering guide](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering) - Best practices for AI integration
