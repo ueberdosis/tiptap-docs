@@ -1,0 +1,145 @@
+---
+title: Migrate from AI Generation to the AI Toolkit
+meta:
+  title: Migrate from AI Generation to the AI Toolkit | Tiptap Content AI
+  description: Learn how to migrate from the AI Generation extension to the AI Toolkit.
+  category: Content AI
+---
+
+The AI Generation extension allows you to select content and ask AI model to re-write it based on your instructions.
+
+To implement the same functionality with the AI Toolkit, the recommend path is to follow the [inline edits guide](/content-ai/capabilities/ai-toolkit/guides/inline-edits).
+
+## Step 1: Server-side setup
+
+The AI Generation extension works out of the box with [Tiptap Cloud](https://cloud.tiptap.dev/v2/cloud/ai).
+
+The AI Toolkit does not include a Tiptap Cloud service. Instead, it works with your custom AI backend. This gives you full flexibility to use it with any AI model provider and framework.
+
+First, build an API endpoint that returns the AI-generated content in HTML format. Use a library like the [AI SDK](https://ai-sdk.dev/) to call your backend.
+
+```ts
+import { openai } from '@ai-sdk/openai'
+import { streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { userRequest, selection } = await req.json()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    system: `You are an expert writer that can edit rich text documents.
+The user has selected part of the document. You will receive the current
+content of the selection (in HTML format) and the user's request. Re-write
+the content of the selection to meet the user's request. Generate the HTML
+code for the new content of the selection. If the user's request is not 
+clear or does not relate to editing the document, generate HTML code where
+you ask the user to clarify the request. Your response should only contain
+the HTML code, no other text or explanation, no Markdown, and your HTML 
+response should not be wrapped in backticks, Markdown code blocks, or other
+extra formatting.`,
+    prompt: `User request:
+"""
+${userRequest}
+"""
+Selection:
+"""
+${selection}
+"""`,
+  })
+
+  // Return the text stream directly
+  return result.toTextStreamResponse()
+}
+```
+
+To access the OpenAI API, create an API key in the [OpenAI Dashboard](https://platform.openai.com/account/api-keys) and add it as an environment variable. The environment variable will be detected automatically by the Vercel AI SDK.
+
+```sh
+# .env
+OPENAI_API_KEY=your-api-key
+```
+
+## Step 2: Client-side setup
+
+In the client-side code, first call the API endpoint you just defined so that the AI generates the content. That endpoint returns a stream of HTML content. Use the `streamHtml` method of the AI Toolkit to stream the content into the editor.
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Use the AI Toolkit to get the selection in HTML format
+const selection = toolkit.getHtmlSelection()
+
+// Call the API endpoint to get the edited HTML content
+const response = await fetch('/api', {
+  body: JSON.stringify({
+    userRequest: 'Add emojis to this text',
+    selection,
+  }),
+})
+
+// The response is a stream of HTML content
+const readableStream = response.body
+
+// Use the AI Toolkit to stream HTML into the selection
+await toolkit.streamHtml(readableStream, { position: 'selection' })
+```
+
+## Review AI-generated changes
+
+To show a preview of the AI-generated content where the user can review and accept or reject the changes, use the `streamHtml` method with the `reviewOptions` parameter.
+
+```ts
+await toolkit.streamHtml(readableStream, {
+  position: 'selection',
+  // Show a preview of the content where the user can review and accept or reject the changes
+  reviewOptions: { mode: 'preview' },
+})
+```
+
+Learn more about review options in the [review changes guide](/content-ai/capabilities/ai-toolkit/guides/review-changes) and in the [API reference](/content-ai/capabilities/ai-toolkit/primitives/edit-the-document#streamhtml) of the `streamHtml` method.
+
+## Implement autocompletion
+
+To implement autocompletion, call the API endpoint to generate content when the user presses the `Tab` key. Then, insert the content using the `streamHtml` method. The `position` parameter can also be set to `'selection'` because it coincides with the position of the cursor.
+
+Below is a simplified snippet of the code that triggers the autocompletion suggestion when the user presses the `Tab` key.
+
+```ts
+const toolkit = getAiToolkit(editor)
+const cursorPosition = editor.state.selection.to
+
+const contentBefore = toolkit.getHtmlRange({ from: 0, to: cursorPosition })
+const response = await fetch('/api', {
+  body: JSON.stringify({
+    userRequest: 'Add emojis to this text',
+    selection: contentBefore,
+  }),
+})
+
+const readableStream = response.body
+
+await toolkit.streamHtml(readableStream, {
+  position: 'selection',
+})
+```
+
+Optionally, you can preview the AI-generated content before inserting it into the editor, instead of inserting it immediately.
+
+```ts
+await toolkit.streamHtml(readableStream, {
+  position: 'selection',
+  reviewOptions: { mode: 'preview' },
+})
+```
+
+Once generated, the suggestion can be accepted by calling the `acceptSuggestion` method.
+
+```ts
+const suggestions = toolkit.getSuggestions()
+await toolkit.acceptSuggestion(suggestions[0].id)
+```
+
+## Next steps
+
+- See a demo of how to implement inline edits with the AI Toolkit in the [inline edits guide](/content-ai/capabilities/ai-toolkit/guides/inline-edits).
+- Build an AI assistant that can edit Tiptap documents in the [AI agent chatbot guide](/content-ai/capabilities/ai-toolkit/guides/ai-chatbot).
