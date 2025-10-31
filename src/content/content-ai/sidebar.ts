@@ -177,6 +177,28 @@ export const sidebarConfig: SidebarConfig = {
                 },
               ],
             },
+            {
+              title: 'Migration guides',
+              href: '/content-ai/capabilities/ai-toolkit/migration-guides',
+              children: [
+                {
+                  title: 'AI Generation',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
+                },
+                {
+                  title: 'AI Suggestion',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
+                },
+                {
+                  title: 'AI Changes',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
+                },
+                {
+                  title: 'AI Assistant',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
+                },
+              ],
+            },
           ],
         },
         {
