@@ -62,6 +62,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
               children: [
                 {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
+                },
+                {
                   title: 'Multi-document AI agent',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
                 },
