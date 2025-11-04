@@ -81,6 +81,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Proofreader',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
                 },
+                {
+                  title: 'Style suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+                },
               ],
             },
             {
@@ -178,6 +182,28 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
+                },
+              ],
+            },
+            {
+              title: 'Migration guides',
+              href: '/content-ai/capabilities/ai-toolkit/migration-guides',
+              children: [
+                {
+                  title: 'AI Generation',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
+                },
+                {
+                  title: 'AI Suggestion',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
+                },
+                {
+                  title: 'AI Changes',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
+                },
+                {
+                  title: 'AI Assistant',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
                 },
               ],
             },
