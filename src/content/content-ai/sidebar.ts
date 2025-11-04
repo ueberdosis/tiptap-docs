@@ -77,6 +77,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Proofreader',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
                 },
+                {
+                  title: 'Style suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+                },
               ],
             },
             {
