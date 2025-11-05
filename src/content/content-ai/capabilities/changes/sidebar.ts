@@ -12,6 +12,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/changes/overview',
       title: 'Get started',
       children: [
         {
@@ -26,6 +27,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/changes/features/review-changes',
       title: 'Features',
       children: [
         {
@@ -40,6 +42,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/changes/configure',
       title: 'Reference',
       children: [
         {

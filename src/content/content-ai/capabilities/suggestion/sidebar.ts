@@ -12,6 +12,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/suggestion/overview',
       title: 'Get started',
       children: [
         {
@@ -26,6 +27,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/suggestion/features/define-rules',
       title: 'Features',
       children: [
         {
@@ -60,6 +62,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/suggestion/use-with-content-ai-cloud',
       title: 'Integration',
       children: [
         {
@@ -78,6 +81,7 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/content-ai/capabilities/suggestion/api-reference',
       title: 'Reference',
       children: [
         {
