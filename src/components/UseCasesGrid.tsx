@@ -25,9 +25,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import Link from '@/components/Link'
-
 import { Card } from './ui/Card'
+import Link from '@/components/Link'
 
 interface UseCase {
   title: string
