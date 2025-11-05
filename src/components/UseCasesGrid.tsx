@@ -1,7 +1,5 @@
 'use client'
 
-import { Card } from './ui/Card'
-import Link from '@/components/Link'
 import {
   MessageSquare,
   FileCheck,
@@ -26,6 +24,10 @@ import {
   Activity,
   type LucideIcon,
 } from 'lucide-react'
+
+import Link from '@/components/Link'
+
+import { Card } from './ui/Card'
 
 interface UseCase {
   title: string
