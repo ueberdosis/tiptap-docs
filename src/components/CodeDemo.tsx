@@ -5,7 +5,7 @@ import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 export type CodeDemoProps = {
   src?: string
-  path?: string
+  path: string
   isPro?: boolean
   isSmall?: boolean
   isLarge?: boolean
@@ -28,7 +28,7 @@ export const CodeDemo = ({
   const hasCaption = caption || captionActions
 
   const iframeProps = {
-    src: src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + (path || ''),
+    src: src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path,
     className: `w-full ${iframeHeightClass}`,
     ...(isScrollable !== undefined && { scrolling: isScrollable }),
   }
