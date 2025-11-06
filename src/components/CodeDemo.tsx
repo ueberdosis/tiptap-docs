@@ -36,15 +36,28 @@ export const CodeDemo = ({
   return (
     <>
       {hasCaption && (
-        <div className="flex items-center justify-between gap-6 px-4 py-4 bg-gradient-to-r from-white to-gray-50 rounded-t-[0.625rem] shadow-cardHover text-xs text-grayAlpha-700">
-          {caption && <span className="max-w-sm">{caption}</span>}
+        <div
+          className="flex items-center gap-4 p-3 rounded-[0.625rem] mb-2 border border-grayAlpha-200 shadow-cardHover"
+          style={{
+            background:
+              'linear-gradient(45deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.3) 100%)',
+          }}
+        >
+          {caption && (
+            <p
+              className="flex-1 max-w-sm m-0 text-grayAlpha-700"
+              style={{ fontSize: '12px', lineHeight: '1.3' }}
+            >
+              {caption}
+            </p>
+          )}
           {captionActions && (
-            <div className="flex items-center gap-2 shrink-0 ml-auto">{captionActions}</div>
+            <div className="flex items-center gap-2 shrink-0 ml-auto text-xs">{captionActions}</div>
           )}
         </div>
       )}
       <div
-        className={`shadow-cardHover ${hasCaption ? 'rounded-b-[0.625rem] mb-12' : 'rounded-[0.625rem] my-12'} bg-white overflow-hidden`}
+        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
       >
         <IframeResizer {...iframeProps} />
       </div>

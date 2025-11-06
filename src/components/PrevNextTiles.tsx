@@ -5,6 +5,7 @@ import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 type Props = {
   config?: SidebarConfig
   currentPath: string
+  hideSecondarySidebar?: boolean
 }
 
 function normalize(href: string) {
@@ -70,7 +71,7 @@ function Card({ href, title, isNext }: { href: string; title: string; isNext?: b
   )
 }
 
-export default function PrevNextTiles({ config, currentPath }: Props) {
+export default function PrevNextTiles({ config, currentPath, hideSecondarySidebar }: Props) {
   if (!config) return null
 
   const normalizedCurrent = normalize(currentPath)
@@ -87,7 +88,7 @@ export default function PrevNextTiles({ config, currentPath }: Props) {
   if (!prev && !next) return null
 
   return (
-    <div className="mt-12 max-w-[42rem]">
+    <div className={`mt-12 ${hideSecondarySidebar ? 'max-w-full' : ''}`}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {prev ? (
           <div className="sm:col-start-1">
