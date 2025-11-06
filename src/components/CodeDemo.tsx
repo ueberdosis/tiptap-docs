@@ -38,7 +38,9 @@ export const CodeDemo = ({
       {hasCaption && (
         <div className="flex items-center justify-between gap-6 px-4 py-4 bg-gradient-to-r from-white to-gray-50 rounded-t-[0.625rem] shadow-cardHover text-xs text-grayAlpha-700">
           {caption && <span className="max-w-sm">{caption}</span>}
-          {captionActions && <div className="flex items-center gap-2 shrink-0 ml-auto">{captionActions}</div>}
+          {captionActions && (
+            <div className="flex items-center gap-2 shrink-0 ml-auto">{captionActions}</div>
+          )}
         </div>
       )}
       <div
