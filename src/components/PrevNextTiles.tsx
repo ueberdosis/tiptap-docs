@@ -5,7 +5,7 @@ import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 type Props = {
   config?: SidebarConfig
   currentPath: string
-  hideSecondarySidebar?: boolean
+  isFullWidth?: boolean
 }
 
 function normalize(href: string) {
