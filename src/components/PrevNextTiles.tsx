@@ -88,7 +88,7 @@ export default function PrevNextTiles({ config, currentPath, hideSecondarySideba
   if (!prev && !next) return null
 
   return (
-    <div className={`mt-12 ${hideSecondarySidebar ? 'max-w-full' : ''}`}>
+    <div className={`mt-12 ${isFullWidth ? 'max-w-full' : ''}`}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {prev ? (
           <div className="sm:col-start-1">
