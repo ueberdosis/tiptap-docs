@@ -154,7 +154,7 @@ export default async function MarkdownPage({ params }: Props) {
           <PrevNextTiles
             config={sidebar.sidebarConfig}
             currentPath={`/${params.markdownPath.join('/')}`}
-            hideSecondarySidebar={!!pageMdx.frontmatter?.sidebars?.hideSecondary}
+            isFullWidth={!!pageMdx.frontmatter?.sidebars?.hideSecondary}
           />
         </Layout.Content>
         {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
