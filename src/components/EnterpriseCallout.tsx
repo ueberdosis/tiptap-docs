@@ -5,38 +5,53 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'pages' | 'semantic-search' | 'docx'
+  variant:
+    | 'migration'
+    | 'ai-agent'
+    | 'ai-toolkit'
+    | 'pages'
+    | 'semantic-search'
+    | 'docx'
+    | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
+  inverted?: boolean
 } & React.HTMLAttributes<HTMLDivElement>
 
 export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutProps>(
-  ({ variant, inline = false, disableWaitlist = false, className, ...rest }, ref) => {
+  (
+    { variant, inline = false, disableWaitlist = false, inverted = false, className, ...rest },
+    ref,
+  ) => {
     const title =
       variant === 'migration'
         ? 'Migration support'
         : variant === 'ai-agent'
           ? 'Build AI Agents with expert support'
           : variant === 'ai-toolkit'
-            ? 'Integrate the AI Toolkit with expert support'
+            ? 'Integrate the AI Toolkit'
             : variant === 'pages'
               ? 'Integrate Pages with expert support'
               : variant === 'docx'
                 ? 'Ship DOCX faster with expert support'
-                : 'Join the semantic search beta'
+                : variant === 'deprecated'
+                  ? 'Migrate to AI Toolkit'
+                  : 'Join the semantic search beta'
 
     const description =
       variant === 'migration'
-        ? 'Get hands-on help migrating your content as part of Enterprise onboarding.'
+        ? 'Get hands-on help migrating your content as part of Business or Enterprise onboarding in a dedicated Slack channel.'
         : variant === 'ai-agent'
           ? "We're onboarding Enterprise teams building real-time editors. Get direct support for Agent setup, LLM integration, and performance tuning."
           : variant === 'ai-toolkit'
-            ? "We're onboarding Enterprise teams building custom AI agents and extensions with the AI Toolkit. Get direct engineering support and shape the product roadmap."
+            ? "Get started by subscribing to the Business plan. We'll guide your integration with dedicated engineering support via Slack."
             : variant === 'pages'
               ? "We're onboarding Enterprise teams ready to implement the page layout. Get direct engineering support and shape the product roadmap."
               : variant === 'docx'
                 ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
-                : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
+                : variant === 'deprecated'
+                  ? "The AI Toolkit replaces this extension with better performance and more features. Your current setup keeps working. We'll help you migrate when ready."
+                  : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
 
     const waitlistText = 'On a different plan? Join the'
 
@@ -48,34 +63,65 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
     const talkToEngineerUrl =
       variant === 'ai-toolkit'
         ? 'https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105'
-        : 'https://tiptap.dev/contact-sales'
+        : variant === 'deprecated'
+          ? 'mailto:humans@tiptap.dev'
+          : 'https://tiptap.dev/contact-sales'
+
+    const buttonText = variant === 'deprecated' ? 'Contact us' : 'Talk to an engineer'
 
     if (inline) {
       return (
         <div
           ref={ref}
           className={cn(
-            'p-6 rounded-xl border border-grayAlpha-200 bg-white max-w-[42rem]',
+            'p-6 rounded-xl border max-w-[42rem]',
+            inverted ? 'bg-grayAlpha-900 border-grayAlpha-700' : 'bg-white border-grayAlpha-200',
             className,
           )}
           {...rest}
         >
-          <h3 className="text-lg font-semibold mb-3">{title}</h3>
+          <h3 className={cn('text-lg font-semibold mb-3', inverted ? 'text-white' : '')}>
+            {title}
+          </h3>
 
           <div className="grid md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
-              <p className="text-sm text-grayAlpha-700 mb-3">{description.split('\n\n')[0]}</p>
+              <p
+                className={cn(
+                  'text-sm mb-3',
+                  inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+                )}
+              >
+                {description.split('\n\n')[0]}
+              </p>
               {description.split('\n\n')[1] && (
-                <p className="text-sm text-grayAlpha-700 mb-3">{description.split('\n\n')[1]}</p>
+                <p
+                  className={cn(
+                    'text-sm mb-3',
+                    inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+                  )}
+                >
+                  {description.split('\n\n')[1]}
+                </p>
               )}
 
-              {!disableWaitlist && (
-                <p className="text-xs text-grayAlpha-600 mt-4">
+              {!disableWaitlist && variant !== 'ai-toolkit' && variant !== 'deprecated' && (
+                <p
+                  className={cn(
+                    'text-xs mt-4',
+                    inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600',
+                  )}
+                >
                   {waitlistText}{' '}
                   <Link
                     href={waitlistUrl}
                     target="_blank"
-                    className="font-medium text-purpleAlpha-600 hover:text-purpleAlpha-700 underline whitespace-nowrap"
+                    className={cn(
+                      'font-medium underline whitespace-nowrap',
+                      inverted
+                        ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
+                        : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                    )}
                   >
                     waitlist
                   </Link>
@@ -84,18 +130,26 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
             </div>
 
             <div className="md:col-span-1 flex flex-col gap-2">
-              <Button asChild className="w-full">
+              <Button asChild className="w-full" variant={inverted ? 'secondary' : 'primary'}>
                 <Link
                   href={talkToEngineerUrl}
                   target="_blank"
-                  className="inline-flex items-center justify-center gap-2"
+                  className={cn(
+                    'inline-flex items-center justify-center gap-2',
+                    inverted ? '!text-black hover:!text-black' : '',
+                  )}
                 >
-                  Talk to an engineer
+                  {buttonText}
                   <ArrowRightIcon className="w-4 h-4" />
                 </Link>
               </Button>
 
-              <p className="text-xs text-grayAlpha-500 text-center">
+              <p
+                className={cn(
+                  'text-xs text-center',
+                  inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-500',
+                )}
+              >
                 Trusted by Axios, PostHog, Beehiiv, GitLab and more.
               </p>
             </div>
@@ -107,31 +161,50 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
     return (
       <div
         ref={ref}
-        className={cn('p-5 rounded-xl border border-grayAlpha-200 bg-white', className)}
+        className={cn(
+          'p-5 rounded-xl border',
+          inverted ? 'bg-grayAlpha-900 border-grayAlpha-700' : 'bg-white border-grayAlpha-200',
+          className,
+        )}
         {...rest}
       >
-        <h3 className="text-lg font-semibold mb-3">{title}</h3>
-        <p className="text-sm text-grayAlpha-700 mb-4 whitespace-pre-line">{description}</p>
+        <h3 className={cn('text-lg font-semibold mb-3', inverted ? 'text-white' : '')}>{title}</h3>
+        <p
+          className={cn(
+            'text-sm mb-4 whitespace-pre-line',
+            inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+          )}
+        >
+          {description}
+        </p>
 
-        <Button asChild className="w-full mb-3">
+        <Button asChild className="w-full mb-3" variant={inverted ? 'secondary' : 'primary'}>
           <Link
             href={talkToEngineerUrl}
             target="_blank"
-            className="inline-flex items-center justify-center gap-2"
+            className={cn(
+              'inline-flex items-center justify-center gap-2',
+              inverted ? '!text-black hover:!text-black' : '',
+            )}
           >
-            Talk to an engineer
+            {buttonText}
             <ArrowRightIcon className="w-4 h-4" />
           </Link>
         </Button>
 
-        {!disableWaitlist && (
+        {!disableWaitlist && variant !== 'ai-toolkit' && variant !== 'deprecated' && (
           <div className="text-left mb-2">
-            <p className="text-xs text-grayAlpha-600">
+            <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600')}>
               {waitlistText}{' '}
               <Link
                 href={waitlistUrl}
                 target="_blank"
-                className="font-medium text-purpleAlpha-600 hover:text-purpleAlpha-700 underline whitespace-nowrap"
+                className={cn(
+                  'font-medium underline whitespace-nowrap',
+                  inverted
+                    ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
+                    : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                )}
               >
                 waitlist
               </Link>
@@ -139,9 +212,14 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           </div>
         )}
 
-        <div className="border-t border-grayAlpha-100 my-2" />
+        <div
+          className={cn(
+            'border-t my-2',
+            inverted ? 'border-grayAlpha-700' : 'border-grayAlpha-100',
+          )}
+        />
 
-        <p className="text-xs text-grayAlpha-500">
+        <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-500')}>
           Trusted by Axios, PostHog, Beehiiv, GitLab and more.
         </p>
       </div>

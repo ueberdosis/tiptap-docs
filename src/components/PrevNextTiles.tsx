@@ -5,6 +5,7 @@ import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 type Props = {
   config?: SidebarConfig
   currentPath: string
+  isFullWidth?: boolean
 }
 
 function normalize(href: string) {
@@ -70,7 +71,7 @@ function Card({ href, title, isNext }: { href: string; title: string; isNext?: b
   )
 }
 
-export default function PrevNextTiles({ config, currentPath }: Props) {
+export default function PrevNextTiles({ config, currentPath, isFullWidth }: Props) {
   if (!config) return null
 
   const normalizedCurrent = normalize(currentPath)
@@ -87,7 +88,7 @@ export default function PrevNextTiles({ config, currentPath }: Props) {
   if (!prev && !next) return null
 
   return (
-    <div className="mt-12">
+    <div className={`mt-12 ${isFullWidth ? 'max-w-full' : ''}`}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {prev ? (
           <div className="sm:col-start-1">

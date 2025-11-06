@@ -5,15 +5,24 @@ import { createPortal } from 'react-dom'
 import { EnterpriseCallout } from './EnterpriseCallout'
 
 export type EnterpriseCalloutAutoProps = {
-  variant: 'migration' | 'ai-agent' | 'pages' | 'semantic-search' | 'docx'
+  variant:
+    | 'migration'
+    | 'ai-agent'
+    | 'ai-toolkit'
+    | 'pages'
+    | 'semantic-search'
+    | 'docx'
+    | 'deprecated'
   renderMode?: 'inline' | 'sidebar'
   disableWaitlist?: boolean
+  inverted?: boolean
 }
 
 export const EnterpriseCalloutAuto = ({
   variant,
   renderMode = 'sidebar',
   disableWaitlist = false,
+  inverted = false,
 }: EnterpriseCalloutAutoProps) => {
   const [mounted, setMounted] = useState(false)
   const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
@@ -47,6 +56,7 @@ export const EnterpriseCalloutAuto = ({
         variant={variant}
         inline
         disableWaitlist={disableWaitlist}
+        inverted={inverted}
         className="mt-12"
       />
     )
@@ -55,7 +65,7 @@ export const EnterpriseCalloutAuto = ({
   // Render in sidebar via portal
   if (mounted && sidebarElement && renderMode === 'sidebar') {
     return createPortal(
-      <EnterpriseCallout variant={variant} disableWaitlist={disableWaitlist} />,
+      <EnterpriseCallout variant={variant} disableWaitlist={disableWaitlist} inverted={inverted} />,
       sidebarElement,
     )
   }
