@@ -87,7 +87,7 @@ export default function PrevNextTiles({ config, currentPath }: Props) {
   if (!prev && !next) return null
 
   return (
-    <div className="mt-12">
+    <div className="mt-12 max-w-[42rem]">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {prev ? (
           <div className="sm:col-start-1">

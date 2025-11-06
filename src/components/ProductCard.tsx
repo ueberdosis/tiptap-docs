@@ -12,6 +12,7 @@ export type ProductCardProps = {
   tags: string[]
   documentationUrl: string
   secondaryUrl?: string
+  secondaryButtonText?: string
   asChild?: boolean
   doubleWidth?: boolean
 } & HTMLProps<HTMLDivElement>
@@ -24,6 +25,7 @@ export const ProductCard = ({
   tags,
   title,
   secondaryUrl,
+  secondaryButtonText = 'Example',
   doubleWidth = false,
   ...rest
 }: ProductCardProps) => {
@@ -59,7 +61,7 @@ export const ProductCard = ({
         {secondaryUrl ? (
           <Button asChild variant="tertiary">
             <Link href={secondaryUrl}>
-              Example
+              {secondaryButtonText}
               <ArrowRightIcon className="size-3.5" />
             </Link>
           </Button>

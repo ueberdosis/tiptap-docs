@@ -36,6 +36,14 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/overview',
             },
             {
+              title: 'Install',
+              href: '/content-ai/capabilities/ai-toolkit/install',
+            },
+            {
+              title: 'Live Demo',
+              href: '/content-ai/capabilities/ai-toolkit/live-demo',
+            },
+            {
               title: 'Quickstart guides',
               href: '/content-ai/capabilities/ai-toolkit/guides',
               children: [
