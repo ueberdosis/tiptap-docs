@@ -71,7 +71,7 @@ function Card({ href, title, isNext }: { href: string; title: string; isNext?: b
   )
 }
 
-export default function PrevNextTiles({ config, currentPath, hideSecondarySidebar }: Props) {
+export default function PrevNextTiles({ config, currentPath, isFullWidth }: Props) {
   if (!config) return null
 
   const normalizedCurrent = normalize(currentPath)
