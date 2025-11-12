@@ -15,10 +15,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/hocuspocus/getting-started/overview',
         },
         {
-          title: 'Install',
-          href: '/hocuspocus/getting-started/install',
-        },
-        {
           title: 'About the project',
           href: '/hocuspocus/getting-started/sponsor',
         },
