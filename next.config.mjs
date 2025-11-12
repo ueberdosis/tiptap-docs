@@ -289,6 +289,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
         permanent: true,
       },
+      {
+        source: '/hocuspocus/introduction',
+        destination: '/hocuspocus/getting-started/overview',
+        permanent: true,
+      },
     ]
   },
 }
