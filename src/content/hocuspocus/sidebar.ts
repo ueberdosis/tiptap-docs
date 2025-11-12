@@ -111,6 +111,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Webhook',
           href: '/hocuspocus/server/extensions/webhook',
         },
+        {
+          title: 'S3',
+          href: '/hocuspocus/server/extensions/s3',
+        },
       ],
     },
     {
