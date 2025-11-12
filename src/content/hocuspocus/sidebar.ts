@@ -22,6 +22,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Contributing',
           href: '/hocuspocus/getting-started/contributing',
         },
+        {
+          title: 'Upgrade Guide',
+          href: '/hocuspocus/getting-started/upgrade',
+        },
       ],
     },
     {
