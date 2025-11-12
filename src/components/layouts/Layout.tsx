@@ -214,11 +214,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
           </div>
           <div className="flex flex-col items-start justify-between gap-4 text-sm mt-14">
             <div className="flex flex-wrap items-center flex-none gap-3">
-              <Link
-                className="hover:underline"
-                target="_blank"
-                href="https://tiptap.dev/docs/hocuspocus/introduction"
-              >
+              <Link className="hover:underline" href="/hocuspocus/getting-started/overview">
                 Hocuspocus
               </Link>
               <Link
