@@ -61,14 +61,6 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Server',
       children: [
         {
-          title: 'Overview',
-          href: '/hocuspocus/server/overview',
-        },
-        {
-          title: 'Install',
-          href: '/hocuspocus/server/install',
-        },
-        {
           title: 'Configuration',
           href: '/hocuspocus/server/configuration',
         },
@@ -126,10 +118,6 @@ export const sidebarConfig: SidebarConfig = {
       href: '/hocuspocus/guides',
       title: 'Guides',
       children: [
-        {
-          title: 'Overview',
-          href: '/hocuspocus/guides/overview',
-        },
         {
           title: 'Authentication',
           href: '/hocuspocus/guides/authentication',
