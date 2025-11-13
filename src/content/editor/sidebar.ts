@@ -246,27 +246,9 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
-              href: '/editor/extensions/functionality/ai-agent',
-              title: 'AI Assistant',
-              tags: ['Team'],
-              beta: true,
-            },
-            {
-              href: '/editor/extensions/functionality/ai-changes',
-              title: 'AI Changes',
-              tags: ['Team'],
-              beta: true,
-            },
-            {
               href: '/editor/extensions/functionality/ai-generation',
               title: 'AI Generation',
               tags: ['Start'],
-            },
-            {
-              href: '/editor/extensions/functionality/ai-suggestion',
-              title: 'AI Suggestion',
-              tags: ['Team'],
-              beta: true,
             },
             {
               href: '/content-ai/capabilities/ai-toolkit',

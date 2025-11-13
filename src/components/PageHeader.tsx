@@ -210,6 +210,20 @@ export const PageHeaderTag = ({
       </Tag>
     )
   }
+
+  if (tag.type === 'deprecated') {
+    return (
+      <Tag
+        variant="warning"
+        tooltip={
+          tag.tooltip ||
+          'This extension is being deprecated in 2026 and will be replaced by AI Toolkit.'
+        }
+      >
+        Deprecated
+      </Tag>
+    )
+  }
 }
 
 export const PageHeader = {

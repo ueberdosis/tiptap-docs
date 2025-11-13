@@ -45,6 +45,7 @@ export type GeneralPageTag = {
     | 'restricted'
     | 'mit'
     | 'business'
+    | 'deprecated'
   tooltip?: string
 }
 
