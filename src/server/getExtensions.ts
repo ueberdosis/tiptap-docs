@@ -40,6 +40,10 @@ export const getExtensions = async (path: string = '') => {
         (tag: { type: string }) => typeof tag === 'object' && tag.type === 'team',
       )
 
+      const hasAddonTag = pageTags.some(
+        (tag: { type: string }) => typeof tag === 'object' && tag.type === 'addon',
+      )
+
       // Initialize tags array if it doesn't exist
       if (!extensionData.tags) {
         extensionData.tags = []
@@ -53,6 +57,11 @@ export const getExtensions = async (path: string = '') => {
       // Add "Team" tag if team type is present
       if (hasTeamTag && !extensionData.tags.includes('Team')) {
         extensionData.tags.push('Team')
+      }
+
+      // Add "Addon" tag if addon type is present
+      if (hasAddonTag && !extensionData.tags.includes('Addon')) {
+        extensionData.tags.push('Addon')
       }
 
       return [

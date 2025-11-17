@@ -5,14 +5,7 @@ import { createPortal } from 'react-dom'
 import { EnterpriseCallout } from './EnterpriseCallout'
 
 export type EnterpriseCalloutAutoProps = {
-  variant:
-    | 'migration'
-    | 'ai-agent'
-    | 'ai-toolkit'
-    | 'pages'
-    | 'semantic-search'
-    | 'docx'
-    | 'deprecated'
+  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'semantic-search' | 'docx' | 'deprecated'
   renderMode?: 'inline' | 'sidebar'
   disableWaitlist?: boolean
   inverted?: boolean

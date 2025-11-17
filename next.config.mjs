@@ -276,7 +276,7 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
         permanent: true,
       },
       {

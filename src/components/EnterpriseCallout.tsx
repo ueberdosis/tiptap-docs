@@ -5,14 +5,7 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant:
-    | 'migration'
-    | 'ai-agent'
-    | 'ai-toolkit'
-    | 'pages'
-    | 'semantic-search'
-    | 'docx'
-    | 'deprecated'
+  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'semantic-search' | 'docx' | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
   inverted?: boolean
@@ -29,14 +22,12 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         : variant === 'ai-agent'
           ? 'Build AI Agents with expert support'
           : variant === 'ai-toolkit'
-            ? 'Integrate the AI Toolkit'
-            : variant === 'pages'
-              ? 'Integrate Pages with expert support'
-              : variant === 'docx'
-                ? 'Ship DOCX faster with expert support'
-                : variant === 'deprecated'
-                  ? 'Migrate to AI Toolkit'
-                  : 'Join the semantic search beta'
+            ? 'Add AI Toolkit to your subscription'
+            : variant === 'docx'
+              ? 'Ship DOCX faster with expert support'
+              : variant === 'deprecated'
+                ? 'Migrate to AI Toolkit'
+                : 'Join the semantic search beta'
 
     const description =
       variant === 'migration'
@@ -44,30 +35,28 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         : variant === 'ai-agent'
           ? "We're onboarding Enterprise teams building real-time editors. Get direct support for Agent setup, LLM integration, and performance tuning."
           : variant === 'ai-toolkit'
-            ? "Get started by subscribing to the Business plan. We'll guide your integration with dedicated engineering support via Slack."
-            : variant === 'pages'
-              ? "We're onboarding Enterprise teams ready to implement the page layout. Get direct engineering support and shape the product roadmap."
-              : variant === 'docx'
-                ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
-                : variant === 'deprecated'
-                  ? "The AI Toolkit replaces this extension with better performance and more features. Your current setup keeps working. We'll help you migrate when ready."
-                  : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
+            ? 'Reach out to add AI Toolkit to your subscription. We can guide your integration with dedicated engineering support via Slack.'
+            : variant === 'docx'
+              ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
+              : variant === 'deprecated'
+                ? "The AI Toolkit replaces this extension with better performance and more features. Your current setup keeps working. We'll help you migrate when ready."
+                : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
 
     const waitlistText = 'On a different plan? Join the'
 
     const waitlistUrl =
       variant === 'ai-toolkit'
-        ? 'https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105'
-        : 'https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd?pvs=105'
+        ? 'https://tiptap.dev/contact-sales?form=ai-toolkit'
+        : 'https://tiptap.dev/contact-sales?form=ai-toolkit'
 
     const talkToEngineerUrl =
       variant === 'ai-toolkit'
-        ? 'https://tiptap-suite.notion.site/27901ffa3ebc803197d8e4857e5ae394?pvs=105'
+        ? 'https://tiptap.dev/contact-sales?form=ai-toolkit'
         : variant === 'deprecated'
-          ? 'mailto:humans@tiptap.dev'
-          : 'https://tiptap.dev/contact-sales'
+          ? 'https://tiptap.dev/contact-sales?form=ai-toolkit'
+          : 'https://tiptap.dev/contact-sales?form=ai-toolkit'
 
-    const buttonText = variant === 'deprecated' ? 'Contact us' : 'Talk to an engineer'
+    const buttonText = variant === 'deprecated' ? 'Talk to an engineer' : 'Talk to an engineer'
 
     if (inline) {
       return (

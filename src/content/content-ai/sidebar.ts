@@ -28,7 +28,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Toolkit',
           href: '/content-ai/capabilities/ai-toolkit',
-          tags: ['Business'],
+          tags: ['Add on'],
           beta: true,
           children: [
             {
@@ -74,24 +74,24 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
               children: [
                 {
-                  title: 'Selection awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
-                },
-                {
-                  title: 'Multi-document AI agent',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+                  title: 'AI engineering guide',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
                 {
                   title: 'Add comments',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
                 },
                 {
-                  title: 'AI engineering guide',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+                  title: 'Multi-document AI agent',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
                 },
                 {
                   title: 'Proofreader',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+                },
+                {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
                 },
                 {
                   title: 'Style suggestions',

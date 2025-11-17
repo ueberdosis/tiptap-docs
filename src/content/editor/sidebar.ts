@@ -251,9 +251,9 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Start'],
             },
             {
-              href: '/content-ai/capabilities/ai-toolkit',
+              href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
-              tags: ['Business'],
+              tags: ['Add on'],
               beta: true,
             },
             {
@@ -355,6 +355,11 @@ export const sidebarConfig: SidebarConfig = {
               beta: true,
             },
             {
+              href: '/editor/extensions/functionality/pages',
+              title: 'Pages',
+              tags: ['Team'],
+            },
+            {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
             },
@@ -365,7 +370,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
-              title: 'Version Compare',
+              title: 'Snapshot Compare',
               tags: ['Team'],
             },
             {
