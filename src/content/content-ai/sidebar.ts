@@ -28,7 +28,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Toolkit',
           href: '/content-ai/capabilities/ai-toolkit',
-          tags: ['Add on'],
+          tags: ['Add-on'],
           beta: true,
           children: [
             {
