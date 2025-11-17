@@ -126,6 +126,12 @@ export const PageHeaderTag = ({
     return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Start plan</Tag>
   }
 
+  if (tag.type === 'addon') {
+    return (
+      <Tag tooltip={tag.tooltip || 'Add AI Toolkit to your subscription'}>Add-on for any plan</Tag>
+    )
+  }
+
   if (tag.type === 'mit') {
     return (
       <Tag variant="invert" tooltip={tag.tooltip || 'Free to use under MIT license.'}>
