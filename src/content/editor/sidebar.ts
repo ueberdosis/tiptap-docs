@@ -253,7 +253,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
-              tags: ['Add on'],
+              tags: ['Add-on'],
               beta: true,
             },
             {
