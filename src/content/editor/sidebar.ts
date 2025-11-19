@@ -723,6 +723,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'setNode',
                 },
                 {
+                  href: '/editor/api/commands/nodes-and-marks/set-text-direction',
+                  title: 'setTextDirection',
+                },
+                {
                   href: '/editor/api/commands/nodes-and-marks/split-block',
                   title: 'splitBlock',
                 },
@@ -749,6 +753,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   href: '/editor/api/commands/nodes-and-marks/unset-mark',
                   title: 'unsetMark',
+                },
+                {
+                  href: '/editor/api/commands/nodes-and-marks/unset-text-direction',
+                  title: 'unsetTextDirection',
                 },
                 {
                   href: '/editor/api/commands/nodes-and-marks/update-attributes',

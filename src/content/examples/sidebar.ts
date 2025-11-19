@@ -53,6 +53,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Tasks',
           href: '/examples/basics/tasks',
         },
+        {
+          title: 'Text direction & RTL support',
+          href: '/examples/basics/text-direction',
+        },
       ],
     },
     {
