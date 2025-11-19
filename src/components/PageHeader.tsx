@@ -127,9 +127,7 @@ export const PageHeaderTag = ({
   }
 
   if (tag.type === 'addon') {
-    return (
-      <Tag tooltip={tag.tooltip || 'Add AI Toolkit to your subscription'}>Add-on for any plan</Tag>
-    )
+    return <Tag tooltip={tag.tooltip || 'Add AI Toolkit to your subscription'}>Paid add-on</Tag>
   }
 
   if (tag.type === 'mit') {
