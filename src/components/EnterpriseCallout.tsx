@@ -35,7 +35,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         : variant === 'ai-agent'
           ? "We're onboarding Enterprise teams building real-time editors. Get direct support for Agent setup, LLM integration, and performance tuning."
           : variant === 'ai-toolkit'
-            ? 'Reach out to add AI Toolkit to your subscription. We can guide your integration with dedicated engineering support via Slack.'
+            ? 'Integrate the AI Toolkit by purchasing the paid subscription add-on. We can guide your integration with dedicated engineering support via Slack.'
             : variant === 'docx'
               ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
               : variant === 'deprecated'
