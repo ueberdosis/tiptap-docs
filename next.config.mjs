@@ -294,11 +294,11 @@ const nextConfig = {
         destination: '/hocuspocus/getting-started/overview',
         permanent: true,
       },
-      // {
-      //   source: '/editor/ai/advanced-usage/custom-llm',
-      //   destination: '/content-ai/capabilities/generation/overview',
-      //   permanent: true,
-      // },
+      {
+        source: '/editor/ai/advanced-usage/custom-llm',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: true,
+      },
     ]
   },
 }
