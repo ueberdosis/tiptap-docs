@@ -63,6 +63,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/editor/getting-started/install/cdn',
+        destination: '/editor/getting-started/install/vanilla-javascript',
+        permanent: true,
+      },
+      {
         source: '/editor/markdown/getting-started',
         destination: '/editor/markdown/getting-started/installation',
         permanent: true,
