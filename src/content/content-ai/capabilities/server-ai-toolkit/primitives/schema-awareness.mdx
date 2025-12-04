@@ -1,0 +1,233 @@
+---
+title: Schema awareness
+meta:
+  title: Schema awareness | Tiptap Content AI
+  description: Provide schema awareness to AI models so they understand nodes, marks, and attributes on the server.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+A Tiptap [schema](/editor/core-concepts/schema) describes the elements the document can (and cannot) contain. The Server AI Toolkit uses **JSON schema awareness** to help AI models understand the document structure.
+
+<Callout title="Why schema awareness?" variant="default">
+  Without schema awareness, the AI model might generate content that the Tiptap editor does not
+  support. For example, it might generate a table in a document that does not support tables. With
+  schema awareness enabled, the AI model will know that table nodes are not supported and will
+  refuse to generate them.
+</Callout>
+
+## Guide: give schema awareness to your AI model
+
+Integrate the schema awareness feature with a server-side AI agent.
+
+### Step 1: get the schema awareness data (client-side)
+
+Get the schema awareness data from the AI Toolkit on the client-side. This data contains the serialized schema and custom node information.
+
+```tsx
+// Client-side (React component)
+import { getAiToolkit } from '@tiptap-pro/ai-toolkit'
+
+const editor = useEditor({
+  extensions: [StarterKit, AiToolkit],
+})
+
+// Get schema awareness data
+const schemaAwarenessData = getAiToolkit(editor).getJsonSchemaAwarenessData()
+```
+
+### Step 2: send to server
+
+Send the schema awareness data to your server endpoint when making API calls.
+
+```tsx
+// Client-side
+const { messages, sendMessage } = useChat({
+  transport: new DefaultChatTransport({
+    api: '/api/server-ai-toolkit',
+    body: () => ({
+      schemaAwarenessData,
+    }),
+  }),
+})
+```
+
+### Step 3: create server toolkit with schema awareness
+
+On the server, create a Server AI Toolkit instance with the schema awareness data:
+
+```typescript
+// Server-side API endpoint
+import { getServerAiToolkit } from '@tiptap-pro/ai-toolkit/server-ai-toolkit'
+
+export async function POST(req: Request) {
+  const { messages, schemaAwarenessData } = await req.json()
+
+  const toolkit = getServerAiToolkit({
+    schemaAwarenessData,
+    storage,
+  })
+
+  // ... use the toolkit
+}
+```
+
+### Step 4: add schema awareness to system prompt
+
+Use `getSchemaAwarenessPrompt()` to get a string describing the document's schema, optimized for AI models.
+
+```typescript
+import { streamText } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
+
+const toolkit = getServerAiToolkit({
+  schemaAwarenessData,
+  storage,
+  tools: serverToolDefinitions(),
+})
+
+const result = streamText({
+  model: anthropic('claude-haiku-4-5-20251001'),
+  system: `You are an assistant that can edit rich text documents.
+
+${toolkit.getSchemaAwarenessPrompt()}`,
+  messages,
+  tools: toolkit.getTools(),
+})
+```
+
+The schema awareness prompt is automatically added to the system prompt, helping the AI model understand what nodes and marks are available in the document.
+
+## Custom Nodes
+
+If your document contains [custom Nodes and Marks](/editor/extensions/custom-extensions), add the `addJsonSchemaAwareness` option to the extension configuration on the client-side.
+
+```typescript
+// Client-side
+import { Node } from '@tiptap/core'
+
+const CustomExtension = Node.configure({
+  name: 'alert',
+
+  addJsonSchemaAwareness() {
+    return {
+      name: 'Alert Box',
+      description: `A highlighted box used to display important information, warnings, or tips to the user.
+It can have inline content inside like text and formatting tags.`,
+      attributes: {
+        type: z.enum(['info', 'warning', 'error', 'success']).describe('The type of alert'),
+      },
+    }
+  },
+
+  // ... Other extension configuration options
+})
+```
+
+The schema awareness data will include information about this custom node, and the AI model will be able to generate it.
+
+<Callout title="What about official Tiptap extensions?" variant="info">
+  Schema awareness for official Tiptap extensions is automatically supported by the AI Toolkit. They
+  do not need to be configured. You can still override the default schema awareness information for
+  official Tiptap extensions by extending the extension and adding the `addJsonSchemaAwareness`
+  option.
+</Callout>
+
+## API Reference
+
+### `getJsonSchemaAwarenessData` (client-side)
+
+Returns schema awareness data including a serialized schema and custom node information.
+
+This method is called on the client-side using the AI Toolkit.
+
+#### Parameters (`GetJsonSchemaAwarenessDataOptions`)
+
+- `customNodes?` (`JsonItem[]`): Custom schema awareness items to include in addition to the default ones. Default: `[]`
+
+#### Returns (`JsonSchemaAwarenessData`)
+
+- `serializedSchema` (`string`): The serialized ProseMirror schema
+- `items` (`SerializedJsonItem[]`): The merged custom nodes with JSON schema attributes
+
+#### Example
+
+```typescript
+// Client-side
+const toolkit = getAiToolkit(editor)
+const schemaAwarenessData = toolkit.getJsonSchemaAwarenessData()
+
+// Send to server
+fetch('/api/server-ai-toolkit', {
+  method: 'POST',
+  body: JSON.stringify({ schemaAwarenessData }),
+})
+```
+
+### `getSchemaAwarenessPrompt` (server-side)
+
+Returns a string describing the document's schema. This string should be added to the system prompt that is sent to the AI model.
+
+This method is called on the server-side using the Server AI Toolkit.
+
+#### Parameters
+
+None
+
+#### Returns
+
+`string`: Human-readable schema awareness text suitable for system prompts
+
+#### Example
+
+```typescript
+// Server-side
+const toolkit = getServerAiToolkit({
+  schemaAwarenessData,
+})
+
+const schemaPrompt = toolkit.getSchemaAwarenessPrompt()
+
+// Add to system prompt
+const systemPrompt = `You are an assistant that can edit rich text documents.
+
+${schemaPrompt}`
+```
+
+### `addJsonSchemaAwareness` (extension configuration option)
+
+Add schema awareness information about a custom Node or Mark. This option is used to configure custom nodes and marks for the AI model to know about them.
+
+This configuration option is available for [custom Node and Mark extensions](/editor/extensions/custom-extensions/create-new/node) on the client-side.
+
+#### Parameters (`JsonItem`)
+
+- `name` (`string`): The human-readable name of the element
+- `description?` (`string | null`): Explanation of what the element is and how it is used
+- `attributes?` (`Record<string, ZodType>`): Zod schemas for the node's attributes
+
+#### Example
+
+```typescript
+// Client-side
+import { Node } from '@tiptap/core'
+import { z } from 'zod'
+
+const AlertNode = Node.create({
+  name: 'alert',
+
+  addJsonSchemaAwareness() {
+    return {
+      name: 'Alert Box',
+      description: 'A highlighted box for important information',
+      attributes: {
+        type: z.enum(['info', 'warning', 'error', 'success']).describe('The alert type'),
+        dismissible: z.boolean().optional().describe('Whether the alert can be dismissed'),
+      },
+    }
+  },
+
+  // ... other configuration
+})
+```
