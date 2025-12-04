@@ -1,0 +1,243 @@
+---
+title: AI agent chatbot
+meta:
+  title: AI agent chatbot | Tiptap Content AI
+  description: Build a server-side AI agent that can read and edit Tiptap documents using the Server AI Toolkit and Vercel AI SDK.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+
+<Requirements>
+  <RequirementItem label="1. Get access">
+    Access the AI Toolkit extension by purchasing the paid AI Toolkit add-on.{' '}
+    <a href="https://tiptap.dev/contact-sales?form=ai-toolkit">Contact our team</a>.
+  </RequirementItem>
+  <RequirementItem label="2. Access the private registry">
+    The AI Toolkit extension is published in Tiptap's private npm registry. Authenticate to Tiptap's
+    private npm registry by following the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+  <RequirementItem label="3. Install the extension">
+    Install the extension from the private registry using npm or your preferred package manager.
+  </RequirementItem>
+</Requirements>
+
+Build a server-side AI agent chatbot that can read and edit Tiptap documents. The AI runs on the server and edits documents stored in Tiptap Cloud.
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [Anthropic](https://www.anthropic.com/) models
+- [Tiptap Collaboration](https://tiptap.dev/docs/collaboration/getting-started/overview) for real-time sync
+- Server AI Toolkit
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest ai-agent-chatbot
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for Anthropic:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration ai @ai-sdk/react @ai-sdk/anthropic yjs
+```
+
+Install the Tiptap Collaboration provider:
+
+<Callout title="Pro package" variant="hint">
+  The Collaboration provider is a pro package. Before installation, set up access to the private NPM
+  registry by following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/provider
+```
+
+Install the Tiptap AI Toolkit and the server tool definitions for the Vercel AI SDK:
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-ai-sdk
+```
+
+## Client-side setup
+
+Create a client-side React component that renders the Tiptap Editor connected to Tiptap Collaboration and a simple chat UI.
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { useChat } from '@ai-sdk/react'
+import { Collaboration } from '@tiptap/extension-collaboration'
+import { type Editor, EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import * as Y from 'yjs'
+
+const doc = new Y.Doc()
+
+export default function Page() {
+  const providerRef = useRef<TiptapCollabProvider | null>(null)
+  const editorRef = useRef<Editor | null>(null)
+
+  const connectToCollaboration = useCallback(async () => {
+    try {
+      const { token, appId } = await getTiptapCloudCredentials()
+
+      if (!providerRef.current) {
+        providerRef.current = new TiptapCollabProvider({
+          appId,
+          token,
+          user: 'user1',
+          name: 'my-document',
+          document: doc,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to connect to collaboration:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    connectToCollaboration()
+
+    return () => {
+      if (providerRef.current) {
+        providerRef.current.destroy()
+        providerRef.current = null
+      }
+    }
+  }, [connectToCollaboration])
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      AiToolkit,
+      Collaboration.configure({
+        document: doc,
+      }),
+    ],
+  })
+
+  editorRef.current = editor
+
+  const { messages, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: () => ({
+        schemaAwarenessData: editorRef.current
+          ? getAiToolkit(editorRef.current).getJsonSchemaAwarenessData()
+          : null,
+      }),
+    }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  })
+
+  const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          {message.parts
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text)
+            .join('\n')}
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          sendMessage({ text: input })
+          setInput('')
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
+    </div>
+  )
+}
+```
+
+The component uses the `useChat` hook from the Vercel AI SDK to call the API endpoint and manage the chat conversation. It sends the schema awareness data to the server with each request.
+
+## Server-side API endpoint
+
+Create an API endpoint that uses the Server AI Toolkit to execute tool calls from the AI model:
+
+```ts
+// app/api/chat/route.ts
+import { anthropic } from '@ai-sdk/anthropic'
+import { getServerAiToolkit, TiptapCloudStorage } from '@tiptap-pro/ai-toolkit/server-ai-toolkit'
+import { serverToolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { convertToModelMessages, streamText, type UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages, schemaAwarenessData }: { messages: UIMessage[]; schemaAwarenessData: any } =
+    await req.json()
+
+  const serverAiToolkit = getServerAiToolkit({
+    schemaAwarenessData,
+    tools: serverToolDefinitions(),
+    storage: new TiptapCloudStorage({
+      documentIdentifier: 'my-document',
+      appId: process.env.TIPTAP_CLOUD_APP_ID!,
+      apiSecret: process.env.REST_API_SECRET!,
+    }),
+  })
+
+  const result = streamText({
+    model: anthropic('claude-haiku-4-5-20251001'),
+    system: `You are an assistant that can edit rich text documents.
+${serverAiToolkit.getSchemaAwarenessPrompt()}`,
+    messages: convertToModelMessages(messages),
+    tools: serverAiToolkit.getTools(),
+  })
+
+  return result.toUIMessageStreamResponse()
+}
+```
+
+The endpoint creates a Server AI Toolkit instance with Tiptap Cloud storage, passes the tool definitions to the AI model, and streams the response back to the client.
+
+## Environment variables
+
+Add your Tiptap Cloud credentials and Anthropic API key as environment variables:
+
+```sh
+# .env
+TIPTAP_CLOUD_APP_ID=your-app-id
+REST_API_SECRET=your-rest-api-secret
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+Get your Tiptap Cloud credentials from the [Tiptap Cloud dashboard](https://cloud.tiptap.dev/). Create an Anthropic API key in the [Anthropic Console](https://console.anthropic.com/).
+
+## How it works
+
+1. User types a message in the chat UI
+2. Client sends the message and schema awareness data to the server
+3. Server creates a Server AI Toolkit instance with Tiptap Cloud storage
+4. AI model generates tool calls to read and edit the document
+5. Server AI Toolkit executes the tool calls and updates the document in Tiptap Cloud
+6. Changes sync to the client in real-time through Tiptap Collaboration
+7. AI response streams back to the client
+
+## Next steps
+
+- Learn about [storage options](/content-ai/capabilities/server-ai-toolkit/guides/storage) to use custom storage backends
+- Explore the [primitives](/content-ai/capabilities/server-ai-toolkit/primitives/execute-tool) for more control over tool execution
+- Check out the [configuration options](/content-ai/capabilities/server-ai-toolkit/configure) to customize the toolkit behavior
