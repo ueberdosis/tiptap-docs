@@ -122,6 +122,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Document',
             },
             {
+              href: '/editor/extensions/nodes/embed-bluesky',
+              title: 'Embed Bluesky',
+            },
+            {
               href: '/editor/extensions/nodes/emoji',
               title: 'Emoji',
             },
