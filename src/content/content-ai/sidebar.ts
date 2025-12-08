@@ -224,8 +224,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Server AI Toolkit',
           href: '/content-ai/capabilities/server-ai-toolkit',
-          tags: ['Add-on'],
-          beta: true,
+          tags: ['Alpha'],
           children: [
             {
               title: 'Overview',

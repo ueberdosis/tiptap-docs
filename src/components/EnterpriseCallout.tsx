@@ -5,7 +5,14 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'semantic-search' | 'docx' | 'deprecated'
+  variant:
+    | 'migration'
+    | 'ai-agent'
+    | 'ai-toolkit'
+    | 'server-ai-toolkit'
+    | 'semantic-search'
+    | 'docx'
+    | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
   inverted?: boolean
@@ -23,11 +30,13 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           ? 'Build AI Agents with expert support'
           : variant === 'ai-toolkit'
             ? 'Add AI Toolkit to your subscription'
-            : variant === 'docx'
-              ? 'Ship DOCX faster with expert support'
-              : variant === 'deprecated'
-                ? 'Migrate to AI Toolkit'
-                : 'Join the semantic search beta'
+            : variant === 'server-ai-toolkit'
+              ? 'Get access to the Server AI Toolkit'
+              : variant === 'docx'
+                ? 'Ship DOCX faster with expert support'
+                : variant === 'deprecated'
+                  ? 'Migrate to AI Toolkit'
+                  : 'Join the semantic search beta'
 
     const description =
       variant === 'migration'
@@ -36,11 +45,13 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           ? "We're onboarding Enterprise teams building real-time editors. Get direct support for Agent setup, LLM integration, and performance tuning."
           : variant === 'ai-toolkit'
             ? 'Integrate the AI Toolkit by purchasing the paid subscription add-on. We can guide your integration with dedicated engineering support via Slack.'
-            : variant === 'docx'
-              ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
-              : variant === 'deprecated'
-                ? "The AI Toolkit replaces this extension with better performance and more features. Your current setup keeps working. We'll help you migrate when ready."
-                : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
+            : variant === 'server-ai-toolkit'
+              ? 'Apply for early access to the Server AI Toolkit. Integrate it with success and get dedicated engineering support via Slack.'
+              : variant === 'docx'
+                ? 'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.'
+                : variant === 'deprecated'
+                  ? "The AI Toolkit replaces this extension with better performance and more features. Your current setup keeps working. We'll help you migrate when ready."
+                  : 'Build intelligent search with dedicated engineering help and shape vector search capabilities by joining the Enterprise Beta program.'
 
     const waitlistText = 'On a different plan? Join the'
 
@@ -56,7 +67,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           ? 'https://tiptap.dev/contact-sales?form=ai-toolkit'
           : 'https://tiptap.dev/contact-sales?form=ai-toolkit'
 
-    const buttonText = variant === 'deprecated' ? 'Talk to an engineer' : 'Talk to an engineer'
+    const buttonText = 'Talk to an engineer'
 
     if (inline) {
       return (
@@ -94,28 +105,31 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                 </p>
               )}
 
-              {!disableWaitlist && variant !== 'ai-toolkit' && variant !== 'deprecated' && (
-                <p
-                  className={cn(
-                    'text-xs mt-4',
-                    inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600',
-                  )}
-                >
-                  {waitlistText}{' '}
-                  <Link
-                    href={waitlistUrl}
-                    target="_blank"
+              {!disableWaitlist &&
+                variant !== 'ai-toolkit' &&
+                variant !== 'server-ai-toolkit' &&
+                variant !== 'deprecated' && (
+                  <p
                     className={cn(
-                      'font-medium underline whitespace-nowrap',
-                      inverted
-                        ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
-                        : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                      'text-xs mt-4',
+                      inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600',
                     )}
                   >
-                    waitlist
-                  </Link>
-                </p>
-              )}
+                    {waitlistText}{' '}
+                    <Link
+                      href={waitlistUrl}
+                      target="_blank"
+                      className={cn(
+                        'font-medium underline whitespace-nowrap',
+                        inverted
+                          ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
+                          : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                      )}
+                    >
+                      waitlist
+                    </Link>
+                  </p>
+                )}
             </div>
 
             <div className="md:col-span-1 flex flex-col gap-2">
@@ -181,25 +195,28 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           </Link>
         </Button>
 
-        {!disableWaitlist && variant !== 'ai-toolkit' && variant !== 'deprecated' && (
-          <div className="text-left mb-2">
-            <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600')}>
-              {waitlistText}{' '}
-              <Link
-                href={waitlistUrl}
-                target="_blank"
-                className={cn(
-                  'font-medium underline whitespace-nowrap',
-                  inverted
-                    ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
-                    : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
-                )}
-              >
-                waitlist
-              </Link>
-            </p>
-          </div>
-        )}
+        {!disableWaitlist &&
+          variant !== 'ai-toolkit' &&
+          variant !== 'server-ai-toolkit' &&
+          variant !== 'deprecated' && (
+            <div className="text-left mb-2">
+              <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600')}>
+                {waitlistText}{' '}
+                <Link
+                  href={waitlistUrl}
+                  target="_blank"
+                  className={cn(
+                    'font-medium underline whitespace-nowrap',
+                    inverted
+                      ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
+                      : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                  )}
+                >
+                  waitlist
+                </Link>
+              </p>
+            </div>
+          )}
 
         <div
           className={cn(
