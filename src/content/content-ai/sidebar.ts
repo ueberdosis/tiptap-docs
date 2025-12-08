@@ -262,7 +262,7 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'Storage & persistence',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/storage-and-document-persistence',
+                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/storage',
                 },
                 {
                   title: 'Read the document',
