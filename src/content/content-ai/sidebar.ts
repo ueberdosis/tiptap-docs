@@ -261,6 +261,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/primitives/execute-tool',
                 },
                 {
+                  title: 'Events',
+                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/events',
+                },
+                {
                   title: 'Storage & persistence',
                   href: '/content-ai/capabilities/server-ai-toolkit/primitives/storage',
                 },
