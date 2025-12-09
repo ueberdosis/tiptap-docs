@@ -223,8 +223,169 @@ With additional CSS styles, the result is a polished proofreader application wit
 
 See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 
+## Alternative: Hash-based proofreading
+
+For more precise control over corrections, you can use `getHtmlWithHashes()` and `proofreadHtml()`. This approach gives the AI specific node identifiers, enabling targeted corrections that won't affect unintended parts of the document.
+
+### Server setup (hash-based)
+
+```ts
+// app/api/proofread/route.ts
+import { openai } from '@ai-sdk/openai'
+import { streamObject } from 'ai'
+import { proofreadHtmlPrompt } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { z } from 'zod'
+
+export async function POST(req: Request) {
+  const { nodesWithHashes } = await req.json()
+
+  const result = streamObject({
+    model: openai('gpt-4o-mini'),
+    system: proofreadHtmlPrompt,
+    prompt: JSON.stringify(nodesWithHashes),
+    schema: z.object({
+      operations: z.array(
+        z.object({
+          hash: z.string().describe('The 6-character hash of the node'),
+          delete: z.string().describe('The text to find and remove'),
+          insert: z.string().describe('The replacement text'),
+        }),
+      ),
+    }),
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+### Client setup (hash-based)
+
+```tsx
+// app/proofreader-hashes/page.tsx
+'use client'
+
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
+
+const INITIAL_CONTENT = `<h1>Grammar Check Demo</h1><p>This is a excelent editor for writng documents. It have many feature's that makes it very powerfull.</p>`
+
+// Helper: Filter out invalid partial operations during streaming
+function filterValidOperations(
+  operations: Array<{ hash?: string; delete?: string; insert?: string } | undefined>,
+) {
+  return operations.filter(
+    (op): op is { hash: string; delete: string; insert: string } =>
+      !!op && !!op.hash?.trim() && !!op.delete?.trim() && !!op.insert?.trim(),
+  )
+}
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: INITIAL_CONTENT,
+  })
+
+  const editorRef = useRef(editor)
+  editorRef.current = editor
+
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const { submit, isLoading, object } = useObject({
+    api: '/api/proofread',
+    schema: z.object({
+      operations: z.array(
+        z.object({
+          hash: z.string(),
+          delete: z.string(),
+          insert: z.string(),
+        }),
+      ),
+    }),
+    onFinish: () => {
+      setIsReviewing(true)
+    },
+  })
+
+  // Apply streaming operations in real-time as they arrive
+  useEffect(() => {
+    const currentEditor = editorRef.current
+    if (!currentEditor || !object?.operations) return
+
+    const validOperations = filterValidOperations(object.operations)
+    if (validOperations.length > 0) {
+      const toolkit = getAiToolkit(currentEditor)
+      toolkit.proofreadHtml({
+        operations: validOperations,
+        reviewOptions: { mode: 'preview' },
+      })
+    }
+  }, [object?.operations])
+
+  const checkGrammar = () => {
+    const currentEditor = editorRef.current
+    if (!currentEditor) return
+
+    const toolkit = getAiToolkit(currentEditor)
+    const nodesWithHashes = toolkit.getHtmlWithHashes()
+    submit({ nodesWithHashes })
+  }
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      {!isReviewing && (
+        <button onClick={checkGrammar} disabled={isLoading}>
+          {isLoading ? 'Checking...' : 'Check Grammar'}
+        </button>
+      )}
+
+      {isReviewing && (
+        <div>
+          <p>Corrections are highlighted in the document above.</p>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.applyAllSuggestions()
+              setIsReviewing(false)
+            }}
+          >
+            Accept all
+          </button>
+          <button
+            onClick={() => {
+              const toolkit = getAiToolkit(editor)
+              toolkit.setSuggestions([])
+              setIsReviewing(false)
+            }}
+          >
+            Reject all
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+### Benefits of hash-based proofreading
+
+- **Precise targeting**: Each correction targets a specific node, reducing the chance of unintended changes
+- **Better streaming**: Operations can be applied incrementally as they arrive from the AI
+- **Clearer AI context**: The AI sees exactly which node each piece of content belongs to
+- **Built-in prompt**: Use `proofreadHtmlPrompt` from `@tiptap-pro/ai-toolkit-tool-definitions` for consistent AI formatting
+
 ## Related guides
 
 - [Display suggestions](/content-ai/capabilities/ai-toolkit/primitives/display-suggestions#sethtmlsuggestions) - Learn more about the `setHtmlSuggestions()` method
+- [proofreadHtml](/content-ai/capabilities/ai-toolkit/primitives/display-suggestions#proofreadhtml) - API reference for hash-based proofreading
+- [getHtmlWithHashes](/content-ai/capabilities/ai-toolkit/primitives/read-the-document#gethtmlwithhashes) - Get document nodes with hash identifiers
 - [Review changes](/content-ai/capabilities/ai-toolkit/guides/review-changes) - Build a review changes UI
 - [AI engineering guide](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering) - Best practices for AI integration
