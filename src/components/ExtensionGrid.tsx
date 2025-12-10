@@ -106,7 +106,7 @@ function useFilteredExtensions(
     // Other filter logic remains the same
     if (
       filter === SEARCH_FILTER.OPEN_SOURCE &&
-      (ext.tags?.includes('Start') || ext.tags?.includes('Team'))
+      (ext.tags?.includes('Start') || ext.tags?.includes('Team') || ext.tags?.includes('Addon'))
     )
       return false
     if (filter === SEARCH_FILTER.START && !ext.tags?.includes('Start')) return false
