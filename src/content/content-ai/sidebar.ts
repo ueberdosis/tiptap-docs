@@ -223,88 +223,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Server AI Toolkit',
-          href: '/content-ai/capabilities/server-ai-toolkit',
+          href: '/content-ai/capabilities/server-ai-toolkit/overview',
           tags: ['Alpha'],
-          children: [
-            {
-              title: 'Overview',
-              href: '/content-ai/capabilities/server-ai-toolkit/overview',
-            },
-            {
-              title: 'Install',
-              href: '/content-ai/capabilities/server-ai-toolkit/install',
-            },
-            {
-              title: 'Guides',
-              href: '/content-ai/capabilities/server-ai-toolkit/guides',
-              children: [
-                {
-                  title: 'AI agent chatbot',
-                  href: '/content-ai/capabilities/server-ai-toolkit/guides/ai-agent-chatbot',
-                },
-                {
-                  title: 'Storage options',
-                  href: '/content-ai/capabilities/server-ai-toolkit/guides/storage',
-                },
-              ],
-            },
-            {
-              title: 'Configure',
-              href: '/content-ai/capabilities/server-ai-toolkit/configure',
-            },
-            {
-              title: 'Primitives',
-              href: '/content-ai/capabilities/server-ai-toolkit/primitives',
-              children: [
-                {
-                  title: 'Execute tool (AI agents)',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/execute-tool',
-                },
-                {
-                  title: 'Events',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/events',
-                },
-                {
-                  title: 'Storage & persistence',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/storage',
-                },
-                {
-                  title: 'Read the document',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/read-the-document',
-                },
-                {
-                  title: 'Edit the document',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/edit-the-document',
-                },
-                {
-                  title: 'Schema awareness',
-                  href: '/content-ai/capabilities/server-ai-toolkit/primitives/schema-awareness',
-                },
-              ],
-            },
-            {
-              title: 'AI agent tools',
-              href: '/content-ai/capabilities/server-ai-toolkit/tools',
-              children: [
-                {
-                  title: 'Available tools',
-                  href: '/content-ai/capabilities/server-ai-toolkit/tools/available-tools',
-                },
-                {
-                  title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/server-ai-toolkit/tools/ai-sdk',
-                },
-                {
-                  title: 'Other providers',
-                  href: '/content-ai/capabilities/server-ai-toolkit/tools/other-providers',
-                },
-              ],
-            },
-            {
-              title: 'Changelog',
-              href: '/content-ai/capabilities/server-ai-toolkit/changelog',
-            },
-          ],
         },
         {
           title: 'AI Generation',
