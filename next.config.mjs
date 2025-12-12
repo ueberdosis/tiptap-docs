@@ -295,21 +295,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/content-ai/capabilities/server-ai-toolkit/guides',
-        destination: '/content-ai/capabilities/server-ai-toolkit/guides/ai-agent-chatbot',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/server-ai-toolkit/primitives',
-        destination: '/content-ai/capabilities/server-ai-toolkit/primitives/execute-tool',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/server-ai-toolkit/tools',
-        destination: '/content-ai/capabilities/server-ai-toolkit/tools/available-tools',
-        permanent: true,
-      },
-      {
         source: '/hocuspocus/introduction',
         destination: '/hocuspocus/getting-started/overview',
         permanent: true,
