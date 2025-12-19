@@ -190,6 +190,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Text',
             },
             {
+              href: '/editor/extensions/nodes/twitch',
+              title: 'Twitch',
+            },
+            {
               href: '/editor/extensions/nodes/youtube',
               title: 'Youtube',
             },
