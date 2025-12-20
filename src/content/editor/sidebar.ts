@@ -511,6 +511,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Schema',
         },
         {
+          href: '/editor/core-concepts/decorations',
+          title: 'Decorations',
+        },
+        {
           href: '/editor/core-concepts/keyboard-shortcuts',
           title: 'Keyboard shortcuts',
         },
