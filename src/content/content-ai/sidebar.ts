@@ -86,16 +86,22 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
                 },
                 {
-                  title: 'Proofreader',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
-                },
-                {
                   title: 'Selection awareness',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
                 },
                 {
                   title: 'Style suggestions',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+                },
+              ],
+            },
+            {
+              title: 'Workflows',
+              href: '/content-ai/capabilities/ai-toolkit/workflows',
+              children: [
+                {
+                  title: 'Proofreader',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
                 },
               ],
             },
