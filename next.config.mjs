@@ -304,6 +304,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+        destination: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
+        permanent: true,
+      },
     ]
   },
 }

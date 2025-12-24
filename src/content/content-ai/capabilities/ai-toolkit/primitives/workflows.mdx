@@ -1,0 +1,117 @@
+---
+title: Workflows
+meta:
+  title: Workflows | Tiptap Content AI
+  description: API reference for the built-in workflows of the AI Toolkit.
+  category: Content AI
+---
+
+Workflows are scenarios where the AI model has a single, well-defined task. The AI Toolkit includes these built-in workflows:
+
+- [Proofreader](/content-ai/capabilities/ai-toolkit/workflows/proofreader).
+- Replace editor content (coming soon).
+- Insert editor content (coming soon).
+- Add comments (coming soon).
+
+Below is the API reference for the methods that support these built-in workflows.
+
+## `createProofreaderWorkflow` (server-side utility)
+
+Creates a ready-made workflow configuration for proofreading. Returns a system prompt and schemas for validating AI output.
+
+The workflow expects a user prompt as a JSON object with:
+
+- `nodes`: The nodes of the document to be proofread (see the client-side setup section on how to obtain them)
+- `task`: A string describing the task to complete
+
+### Returns
+
+- `systemPrompt` (`string`): Ready-to-use system prompt that instructs the AI model on how to generate proofreading operations
+- `zodOutputSchema` (`ZodObject`): Zod schema for validating the AI output
+- `jsonOutputSchema` (`object`): JSON schema for validating the AI output
+
+The `systemPrompt` field contains an example ready-to-use prompt with sensible defaults. We encourage you to read it and modify it to fit your needs.
+
+### Example
+
+```ts
+import { createProofreaderWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { streamObject } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+// Get the nodes from the API endpoint request
+const { nodes } = apiEndpointRequest
+
+// Create and configure the workflow
+const workflow = createProofreaderWorkflow()
+
+const result = streamObject({
+  model: openai('gpt-5-mini'),
+  // System prompt
+  system: workflow.systemPrompt,
+  // User message with the nodes and the task
+  prompt: JSON.stringify({
+    nodes,
+    task: 'Correct all grammar and spelling mistakes',
+  }),
+  // Validate the AI output
+  schema: workflow.zodOutputSchema,
+})
+```
+
+## `proofreaderWorkflow`
+
+Applies a list of proofreading operations to the document.
+
+### Parameters
+
+- `options` (`ProofreaderWorkflowOptions`): Configuration options
+  - `operations` (`PartialProofreaderOperation[]`): Array of proofreading operations.
+  - `workflowId` (`unknown`): Unique ID for this workflow run
+  - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior
+    - `mode?` (`'disabled' | 'review' | 'preview'`): Whether to review the changes before or after applying them. `'disabled'` means no review, `'review'` means review after applying, `'preview'` means preview before applying. Default: `'disabled'`
+    - `diffMode?` (`'detailed' | 'full'`): How to display the difference between the original and the modified content, when review mode is enabled. `'detailed'` compares the documents before and after the change and displays the deleted content and added content as a rich diff. `'full'` displays the deleted content and added content in a whole block, as a single change containing the deleted and added content. Default: `'detailed'`
+    - `displayOptions?` (`DisplayOptions<{ suggestion: Suggestion }>`): Customize how suggestions are displayed
+      - `showAsDiff?` (`boolean`): Whether to show the suggestion as a diff where inserted and original content are displayed side by side. Default: `true`
+      - `diffPosition?` (`'before' | 'after'`): The position of the diff relative to the suggestion. Default: `'before'`
+      - `attributes?` (`Record<string, any>`): Extra HTML attributes to be added to the suggestion
+      - `renderDecorations?` (`RenderDecorations<{ suggestion: Suggestion }>`): A function to render the suggestion as ProseMirror decorations
+    - `metadata?` (`Record<string, any>`): Extra metadata for the suggestions that can be used to store additional information about them (e.g. their source or their category). It is not used internally by the extension but it may help developers customize how the suggestions are displayed in the UI.
+    - `diffUtilityConfig?` (`DiffUtilityConfig`): Options for comparing the documents with the diff utility
+      - `simplifyChanges?` (`boolean`): Whether to simplify the changes. If `true`, the changes will be simplified so that, for example, two changes in the same word are merged into a single change. Only applies when mode is 'detailed'. Default: `true`
+      - `ignoreAttributes?` (`string[]`): The attributes to ignore. Default: `['id', 'data-thread-id']`
+      - `ignoreMarks?` (`string[]`): The marks to ignore. Default: `['inlineThread']`
+      - `changeMergeDistance?` (`number | null`): Maximum distance (in document positions) between changes to merge them. If two adjacent changes have a distance less than or equal to this value in either rangeA or rangeB, they will be merged into a single change. Set to `null` or `undefined` to disable merging. Only applies when mode is 'detailed'. Default: `null`
+      - `mode?` (`'detailed' | 'block'`): The diff mode to use for comparison. `'detailed'` performs character-level diff that identifies precise changes within text (default). `'block'` performs block-level diff that treats each top-level node as a single unit. Block mode is useful when you only need to know which paragraphs, headings, or other block-level elements have changed, without character-level detail. In block mode, `simplifyChanges` and `changeMergeDistance` options are ignored. Default: `'detailed'`
+  - `range?` (`Range`): The range to apply the proofreading operations to
+    - `from` (`number`): Start position
+    - `to` (`number`): End position
+
+### Returns (`ProofreaderWorkflowResult`)
+
+- `doc` (`Node`): The modified document after applying operations
+- `operations` (`ProofreaderOperationResult[]`): Array of operation results, in the same order as the input operations. Each result contains:
+  - `delete` (`string`): The text that was deleted (or supposed to be deleted)
+  - `insert` (`string`): The text that was inserted (or supposed to be inserted)
+  - `success` (`boolean`): Whether the operation was successful
+  - `error?` (`string`): Error message if the operation failed
+
+### Example
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Get the document in a format that allows the AI to make fast, efficient edits
+const { nodes } = toolkit.tiptapRead()
+
+const operations = await callApiEndpoint({ nodes })
+
+// Apply proofreading corrections
+const result = toolkit.proofreaderWorkflow({
+  operations,
+  workflowId: 'proofread-123',
+  reviewOptions: {
+    mode: 'preview',
+  },
+})
+```
