@@ -137,6 +137,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Diff utility',
                   href: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
                 },
+                {
+                  title: 'Workflows',
+                  href: '/content-ai/capabilities/ai-toolkit/primitives/workflows',
+                },
               ],
             },
             {
