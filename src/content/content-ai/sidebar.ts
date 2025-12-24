@@ -96,6 +96,40 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
+              title: 'AI agent tools',
+              href: '/content-ai/capabilities/ai-toolkit/tools',
+              children: [
+                {
+                  title: 'Available tools',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+                },
+                {
+                  title: 'Vercel AI SDK',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
+                },
+                {
+                  title: 'LangChain.js',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+                },
+                {
+                  title: 'OpenAI',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
+                },
+                {
+                  title: 'Anthropic',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+                },
+                {
+                  title: 'Mastra',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
+                },
+                {
+                  title: 'Other providers',
+                  href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+                },
+              ],
+            },
+            {
               title: 'Workflows',
               href: '/content-ai/capabilities/ai-toolkit/workflows',
               children: [
@@ -140,40 +174,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Workflows',
                   href: '/content-ai/capabilities/ai-toolkit/primitives/workflows',
-                },
-              ],
-            },
-            {
-              title: 'AI agent tools',
-              href: '/content-ai/capabilities/ai-toolkit/tools',
-              children: [
-                {
-                  title: 'Available tools',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
-                },
-                {
-                  title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
-                },
-                {
-                  title: 'LangChain.js',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
-                },
-                {
-                  title: 'OpenAI',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
-                },
-                {
-                  title: 'Anthropic',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
-                },
-                {
-                  title: 'Mastra',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
-                },
-                {
-                  title: 'Other providers',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
                 },
               ],
             },
