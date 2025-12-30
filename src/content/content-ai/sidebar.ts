@@ -93,6 +93,14 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Style suggestions',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
                 },
+                {
+                  title: 'Schema awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/schema-awareness',
+                },
+                {
+                  title: 'Compare documents',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
+                },
               ],
             },
             {
@@ -140,7 +148,7 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Primitives',
+              title: 'API reference',
               href: '/content-ai/capabilities/ai-toolkit/primitives',
               children: [
                 {
