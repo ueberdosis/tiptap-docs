@@ -45,6 +45,8 @@ const [reviewState, setReviewState] = useState({
   tool: '',
   toolCallId: '',
   output: '',
+  // Feedback events collected from user actions
+  feedbackEvents: [] as SuggestionFeedbackEvent[],
 })
 
 const { messages, sendMessage, addtoolOutput } = useChat({
@@ -74,6 +76,7 @@ const { messages, sendMessage, addtoolOutput } = useChat({
         tool: toolName,
         toolCallId,
         output: result.output,
+        feedbackEvents: [],
       })
     } else {
       // Continue the conversation
@@ -127,11 +130,21 @@ Then, in the React component, display a button to reject/accept the changes:
       <button
         onClick={() => {
           const toolkit = getAiToolkit(editor)
-          toolkit.applyAllSuggestions()
-          addtoolOutput(reviewState)
-          return setReviewState({
+          const result = toolkit.applyAllSuggestions()
+          // Combine all feedback events (previous + new)
+          const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+          // Combine original output with feedback in XML tags
+          const outputWithFeedback = `${reviewState.output}\n\n<user_feedback>\n${JSON.stringify({ events: allFeedbackEvents }, null, 2)}\n</user_feedback>`
+          addtoolOutput({
+            tool: reviewState.tool,
+            toolCallId: reviewState.toolCallId,
+            output: outputWithFeedback,
+          })
+          // Reset feedback events and close review UI
+          setReviewState({
             ...reviewState,
             isReviewing: false,
+            feedbackEvents: [],
           })
         }}
       >
@@ -140,15 +153,23 @@ Then, in the React component, display a button to reject/accept the changes:
       <button
         onClick={() => {
           const toolkit = getAiToolkit(editor)
-          toolkit.setSuggestions([])
+          const result = toolkit.rejectAllSuggestions()
+          // Combine all feedback events (previous + new)
+          const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+          // Combine rejection message with feedback in XML tags
+          const rejectionMessage =
+            'The changes you made were rejected by the user. Do not edit the document again. Ask the user why, and what you can do to improve them.'
+          const outputWithFeedback = `${rejectionMessage}\n\n<user_feedback>\n${JSON.stringify({ events: allFeedbackEvents }, null, 2)}\n</user_feedback>`
           addtoolOutput({
-            ...reviewState,
-            output:
-              'The changes were rejected. Ask the user why, and what you can do to improve them.',
+            tool: reviewState.tool,
+            toolCallId: reviewState.toolCallId,
+            output: outputWithFeedback,
           })
-          return setReviewState({
+          // Reset feedback events and close review UI
+          setReviewState({
             ...reviewState,
             isReviewing: false,
+            feedbackEvents: [],
           })
         }}
       >
@@ -158,6 +179,17 @@ Then, in the React component, display a button to reject/accept the changes:
   )
 }
 ```
+
+## Collecting AI feedback
+
+When users accept or reject suggestions, the AI Toolkit provides feedback that you can send back to the AI to help it learn from user preferences. The `applySuggestion`, `applyAllSuggestions`, `rejectSuggestion`, and `rejectAllSuggestions` methods all return an `aiFeedback` property containing events with information about what was changed.
+
+```ts
+const result = toolkit.applySuggestion('suggestion-1')
+console.log(result.aiFeedback.events)
+```
+
+In the example above, feedback events are collected in the `reviewState.feedbackEvents` array and then sent to the AI wrapped in XML tags when the user accepts or rejects all changes. This allows the AI to understand which changes were accepted or rejected and improve future suggestions.
 
 ## Accept/reject individual suggestions
 
@@ -181,7 +213,12 @@ const result = toolkit.executeTool({
             const element = document.createElement('button')
             element.textContent = 'Accept'
             element.addEventListener('click', () => {
-              toolkit.applySuggestion(options.suggestion.id)
+              const result = toolkit.applySuggestion(options.suggestion.id)
+              // Collect feedback events using functional update
+              setReviewState((prev) => ({
+                ...prev,
+                feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+              }))
             })
             return element
           }),
@@ -191,7 +228,12 @@ const result = toolkit.executeTool({
             const element = document.createElement('button')
             element.textContent = 'Reject'
             element.addEventListener('click', () => {
-              toolkit.removeSuggestion(options.suggestion.id)
+              const result = toolkit.rejectSuggestion(options.suggestion.id)
+              // Collect feedback events using functional update
+              setReviewState((prev) => ({
+                ...prev,
+                feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+              }))
             })
             return element
           }),
@@ -209,7 +251,7 @@ const result = toolkit.executeTool({
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { AiToolkit, getAiToolkit, type SuggestionFeedbackEvent } from '@tiptap-pro/ai-toolkit'
 import { Decoration } from '@tiptap/pm/view'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -235,6 +277,8 @@ export default function Page() {
     tool: '',
     toolCallId: '',
     output: '',
+    // Feedback events collected from user actions
+    feedbackEvents: [] as SuggestionFeedbackEvent[],
   })
 
   const { messages, sendMessage, addtoolOutput } = useChat({
@@ -263,7 +307,12 @@ export default function Page() {
                   const element = document.createElement('button')
                   element.textContent = 'Accept'
                   element.addEventListener('click', () => {
-                    toolkit.applySuggestion(options.suggestion.id)
+                    const result = toolkit.applySuggestion(options.suggestion.id)
+                    // Collect feedback events using functional update
+                    setReviewState((prev) => ({
+                      ...prev,
+                      feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+                    }))
                   })
                   return element
                 }),
@@ -273,7 +322,12 @@ export default function Page() {
                   const element = document.createElement('button')
                   element.textContent = 'Reject'
                   element.addEventListener('click', () => {
-                    toolkit.removeSuggestion(options.suggestion.id)
+                    const result = toolkit.rejectSuggestion(options.suggestion.id)
+                    // Collect feedback events using functional update
+                    setReviewState((prev) => ({
+                      ...prev,
+                      feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+                    }))
                   })
                   return element
                 }),
@@ -291,6 +345,7 @@ export default function Page() {
           tool: toolName,
           toolCallId,
           output: result.output,
+          feedbackEvents: [],
         })
       } else {
         // Continue the conversation
@@ -333,11 +388,21 @@ export default function Page() {
           <button
             onClick={() => {
               const toolkit = getAiToolkit(editor)
-              toolkit.applyAllSuggestions()
-              addtoolOutput(reviewState)
-              return setReviewState({
+              const result = toolkit.applyAllSuggestions()
+              // Combine all feedback events (previous + new)
+              const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+              // Combine original output with feedback in XML tags
+              const outputWithFeedback = `${reviewState.output}\n\n<user_feedback>\n${JSON.stringify({ events: allFeedbackEvents }, null, 2)}\n</user_feedback>`
+              addtoolOutput({
+                tool: reviewState.tool,
+                toolCallId: reviewState.toolCallId,
+                output: outputWithFeedback,
+              })
+              // Reset feedback events and close review UI
+              setReviewState({
                 ...reviewState,
                 isReviewing: false,
+                feedbackEvents: [],
               })
             }}
           >
@@ -346,15 +411,23 @@ export default function Page() {
           <button
             onClick={() => {
               const toolkit = getAiToolkit(editor)
-              toolkit.setSuggestions([])
+              const result = toolkit.rejectAllSuggestions()
+              // Combine all feedback events (previous + new)
+              const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+              // Combine rejection message with feedback in XML tags
+              const rejectionMessage =
+                'The changes you made were rejected by the user. Do not edit the document again. Ask the user why, and what you can do to improve them.'
+              const outputWithFeedback = `${rejectionMessage}\n\n<user_feedback>\n${JSON.stringify({ events: allFeedbackEvents }, null, 2)}\n</user_feedback>`
               addtoolOutput({
-                ...reviewState,
-                output:
-                  'The changes were rejected. Ask the user why, and what you can do to improve them.',
+                tool: reviewState.tool,
+                toolCallId: reviewState.toolCallId,
+                output: outputWithFeedback,
               })
-              return setReviewState({
+              // Reset feedback events and close review UI
+              setReviewState({
                 ...reviewState,
                 isReviewing: false,
+                feedbackEvents: [],
               })
             }}
           >
