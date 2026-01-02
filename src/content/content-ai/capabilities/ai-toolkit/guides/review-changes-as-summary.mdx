@@ -78,10 +78,12 @@ const toolkit = getAiToolkit(editor)
 toolkit.stopComparingDocuments()
 ```
 
-To reject all changes, call the `rejectAllChanges` method. This will reset the editor content to how it was before the AI made changes. Then, call `stopComparingDocuments` to stop the real-time document comparison.
+To reject all changes, call the `rejectAllChanges` method. This will reset the editor content to how it was before the AI made changes. The method returns AI feedback that you can collect and include in the next user message. Then, call `stopComparingDocuments` to stop the real-time document comparison.
 
 ```ts
-toolkit.rejectAllChanges()
+const result = toolkit.rejectAllChanges()
+// Collect feedback events to include in next user message
+const allFeedbackEvents = result.aiFeedback.events
 toolkit.stopComparingDocuments()
 ```
 
@@ -90,6 +92,8 @@ toolkit.stopComparingDocuments()
 You can also display buttons or a popover over a suggestion, with actions to accept or reject its associated change.
 
 To render custom elements in the UI, set the `displayOptions` parameter. There, you can set the `renderDecorations` option. It's a function that returns a list of [ProseMirror decorations](https://prosemirror.net/docs/ref/#view.Decorations).
+
+The `acceptChange` and `rejectChange` methods return AI feedback that you can collect and send to the AI to improve future suggestions:
 
 ```tsx
 toolkit.startComparingDocuments({
@@ -103,7 +107,12 @@ toolkit.startComparingDocuments({
           const element = document.createElement('button')
           element.textContent = 'Accept'
           element.addEventListener('click', () => {
-            toolkit.acceptChange(options.suggestion.id)
+            const result = toolkit.acceptChange(options.suggestion.id)
+            // Collect feedback events
+            setReviewState((prev) => ({
+              ...prev,
+              feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+            }))
           })
           return element
         }),
@@ -113,7 +122,12 @@ toolkit.startComparingDocuments({
           const element = document.createElement('button')
           element.textContent = 'Reject'
           element.addEventListener('click', () => {
-            toolkit.rejectChange(options.suggestion.id)
+            const result = toolkit.rejectChange(options.suggestion.id)
+            // Collect feedback events
+            setReviewState((prev) => ({
+              ...prev,
+              feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+            }))
           })
           return element
         }),
@@ -134,7 +148,7 @@ import { useChat } from '@ai-sdk/react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useRef, useState } from 'react'
-import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { AiToolkit, getAiToolkit, type SuggestionFeedbackEvent } from '@tiptap-pro/ai-toolkit'
 import { Decoration } from '@tiptap/pm/view'
 import './suggestions.css'
 
@@ -149,7 +163,12 @@ export default function Page() {
   const editorRef = useRef(editor)
   editorRef.current = editor
 
-  const { messages, sendMessage, addtoolOutput, status } = useChat({
+  const [reviewState, setReviewState] = useState({
+    isComparing: false,
+    feedbackEvents: [] as SuggestionFeedbackEvent[],
+  })
+
+  const { messages, sendMessage, addToolOutput, status } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     async onToolCall({ toolCall }) {
@@ -158,6 +177,9 @@ export default function Page() {
 
       const { toolName, input, toolCallId } = toolCall
 
+      // Reset feedback events when a new tool call starts
+      setReviewState((prev) => ({ ...prev, feedbackEvents: [] }))
+
       // Use the AI Toolkit to execute the tool
       const toolkit = getAiToolkit(editor)
       const result = toolkit.executeTool({
@@ -165,18 +187,17 @@ export default function Page() {
         input,
       })
 
-      addtoolOutput({ tool: toolName, toolCallId, output: result.output })
+      addToolOutput({ tool: toolName, toolCallId, output: result.output })
     },
   })
 
   const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
-  const [isComparing, setIsComparing] = useState(false)
 
   if (!editor) return null
 
   const toolkit = getAiToolkit(editor)
 
-  const showReviewUI = isComparing && status === 'ready'
+  const showReviewUI = reviewState.isComparing && status === 'ready'
 
   return (
     <div>
@@ -196,7 +217,14 @@ export default function Page() {
           onSubmit={(e) => {
             e.preventDefault()
 
-            if (isComparing) return
+            if (reviewState.isComparing) return
+
+            // Build message text with feedback if available
+            let messageText = input.trim()
+            if (reviewState.feedbackEvents.length > 0) {
+              const feedbackOutput = JSON.stringify(reviewState.feedbackEvents)
+              messageText = `${messageText}\n\n<user_feedback>${feedbackOutput}</user_feedback>`
+            }
 
             toolkit.startComparingDocuments({
               displayOptions: {
@@ -209,7 +237,11 @@ export default function Page() {
                       const element = document.createElement('button')
                       element.textContent = 'Accept'
                       element.addEventListener('click', () => {
-                        toolkit.acceptChange(options.suggestion.id)
+                        const result = toolkit.acceptChange(options.suggestion.id)
+                        setReviewState((prev) => ({
+                          ...prev,
+                          feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+                        }))
                       })
                       return element
                     }),
@@ -219,7 +251,11 @@ export default function Page() {
                       const element = document.createElement('button')
                       element.textContent = 'Reject'
                       element.addEventListener('click', () => {
-                        toolkit.rejectChange(options.suggestion.id)
+                        const result = toolkit.rejectChange(options.suggestion.id)
+                        setReviewState((prev) => ({
+                          ...prev,
+                          feedbackEvents: [...prev.feedbackEvents, ...result.aiFeedback.events],
+                        }))
                       })
                       return element
                     }),
@@ -227,13 +263,20 @@ export default function Page() {
                 },
               },
             })
-            setIsComparing(true)
+            setReviewState((prev) => ({ ...prev, isComparing: true }))
 
-            sendMessage({ text: input })
-            setInput('')
+            if (messageText) {
+              sendMessage({ text: messageText })
+              setInput('')
+              setReviewState((prev) => ({ ...prev, feedbackEvents: [] }))
+            }
           }}
         >
-          <input disabled={isComparing} value={input} onChange={(e) => setInput(e.target.value)} />
+          <input
+            disabled={reviewState.isComparing}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
         </form>
       )}
       {showReviewUI && (
@@ -241,17 +284,28 @@ export default function Page() {
           <h2>Reviewing Changes</h2>
           <button
             onClick={() => {
+              const result = toolkit.acceptAllChanges()
+              // Collect all feedback events
+              const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+              setReviewState({
+                isComparing: false,
+                feedbackEvents: allFeedbackEvents,
+              })
               toolkit.stopComparingDocuments()
-              setIsComparing(false)
             }}
           >
             Accept all
           </button>
           <button
             onClick={() => {
-              toolkit.rejectAllChanges()
+              const result = toolkit.rejectAllChanges()
+              // Collect all feedback events
+              const allFeedbackEvents = [...reviewState.feedbackEvents, ...result.aiFeedback.events]
+              setReviewState({
+                isComparing: false,
+                feedbackEvents: allFeedbackEvents,
+              })
               toolkit.stopComparingDocuments()
-              setIsComparing(false)
             }}
           >
             Reject all
