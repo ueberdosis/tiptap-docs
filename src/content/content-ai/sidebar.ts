@@ -63,10 +63,6 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Tool streaming',
                   href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
                 },
-                {
-                  title: 'Inline edits',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
-                },
               ],
             },
             {
@@ -141,6 +137,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Workflows',
               href: '/content-ai/capabilities/ai-toolkit/workflows',
               children: [
+                {
+                  title: 'Insert content',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
+                },
                 {
                   title: 'Proofreader',
                   href: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
