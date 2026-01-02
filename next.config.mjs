@@ -309,6 +309,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+        destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
+        permanent: true,
+      },
     ]
   },
 }
