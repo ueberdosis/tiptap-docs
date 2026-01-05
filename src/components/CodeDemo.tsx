@@ -2,8 +2,8 @@
 
 import { ExternalLink } from 'lucide-react'
 import IframeResizer from 'iframe-resizer-react'
-import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 import { Button } from './ui/Button'
+import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 export type CodeDemoProps = {
   src?: string
