@@ -1,6 +1,8 @@
 'use client'
 
+import { ExternalLink } from 'lucide-react'
 import IframeResizer from 'iframe-resizer-react'
+import { Button } from './ui/Button'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 export type CodeDemoProps = {
@@ -10,6 +12,10 @@ export type CodeDemoProps = {
   isSmall?: boolean
   isLarge?: boolean
   isScrollable?: boolean
+  external?: boolean
+  externalTitle?: string
+  externalDescription?: string
+  externalIcon?: React.ReactNode
   caption?: React.ReactNode
   captionActions?: React.ReactNode
 }
@@ -21,14 +27,19 @@ export const CodeDemo = ({
   isSmall,
   isLarge,
   isScrollable,
+  external,
+  externalTitle,
+  externalDescription,
+  externalIcon,
   caption,
   captionActions,
 }: CodeDemoProps) => {
   const iframeHeightClass = isSmall ? 'h-60' : isLarge ? 'h-[70vh] md:h-124' : 'h-96'
   const hasCaption = caption || captionActions
+  const url = src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path
 
   const iframeProps = {
-    src: src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path,
+    src: url,
     className: `w-full ${iframeHeightClass}`,
     ...(isScrollable !== undefined && { scrolling: isScrollable }),
   }
@@ -59,7 +70,33 @@ export const CodeDemo = ({
       <div
         className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
       >
-        <IframeResizer {...iframeProps} />
+        {external ? (
+          <div
+            className={`${iframeHeightClass} flex flex-col items-center justify-center gap-6 bg-grayAlpha-50 text-center p-8`}
+          >
+            {externalIcon && (
+              <div className="flex items-center justify-center size-12 rounded-full bg-white shadow-sm ring-1 ring-grayAlpha-200">
+                {externalIcon}
+              </div>
+            )}
+            <div className="max-w-xs space-y-1.5">
+              <div className="text-base font-semibold text-grayAlpha-900 leading-tight">
+                {externalTitle || 'View Live Demo'}
+              </div>
+              <div className="text-sm text-grayAlpha-500 leading-relaxed">
+                {externalDescription || 'This demo needs to be opened in a new window.'}
+              </div>
+            </div>
+            <Button asChild variant="primary" className="shadow-sm">
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="size-4" />
+                <span>Open Demo</span>
+              </a>
+            </Button>
+          </div>
+        ) : (
+          <IframeResizer {...iframeProps} />
+        )}
       </div>
     </>
   )
