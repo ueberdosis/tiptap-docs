@@ -126,7 +126,7 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Guides',
+              title: 'Advanced Guides',
               href: '/content-ai/capabilities/ai-toolkit/migration-guides',
               children: [
                 {
