@@ -90,6 +90,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Nodes',
           children: [
             {
+              href: '/editor/extensions/nodes/audio',
+              title: 'Audio',
+            },
+            {
               href: '/editor/extensions/nodes/blockquote',
               title: 'Blockquote',
             },
