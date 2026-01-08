@@ -1,0 +1,233 @@
+---
+title: Comments workflow
+meta:
+  title: Comments workflow | Tiptap Content AI
+  description: Use the Tiptap AI Toolkit to build a workflow that manages comments and threads in your documents.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a workflow that allows the AI to manage comments and threads in your Tiptap documents.
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/comments-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+- Tiptap Comments extension
+
+## Project overview
+
+This demo uses the AI Toolkit's Comments workflow to manage threads and comments in the document. The AI can create new threads, add comments, update comments, remove comments, and manage thread status.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest comments-workflow
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai zod uuid
+```
+
+Install the Tiptap AI Toolkit and Comments extension:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions @tiptap-pro/extension-comments
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+Inside the API endpoint, create and configure the Comments workflow using the `createCommentsWorkflow` function. The workflow includes a ready-to-use system prompt that instructs the AI model on how to manage comments.
+
+The user message should include:
+
+- `nodes`: The nodes of the document (obtained from `tiptapRead`)
+- `threads`: The existing threads in the document (obtained from `getThreads`)
+- `task`: The task to be performed by the AI. For example, `Add a comment suggesting improvements to the introduction`.
+
+```ts
+// app/api/comments-workflow/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createCommentsWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { nodes, threads, task } = await req.json()
+
+  // Create and configure the Comments workflow (with the default settings).
+  // It includes the ready-to-use system prompt and the output schema.
+  const workflow = createCommentsWorkflow()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    // System prompt
+    system: workflow.systemPrompt,
+    // User message
+    prompt: JSON.stringify({
+      nodes,
+      threads,
+      task,
+    }),
+    output: Output.object({ schema: workflow.zodOutputSchema }),
+    // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
+    // response time.
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+## Client setup
+
+Create a React component that renders the editor with the Comments extension and applies comment operations.
+
+First, when the workflow starts, call the `tiptapRead` method to get the document content and `getThreads` method to get existing threads.
+
+Then, call the API endpoint to start the workflow. Use the `editThreadsWorkflow` method to apply the comment operations.
+
+```tsx
+// app/comments-workflow/page.tsx
+'use client'
+
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit, commentsWorkflowOutputSchema } from '@tiptap-pro/ai-toolkit'
+import { Comments } from '@tiptap-pro/extension-comments'
+import { useEffect, useState } from 'react'
+
+// Create a simple comments provider
+const commentsProvider = {
+  threads: [],
+  getThreads: () => commentsProvider.threads,
+  createThread: (thread) => {
+    commentsProvider.threads.push(thread)
+    return thread
+  },
+  updateThread: (id, data) => {
+    const index = commentsProvider.threads.findIndex((t) => t.id === id)
+    if (index !== -1) {
+      commentsProvider.threads[index] = { ...commentsProvider.threads[index], ...data }
+    }
+  },
+  deleteThread: (id) => {
+    commentsProvider.threads = commentsProvider.threads.filter((t) => t.id !== id)
+  },
+}
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit,
+      AiToolkit,
+      Comments.configure({
+        provider: commentsProvider,
+      }),
+    ],
+    content: `<h1>Document with Comments</h1><p>This is a sample document where AI can add and manage comments.</p>`,
+  })
+
+  const [task, setTask] = useState('Add a comment suggesting improvements to this document')
+
+  const { submit, isLoading, object } = useObject({
+    api: '/api/comments-workflow',
+    schema: commentsWorkflowOutputSchema,
+  })
+
+  const operations = object?.operations ?? []
+
+  // Apply operations as they arrive
+  useEffect(() => {
+    if (!editor || operations.length === 0) return
+
+    const toolkit = getAiToolkit(editor)
+    toolkit.editThreadsWorkflow({
+      operations,
+    })
+  }, [operations, editor])
+
+  if (!editor) return null
+
+  const manageComments = () => {
+    const toolkit = getAiToolkit(editor)
+
+    // Get the document content and existing threads
+    const { nodes } = toolkit.tiptapRead()
+    const { threads } = toolkit.getThreads()
+
+    // Call the API endpoint to start the workflow
+    submit({ nodes, threads, task })
+  }
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      <input
+        type="text"
+        value={task}
+        onChange={(e) => setTask(e.target.value)}
+        placeholder="Enter task for comments..."
+      />
+
+      <button onClick={manageComments} disabled={isLoading}>
+        {isLoading ? 'Processing...' : 'Manage Comments with AI'}
+      </button>
+    </div>
+  )
+}
+```
+
+## Available operations
+
+The Comments workflow supports the following operations:
+
+| Operation | Format | Description |
+|-----------|--------|-------------|
+| Create thread | `['createThread', nodeHash, htmlContent]` | Creates a new thread at a specific location |
+| Create comment | `['createComment', threadId, content]` | Adds a comment to an existing thread |
+| Update comment | `['updateComment', threadId, commentId, content]` | Updates an existing comment |
+| Remove comment | `['removeComment', threadId, commentId]` | Removes a comment from a thread |
+| Remove thread | `['removeThread', threadId]` | Removes an entire thread |
+| Resolve thread | `['resolveThread', threadId]` | Marks a thread as resolved |
+| Unresolve thread | `['unresolveThread', threadId]` | Marks a thread as unresolved |
+
+## End result
+
+With additional CSS styles, the result is a polished comments management application:
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/comments-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Related guides
+
+- [API reference](/content-ai/capabilities/ai-toolkit/primitives/read-the-document#tiptapread) of the `tiptapRead` method
+- [API reference](/content-ai/capabilities/ai-toolkit/primitives/workflows#getthreads) of the `getThreads` method
+- [API reference](/content-ai/capabilities/ai-toolkit/primitives/workflows#editthreadsworkflow) of the `editThreadsWorkflow` method
+- [Comments extension](/collaboration/comments/overview): Learn more about the Comments extension.
+
