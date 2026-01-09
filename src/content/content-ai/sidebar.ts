@@ -40,12 +40,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/install',
             },
             {
-              title: 'Live Demo',
-              href: '/content-ai/capabilities/ai-toolkit/live-demo',
-            },
-            {
-              title: 'Quickstart guides',
-              href: '/content-ai/capabilities/ai-toolkit/guides',
+              title: 'Agents',
+              href: '/content-ai/capabilities/ai-toolkit/agents',
               children: [
                 {
                   title: 'AI agent chatbot',
@@ -63,22 +59,12 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Tool streaming',
                   href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
                 },
-              ],
-            },
-            {
-              title: 'Advanced guides',
-              href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
-              children: [
-                {
-                  title: 'AI engineering guide',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
-                },
                 {
                   title: 'Add comments',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
                 },
                 {
-                  title: 'Multi-document AI agent',
+                  title: 'Multi-document',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
                 },
                 {
@@ -86,50 +72,42 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
                 },
                 {
-                  title: 'Style suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
-                },
-                {
                   title: 'Schema awareness',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/schema-awareness',
                 },
                 {
-                  title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
-                },
-              ],
-            },
-            {
-              title: 'AI agent tools',
-              href: '/content-ai/capabilities/ai-toolkit/tools',
-              children: [
-                {
-                  title: 'Available tools',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
-                },
-                {
-                  title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
-                },
-                {
-                  title: 'LangChain.js',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
-                },
-                {
-                  title: 'OpenAI',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/openai',
-                },
-                {
-                  title: 'Anthropic',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
-                },
-                {
-                  title: 'Mastra',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
-                },
-                {
-                  title: 'Other providers',
-                  href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+                  title: 'AI agent tools',
+                  href: '/content-ai/capabilities/ai-toolkit/tools',
+                  children: [
+                    {
+                      title: 'Available tools',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+                    },
+                    {
+                      title: 'Vercel AI SDK',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
+                    },
+                    {
+                      title: 'LangChain.js',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+                    },
+                    {
+                      title: 'OpenAI',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/openai',
+                    },
+                    {
+                      title: 'Anthropic',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+                    },
+                    {
+                      title: 'Mastra',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
+                    },
+                    {
+                      title: 'Other providers',
+                      href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+                    },
+                  ],
                 },
               ],
             },
@@ -152,6 +130,50 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Comments',
                   href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
+                },
+              ],
+            },
+            {
+              title: 'Advanced guides',
+              href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+              children: [
+                {
+                  title: 'Live demo',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
+                },
+                {
+                  title: 'AI engineering guide',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+                },
+                {
+                  title: 'Style suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+                },
+                {
+                  title: 'Compare documents',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
+                },
+                {
+                  title: 'Migration guides',
+                  href: '/content-ai/capabilities/ai-toolkit/migration-guides',
+                  children: [
+                    {
+                      title: 'AI Generation',
+                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
+                    },
+                    {
+                      title: 'AI Suggestion',
+                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
+                    },
+                    {
+                      title: 'AI Changes',
+                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
+                    },
+                    {
+                      title: 'AI Assistant',
+                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
+                    },
+                  ],
                 },
               ],
             },
@@ -220,28 +242,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
-                },
-              ],
-            },
-            {
-              title: 'Migration guides',
-              href: '/content-ai/capabilities/ai-toolkit/migration-guides',
-              children: [
-                {
-                  title: 'AI Generation',
-                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
-                },
-                {
-                  title: 'AI Suggestion',
-                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
-                },
-                {
-                  title: 'AI Changes',
-                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
-                },
-                {
-                  title: 'AI Assistant',
-                  href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
                 },
               ],
             },
