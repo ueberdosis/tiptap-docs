@@ -145,6 +145,14 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Proofreader',
                   href: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
                 },
+                {
+                  title: 'Tiptap Edit',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/tiptap-edit',
+                },
+                {
+                  title: 'Comments',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
+                },
               ],
             },
             {

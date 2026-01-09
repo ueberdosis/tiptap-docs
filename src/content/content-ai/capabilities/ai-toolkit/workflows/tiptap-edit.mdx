@@ -1,0 +1,206 @@
+---
+title: Tiptap Edit workflow
+meta:
+  title: Tiptap Edit workflow | Tiptap Content AI
+  description: Use the Tiptap AI Toolkit to build a workflow that edits documents with AI-generated content.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a workflow that allows the AI to edit your Tiptap documents with precise, efficient operations.
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/tiptap-edit-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+This demo uses the AI Toolkit's Tiptap Edit workflow to apply edit operations to the document in real-time. The workflow supports replacing, inserting before, and inserting after nodes.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest tiptap-edit-workflow
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai zod uuid
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+Inside the API endpoint, create and configure the Tiptap Edit workflow using the `createTiptapEditWorkflow` function. The workflow includes a ready-to-use system prompt that instructs the AI model on how to generate edit operations.
+
+Additionally, you need to include these two properties in the user message:
+
+- `nodes`: The nodes of the document to be edited (obtained from `tiptapRead`)
+- `task`: The task to be performed by the AI. For example, `Make the text more formal`.
+
+As the AI model generates its response, the API endpoint streams the operations to the client.
+
+```ts
+// app/api/tiptap-edit-workflow/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createTiptapEditWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { nodes, task } = await req.json()
+
+  // Create and configure the Tiptap Edit workflow (with the default settings).
+  // It includes the ready-to-use system prompt and the output schema.
+  const workflow = createTiptapEditWorkflow()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    // System prompt
+    system: workflow.systemPrompt,
+    // User message
+    prompt: JSON.stringify({
+      nodes,
+      task,
+    }),
+    output: Output.object({ schema: workflow.zodOutputSchema }),
+    // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
+    // response time.
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+## Client setup
+
+Create a React component that renders the editor and applies the edits in real-time.
+
+First, when the editing process starts, call the `tiptapRead` method of the AI Toolkit to read the document. The method returns the content in a format that is optimized for fast, precise edits.
+
+Then, call the API endpoint to start the workflow. The component uses Vercel AI SDK's `useObject` hook to handle streaming, so that the response is received bit by bit and the edits are applied in real-time.
+
+Every time the response changes, call the `tiptapEditWorkflow` method of the AI Toolkit to apply the edits to the document in real-time. The edits are applied immediately as they are received.
+
+```tsx
+// app/tiptap-edit-workflow/page.tsx
+'use client'
+
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit, tiptapEditWorkflowOutputSchema } from '@tiptap-pro/ai-toolkit'
+import { useEffect, useState } from 'react'
+import { v4 as uuid } from 'uuid'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: `<h1>Document Editor</h1><p>This is a sample document that can be edited by AI.</p>`,
+  })
+
+  const [workflowId, setWorkflowId] = useState('')
+  const [task, setTask] = useState('Make the text more formal and professional')
+
+  const { submit, isLoading, object } = useObject({
+    api: '/api/tiptap-edit-workflow',
+    schema: tiptapEditWorkflowOutputSchema,
+  })
+
+  const operations = object?.operations ?? []
+
+  // Stream partial results as they arrive
+  useEffect(() => {
+    if (!editor || operations.length === 0) return
+
+    const toolkit = getAiToolkit(editor)
+    toolkit.tiptapEditWorkflow({
+      operations,
+      workflowId,
+    })
+  }, [operations, workflowId, editor])
+
+  if (!editor) return null
+
+  const editDocument = () => {
+    const toolkit = getAiToolkit(editor)
+
+    // Obtain the nodes of the document to be edited
+    const { nodes } = toolkit.tiptapRead()
+
+    // Each workflow must have a unique ID
+    setWorkflowId(uuid())
+
+    // Call the API endpoint to start the workflow
+    submit({ nodes, task })
+  }
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      <input
+        type="text"
+        value={task}
+        onChange={(e) => setTask(e.target.value)}
+        placeholder="Enter editing task..."
+      />
+
+      <button onClick={editDocument} disabled={isLoading}>
+        {isLoading ? 'Editing...' : 'Edit Document'}
+      </button>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a polished document editing application with real-time AI editing:
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/tiptap-edit-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Related guides
+
+- [API reference](/content-ai/capabilities/ai-toolkit/primitives/read-the-document#tiptapread) of the `tiptapRead` method
+- [API reference](/content-ai/capabilities/ai-toolkit/primitives/workflows#tiptapeditworkflow) of the `tiptapEditWorkflow` method
