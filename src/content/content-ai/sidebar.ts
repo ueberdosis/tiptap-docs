@@ -45,67 +45,67 @@ export const sidebarConfig: SidebarConfig = {
               children: [
                 {
                   title: 'AI agent chatbot',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
                   title: 'Review changes',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
                 },
                 {
                   title: 'Review as summary',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
                 },
                 {
                   title: 'Tool streaming',
-                  href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
                 },
                 {
                   title: 'Add comments',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/comments',
                 },
                 {
                   title: 'Multi-document',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
                 },
                 {
                   title: 'Selection awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/selection-awareness',
                 },
                 {
                   title: 'Schema awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/schema-awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
                 },
                 {
                   title: 'AI agent tools',
-                  href: '/content-ai/capabilities/ai-toolkit/tools',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/tools',
                   children: [
                     {
                       title: 'Available tools',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/available-tools',
                     },
                     {
                       title: 'Vercel AI SDK',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/ai-sdk',
                     },
                     {
                       title: 'LangChain.js',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/langchain-js',
                     },
                     {
                       title: 'OpenAI',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/openai',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/openai',
                     },
                     {
                       title: 'Anthropic',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/anthropic',
                     },
                     {
                       title: 'Mastra',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/mastra',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/mastra',
                     },
                     {
                       title: 'Other providers',
-                      href: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/other-providers',
                     },
                   ],
                 },
@@ -179,39 +179,39 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'API reference',
-              href: '/content-ai/capabilities/ai-toolkit/primitives',
+              href: '/content-ai/capabilities/ai-toolkit/api-reference',
               children: [
                 {
                   title: 'Execute tool (AI agents)',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
                 },
                 {
                   title: 'Read the document',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/read-the-document',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/read-the-document',
                 },
                 {
                   title: 'Edit the document',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document',
                 },
                 {
                   title: 'Schema awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
                 },
                 {
                   title: 'Display suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
                 },
                 {
                   title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
                 },
                 {
                   title: 'Diff utility',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
                 },
                 {
                   title: 'Workflows',
-                  href: '/content-ai/capabilities/ai-toolkit/primitives/workflows',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
                 },
               ],
             },
