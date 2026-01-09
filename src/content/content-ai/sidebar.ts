@@ -80,10 +80,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/tools',
                   children: [
                     {
-                      title: 'Available tools',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/available-tools',
-                    },
-                    {
                       title: 'Vercel AI SDK',
                       href: '/content-ai/capabilities/ai-toolkit/agents/tools/ai-sdk',
                     },
@@ -155,23 +151,23 @@ export const sidebarConfig: SidebarConfig = {
                 },
                 {
                   title: 'Migration guides',
-                  href: '/content-ai/capabilities/ai-toolkit/migration-guides',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
                   children: [
                     {
                       title: 'AI Generation',
-                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
+                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-generation',
                     },
                     {
                       title: 'AI Suggestion',
-                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
+                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-suggestion',
                     },
                     {
                       title: 'AI Changes',
-                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
+                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-changes',
                     },
                     {
                       title: 'AI Assistant',
-                      href: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
+                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-assistant',
                     },
                   ],
                 },
