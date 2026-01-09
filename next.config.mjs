@@ -445,6 +445,12 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/ai-toolkit/api-reference',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
+        permanent: true,
+      },
+      // END AI Toolkit redirects
+      {
         source: '/content-ai/capabilities/server-ai-toolkit',
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
