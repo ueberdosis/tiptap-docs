@@ -285,6 +285,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Table node',
               href: '/ui-components/node-components/table-node',
             },
+            {
+              title: 'Table of contents node',
+              href: '/ui-components/node-components/table-of-contents-node',
+            },
           ],
         },
         {
