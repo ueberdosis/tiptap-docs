@@ -76,7 +76,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
                 },
                 {
-                  title: 'AI agent tools',
+                  title: 'Tool definitions',
                   href: '/content-ai/capabilities/ai-toolkit/agents/tools',
                   children: [
                     {
