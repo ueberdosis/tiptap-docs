@@ -22,6 +22,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'CLI',
           href: '/ui-components/getting-started/cli',
         },
+        {
+          href: '/ui-components/getting-started/changelog',
+          title: 'Changelog',
+        },
       ],
     },
     {
