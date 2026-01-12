@@ -9,7 +9,6 @@ import {
   Files,
   MessageCircle,
   FileSearch,
-  Wrench,
   Layers,
   GitCompare,
   Volume2,
@@ -37,53 +36,37 @@ interface UseCase {
 }
 
 const USE_CASES: UseCase[] = [
-  // AI Toolkit use cases - GUIDES & WORKFLOWS
+  // AI Toolkit use cases - AI AGENTS
   {
     title: 'Build AI agent chatbot',
     description:
       'Create conversational AI interfaces where agents read and edit documents based on user requests.',
     href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: MessageSquare,
-  },
-  {
-    title: 'Make inline edits',
-    description:
-      'Select text and rewrite it with AI based on instructions. Best for simple, focused edits.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
-    tags: ['AI Toolkit'],
-    icon: PenLine,
   },
   {
     title: 'Edit multiple documents',
     description:
       'Build AI agents that create, switch between, and edit multiple documents in one workflow.',
     href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: Files,
-  },
-  {
-    title: 'Proofread documents',
-    description:
-      'Build an AI proofreader that analyzes documents and suggests corrections with explanations.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
-    tags: ['AI Toolkit'],
-    icon: FileSearch,
   },
   {
     title: 'Add AI comments',
     description:
       'Enable AI agents to read, write, and edit comments in documents for collaborative workflows.',
     href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: MessageCircle,
   },
   {
-    title: 'Review changes per action',
+    title: 'Review changes',
     description:
       'Show each AI edit as a track-changes style suggestion that users review immediately.',
     href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: FileCheck,
   },
   {
@@ -91,39 +74,48 @@ const USE_CASES: UseCase[] = [
     description:
       'Let AI make all edits, then show a summary of changes for batch review and approval.',
     href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: ListChecks,
   },
   {
     title: 'Stream tool execution',
     description: 'Display AI tool calls and document changes in real-time as the agent works.',
     href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: Workflow,
   },
-  {
-    title: 'AI prompt engineering',
-    description:
-      'Learn best practices for writing effective prompts and system instructions for AI agents.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
-    tags: ['AI Toolkit'],
-    icon: Wrench,
-  },
-
   {
     title: 'Generate custom components with AI',
     description:
       'Enable AI to generate content using your custom editor nodes and marks, not just basic text.',
     href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
-    tags: ['AI Toolkit'],
+    tags: ['AI Agents'],
     icon: Layers,
+  },
+
+  // AI Toolkit use cases - CUSTOM WORKFLOWS
+  {
+    title: 'Make inline edits',
+    description:
+      'Select text and rewrite it with AI based on instructions. Best for simple, focused edits.',
+    href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+    tags: ['Workflows'],
+    icon: PenLine,
+  },
+  {
+    title: 'Proofread documents',
+    description:
+      'Build an AI proofreader that analyzes documents and suggests corrections with explanations.',
+    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+    tags: ['Workflows'],
+    icon: FileSearch,
   },
   {
     title: 'Show document differences',
     description:
       'Compare two document versions in real-time and display differences with highlights.',
     href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
-    tags: ['AI Toolkit'],
+    tags: ['Workflows'],
     icon: GitCompare,
   },
 
@@ -225,27 +217,27 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
 }
 
 export const UseCasesGrid = () => {
-  // Group by category
-  const toolkitUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Toolkit'))
+  const toolkitAgentUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Agents'))
+  const toolkitWorkflowUseCases = USE_CASES.filter((uc) => uc.tags.includes('Workflows'))
   const generationUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Generation'))
 
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
-      <div>
-        <div className="text-xl font-bold mb-6 leading-[120%]">AI Toolkit</div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
-          {toolkitUseCases.map((useCase) => (
-            <UseCaseCard useCase={useCase} key={useCase.href} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="text-xl font-bold mb-6 leading-[120%]">AI Generation</div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
-          {generationUseCases.map((useCase) => (
-            <UseCaseCard useCase={useCase} key={useCase.href} />
-          ))}
-        </div>
+      <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />
+      <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />
+      <UseCaseSection title="AI Generation" useCases={generationUseCases} />
+    </div>
+  )
+}
+
+function UseCaseSection({ title, useCases }: { title: string; useCases: UseCase[] }) {
+  return (
+    <div>
+      <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
+        {useCases.map((useCase) => (
+          <UseCaseCard useCase={useCase} key={useCase.href} />
+        ))}
       </div>
     </div>
   )
