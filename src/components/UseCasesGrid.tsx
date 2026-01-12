@@ -21,6 +21,7 @@ import {
   Code,
   ImagePlus,
   Activity,
+  Edit,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -38,34 +39,18 @@ interface UseCase {
 const USE_CASES: UseCase[] = [
   // AI Toolkit use cases - AI AGENTS
   {
-    title: 'Build AI agent chatbot',
+    title: 'AI agent chatbot',
     description:
       'Create conversational AI interfaces where agents read and edit documents based on user requests.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+    href: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
     tags: ['AI Agents'],
     icon: MessageSquare,
-  },
-  {
-    title: 'Edit multiple documents',
-    description:
-      'Build AI agents that create, switch between, and edit multiple documents in one workflow.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
-    tags: ['AI Agents'],
-    icon: Files,
-  },
-  {
-    title: 'Add AI comments',
-    description:
-      'Enable AI agents to read, write, and edit comments in documents for collaborative workflows.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
-    tags: ['AI Agents'],
-    icon: MessageCircle,
   },
   {
     title: 'Review changes',
     description:
       'Show each AI edit as a track-changes style suggestion that users review immediately.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
+    href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
     tags: ['AI Agents'],
     icon: FileCheck,
   },
@@ -73,14 +58,30 @@ const USE_CASES: UseCase[] = [
     title: 'Review all changes at once',
     description:
       'Let AI make all edits, then show a summary of changes for batch review and approval.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
+    href: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
     tags: ['AI Agents'],
     icon: ListChecks,
   },
   {
-    title: 'Stream tool execution',
+    title: 'Edit multiple documents',
+    description:
+      'Build AI agents that create, switch between, and edit multiple documents in one workflow.',
+    href: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
+    tags: ['AI Agents'],
+    icon: Files,
+  },
+  {
+    title: 'Add AI comments',
+    description:
+      'Enable AI agents to read, write, and edit comments in documents for collaborative workflows.',
+    href: '/content-ai/capabilities/ai-toolkit/agents/comments',
+    tags: ['AI Agents'],
+    icon: MessageCircle,
+  },
+  {
+    title: 'Stream edits',
     description: 'Display AI tool calls and document changes in real-time as the agent works.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
+    href: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
     tags: ['AI Agents'],
     icon: Workflow,
   },
@@ -88,7 +89,7 @@ const USE_CASES: UseCase[] = [
     title: 'Generate custom components with AI',
     description:
       'Enable AI to generate content using your custom editor nodes and marks, not just basic text.',
-    href: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
+    href: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
     tags: ['AI Agents'],
     icon: Layers,
   },
@@ -98,7 +99,7 @@ const USE_CASES: UseCase[] = [
     title: 'Make inline edits',
     description:
       'Select text and rewrite it with AI based on instructions. Best for simple, focused edits.',
-    href: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+    href: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
     tags: ['Workflows'],
     icon: PenLine,
   },
@@ -111,10 +112,24 @@ const USE_CASES: UseCase[] = [
     icon: FileSearch,
   },
   {
+    title: 'Tiptap Edit',
+    description: 'A general-purpose workflow for making small and large edits to Tiptap documents.',
+    href: '/content-ai/capabilities/ai-toolkit/workflows/tiptap-edit',
+    tags: ['Workflows'],
+    icon: Edit,
+  },
+  {
+    title: 'Comments',
+    description: 'Manage comments and threads in your Tiptap documents.',
+    href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
+    tags: ['Workflows'],
+    icon: MessageSquare,
+  },
+  {
     title: 'Show document differences',
     description:
       'Compare two document versions in real-time and display differences with highlights.',
-    href: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
+    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
     tags: ['Workflows'],
     icon: GitCompare,
   },

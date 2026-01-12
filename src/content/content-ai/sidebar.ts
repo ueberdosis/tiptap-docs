@@ -178,16 +178,20 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/ai-toolkit/api-reference',
               children: [
                 {
-                  title: 'Execute tool (AI agents)',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
-                },
-                {
                   title: 'Read the document',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/read-the-document',
                 },
                 {
                   title: 'Edit the document',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document',
+                },
+                {
+                  title: 'Tool execution',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
+                },
+                {
+                  title: 'Workflows',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
                 },
                 {
                   title: 'Schema awareness',
@@ -204,10 +208,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Diff utility',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
-                },
-                {
-                  title: 'Workflows',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
                 },
               ],
             },
