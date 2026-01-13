@@ -1,0 +1,303 @@
+---
+title: Schema awareness
+meta:
+  title: Schema awareness | Tiptap Content AI
+  description: Give schema awareness to your AI model so it understands nodes, marks, and attributes in the Server AI Toolkit.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+A Tiptap [schema](/editor/core-concepts/schema) describes the elements the document can (and cannot) contain. Tiptap's **schema awareness** capabilities allow AI models to understand the document better when using the Server AI Toolkit.
+
+<Callout title="Why schema awareness?" variant="default">
+  Without schema awareness, the AI model might generate content that the Tiptap editor does not
+  support. For example, it might generate a table in a document that does not support tables. With
+  schema awareness enabled, the AI model will know that table nodes are not supported and will
+  refuse to generate them.
+</Callout>
+
+## Guide: give schema awareness to your AI model
+
+Integrate the schema awareness feature to an AI agent like the one built in the [AI agent chatbot guide](/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot).
+
+### Step 1: get the schema awareness data
+
+Get the schema awareness data from the Server AI Toolkit package. This data contains information about the document's schema in a format optimized for the AI model.
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { getSchemaAwarenessData } from '@tiptap-pro/server-ai-toolkit'
+
+const editor = new Editor({
+  extensions: [StarterKit],
+})
+
+// Retrieve the schema awareness data
+const schemaAwarenessData = getSchemaAwarenessData(editor)
+```
+
+The `getSchemaAwarenessData` function returns schema awareness data that describes the document structure for the Server AI Toolkit API.
+
+### Step 2 (optional): configure custom nodes
+
+If your document contains [custom Nodes and Marks](/editor/extensions/custom-extensions), add the `addJsonSchemaAwareness` option to the extension configuration. This way, the AI model will be able to generate this custom Node or Mark accurately.
+
+For example, if you have a custom node called `'alert'`, you can allow the AI model to generate it by configuring it like this:
+
+```ts
+import { Node } from '@tiptap/core'
+import { z } from 'zod'
+
+const CustomExtension = Node.create({
+  name: 'alert',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'info',
+        parseHTML: (element) => element.getAttribute('data-type'),
+        renderHTML: (attributes) => {
+          if (!attributes.type) {
+            return {}
+          }
+          return {
+            'data-type': attributes.type,
+          }
+        },
+      },
+    }
+  },
+
+  addJsonSchemaAwareness() {
+    return {
+      name: 'Alert Box',
+      description: `A highlighted box used to display important information, warnings, or tips to the user.
+It can contain inline content like text and formatting marks.`,
+      attributes: {
+        type: z
+          .enum(['info', 'warning', 'error', 'success'])
+          .describe(
+            'The type of alert. Can be one of these 4 values: info, warning, error, or success',
+          ),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-alert]',
+      },
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', { ...HTMLAttributes, 'data-alert': '' }, 0]
+  },
+
+  // ... Other extension configuration options
+})
+```
+
+The `addJsonSchemaAwareness` function should return an object with:
+
+- `name` (`string`): The human-readable name of the element in English
+- `description?` (`string`): Explanation of the element in English for the AI model
+- `attributes?` (`Record<string, z.ZodTypeAny>`): Possible attributes of the element, defined as Zod schemas that will be converted to JSON schemas
+
+<Callout title="What about official Tiptap extensions?" variant="info">
+  Schema awareness for official Tiptap extensions is automatically supported by the Server AI
+  Toolkit. They do not need to be configured. You can still override the default schema awareness
+  information for official Tiptap extensions by extending the extension and adding the
+  `addJsonSchemaAwareness` option.
+</Callout>
+
+### Step 3: pass schema awareness data to the API
+
+When you call the Server AI Toolkit API endpoints, include the schema awareness data in the request body.
+
+The code below shows how to get schema awareness data and pass it to the API endpoint:
+
+```ts
+// Get schema awareness data from the editor
+const schemaAwarenessData = getSchemaAwarenessData(editor)
+
+// Call the Server AI Toolkit API
+const response = await fetch(`${API_BASE_URL}/v2/toolkit/tools`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${JWT_TOKEN}`,
+    'X-App-Id': APP_ID,
+  },
+  body: JSON.stringify({
+    schemaAwarenessData,
+  }),
+})
+```
+
+When executing tools, also include the schema awareness data:
+
+```ts
+const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${JWT_TOKEN}`,
+    'X-App-Id': APP_ID,
+  },
+  body: JSON.stringify({
+    toolName: 'tiptapRead',
+    input: { from: 0 },
+    document: editor.getJSON(),
+    schemaAwarenessData, // Include schema awareness data
+  }),
+})
+```
+
+### Complete example
+
+Here's a complete example showing how to integrate schema awareness into an AI agent chatbot:
+
+```tsx
+// app/page.tsx
+'use client'
+
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useState, useEffect } from 'react'
+import { getSchemaAwarenessData } from '@tiptap-pro/server-ai-toolkit'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, CustomAlertExtension], // Include your custom extension
+    content: `<h1>AI agent demo</h1><p>Ask the AI to create an alert box.</p>`,
+  })
+
+  const [document, setDocument] = useState(editor?.getJSON() || null)
+
+  // Update document state when editor content changes
+  useEffect(() => {
+    if (editor) {
+      setDocument(editor.getJSON())
+    }
+  }, [editor])
+
+  const { messages, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: {
+        // Get and send schema awareness data
+        schemaAwarenessData: editor ? getSchemaAwarenessData(editor) : null,
+        document: document || editor?.getJSON(),
+      },
+    }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  })
+
+  // ... rest of component
+}
+```
+
+```ts
+// app/api/chat/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createAgentUIStreamResponse, ToolLoopAgent, UIMessage, tool } from 'ai'
+
+const API_BASE_URL = process.env.SERVER_AI_TOOLKIT_API_URL || 'https://api.tiptap.dev'
+const JWT_TOKEN = process.env.SERVER_AI_TOOLKIT_JWT_TOKEN
+const APP_ID = process.env.SERVER_AI_TOOLKIT_APP_ID
+
+export async function POST(req: Request) {
+  const {
+    messages,
+    schemaAwarenessData,
+    document,
+  }: {
+    messages: UIMessage[]
+    schemaAwarenessData: any
+    document: any
+  } = await req.json()
+
+  // Get tool definitions from the Server AI Toolkit API
+  const toolsResponse = await fetch(`${API_BASE_URL}/v2/toolkit/tools`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${JWT_TOKEN}`,
+      'X-App-Id': APP_ID,
+    },
+    body: JSON.stringify({
+      schemaAwarenessData,
+    }),
+  })
+
+  const toolDefinitions = await toolsResponse.json()
+
+  // Convert API tool definitions to AI SDK tool format
+  const tools = Object.fromEntries(
+    toolDefinitions.map((toolDef: any) => [
+      toolDef.name,
+      tool({
+        description: toolDef.description,
+        parameters: toolDef.inputSchema,
+      }),
+    ]),
+  )
+
+  const agent = new ToolLoopAgent({
+    model: openai('gpt-4o'),
+    instructions: 'You are an assistant that can edit rich text documents.',
+    tools,
+    async executeTool(toolCall) {
+      // Execute tool via Server AI Toolkit API
+      const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${JWT_TOKEN}`,
+          'X-App-Id': APP_ID,
+        },
+        body: JSON.stringify({
+          toolName: toolCall.toolName,
+          input: toolCall.args,
+          document,
+          schemaAwarenessData, // Include schema awareness data
+        }),
+      })
+
+      const result = await response.json()
+
+      // Update document if it changed
+      if (result.docChanged && result.document) {
+        document = result.document
+      }
+
+      return result.output
+    },
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return createAgentUIStreamResponse({
+    agent,
+    uiMessages: messages,
+  })
+}
+```
+
+You've now set up schema awareness for your AI model using the Server AI Toolkit.
+
+## Next steps
+
+- [Setup data API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/setup-data)
+- [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api)

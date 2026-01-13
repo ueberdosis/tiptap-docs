@@ -247,6 +247,62 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Server AI Toolkit',
           href: '/content-ai/capabilities/server-ai-toolkit/overview',
           tags: ['Alpha'],
+          children: [
+            {
+              title: 'Overview',
+              href: '/content-ai/capabilities/server-ai-toolkit/overview',
+            },
+            {
+              title: 'Install',
+              href: '/content-ai/capabilities/server-ai-toolkit/install',
+            },
+            {
+              title: 'Agents',
+              href: '/content-ai/capabilities/server-ai-toolkit/agents',
+              children: [
+                {
+                  title: 'AI agent chatbot',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
+                },
+                {
+                  title: 'Schema awareness',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
+                },
+                {
+                  title: 'Tool definitions',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
+                },
+              ],
+            },
+            {
+              title: 'Workflows',
+              href: '/content-ai/capabilities/server-ai-toolkit/workflows',
+            },
+            {
+              title: 'API reference',
+              href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
+              children: [
+                {
+                  title: 'Setup data',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/setup-data',
+                },
+                {
+                  title: 'REST API',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'Changelog',
+              href: '/content-ai/capabilities/server-ai-toolkit/changelog',
+              children: [
+                {
+                  title: 'Server AI Toolkit',
+                  href: '/content-ai/capabilities/server-ai-toolkit/changelog/server-ai-toolkit',
+                },
+              ],
+            },
+          ],
         },
         {
           title: 'AI Generation',
