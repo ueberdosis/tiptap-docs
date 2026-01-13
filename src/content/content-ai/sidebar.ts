@@ -245,7 +245,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Server AI Toolkit',
-          href: '/content-ai/capabilities/server-ai-toolkit/overview',
+          href: '/content-ai/capabilities/server-ai-toolkit',
           tags: ['Alpha'],
           children: [
             {
@@ -283,8 +283,8 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [
                 {
-                  title: 'Setup data',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/setup-data',
+                  title: 'Schema awareness',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
                 },
                 {
                   title: 'REST API',
