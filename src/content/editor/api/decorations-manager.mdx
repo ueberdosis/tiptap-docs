@@ -1,0 +1,382 @@
+---
+title: Decorations API
+meta:
+  title: Decorations API | Tiptap Editor Docs
+  description: API reference for the Decorations API - helper functions and methods for creating decorations in Tiptap extensions.
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+API reference for creating and managing decorations in Tiptap extensions. Decorations are visual annotations that don't modify the document structure.
+
+<Callout title="New to decorations?" variant="info">
+  If you&apos;re new to decorations, start with the [Decorations core concepts
+  guide](/editor/core-concepts/decorations) to understand what decorations are, when to use them,
+  and see detailed examples and patterns.
+</Callout>
+
+## Overview
+
+Tiptap provides three types of decorations:
+
+- **Inline decorations**: Wrap text ranges with HTML attributes (e.g., highlighting, underlines)
+- **Node decorations**: Add attributes to entire node elements (e.g., block styling, validation states)
+- **Widget decorations**: Insert custom DOM elements at specific positions (e.g., buttons, UI components)
+
+See the [core concepts guide](/editor/core-concepts/decorations#types-of-decorations) for detailed explanations and use cases.
+
+## Extension API
+
+### `decorations({ editor })`
+
+Extension method that defines decoration behavior. Returns a configuration object with `create` and optionally `shouldUpdate` methods.
+
+```ts
+import { Extension } from '@tiptap/core'
+import { createInlineDecoration } from '@tiptap/core'
+
+const MyExtension = Extension.create({
+  name: 'myExtension',
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state, view, editor }) {
+        // Return array of decorations
+        return []
+      },
+
+      shouldUpdate({ tr, oldState, newState }) {
+        // Return true to recreate decorations
+        return tr.docChanged
+      },
+    }
+  },
+})
+```
+
+#### `create({ state, view, editor })`
+
+Creates decorations for the current editor state.
+
+**Parameters:**
+
+- `state` (EditorState): Current ProseMirror editor state
+- `view` (EditorView): ProseMirror editor view instance
+- `editor` (Editor): Tiptap editor instance
+
+**Returns:** Array of decoration items
+
+**Example:**
+
+```ts
+create({ state }) {
+  const decorations = []
+
+  state.doc.descendants((node, pos) => {
+    if (node.isText && node.text?.includes('TODO')) {
+      decorations.push(
+        createInlineDecoration(pos, pos + node.text.length, {
+          class: 'todo-highlight',
+        }),
+      )
+    }
+  })
+
+  return decorations
+}
+```
+
+#### `shouldUpdate({ tr, oldState, newState })` (optional)
+
+Determines when decorations should be recreated. By default, decorations are recreated on every transaction.
+
+**Parameters:**
+
+- `tr` (Transaction): Current ProseMirror transaction
+- `oldState` (EditorState): Previous editor state
+- `newState` (EditorState): New editor state
+
+**Returns:** `true` to recreate decorations, `false` to keep existing ones
+
+**Example:**
+
+```ts
+shouldUpdate({ tr, oldState, newState }) {
+  // Only recreate when document changes
+  if (tr.docChanged) {
+    return true
+  }
+
+  // Or when selection changes
+  if (newState.selection.from !== oldState.selection.from) {
+    return true
+  }
+
+  // Or when a custom meta flag is set
+  if (tr.getMeta('updateMyDecorations')) {
+    return true
+  }
+
+  return false
+}
+```
+
+## Helper Functions
+
+Tiptap provides helper functions to create each type of decoration.
+
+### `createInlineDecoration(from, to, attributes, spec?)`
+
+Creates an inline decoration for styling text ranges.
+
+```ts
+import { createInlineDecoration } from '@tiptap/core'
+```
+
+**Parameters:**
+
+- `from` (number): Start position in the document
+- `to` (number): End position in the document
+- `attributes` (object): HTML attributes to apply (e.g., `class`, `style`, `data-*`)
+- `spec` (object, optional): Additional metadata for decoration diffing and identification
+
+**Returns:** InlineDecoration object
+
+**Example:**
+
+```ts
+// Basic inline decoration
+createInlineDecoration(10, 20, {
+  class: 'highlight-yellow',
+})
+
+// With spec for efficient diffing
+createInlineDecoration(
+  10,
+  20,
+  {
+    class: 'search-result',
+  },
+  {
+    searchId: 'abc123',
+    resultIndex: 0,
+  },
+)
+```
+
+### `createNodeDecoration(from, to, attributes, spec?)`
+
+Creates a node decoration for styling entire nodes.
+
+```ts
+import { createNodeDecoration } from '@tiptap/core'
+```
+
+**Parameters:**
+
+- `from` (number): Start position of the node
+- `to` (number): End position of the node (use `pos + node.nodeSize`)
+- `attributes` (object): HTML attributes to apply to the node's DOM element
+- `spec` (object, optional): Additional metadata for decoration diffing
+
+**Returns:** NodeDecoration object
+
+**Example:**
+
+```ts
+state.doc.descendants((node, pos) => {
+  if (node.type.name === 'paragraph') {
+    const wordCount = node.textContent.split(/\s+/).length
+
+    decorations.push(
+      createNodeDecoration(
+        pos,
+        pos + node.nodeSize,
+        {
+          class: wordCount > 50 ? 'long-paragraph' : 'short-paragraph',
+          'data-word-count': String(wordCount),
+        },
+        {
+          // Spec helps Tiptap detect when decoration should update
+          wordCount,
+        },
+      ),
+    )
+  }
+})
+```
+
+### `createWidgetDecoration(pos, widget, spec?)`
+
+Creates a widget decoration for inserting custom DOM elements.
+
+```ts
+import { createWidgetDecoration } from '@tiptap/core'
+```
+
+**Parameters:**
+
+- `pos` (number): Position to insert the widget
+- `widget` (function): Function that receives `(view, getPos)` and returns a DOM element
+  - `view` (EditorView): The ProseMirror editor view
+  - `getPos` (function): Returns the current position (useful if document changes)
+- `spec` (object, optional): Additional metadata
+
+**Returns:** WidgetDecoration object
+
+**Example with plain JavaScript:**
+
+```ts
+createWidgetDecoration(pos, (view, getPos) => {
+  const button = document.createElement('button')
+  button.textContent = 'Click me'
+  button.className = 'action-button'
+
+  button.onclick = () => {
+    const currentPos = getPos()
+    console.log('Button at position:', currentPos)
+  }
+
+  return button
+})
+```
+
+**Example with React:**
+
+```tsx
+import { WidgetRenderer } from '@tiptap/react'
+import { MyComponent } from './MyComponent'
+
+createWidgetDecoration(pos, (view, getPos) => {
+  return WidgetRenderer.create(MyComponent, {
+    editor,
+    pos,
+    getPos,
+    // any other props
+  })
+})
+```
+
+**Example with Vue 3:**
+
+```js
+import { WidgetRenderer } from '@tiptap/vue-3'
+import MyComponent from './MyComponent.vue'
+
+createWidgetDecoration(pos, (view, getPos) => {
+  return WidgetRenderer.create(MyComponent, {
+    editor,
+    pos,
+    getPos,
+  })
+})
+```
+
+**Example with Vue 2:**
+
+```js
+import { WidgetRenderer } from '@tiptap/vue-2'
+// Same API as Vue 3
+```
+
+## Advanced Usage
+
+### Accessing the DecorationManager
+
+For advanced use cases, you can access the DecorationManager and decoration plugin state directly:
+
+```ts
+import { decorationPluginKey, DecorationManager } from '@tiptap/core'
+
+// Get current decoration set
+const decorationSet = decorationPluginKey.getState(editor.state)
+
+// Access the DecorationManager instance (available internally)
+const decorationManager = editor.extensionManager.decorationManager
+```
+
+### Manual decoration updates
+
+Trigger decoration updates manually using transaction metadata:
+
+```ts
+// Trigger update
+editor.view.dispatch(editor.view.state.tr.setMeta('updateDecorations', true))
+
+// Check for the meta in shouldUpdate
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      // ...
+    },
+
+    shouldUpdate({ tr }) {
+      return tr.getMeta('updateDecorations') === true
+    },
+  }
+}
+```
+
+### Decoration spec for efficient diffing
+
+The `spec` parameter helps Tiptap efficiently diff decorations. Include values that determine the decoration's appearance:
+
+```ts
+createNodeDecoration(
+  pos,
+  pos + node.nodeSize,
+  {
+    class: `status-${status}`,
+    'data-errors': errorCount,
+  },
+  {
+    // Include all values that affect appearance
+    status,
+    errorCount,
+    // When these change, decoration will be recreated
+  },
+)
+```
+
+Without `spec`, Tiptap may not detect when decoration content changes, leading to stale decorations.
+
+## Type Definitions
+
+```ts
+interface DecorationOptions {
+  create(props: { state: EditorState; view: EditorView; editor: Editor }): DecorationItem[]
+  shouldUpdate?(props: { tr: Transaction; oldState: EditorState; newState: EditorState }): boolean
+}
+
+interface InlineDecoration {
+  type: 'inline'
+  from: number
+  to: number
+  attributes?: Record<string, string>
+  spec?: Record<string, any>
+}
+
+interface NodeDecoration {
+  type: 'node'
+  from: number
+  to: number
+  attributes?: Record<string, string>
+  spec?: Record<string, any>
+}
+
+interface WidgetDecoration {
+  type: 'widget'
+  from: number
+  to: number
+  widget: (view: EditorView, getPos: () => number | undefined) => HTMLElement
+  spec?: Record<string, any>
+}
+
+type DecorationItem = InlineDecoration | NodeDecoration | WidgetDecoration
+```
+
+## See Also
+
+- [Decorations Core Concepts](/editor/core-concepts/decorations) - Detailed guide with patterns and best practices
+- [Extension API](/editor/extensions/custom-extensions/create-new/extension) - Creating custom extensions
