@@ -113,11 +113,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/content-ai/capabilities/generation',
-        destination: '/content-ai/capabilities/generation/overview',
-        permanent: true,
-      },
-      {
         source: '/content-ai/capabilities/generation/text-generation',
         destination: '/content-ai/capabilities/generation/text-generation/built-in-commands',
         permanent: true,
