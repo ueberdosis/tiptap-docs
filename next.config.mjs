@@ -470,11 +470,6 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
         permanent: true,
       },
-      {
-        source: '/editor/ai/advanced-usage/custom-Ilm',
-        destination: '/content-ai/capabilities/generation/custom-llms',
-        permanent: true,
-      },
     ]
   },
 }
