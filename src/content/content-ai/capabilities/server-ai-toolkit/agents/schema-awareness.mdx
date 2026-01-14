@@ -7,7 +7,6 @@ meta:
 ---
 
 import { Callout } from '@/components/ui/Callout'
-import { CodeDemo } from '@/components/CodeDemo'
 
 A Tiptap [schema](/editor/core-concepts/schema) describes the elements the document can (and cannot) contain. Tiptap's **schema awareness** capabilities allow AI models to understand the document better when using the Server AI Toolkit.
 
@@ -123,45 +122,216 @@ The `addJsonSchemaAwareness` function should return an object with:
 
 ### Step 3: pass schema awareness data to the API
 
-When you call the Server AI Toolkit API endpoints, include the schema awareness data in the request body.
+When you call the Server AI Toolkit API endpoints, include the schema awareness data in the request body. The Server AI Toolkit API also provides a schema awareness prompt that should be included in the AI model's instructions.
 
-The code below shows how to get schema awareness data and pass it to the API endpoint:
+Create helper functions to interact with the Server AI Toolkit API. These functions handle fetching tool definitions, schema awareness prompts, and executing tools:
+
+### Constants
+
+The constants file centralizes all environment variables and configuration values used across the API route and helper functions.
 
 ```ts
-// Get schema awareness data from the editor
-const schemaAwarenessData = getSchemaAwarenessData(editor)
-
-// Call the Server AI Toolkit API
-const response = await fetch(`${API_BASE_URL}/v2/toolkit/tools`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${JWT_TOKEN}`,
-    'X-App-Id': APP_ID,
-  },
-  body: JSON.stringify({
-    schemaAwarenessData,
-  }),
-})
+// app/api/server-ai-agent-chatbot/constants.ts
+export const API_BASE_URL = process.env.SERVER_AI_TOOLKIT_API_URL || 'https://api.tiptap.dev'
+export const JWT_TOKEN = process.env.SERVER_AI_TOOLKIT_JWT_TOKEN
+export const APP_ID = process.env.SERVER_AI_TOOLKIT_APP_ID
+export const REST_API_SECRET = process.env.REST_API_SECRET
+export const TIPTAP_CLOUD_APP_ID = process.env.TIPTAP_CLOUD_APP_ID
 ```
 
-When executing tools, also include the schema awareness data:
+### Get tool definitions
+
+This function fetches the available tool definitions from the Server AI Toolkit API.
 
 ```ts
-const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute-tool`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${JWT_TOKEN}`,
-    'X-App-Id': APP_ID,
-  },
-  body: JSON.stringify({
-    toolName: 'tiptapRead',
-    input: { from: 0 },
-    document: editor.getJSON(),
-    schemaAwarenessData, // Include schema awareness data
-  }),
-})
+// app/api/server-ai-agent-chatbot/get-tool-definitions.ts
+import type z from 'zod'
+import { API_BASE_URL, APP_ID, JWT_TOKEN } from './constants'
+
+export async function getToolDefinitions(schemaAwarenessData: unknown): Promise<
+  {
+    name: string
+    description: string
+    inputSchema: z.core.JSONSchema.JSONSchema
+  }[]
+> {
+  const response = await fetch(`${API_BASE_URL}/v2/toolkit/tools`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${JWT_TOKEN}`,
+      'X-App-Id': APP_ID || '',
+    },
+    body: JSON.stringify({
+      schemaAwarenessData,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch tools: ${response.statusText}`)
+  }
+  const responseData = await response.json()
+
+  return responseData.tools
+}
+```
+
+### Get schema awareness prompt
+
+This function retrieves a formatted prompt string from the Server AI Toolkit API that describes the document's schema to the AI model. This prompt is included in the agent's instructions to help the AI understand what nodes, marks, and attributes are available in the document.
+
+```ts
+// app/api/server-ai-agent-chatbot/get-schema-awareness-prompt.ts
+import { API_BASE_URL, APP_ID, JWT_TOKEN } from './constants'
+
+export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/v2/toolkit/schema-awareness-prompt`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${JWT_TOKEN}`,
+      'X-App-Id': APP_ID || '',
+    },
+    body: JSON.stringify({
+      schemaAwarenessData,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch schema awareness prompt: ${response.statusText}`)
+  }
+
+  const result: { prompt: string } = await response.json()
+  return result.prompt
+}
+```
+
+### Execute tool
+
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, current document state, and schema awareness data to the API, which processes the tool execution and returns the result along with an updated document if the tool modified it.
+
+```ts
+// app/api/server-ai-agent-chatbot/execute-tool.ts
+import { API_BASE_URL, APP_ID, JWT_TOKEN } from './constants'
+
+export async function executeTool(
+  toolName: string,
+  input: unknown,
+  document: unknown,
+  schemaAwarenessData: unknown,
+): Promise<{ output: unknown; docChanged: boolean; document?: unknown }> {
+  const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute-tool`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${JWT_TOKEN}`,
+      'X-App-Id': APP_ID || '',
+    },
+    body: JSON.stringify({
+      toolName,
+      input,
+      document,
+      schemaAwarenessData, // Include schema awareness data
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Tool execution failed: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+```
+
+### Get document
+
+This function retrieves the current document state from Tiptap Cloud's REST API using the document ID. It's called before each tool execution to ensure the tool operates on the latest version of the document, preventing conflicts with concurrent edits.
+
+```ts
+// app/api/server-ai-agent-chatbot/get-document.ts
+import { REST_API_SECRET, TIPTAP_CLOUD_APP_ID } from './constants'
+
+export async function getDocument(documentId: string): Promise<unknown> {
+  if (!TIPTAP_CLOUD_APP_ID || !REST_API_SECRET) {
+    throw new Error('Missing TIPTAP_CLOUD_APP_ID or REST_API_SECRET')
+  }
+
+  const collabUrl = `https://${TIPTAP_CLOUD_APP_ID}.collab.tiptap.cloud/api/documents/${encodeURIComponent(
+    documentId,
+  )}?format=json`
+
+  const response = await fetch(collabUrl, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: REST_API_SECRET,
+    },
+  })
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(`Document ${documentId} not found`)
+    }
+    throw new Error(`Failed to retrieve document: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+```
+
+### Update document
+
+This function updates the document state in Tiptap Cloud's REST API after a tool execution has modified it. It attempts to patch the existing document, and if the document doesn't exist (404), it creates a new one. This ensures the document state is persisted and synchronized across all clients.
+
+```ts
+// app/api/server-ai-agent-chatbot/update-document.ts
+import { REST_API_SECRET, TIPTAP_CLOUD_APP_ID } from './constants'
+
+export async function updateDocument(documentId: string, document: unknown): Promise<void> {
+  if (!TIPTAP_CLOUD_APP_ID || !REST_API_SECRET) {
+    console.warn('Missing TIPTAP_CLOUD_APP_ID or REST_API_SECRET, skipping update')
+    return
+  }
+
+  const collabUrl = `https://${TIPTAP_CLOUD_APP_ID}.collab.tiptap.cloud/api/documents/${encodeURIComponent(
+    documentId,
+  )}?format=json`
+
+  try {
+    const response = await fetch(collabUrl, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: REST_API_SECRET,
+      },
+      body: JSON.stringify(document),
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Document doesn't exist, try to create it
+        const createResponse = await fetch(collabUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: REST_API_SECRET,
+          },
+          body: JSON.stringify(document),
+        })
+
+        if (!createResponse.ok) {
+          console.error(
+            `Failed to create document: ${createResponse.status} ${createResponse.statusText}`,
+          )
+        }
+      } else {
+        console.error(`Failed to update document: ${response.status} ${response.statusText}`)
+      }
+    }
+  } catch (error) {
+    console.error('Error updating document:', error)
+  }
+}
 ```
 
 ### Complete example
@@ -169,42 +339,81 @@ const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute-tool`, {
 Here's a complete example showing how to integrate schema awareness into an AI agent chatbot:
 
 ```tsx
-// app/page.tsx
+// app/server-ai-agent-chatbot/page.tsx
 'use client'
 
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
 import { useChat } from '@ai-sdk/react'
+import { Collaboration } from '@tiptap/extension-collaboration'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useState, useEffect } from 'react'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
 import { getSchemaAwarenessData } from '@tiptap-pro/server-ai-toolkit'
+import { DefaultChatTransport } from 'ai'
+import { useEffect, useRef, useState } from 'react'
+import { v4 as uuid } from 'uuid'
+import * as Y from 'yjs'
+import { getCollabConfig } from './actions'
 
 export default function Page() {
+  const [doc] = useState(() => new Y.Doc())
+  const [documentId] = useState(() => `server-ai-agent-chatbot/${uuid()}`)
+  const providerRef = useRef<TiptapCollabProvider | null>(null)
+
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit, CustomAlertExtension], // Include your custom extension
-    content: `<h1>AI agent demo</h1><p>Ask the AI to create an alert box.</p>`,
+    extensions: [StarterKit, CustomAlertExtension, Collaboration.configure({ document: doc })], // Include your custom extension
   })
 
-  const [document, setDocument] = useState(editor?.getJSON() || null)
-
-  // Update document state when editor content changes
+  // Get JWT token and appId from server action
   useEffect(() => {
-    if (editor) {
-      setDocument(editor.getJSON())
+    const setupProvider = async () => {
+      try {
+        const { token, appId } = await getCollabConfig('user-1', documentId)
+
+        const collabProvider = new TiptapCollabProvider({
+          appId,
+          name: documentId,
+          token,
+          document: doc,
+          user: 'user-1',
+          onOpen() {
+            console.log('WebSocket connection opened.')
+          },
+          onConnect() {
+            editor?.commands.setContent(initialContent)
+          },
+        })
+
+        providerRef.current = collabProvider
+      } catch (error) {
+        console.error('Failed to setup collaboration:', error)
+      }
     }
-  }, [editor])
+
+    setupProvider()
+
+    return () => {
+      if (providerRef.current) {
+        providerRef.current.destroy()
+        providerRef.current = null
+      }
+    }
+  }, [documentId, doc, editor])
+
+  // Fixes issue: https://github.com/vercel/ai/issues/7819
+  // Get and send schema awareness data
+  const schemaAwarenessData = editor ? getSchemaAwarenessData(editor) : null
+  const schemaAwarenessDataRef = useRef(schemaAwarenessData)
+  schemaAwarenessDataRef.current = schemaAwarenessData
 
   const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: {
-        // Get and send schema awareness data
-        schemaAwarenessData: editor ? getSchemaAwarenessData(editor) : null,
-        document: document || editor?.getJSON(),
-      },
+      api: '/api/server-ai-agent-chatbot',
+      body: () => ({
+        schemaAwarenessData: schemaAwarenessDataRef.current,
+        documentId,
+      }),
     }),
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   })
 
   // ... rest of component
@@ -212,81 +421,75 @@ export default function Page() {
 ```
 
 ```ts
-// app/api/chat/route.ts
+// app/api/server-ai-agent-chatbot/route.ts
 import { openai } from '@ai-sdk/openai'
-import { createAgentUIStreamResponse, ToolLoopAgent, UIMessage, tool } from 'ai'
-
-const API_BASE_URL = process.env.SERVER_AI_TOOLKIT_API_URL || 'https://api.tiptap.dev'
-const JWT_TOKEN = process.env.SERVER_AI_TOOLKIT_JWT_TOKEN
-const APP_ID = process.env.SERVER_AI_TOOLKIT_APP_ID
+import { createAgentUIStreamResponse, ToolLoopAgent, tool, type UIMessage } from 'ai'
+import z from 'zod'
+import { executeTool } from './execute-tool'
+import { getDocument } from './get-document'
+import { getSchemaAwarenessPrompt } from './get-schema-awareness-prompt'
+import { getToolDefinitions } from './get-tool-definitions'
+import { updateDocument } from './update-document'
 
 export async function POST(req: Request) {
   const {
     messages,
     schemaAwarenessData,
-    document,
+    documentId,
   }: {
     messages: UIMessage[]
-    schemaAwarenessData: any
-    document: any
+    schemaAwarenessData: unknown
+    documentId: string
   } = await req.json()
 
   // Get tool definitions from the Server AI Toolkit API
-  const toolsResponse = await fetch(`${API_BASE_URL}/v2/toolkit/tools`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${JWT_TOKEN}`,
-      'X-App-Id': APP_ID,
-    },
-    body: JSON.stringify({
-      schemaAwarenessData,
-    }),
-  })
+  const toolDefinitions = await getToolDefinitions(schemaAwarenessData)
 
-  const { tools: toolDefinitions } = await toolsResponse.json()
+  // Get schema awareness prompt from the Server AI Toolkit API
+  const schemaAwarenessPrompt = await getSchemaAwarenessPrompt(schemaAwarenessData)
 
   // Convert API tool definitions to AI SDK tool format
   const tools = Object.fromEntries(
-    toolDefinitions.map((toolDef: any) => [
+    toolDefinitions.map((toolDef) => [
       toolDef.name,
       tool({
         description: toolDef.description,
-        parameters: toolDef.inputSchema,
+        inputSchema: z.fromJSONSchema(toolDef.inputSchema),
+        execute: async (input) => {
+          try {
+            // Get the latest version of the document before executing the tool
+            const document = await getDocument(documentId)
+
+            const result = await executeTool(
+              toolDef.name,
+              input,
+              document,
+              schemaAwarenessData, // Include schema awareness data
+            )
+
+            // Update the document after executing the tool if it changed
+            if (result.docChanged && result.document && documentId) {
+              await updateDocument(documentId, result.document)
+            }
+
+            return result.output
+          } catch (error) {
+            console.error(`Failed to execute tool ${toolDef.name}:`, error)
+            return {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }
+          }
+        },
       }),
     ]),
   )
 
   const agent = new ToolLoopAgent({
-    model: openai('gpt-4o'),
-    instructions: 'You are an assistant that can edit rich text documents.',
+    model: openai('gpt-5-mini'),
+    instructions: `You are an assistant that can edit rich text documents.
+
+${schemaAwarenessPrompt}`, // Include schema awareness prompt in instructions
     tools,
-    async executeTool(toolCall) {
-      // Execute tool via Server AI Toolkit API
-      const response = await fetch(`${API_BASE_URL}/v2/toolkit/execute-tool`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${JWT_TOKEN}`,
-          'X-App-Id': APP_ID,
-        },
-        body: JSON.stringify({
-          toolName: toolCall.toolName,
-          input: toolCall.args,
-          document,
-          schemaAwarenessData, // Include schema awareness data
-        }),
-      })
-
-      const result = await response.json()
-
-      // Update document if it changed
-      if (result.docChanged && result.document) {
-        document = result.document
-      }
-
-      return result.output
-    },
     providerOptions: {
       openai: {
         reasoningEffort: 'minimal',
