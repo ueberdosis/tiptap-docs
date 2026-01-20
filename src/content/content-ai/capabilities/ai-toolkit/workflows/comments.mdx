@@ -23,7 +23,7 @@ See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 ## Tech stack
 
 - [React](https://react.dev/) + [Next.js](https://nextjs.org/)
-- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [Anthropic](https://www.anthropic.com/) models
 - Tiptap AI Toolkit
 - Tiptap Comments extension
 
@@ -39,10 +39,10 @@ Create a [Next.js](https://nextjs.org/) project:
 npx create-next-app@latest comments-workflow
 ```
 
-Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for Anthropic:
 
 ```bash
-npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai zod uuid
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/anthropic zod uuid
 ```
 
 Install the Tiptap AI Toolkit and Comments extension:
@@ -58,7 +58,7 @@ npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions @tipt
 
 ## Server setup
 
-Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the Anthropic model.
 
 Inside the API endpoint, create and configure the Comments workflow using the `createEditThreadsWorkflow` function. The workflow includes a ready-to-use system prompt that instructs the AI model on how to manage comments.
 
@@ -70,7 +70,7 @@ The user message should include:
 
 ```ts
 // app/api/comments-workflow/route.ts
-import { openai } from '@ai-sdk/openai'
+import { anthropic } from '@ai-sdk/anthropic'
 import { createEditThreadsWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
 import { Output, streamText } from 'ai'
 
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   const workflow = createEditThreadsWorkflow()
 
   const result = streamText({
-    model: openai('gpt-5-mini'),
+    model: anthropic('claude-haiku-4-5'),
     // System prompt
     system: workflow.systemPrompt,
     // User message
@@ -92,13 +92,6 @@ export async function POST(req: Request) {
       task,
     }),
     output: Output.object({ schema: workflow.zodOutputSchema }),
-    // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
-    // response time.
-    providerOptions: {
-      openai: {
-        reasoningEffort: 'minimal',
-      },
-    },
   })
 
   return result.toTextStreamResponse()
@@ -109,9 +102,11 @@ export async function POST(req: Request) {
 
 Create a React component that renders the editor with the Comments extension and applies comment operations.
 
+The workflow supports streaming, which means operations are applied incrementally as they arrive from the AI model, providing real-time feedback to users.
+
 First, when the workflow starts, call the `tiptapRead` method to get the document content and `getThreads` method to get existing threads.
 
-Then, call the API endpoint to start the workflow. Use the `editThreadsWorkflow` method to apply the comment operations.
+Then, call the API endpoint to start the workflow. Use the `editThreadsWorkflow` method to apply the comment operations. The `isStreaming` parameter ensures operations are applied incrementally as they stream in.
 
 ```tsx
 // app/comments-workflow/page.tsx
@@ -123,6 +118,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { AiToolkit, getAiToolkit, editThreadsWorkflowOutputSchema } from '@tiptap-pro/ai-toolkit'
 import { Comments } from '@tiptap-pro/extension-comments'
 import { useEffect, useState } from 'react'
+import { v4 as uuid } from 'uuid'
 
 // Create a simple comments provider
 const commentsProvider = {
@@ -156,6 +152,7 @@ export default function Page() {
     content: `<h1>Document with Comments</h1><p>This is a sample document where AI can add and manage comments.</p>`,
   })
 
+  const [workflowId, setWorkflowId] = useState('')
   const [task, setTask] = useState('Add a comment suggesting improvements to this document')
 
   const { submit, isLoading, object } = useObject({
@@ -163,21 +160,23 @@ export default function Page() {
     schema: editThreadsWorkflowOutputSchema,
   })
 
-  const operations = object?.operations ?? []
-
-  // Apply operations as they arrive
+  // Apply operations as they stream in
   useEffect(() => {
-    if (!editor || operations.length === 0) return
+    if (!editor || !object?.operations) return
 
     const toolkit = getAiToolkit(editor)
     toolkit.editThreadsWorkflow({
-      operations,
+      operations: object.operations,
+      workflowId,
+      isStreaming: isLoading,
     })
-  }, [operations, editor])
+  }, [editor, object, workflowId, isLoading])
 
   if (!editor) return null
 
   const manageComments = () => {
+    setWorkflowId(uuid())
+
     const toolkit = getAiToolkit(editor)
 
     // Get the document content and existing threads
@@ -211,15 +210,15 @@ export default function Page() {
 
 The Comments workflow supports the following operations:
 
-| Operation        | Format                                            | Description                                 |
-| ---------------- | ------------------------------------------------- | ------------------------------------------- |
-| Create thread    | `['createThread', nodeHash, htmlContent]`         | Creates a new thread at a specific location |
-| Create comment   | `['createComment', threadId, content]`            | Adds a comment to an existing thread        |
-| Update comment   | `['updateComment', threadId, commentId, content]` | Updates an existing comment                 |
-| Remove comment   | `['removeComment', threadId, commentId]`          | Removes a comment from a thread             |
-| Remove thread    | `['removeThread', threadId]`                      | Removes an entire thread                    |
-| Resolve thread   | `['resolveThread', threadId]`                     | Marks a thread as resolved                  |
-| Unresolve thread | `['unresolveThread', threadId]`                   | Marks a thread as unresolved                |
+| Operation        | Description                                 |
+| ---------------- | ------------------------------------------- |
+| Create thread    | Creates a new thread at a specific location |
+| Create comment   | Adds a comment to an existing thread        |
+| Update comment   | Updates an existing comment                 |
+| Remove comment   | Removes a comment from a thread             |
+| Remove thread    | Removes an entire thread                    |
+| Resolve thread   | Marks a thread as resolved                  |
+| Unresolve thread | Marks a thread as unresolved                |
 
 ## End result
 
