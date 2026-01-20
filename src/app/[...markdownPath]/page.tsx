@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
@@ -10,6 +12,16 @@ import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
 import { Tag } from '@/components/ui/Tag'
+import PrevNextTiles from '@/components/PrevNextTiles'
+import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import { AskAi } from '@/components/AskAi'
+
+const CopyMarkdownButton = dynamic(
+  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
+  {
+    ssr: false,
+  },
+)
 
 type Props = {
   params: {
@@ -97,7 +109,18 @@ export default async function MarkdownPage({ params }: Props) {
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
-                <PageHeader.Breadcrumbs config={sidebar.sidebarConfig} />
+                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
+                  <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
+                  <div className="flex items-center gap-2">
+                    <Suspense>
+                      <CopyMarkdownButton
+                        title={pageMdx.frontmatter?.title}
+                        content={pageMdx.default()}
+                      />
+                    </Suspense>
+                    <AskAi />
+                  </div>
+                </div>
               ) : null}
               {pageMdx.frontmatter?.title ? (
                 <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
@@ -128,6 +151,11 @@ export default async function MarkdownPage({ params }: Props) {
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
+          <PrevNextTiles
+            config={sidebar.sidebarConfig}
+            currentPath={`/${params.markdownPath.join('/')}`}
+            isFullWidth={!!pageMdx.frontmatter?.sidebars?.hideSecondary}
+          />
         </Layout.Content>
         {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
       </Layout.Wrapper>

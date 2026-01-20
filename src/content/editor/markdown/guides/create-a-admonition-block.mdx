@@ -1,0 +1,335 @@
+---
+title: Create a Admonition Block with Markdown Support
+tags:
+  - type: beta
+meta:
+  title: Create a Admonition Block with Markdown | Tiptap Editor Docs
+  description: Learn how to create a custom Admonition block in Tiptap that supports Markdown syntax.
+  category: Editor
+---
+
+This guide walks you through adding Markdown support for a custom "Admonition" block in Tiptap. We'll break the process down into four clear steps and for each step include a full example that contains the code from previous steps so you always have full context.
+
+**Steps**:
+1. Create the basic Tiptap `Node` extension (without Markdown support).
+2. Add a custom Markdown tokenizer to produce tokens from the raw Markdown.
+3. Add a parser that converts those tokens into Tiptap JSON.
+4. Add a renderer (serializer) that converts the Tiptap node back to Markdown.
+
+We'll use the `:::type` style for admonitions, for example:
+
+```javascript
+:::warning
+This is a warning with **bold** text.
+:::
+```
+
+---
+
+## Step 1: Create the basic extension
+
+Start with a minimal `Node` definition that describes the structure, HTML parsing/rendering and attributes. Keep Markdown integration out for now so you can focus on schema and html input and output first.
+
+```javascript
+import { Node } from '@tiptap/core'
+
+export const Admonition = Node.create({
+  name: 'admonition',
+
+  group: 'block',
+  content: 'block+',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+        parseHTML: (element) => element.getAttribute('data-type'),
+        renderHTML: (attributes) => ({
+          'data-type': attributes.type,
+        }),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-admonition]' }]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['div', { 'data-admonition': '', ...HTMLAttributes }, 0]
+  },
+})
+```
+
+**Notes:**
+- `content: 'block+'` allows nested block content inside the admonition.
+- We store the admonition `type` as a node attribute (`data-type` in HTML).
+
+---
+
+## Step 2: Add a custom Markdown tokenizer
+
+Tiptap's Markdown integration can accept a tokenizer that converts Markdown source into tokens the Markdown parser understands. The tokenizer is responsible for recognizing the `:::type` ... `:::` block and returning a token object with any relevant metadata and nested tokens (for the content).
+
+Below is a full example that includes the base Node plus the `markdownTokenizer` added. This gives you full context for how tokenizer integrates with the Node.
+
+```javascript
+import { Node } from '@tiptap/core'
+
+export const Admonition = Node.create({
+  name: 'admonition',
+
+  group: 'block',
+  content: 'block+',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+        parseHTML: (element) => element.getAttribute('data-type'),
+        renderHTML: (attributes) => ({
+          'data-type': attributes.type,
+        }),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-admonition]' }]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['div', { 'data-admonition': '', ...HTMLAttributes }, 0]
+  },
+
+  markdownTokenizer: {
+    name: 'admonition',
+    level: 'block', // block-level element
+
+    // A fast start check: returns -1 if not found.
+    // and is used by the lexer to optimize scanning.
+    start: (src) => src.indexOf(':::'),
+
+    // the actual tokenize function that builds
+    // the token
+    tokenize: (src, tokens, lexer) => {
+      // This regex matches:
+      // :::type\n
+      // (anything, including newlines)\n
+      // :::
+      const match = /^:::(\w+)\n([\s\S]*?)\n:::\n?/.exec(src)
+      if (!match) return undefined
+
+      return {
+        type: 'admonition',
+        raw: match[0], // the full matched Markdown
+        admonitionType: match[1], // e.g. 'warning'
+        text: match[2], // inner Markdown text
+
+        // Let the Markdown lexer parse the inner content into block tokens.
+        tokens: lexer.blockTokens(match[2]),
+      }
+    },
+  },
+})
+```
+
+**Implementation details:**
+- `start` is an optimization used by the lexer to find candidate positions.
+- `markdownTokenizer.tokenize` returns `undefined` when it doesn't match; otherwise it must return a token object with a `raw` string and any fields your `parseMarkdown` function will expect.
+- Use `lexer.blockTokens()` (or similar helper from your Markdown toolchain) to parse the inner content into nested tokens so the parser can reuse existing block-parsing logic.
+
+---
+
+## Step 3: Add the parser
+
+The `parseMarkdown` function receives the token produced by the tokenizer and must return a Tiptap-compatible JSON representation of a node (or nodes). Use the provided `helpers` to parse nested tokens into child content.
+
+Below is the full example containing the base Node, the tokenizer, and now the `parseMarkdown` function. This shows how the pieces fit together.
+
+```javascript
+import { Node } from '@tiptap/core'
+
+export const Admonition = Node.create({
+  name: 'admonition',
+
+  group: 'block',
+  content: 'block+',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+        parseHTML: (element) => element.getAttribute('data-type'),
+        renderHTML: (attributes) => ({
+          'data-type': attributes.type,
+        }),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-admonition]' }]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['div', { 'data-admonition': '', ...HTMLAttributes }, 0]
+  },
+
+  markdownTokenizer: {
+    name: 'admonition',
+    level: 'block', // block-level element
+
+    // A fast start check: returns -1 if not found.
+    // and is used by the lexer to optimize scanning.
+    start: (src) => src.indexOf(':::'),
+
+    // the actual tokenize function that builds
+    // the token
+    tokenize: (src, tokens, lexer) => {
+      // This regex matches:
+      // :::type\n
+      // (anything, including newlines)\n
+      // :::
+      const match = /^:::(\w+)\n([\s\S]*?)\n:::\n?/.exec(src)
+      if (!match) return undefined
+
+      return {
+        type: 'admonition',
+        raw: match[0], // the full matched Markdown
+        admonitionType: match[1], // e.g. 'warning'
+        text: match[2], // inner Markdown text
+
+        // Let the Markdown lexer parse the inner content into block tokens.
+        tokens: lexer.blockTokens(match[2]),
+      }
+    },
+  },
+
+  // Parse Markdown token to Tiptap JSON
+  parseMarkdown: (token, helpers) => {
+    return {
+      type: 'admonition',
+      attrs: { type: token.admonitionType || 'note' },
+      // Parse nested tokens into Tiptap content using the helpers
+      content: helpers.parseChildren(token.tokens || []),
+    }
+  },
+})
+```
+
+**Notes:**
+- `helpers.parseChildren` will transform the inner tokens into the node `content` array expected by Tiptap.
+- Make sure the `type` here matches the `name` of your Node.
+
+---
+
+## Step 4: Add the renderer
+
+To serialize content back to Markdown, implement the `renderMarkdown` function. This function receives a Tiptap node and should return the Markdown string representation. Use `helpers.renderChildren` to serialize the node's content.
+
+Below is the full example with the tokenizer, parser, and renderer implemented so you have a complete extension that supports Markdown input and output as well as HTML rendering.
+
+```javascript
+import { Node } from '@tiptap/core'
+
+export const Admonition = Node.create({
+  name: 'admonition',
+  group: 'block',
+  content: 'block+',
+
+  addAttributes() {
+    return {
+      type: {
+        default: 'note',
+        parseHTML: (element) => element.getAttribute('data-type'),
+        renderHTML: (attributes) => ({
+          'data-type': attributes.type,
+        }),
+      },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-admonition]' }]
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return ['div', { 'data-admonition': '', ...HTMLAttributes }, 0]
+  },
+
+  markdownTokenizer: {
+    name: 'admonition',
+    level: 'block', // block-level element
+
+    // A fast start check: returns -1 if not found.
+    // and is used by the lexer to optimize scanning.
+    start: (src) => src.indexOf(':::'),
+
+    // the actual tokenize function that builds
+    // the token
+    tokenize: (src, tokens, lexer) => {
+      // This regex matches:
+      // :::type\n
+      // (anything, including newlines)\n
+      // :::
+      const match = /^:::(\w+)\n([\s\S]*?)\n:::\n?/.exec(src)
+      if (!match) return undefined
+
+      return {
+        type: 'admonition',
+        raw: match[0], // the full matched Markdown
+        admonitionType: match[1], // e.g. 'warning'
+        text: match[2], // inner Markdown text
+
+        // Let the Markdown lexer parse the inner content into block tokens.
+        tokens: lexer.blockTokens(match[2]),
+      }
+    },
+  },
+
+  // Parse Markdown token to Tiptap JSON
+  parseMarkdown: (token, helpers) => {
+    return {
+      type: 'admonition',
+      attrs: { type: token.admonitionType || 'note' },
+      // Parse nested tokens into Tiptap content using the helpers
+      content: helpers.parseChildren(token.tokens || []),
+    }
+  },
+
+  renderMarkdown: (node, helpers) => {
+    const type = node.attrs?.type || 'note'
+    const content = helpers.renderChildren(node.content || [])
+    // Reconstruct the :::type ... ::: block. Ensure spacing/newlines match what your Markdown parser expects.
+    return `:::${type}\n${content}:::\n\n`
+  },
+})
+```
+
+---
+
+## Usage
+
+To set editor content from Markdown that uses the admonition syntax, pass the Markdown string and ensure `contentType: 'markdown'` (depending on your editor integration):
+
+```javascript
+const markdown = `
+:::warning
+This is a warning message with **bold** text.
+:::
+`
+
+editor.commands.setContent(markdown, { contentType: 'markdown' })
+```
+
+This will create an `admonition` node with `type: 'warning'` and the nested content parsed as Markdown.
+
+---
+
+## Testing and edge cases
+
+- Nested blocks: The tokenizer calls `lexer.blockTokens()` for inner content so the inner Markdown (lists, paragraphs, headings) will be parsed as regular block tokens and converted into Tiptap content.
+- Inline formatting: Bold/italic/links inside the admonition content should be handled by your Markdown parser if `helpers.renderChildren` and `helpers.parseChildren` are wired to the same tokenset.
+- Trailing newlines: Pay attention to trailing newlines consumed by your tokenizer regex. Adjust the regex or the `renderMarkdown` output to match the expectations of your Markdown toolchain.
+- Types validation: If you want to enforce only specific types (e.g., `note | warning | tip | danger`) you can validate the `admonitionType` in `markdownTokenizer.tokenize` or in `parseMarkdown` and fall back to a default when required.

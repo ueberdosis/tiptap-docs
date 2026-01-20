@@ -14,7 +14,7 @@ const PageHeaderWrapper = forwardRef<HTMLDivElement, PageHeaderWrapperProps>(
   ({ asChild, children, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'header'
 
-    const wrapperClass = cn('mb-12 max-w-[42rem]', className)
+    const wrapperClass = cn('mb-12', className)
 
     return (
       <Component className={wrapperClass} {...props} ref={ref}>
@@ -35,7 +35,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[18ch]',
+      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[42rem]',
       className,
     )
 
@@ -126,6 +126,10 @@ export const PageHeaderTag = ({
     return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Start plan</Tag>
   }
 
+  if (tag.type === 'addon') {
+    return <Tag tooltip={tag.tooltip || 'Add AI Toolkit to your subscription'}>Paid add-on</Tag>
+  }
+
   if (tag.type === 'mit') {
     return (
       <Tag variant="invert" tooltip={tag.tooltip || 'Free to use under MIT license.'}>
@@ -139,6 +143,18 @@ export const PageHeaderTag = ({
       ? 'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
       : 'Integrate and use while subscribed to the Team plan.'
     return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Team plan</Tag>
+  }
+
+  if (tag.type === 'business') {
+    return (
+      <Tag
+        tooltip={
+          tag.tooltip || 'Integrate and use while subscribed to the Business or Enterprise plan.'
+        }
+      >
+        Business plan
+      </Tag>
+    )
   }
 
   if (tag.type === 'ai') {
@@ -195,6 +211,20 @@ export const PageHeaderTag = ({
         }
       >
         Restricted Release
+      </Tag>
+    )
+  }
+
+  if (tag.type === 'deprecated') {
+    return (
+      <Tag
+        variant="warning"
+        tooltip={
+          tag.tooltip ||
+          'This extension is being deprecated in 2026 and will be replaced by AI Toolkit.'
+        }
+      >
+        Deprecated
       </Tag>
     )
   }

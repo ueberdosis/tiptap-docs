@@ -1,0 +1,310 @@
+---
+title: Markdown Examples
+tags:
+  - type: beta
+meta:
+  title: Markdown Examples | Tiptap Editor Docs
+  description: Explore practical examples of using the Markdown extension in Tiptap. Learn how to parse, serialize, and customize Markdown content in your editor.
+  category: Editor
+---
+
+Real-world examples and recipes for common use cases with the Markdown extension.
+
+## Basic Examples
+
+### Read and Write Markdown
+
+This example demonstrates the most common Markdown operations:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Markdown],
+  content: '# Hello World\n\nStart typing...',
+  contentType: 'markdown', // parse initial content as Markdown
+})
+
+// Read: serialize current editor content to Markdown
+console.log(editor.getMarkdown())
+
+// Write: set editor content from a Markdown string
+editor.commands.setContent('# New title\n\nSome *Markdown* content', { contentType: 'markdown' })
+```
+
+---
+
+### Paste Markdown Detection
+
+Automatically detect and parse pasted Markdown:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+import { Plugin } from '@tiptap/pm/state'
+
+const PasteMarkdown = Extension.create({
+  name: 'pasteMarkdown',
+
+  addProseMirrorPlugins() {
+    const { editor } = this;
+    return [
+      new Plugin({
+        props: {
+          handlePaste(view, event, slice) {
+            const text = event.clipboardData?.getData('text/plain')
+
+            if (!text) {
+              return false
+            }
+
+            // Check if text looks like Markdown
+            if (editor.markdown && looksLikeMarkdown(text)) {
+              const { state, dispatch } = view
+              // Parse the Markdown text to Tiptap JSON using the Markdown manager
+              const json = editor.markdown.parse(text)
+
+              // Insert the parsed JSON content at cursor position
+              editor.commands.insertContent(json)
+              return true
+            }
+
+            return false
+          },
+        },
+      }),
+    ]
+  },
+})
+
+function looksLikeMarkdown(text: string): boolean {
+  // Simple heuristic: check for Markdown syntax
+  return (
+    /^#{1,6}\s/.test(text) || // Headings
+    /\*\*[^*]+\*\*/.test(text) || // Bold
+    /\[.+\]\(.+\)/.test(text) || // Links
+    /^[-*+]\s/.test(text)
+  ) // Lists
+}
+
+const editor = new Editor({
+  extensions: [StarterKit, Markdown, PasteMarkdown],
+})
+```
+
+## Custom Tokenizers
+
+### Subscript and Superscript
+
+Support `~subscript~` and `^superscript^`:
+
+```typescript
+import { Mark } from '@tiptap/core'
+
+export const Subscript = Mark.create({
+  name: 'subscript',
+
+  parseHTML() {
+    return [{ tag: 'sub' }]
+  },
+
+  renderHTML() {
+    return ['sub', 0]
+  },
+
+  markdownTokenName: 'subscript',
+
+  parseMarkdown: (token, helpers) => {
+    const content = helpers.parseInline(token.tokens || [])
+    return helpers.applyMark('subscript', content)
+  },
+
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node.content || [])
+    return `~${content}~`
+  },
+
+  markdownTokenizer: {
+    name: 'subscript',
+    level: 'inline',
+    start: (src) => src.indexOf('~'),
+    tokenize: (src, tokens, lexer) => {
+      const match = /^~([^~]+)~/.exec(src)
+      if (!match) return undefined
+
+      return {
+        type: 'subscript',
+        raw: match[0], // Full match: ~text~
+        text: match[1], // Content: text
+        tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+      }
+    },
+  },
+})
+
+export const Superscript = Mark.create({
+  name: 'superscript',
+
+  parseHTML() {
+    return [{ tag: 'sup' }]
+  },
+
+  renderHTML() {
+    return ['sup', 0]
+  },
+
+  markdownTokenName: 'superscript',
+
+  parseMarkdown: (token, helpers) => {
+    const content = helpers.parseInline(token.tokens || [])
+    return helpers.applyMark('superscript', content)
+  },
+
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node.content || [])
+    return `^${content}^`
+  },
+
+  markdownTokenizer: {
+    name: 'superscript',
+    level: 'inline',
+    start: (src) => src.indexOf('^'),
+    tokenize: (src, tokens, lexer) => {
+      const match = /^\^([^^]+)\^/.exec(src)
+      if (!match) return undefined
+
+      return {
+        type: 'superscript',
+        raw: match[0], // Full match: ^text^
+        text: match[1], // Content: text
+        tokens: lexer.inlineTokens(match[1]), // Parse nested inline formatting
+      }
+    },
+  },
+})
+```
+
+Usage:
+
+```typescript
+editor.commands.setContent('H~2~O and E = mc^2^', { contentType: 'markdown' })
+```
+
+## Integration Examples
+
+### Real-Time Markdown Preview
+
+You can create a real-time Markdown preview by listening to editor updates:
+
+```typescript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
+
+const editor = new Editor({
+  extensions: [StarterKit, Markdown],
+  content: '# Hello',
+  onUpdate: ({ editor }) => {
+    const markdown = editor.getMarkdown()
+    updatePreview(markdown) // Your preview update function
+  },
+})
+
+function updatePreview(markdown) {
+  document.querySelector('#preview').textContent = markdown
+}
+```
+
+### Saving and Loading Workflow
+
+Store content as Markdown and load it when needed:
+
+```typescript
+// Save to database/storage
+async function saveContent() {
+  const markdown = editor.getMarkdown()
+  await fetch('/api/save', {
+    method: 'POST',
+    body: JSON.stringify({ content: markdown }),
+  })
+}
+
+// Load from database/storage
+async function loadContent() {
+  const { content } = await fetch('/api/load').then((r) => r.json())
+  editor.commands.setContent(content, { contentType: 'markdown' })
+}
+```
+
+## Server-Side Rendering
+
+Render Markdown on the server:
+
+```typescript
+import StarterKit from '@tiptap/starter-kit'
+import { MarkdownManager } from '@tiptap/markdown'
+import { generateHTML } from '@tiptap/html'
+
+const markdownManager = new MarkdownManager({
+  extensions: [StarterKit, Markdown], // Include Markdown extension
+})
+
+// Parse Markdown to JSON on server
+function parseMarkdown(markdown: string) {
+  return markdownManager.parse(markdown)
+}
+
+// Convert JSON to HTML for rendering
+function renderToHTML(json: JSONContent) {
+  // Generate HTML from Tiptap JSON (no Markdown involved here)
+  return generateHTML(json, [StarterKit])
+}
+
+// Full pipeline: Markdown → JSON → HTML
+function markdownToHTML(markdown: string) {
+  const json = parseMarkdown(markdown) // Parse Markdown to JSON
+  return renderToHTML(json) // Render JSON to HTML
+}
+
+// Express route example
+app.get('/document/:id', async (req, res) => {
+  const doc = await db.getDocument(req.params.id)
+  const json = parseMarkdown(doc.markdown) // Parse stored Markdown
+  const html = renderToHTML(json) // Convert to HTML for display
+
+  res.render('document', { content: html })
+})
+```
+
+---
+
+## Advanced Patterns
+
+### Lazy Loading Large Documents
+
+Load large documents progressively:
+
+```typescript
+async function loadLargeDocument(documentId: string) {
+  // Load metadata first
+  const meta = await fetchDocumentMeta(documentId)
+
+  // Show skeleton
+  showSkeleton()
+
+  // Load in chunks
+  const chunks = await fetchDocumentChunks(documentId, meta.chunkCount)
+
+  // Parse each Markdown chunk and insert at correct position
+  for (const chunk of chunks) {
+    const json = editor.markdown.parse(chunk.markdown) // Parse Markdown to JSON
+    editor.commands.insertContentAt(chunk.position, json) // Insert at position
+  }
+
+  hideSkeleton()
+}
+```

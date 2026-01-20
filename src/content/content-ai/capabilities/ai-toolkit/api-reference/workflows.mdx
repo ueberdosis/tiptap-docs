@@ -1,0 +1,353 @@
+---
+title: Workflows
+meta:
+  title: Workflows | Tiptap Content AI
+  description: API reference for the built-in workflows of the AI Toolkit.
+  category: Content AI
+---
+
+Workflows are scenarios where the AI model has a single, well-defined task. The AI Toolkit includes these built-in workflows:
+
+- [Insert content](/content-ai/capabilities/ai-toolkit/workflows/insert-content).
+- [Proofreader](/content-ai/capabilities/ai-toolkit/workflows/proofreader).
+- [Tiptap Edit](/content-ai/capabilities/ai-toolkit/workflows/tiptap-edit).
+- [Comments](/content-ai/capabilities/ai-toolkit/workflows/comments).
+
+Below is the API reference for the methods that support these built-in workflows.
+
+## `createProofreaderWorkflow` (server-side utility)
+
+Creates a ready-made workflow configuration for proofreading. Returns a system prompt and schemas for validating AI output.
+
+The workflow expects a user prompt as a JSON object with:
+
+- `content`: The content of the document to be proofread (see the client-side setup section on how to obtain it)
+- `task`: A string describing the task to complete
+
+### Returns
+
+- `systemPrompt` (`string`): Ready-to-use system prompt that instructs the AI model on how to generate proofreading operations
+- `zodOutputSchema` (`ZodObject`): Zod schema for validating the AI output
+- `jsonOutputSchema` (`object`): JSON schema for validating the AI output
+
+The `systemPrompt` field contains an example ready-to-use prompt with sensible defaults. We encourage you to read it and modify it to fit your needs.
+
+### Example
+
+```ts
+import { createProofreaderWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+// Get the content from the API endpoint request
+const { content } = apiEndpointRequest
+
+// Create and configure the workflow
+const workflow = createProofreaderWorkflow()
+
+const result = streamText({
+  model: openai('gpt-5-mini'),
+  // System prompt
+  system: workflow.systemPrompt,
+  // User message with the content and the task
+  prompt: JSON.stringify({
+    content,
+    task: 'Correct all grammar and spelling mistakes',
+  }),
+  output: Output.object({ schema: workflow.zodOutputSchema }),
+  // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
+  // response time.
+  providerOptions: {
+    openai: {
+      reasoningEffort: 'minimal',
+    },
+  },
+})
+```
+
+## `createInsertContentWorkflow` (server-side utility)
+
+Creates a ready-made workflow configuration for inserting or replacing content. Returns a system prompt for the AI model.
+
+The workflow expects a user prompt that is a JSON object with the following properties:
+
+- `task`: the task to complete
+- `replace`: the HTML content to be replaced (optional)
+- `before`: the HTML content before (optional)
+- `after`: the HTML content after (optional)
+
+### Returns
+
+- `systemPrompt` (`string`): Ready-to-use system prompt that instructs the AI model on how to generate HTML content
+
+The `systemPrompt` field contains an example ready-to-use prompt with sensible defaults. We encourage you to read it and modify it to fit your needs.
+
+### Example
+
+```ts
+import { createInsertContentWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { streamText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+// Get the task and selection from the API endpoint request
+const { task, replace } = apiEndpointRequest
+
+// Create and configure the workflow
+const workflow = createInsertContentWorkflow()
+
+const result = streamText({
+  model: openai('gpt-5-mini'),
+  // System prompt
+  system: workflow.systemPrompt,
+  // User message with the task and content in a JSON object
+  prompt: JSON.stringify({
+    task,
+    replace,
+  }),
+  // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
+  // response time.
+  providerOptions: {
+    openai: {
+      reasoningEffort: 'minimal',
+    },
+  },
+})
+
+return result.toTextStreamResponse()
+```
+
+## `proofreaderWorkflow`
+
+Applies a list of proofreading operations to the document.
+
+### Parameters
+
+- `options` (`ProofreaderWorkflowOptions`): Configuration options
+  - `operations` (`PartialProofreaderOperation[]`): Array of proofreading operations.
+  - `workflowId` (`unknown`): Unique ID for this workflow run
+  - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior
+    - `mode?` (`'disabled' | 'review' | 'preview'`): Whether to review the changes before or after applying them. `'disabled'` means no review, `'review'` means review after applying, `'preview'` means preview before applying. Default: `'disabled'`
+    - `diffMode?` (`'detailed' | 'full'`): How to display the difference between the original and the modified content, when review mode is enabled. `'detailed'` compares the documents before and after the change and displays the deleted content and added content as a rich diff. `'full'` displays the deleted content and added content in a whole block, as a single change containing the deleted and added content. Default: `'detailed'`
+    - `displayOptions?` (`DisplayOptions<{ suggestion: Suggestion }>`): Customize how suggestions are displayed
+      - `showAsDiff?` (`boolean`): Whether to show the suggestion as a diff where inserted and original content are displayed side by side. Default: `true`
+      - `diffPosition?` (`'before' | 'after'`): The position of the diff relative to the suggestion. Default: `'before'`
+      - `attributes?` (`Record<string, any>`): Extra HTML attributes to be added to the suggestion
+      - `renderDecorations?` (`RenderDecorations<{ suggestion: Suggestion }>`): A function to render the suggestion as ProseMirror decorations
+    - `metadata?` (`Record<string, any>`): Extra metadata for the suggestions that can be used to store additional information about them (e.g. their source or their category). It is not used internally by the extension but it may help developers customize how the suggestions are displayed in the UI.
+    - `diffUtilityConfig?` (`DiffUtilityConfig`): Options for comparing the documents with the diff utility
+      - `simplifyChanges?` (`boolean`): Whether to simplify the changes. If `true`, the changes will be simplified so that, for example, two changes in the same word are merged into a single change. Only applies when mode is 'detailed' or 'smartInline'. Default: `true`
+      - `ignoreAttributes?` (`string[]`): The attributes to ignore. Default: `['id', 'data-thread-id']`
+      - `ignoreMarks?` (`string[]`): The marks to ignore. Default: `['inlineThread']`
+      - `changeMergeDistance?` (`number | null`): Maximum distance (in document positions) between changes to merge them. If two adjacent changes have a distance less than or equal to this value in either rangeA or rangeB, they will be merged into a single change. Set to `null` or `undefined` to disable merging. Only applies when mode is 'detailed'. Default: `null`
+      - `mode?` (`'detailed' | 'block' | 'smartInline'`): The diff mode to use for comparison. `'detailed'` performs character-level diff that identifies precise changes within text (default). `'block'` performs block-level diff that treats each top-level node as a single unit. Block mode is useful when you only need to know which paragraphs, headings, or other block-level elements have changed, without character-level detail. In block mode, `simplifyChanges` and `changeMergeDistance` options are ignored. `'smartInline'` combines both approaches: first identifies changed blocks, then performs inline diff within those blocks. This is more efficient for documents where only portions have changed, while still providing character-level precision. Default: `'detailed'`
+  - `range?` (`Range`): The range to apply the proofreading operations to
+    - `from` (`number`): Start position
+    - `to` (`number`): End position
+
+### Returns (`ProofreaderWorkflowResult`)
+
+- `doc` (`Node`): The modified document after applying operations
+- `operations` (`ProofreaderOperationResult[]`): Array of operation results, in the same order as the input operations. Each result contains:
+  - `delete` (`string`): The text that was deleted (or supposed to be deleted)
+  - `insert` (`string`): The text that was inserted (or supposed to be inserted)
+  - `success` (`boolean`): Whether the operation was successful
+  - `error?` (`string`): Error message if the operation failed
+
+### Example
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Get the document in a format that allows the AI to make fast, efficient edits
+const { content } = toolkit.tiptapRead()
+
+const operations = await callApiEndpoint({ content })
+
+// Apply proofreading corrections
+const result = toolkit.proofreaderWorkflow({
+  operations,
+  workflowId: 'proofread-123',
+  reviewOptions: {
+    mode: 'preview',
+  },
+})
+```
+
+## `createTiptapEditWorkflow` (server-side utility)
+
+Creates a ready-made workflow configuration for editing documents. Returns a system prompt and schemas for validating AI output.
+
+The workflow expects a user prompt as a JSON object with:
+
+- `content`: The content of the document to be edited (obtained from `tiptapRead`)
+- `task`: A string describing the editing task to complete
+
+### Returns
+
+- `systemPrompt` (`string`): Ready-to-use system prompt that instructs the AI model on how to generate edit operations
+- `zodOutputSchema` (`ZodObject`): Zod schema for validating the AI output
+- `jsonOutputSchema` (`object`): JSON schema for validating the AI output
+
+### Example
+
+```ts
+import { createTiptapEditWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+// Get the content and task from the API endpoint request
+const { content, task } = apiEndpointRequest
+
+// Create and configure the workflow
+const workflow = createTiptapEditWorkflow()
+
+const result = streamText({
+  model: openai('gpt-5-mini'),
+  system: workflow.systemPrompt,
+  prompt: JSON.stringify({ content, task }),
+  output: Output.object({ schema: workflow.zodOutputSchema }),
+})
+```
+
+## `tiptapEditWorkflow`
+
+Applies a list of edit operations to the document.
+
+### Parameters
+
+- `options` (`TiptapEditWorkflowOptions`): Configuration options
+  - `operations` (`PartialTiptapEditOperation[]`): Array of edit operations. Each operation is a tuple `[type, target, content]`:
+    - `type`: `'replace'` | `'insertBefore'` | `'insertAfter'`
+    - `target`: The 6-character hash of the node (from `tiptapRead`) or `'doc'` for entire document
+    - `content`: HTML string with the content to insert
+  - `workflowId` (`unknown`): Unique ID for this workflow run
+  - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior (same options as `proofreaderWorkflow`)
+
+### Returns (`TiptapEditWorkflowResult`)
+
+- `doc` (`Node`): The modified document after applying operations
+- `successful` (`string[]`): Array of successfully processed operations
+- `failed` (`{ target: string; error?: string }[]`): Array of failed operations with error messages
+
+### Example
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Get the document content
+const { content } = toolkit.tiptapRead()
+
+const operations = await callApiEndpoint({ content, task: 'Make the text more formal' })
+
+// Apply edit operations
+const result = toolkit.tiptapEditWorkflow({
+  operations,
+  workflowId: 'edit-123',
+  reviewOptions: {
+    mode: 'preview',
+  },
+})
+```
+
+## `createEditThreadsWorkflow` (server-side utility)
+
+Creates a ready-made workflow configuration for managing comments and threads. Returns a system prompt and schemas for validating AI output.
+
+The workflow expects a user prompt as a JSON object with:
+
+- `content`: The content of the document (obtained from `tiptapRead`)
+- `threads`: The existing threads in the document (obtained from `getThreads`)
+- `task`: A string describing the comment management task to complete
+
+### Returns
+
+- `systemPrompt` (`string`): Ready-to-use system prompt that instructs the AI model on how to manage comments
+- `zodOutputSchema` (`ZodObject`): Zod schema for validating the AI output
+- `jsonOutputSchema` (`object`): JSON schema for validating the AI output
+
+### Example
+
+```ts
+import { createEditThreadsWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+import { openai } from '@ai-sdk/openai'
+
+// Get the content, threads, and task from the API endpoint request
+const { content, threads, task } = apiEndpointRequest
+
+// Create and configure the workflow
+const workflow = createEditThreadsWorkflow()
+
+const result = streamText({
+  model: openai('gpt-5-mini'),
+  system: workflow.systemPrompt,
+  prompt: JSON.stringify({ content, threads, task }),
+  output: Output.object({ schema: workflow.zodOutputSchema }),
+})
+```
+
+## `getThreads`
+
+Retrieves all threads in the document with their comments and location information.
+
+### Returns (`GetThreadsResult`)
+
+- `threadCount` (`number`): The number of threads in the document
+- `threads` (`ThreadInfo[]`): Array of thread information, each containing:
+  - `id` (`string`): The unique identifier of the thread
+  - `comments` (`{ id: string; content: string }[]`): Array of comments in the thread
+  - `nodeRange?` (`string`): The range of nodes where the thread is located
+  - `documentContent?` (`string`): The HTML content where the thread is applied
+
+### Example
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Get all threads in the document
+const result = toolkit.getThreads()
+
+console.log(`Found ${result.threadCount} threads`)
+
+result.threads.forEach((thread) => {
+  console.log(`Thread ${thread.id}: ${thread.comments.length} comments`)
+})
+```
+
+## `editThreadsWorkflow`
+
+Applies comment and thread operations to the document.
+
+### Parameters
+
+- `options` (`EditThreadsWorkflowOptions`): Configuration options
+  - `operations` (`string[][]`): Array of comment operations as tuples.
+  - `commentsOptions?` (`CommentsOptions`): Options for comment operations
+    - `threadData?` (`Record<string, any>`): Extra metadata for created threads
+    - `commentData?` (`Record<string, any>`): Extra metadata for created comments
+
+### Returns (`EditThreadsWorkflowResult`)
+
+- `operations` (`EditThreadsOperationResult[]`): Array of operation results
+- `success` (`boolean`): Whether all operations were successful
+
+### Example
+
+```ts
+const toolkit = getAiToolkit(editor)
+
+// Get document and threads
+const { content } = toolkit.tiptapRead()
+const { threads } = toolkit.getThreads()
+
+const operations = await callApiEndpoint({ content, threads, task: 'Add review comments' })
+
+// Apply comment operations
+const result = toolkit.editThreadsWorkflow({
+  operations,
+})
+
+if (result.success) {
+  console.log('All comment operations completed successfully')
+}
+```

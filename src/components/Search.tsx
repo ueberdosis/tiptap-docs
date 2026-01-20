@@ -1,7 +1,7 @@
 'use client'
 
 import * as Dialog from '@radix-ui/react-dialog'
-import { useCallback, useMemo } from 'react'
+import { Fragment, useCallback, useMemo } from 'react'
 import { Highlight, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
 import { useHotkeys } from '@mantine/hooks'
 import Link from '@/components/Link'
@@ -41,14 +41,12 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
         {parents ? (
           <span className="flex items-center gap-0.5 flex-wrap mt-1 font-medium">
             {parents.map(([key, value], i) => (
-              <>
-                <span className="block text-xs text-grayAlpha-500" key={key}>
-                  {value}
-                </span>
+              <Fragment key={key}>
+                <span className="block text-xs text-grayAlpha-500">{value}</span>
                 {i < parents.length - 1 ? (
                   <span className="block text-xs text-grayAlpha-400">/</span>
                 ) : null}
-              </>
+              </Fragment>
             ))}
           </span>
         ) : null}
@@ -73,14 +71,62 @@ const SearchContent = () => {
   const search = useInstantSearch()
   const query = search.indexRenderState.searchBox?.query || ''
 
-  const { currentIndex, onKeyDown } = useCommands(query.length === 0 ? [] : hits.hits)
+  // Re-rank hits: prefer lvl0 titles that cover all query tokens, then any hierarchy coverage
+  const rankedHits = useMemo(() => {
+    if (!query || hits.hits.length === 0) return hits.hits
+
+    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean)
+
+    if (tokens.length === 0) return hits.hits
+
+    const inText = (text: string) => {
+      const t = text.toLowerCase()
+
+      return tokens.every((tok) => t.includes(tok))
+    }
+
+    const titleMatches: typeof hits.hits = []
+
+    const hierarchyMatches: typeof hits.hits = []
+
+    const otherMatches: typeof hits.hits = []
+
+    hits.hits.forEach((hit) => {
+      const searchHit = hit as unknown as SearchHit
+
+      const lvl0 = searchHit.hierarchy?.lvl0 || ''
+      const allHierarchy = [
+        searchHit.hierarchy?.lvl0,
+        searchHit.hierarchy?.lvl1,
+        searchHit.hierarchy?.lvl2,
+        searchHit.hierarchy?.lvl3,
+        searchHit.hierarchy?.lvl4,
+        searchHit.hierarchy?.lvl5,
+        searchHit.hierarchy?.lvl6,
+      ]
+        .filter(Boolean)
+        .join(' ')
+
+      if (inText(lvl0)) {
+        titleMatches.push(hit)
+      } else if (inText(allHierarchy)) {
+        hierarchyMatches.push(hit)
+      } else {
+        otherMatches.push(hit)
+      }
+    })
+
+    return [...titleMatches, ...hierarchyMatches, ...otherMatches]
+  }, [query, hits])
+
+  const { currentIndex, onKeyDown } = useCommands(query.length === 0 ? [] : rankedHits)
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
 
       if (currentIndex !== null) {
-        const hit = hits.hits[currentIndex]
+        const hit = rankedHits[currentIndex]
         if (typeof window === 'undefined') {
           return
         }
@@ -88,7 +134,7 @@ const SearchContent = () => {
         window.location.href = hit.url as string
       }
     },
-    [currentIndex, hits.hits],
+    [currentIndex, rankedHits],
   )
 
   return (
@@ -108,10 +154,10 @@ const SearchContent = () => {
             'w-full appearance-none rounded shadow-cardLight border border-grayAlpha-200 p-2 text-sm outline-none hover:border-grayAlpha-300 focus:border-grayAlpha-400',
         }}
       />
-      {query && hits?.hits.length > 0 ? <div className="h-4"></div> : null}
+      {query && rankedHits.length > 0 ? <div className="h-4"></div> : null}
       <div className="overflow-auto max-h-[calc(100vh-10rem)] flex flex-col gap-1">
-        {query && hits.hits.length > 0
-          ? hits.hits.map((hit, i) => (
+        {query && rankedHits.length > 0
+          ? rankedHits.map((hit, i) => (
               <SearchResult
                 hit={hit as unknown as SearchHit}
                 active={i === currentIndex}
@@ -119,7 +165,7 @@ const SearchContent = () => {
               />
             ))
           : null}
-        {query && hits.hits.length === 0 ? (
+        {query && rankedHits.length === 0 ? (
           <div className="flex items-center justify-center p-2 mt-2">
             <span className="text-grayAlpha-400">
               No results found for <strong>{query}</strong>

@@ -17,6 +17,7 @@ const SEARCH_FILTER = {
   OPEN_SOURCE: 'opensource',
   START: 'start',
   TEAM: 'team',
+  ADDON: 'addon',
 } as const
 
 type SearchFilter = (typeof SEARCH_FILTER)[keyof typeof SEARCH_FILTER]
@@ -49,6 +50,10 @@ function useSearch() {
     setFilter(SEARCH_FILTER.TEAM)
   }, [])
 
+  const showAddon = useCallback(() => {
+    setFilter(SEARCH_FILTER.ADDON)
+  }, [])
+
   return {
     query,
     handleInput,
@@ -58,6 +63,7 @@ function useSearch() {
     showOpenSource,
     showStart,
     showTeam,
+    showAddon,
   }
 }
 
@@ -88,10 +94,19 @@ function useFilteredExtensions(
       )
     }
 
+    // When "Addon" is selected, show only Addon extensions
+    if (filter === SEARCH_FILTER.ADDON) {
+      return (
+        ext.tags?.includes('Addon') &&
+        (ext.name.toLowerCase().includes(query.toLowerCase()) ||
+          ext.description.toLowerCase().includes(query.toLowerCase()))
+      )
+    }
+
     // Other filter logic remains the same
     if (
       filter === SEARCH_FILTER.OPEN_SOURCE &&
-      (ext.tags?.includes('Start') || ext.tags?.includes('Team'))
+      (ext.tags?.includes('Start') || ext.tags?.includes('Team') || ext.tags?.includes('Addon'))
     )
       return false
     if (filter === SEARCH_FILTER.START && !ext.tags?.includes('Start')) return false
@@ -184,8 +199,17 @@ export const ExtensionGrid = ({
   nodeExtensions,
   hideAll,
 }: ExtensionGridProps) => {
-  const { clear, handleInput, query, filter, showAll, showOpenSource, showStart, showTeam } =
-    useSearch()
+  const {
+    clear,
+    handleInput,
+    query,
+    filter,
+    showAll,
+    showOpenSource,
+    showStart,
+    showTeam,
+    showAddon,
+  } = useSearch()
   const allExtensions = useAllExtensions(nodeExtensions, markExtensions, functionalityExtensions)
   const filteredNodeExtensions = useFilteredExtensions(query, nodeExtensions, filter)
   const filteredMarkExtensions = useFilteredExtensions(query, markExtensions, filter)
@@ -205,6 +229,10 @@ export const ExtensionGrid = ({
   )
   const hasTeamExtensions = useMemo(
     () => allExtensions.some((ext) => ext.tags?.includes('Team')),
+    [allExtensions],
+  )
+  const hasAddonExtensions = useMemo(
+    () => allExtensions.some((ext) => ext.tags?.includes('Addon')),
     [allExtensions],
   )
 
@@ -251,6 +279,11 @@ export const ExtensionGrid = ({
           {hasTeamExtensions ? (
             <FilterButton isActive={filter === SEARCH_FILTER.TEAM} onClick={showTeam}>
               Team Plan
+            </FilterButton>
+          ) : null}
+          {hasAddonExtensions ? (
+            <FilterButton isActive={filter === SEARCH_FILTER.ADDON} onClick={showAddon}>
+              Add-on
             </FilterButton>
           ) : null}
         </div>

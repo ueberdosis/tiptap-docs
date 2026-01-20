@@ -63,6 +63,26 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/editor/markdown/getting-started',
+        destination: '/editor/markdown/getting-started/installation',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/advanced-usage',
+        destination: '/editor/markdown/advanced-usage/custom-tokenizer',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/guides',
+        destination: '/editor/markdown/guides/integrate-markdown-in-your-extension',
+        permanent: true,
+      },
+      {
+        source: '/editor/markdown/api',
+        destination: '/editor/markdown/api/editor',
+        permanent: true,
+      },
+      {
         source: '/editor/extensions/functionality/mathematics',
         destination: '/editor/extensions/nodes/mathematics',
         permanent: true,
@@ -90,11 +110,6 @@ const nextConfig = {
       {
         source: '/content-ai/custom-llms/integrate',
         destination: '/content-ai/content-ai/custom-llms',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/generation',
-        destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
       },
       {
@@ -236,22 +251,218 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/guides',
-        destination: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/primitives',
-        destination: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/tools',
-        destination: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/changelog',
         destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+        permanent: true,
+      },
+      // Guides section moved to Agents
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+        permanent: true,
+      },
+      // Live demo moved to advanced-guides
+      {
+        source: '/content-ai/capabilities/ai-toolkit/live-demo',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
+        permanent: true,
+      },
+      // Advanced guides moved to agents
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/comments',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/selection-awareness',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/schema-awareness',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
+        permanent: true,
+      },
+      // Tools section moved under agents
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/ai-sdk',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/langchain-js',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/openai',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/openai',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/anthropic',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/mastra',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/mastra',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/other-providers',
+        permanent: true,
+      },
+      // Primitives renamed to API reference
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/read-the-document',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/read-the-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/primitives/workflows',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
+        permanent: true,
+      },
+      // Migration guides moved under advanced-guides
+      {
+        source: '/content-ai/capabilities/ai-toolkit/migration-guides',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-generation',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-suggestion',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-changes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-assistant',
+        permanent: true,
+      },
+      // END AI Toolkit redirects
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit',
+        destination: '/content-ai/capabilities/server-ai-toolkit/overview',
+        permanent: true,
+      },
+      {
+        source: '/hocuspocus/introduction',
+        destination: '/hocuspocus/getting-started/overview',
+        permanent: true,
+      },
+      {
+        source: '/editor/ai/advanced-usage/custom-llm',
+        destination: '/content-ai/capabilities/generation/overview',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+        destination: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
+        destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
         permanent: true,
       },
     ]

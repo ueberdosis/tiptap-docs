@@ -12,7 +12,9 @@ export type ProductCardProps = {
   tags: string[]
   documentationUrl: string
   secondaryUrl?: string
+  secondaryButtonText?: string
   asChild?: boolean
+  doubleWidth?: boolean
 } & HTMLProps<HTMLDivElement>
 
 export const ProductCard = ({
@@ -23,9 +25,11 @@ export const ProductCard = ({
   tags,
   title,
   secondaryUrl,
+  secondaryButtonText = 'Example',
+  doubleWidth = false,
   ...rest
 }: ProductCardProps) => {
-  const wrapperClassName = cn('no-markdown', className)
+  const wrapperClassName = cn('no-markdown', doubleWidth ? 'sm:col-span-2' : undefined, className)
 
   return (
     <Card isClickable className={wrapperClassName} {...rest}>
@@ -57,7 +61,7 @@ export const ProductCard = ({
         {secondaryUrl ? (
           <Button asChild variant="tertiary">
             <Link href={secondaryUrl}>
-              Example
+              {secondaryButtonText}
               <ArrowRightIcon className="size-3.5" />
             </Link>
           </Button>

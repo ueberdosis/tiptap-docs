@@ -1,0 +1,207 @@
+---
+title: Insert content workflow
+meta:
+  title: Insert content workflow | Tiptap Content AI
+  description: Use the Tiptap AI Toolkit to build a workflow that inserts or replaces content in your documents.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a workflow that inserts or replaces content in your Tiptap documents.
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/insert-content-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+This demo uses the AI Toolkit's Insert content workflow to replace selected content with AI-generated content in real-time.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest insert-content-workflow
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/react @ai-sdk/openai
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+Inside the API endpoint, create and configure the insert content workflow, using the `createInsertContentWorkflow` function. The workflow includes a ready-to-use system prompt that instructs the AI model on how to generate the content.
+
+The user message should be a JSON object with the following properties:
+
+- `task`: the task to complete
+- `replace`: the HTML content to be replaced (optional)
+- `before`: the HTML content before (optional)
+- `after`: the HTML content after (optional)
+
+As the AI model generates its response, the API endpoint streams the HTML content to the client.
+
+```ts
+// app/api/insert-content-workflow/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createInsertContentWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { task, replace } = await req.json()
+
+  // Create and configure the insert content workflow (with the default settings).
+  // It includes the ready-to-use system prompt.
+  const workflow = createInsertContentWorkflow()
+
+  const result = streamText({
+    model: openai('gpt-5-mini'),
+    // System prompt
+    system: workflow.systemPrompt,
+    // User message with the task and the content to replace, as a JSON object.
+    prompt: JSON.stringify({
+      task,
+      replace,
+    }),
+    // If you use gpt-5-mini, set the reasoning effort to minimal to improve the
+    // response time.
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+## Client setup
+
+Create a React component that renders the editor and streams the AI-generated content into the selection.
+
+First, when the workflow starts, get the current selection with the `getHtmlSelection` method of the AI Toolkit. Then, call the API endpoint to start the workflow. The API endpoint will return a stream of HTML that can be inserted into the editor with the `streamHtml` method of the AI Toolkit.
+
+```tsx
+// app/insert-content-workflow/page.tsx
+'use client'
+
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { useState } from 'react'
+import { Selection } from '@tiptap/extensions'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit, Selection],
+    content: `<p>Select some text and click the "Add emojis" button to add emojis to your selection.</p>`,
+  })
+
+  // Show a loading state when the AI is generating content
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Disable the buttons when the selection is empty
+  const selectionIsEmpty = useEditorState({
+    editor,
+    selector: (snapshot) => snapshot.editor?.state.selection.empty ?? true,
+  })
+
+  if (!editor) return null
+
+  const editSelection = async (task: string) => {
+    setIsLoading(true)
+
+    const toolkit = getAiToolkit(editor)
+
+    // Use the AI Toolkit to get the selection in HTML format
+    const selection = toolkit.getHtmlSelection()
+    const selectionPosition = editor.state.selection
+
+    // Call the API endpoint to get the edited HTML content
+    const response = await fetch('/api/insert-content-workflow', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        task,
+        replace: selection,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    // The response is a stream of HTML content
+    const readableStream = response.body
+    if (!readableStream) {
+      throw new Error('No response body')
+    }
+
+    // Use the AI Toolkit to stream HTML into the selection
+    await toolkit.streamHtml(readableStream, {
+      position: selectionPosition,
+      // Update the selection during streaming so that the selection always
+      // spans the generated content
+      onChunkInserted(event) {
+        editor.commands.setTextSelection(event.range)
+      },
+    })
+
+    setIsLoading(false)
+  }
+
+  const disabled = selectionIsEmpty || isLoading
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      <button onClick={() => editSelection('Add emojis to this text')} disabled={disabled}>
+        {isLoading ? 'Loading...' : 'Add emojis'}
+      </button>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a polished application that can insert or replace content with AI-generated content in real-time:
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/insert-content-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/workflows#createinsertcontentworkflow) of the `createInsertContentWorkflow` function
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/read-the-document#gethtmlselection) of the `getHtmlSelection` method
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document#streamhtml) of the `streamHtml` method
+- [Display suggestions](/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions): Learn about reviewing the document and displaying suggestions in the editor.

@@ -1,0 +1,377 @@
+---
+title: Custom Markdown Serializing
+tags:
+  - type: beta
+meta:
+  title: Custom Markdown Serializing | Tiptap Editor Docs
+  description: Learn how to create custom Markdown serialization in Tiptap.
+  category: Editor
+---
+
+This guide will walk you through the process of implementing custom Markdown serialization in Tiptap Editor. By the end of this tutorial, you'll be able to serialize [Tiptap JSON](../glossary#tiptap-json) to Markdown content.
+
+Serializing Tiptap JSON content to Markdown is done through the `markdown.render` handler.
+
+## Understanding Render Handlers
+
+The process of turning Tiptap JSON nodes into Markdown strings is handled by the `renderMarkdown` function defined in the config of an extension.
+
+This function can range in complexity from a simple string return to more complex logic that takes into account the node's attributes, its children, nesting and the context in which it appears.
+
+The following parameters are passed to the render function:
+
+- `node`: The Tiptap JSON node to be serialized.
+- `helpers`: An object containing utility functions to assist in rendering (see [Render Helper Functions](#render-helper-functions) for details).
+- `context`: An object providing additional context about the node's position in the document tree (see [Render Context](#render-context) for details).
+
+The returned value of the render function should be a string representing the Markdown equivalent of the node that will be concatenated with other strings to form the complete Markdown document.
+
+```typescript
+const CustomHeading = Node.create({
+  name: 'customHeading',
+
+  // ...
+
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node.content)
+    return `# ${content}\n\n`
+  },
+})
+```
+
+## Render Helper Functions
+
+As described above, the `helpers` object provides utility functions for rendering child nodes and formatting content.
+Let us go through each helper and see how they can be used.
+
+### `helpers.renderChildren(nodes, separator)`
+
+The `helpers.renderChildren` function will take a list of Tiptap JSON nodes and render each of them to a Markdown string using their respective render handlers.
+
+It accepts an optional `separator` parameter that can be used to join the rendered child nodes with a specific string (defaults to `''`).
+
+```typescript
+render: (node, helpers) => {
+  // Render all children
+  const content = helpers.renderChildren(node.content || [])
+
+  return `> ${content}\n\n`
+}
+```
+
+or with a custom separator:
+
+```typescript
+render: (node, helpers) => {
+  // Join list items with newlines
+  const items = helpers.renderChildren(node.content || [], '\n')
+
+  return items + '\n\n'
+}
+```
+
+### `helpers.indent(content)`
+
+The `helpers.indent(content)` function will add indentation to each line of the provided content string based on the current context level and the configured indentation style (spaces or tabs).
+
+This is helpful for example when rendering nested structures like lists.
+
+```typescript
+render: (node, helpers) => {
+  const content = helpers.renderChildren(node.content || [])
+
+  return helpers.indent(content) // indent the rendered content based off the current context level
+}
+```
+
+### `helpers.wrapInBlock(prefix, content)`
+
+The `helpers.wrapInBlock` function will wrap content with a prefix on each line which is useful for block-level elements like blockquotes or code blocks.
+
+```typescript
+render: (node, helpers) => {
+  const content = helpers.renderChildren(node.content || [])
+
+  // Add "> " to each line for blockquote
+  return helpers.wrapInBlock('> ', content)
+}
+```
+
+## Serializing Marks
+
+Marks are handled differently because they wrap inline content and need to be applied to the text within a node.
+
+When rendering marks, you typically want to render the children of the node first and then wrap that content with the appropriate Markdown syntax for the mark.
+
+```typescript
+const Bold = Mark.create({
+  name: 'bold',
+
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node) // directly render the node
+    return `**${content}**` // and return your markup syntax
+  },
+})
+```
+
+### Marks with Attributes
+
+```typescript
+const Link = Mark.create({
+  name: 'link',
+
+  // ...
+
+  parseMarkdown: (token, helpers) => {
+    const content = helpers.parseInline(token.tokens || [])
+
+    // we can use the third argument to apply attributes to the mark
+    return helpers.applyMark('link', content, {
+      href: token.href,
+      title: token.title || null,
+    })
+  },
+
+  renderMarkdown: (node, helpers) => {
+    const content = helpers.renderChildren(node)
+    const href = node.attrs?.href || ''
+    const title = node.attrs?.title
+
+    if (title) {
+      return `[${content}](${href} "${title}")`
+    }
+    return `[${content}](${href})`
+  },
+})
+```
+
+## Render Context
+
+The third parameter to render handlers is a context object that holds information about the current node's position in the document tree, like index, level, parent type and custom metadata.
+
+```typescript
+renderMarkdown: (node, helpers, context) => {
+  const lines = []
+
+  lines.push(`I am the ${context.index}th child in my parent context.`) // zero-based index of this node in its parent
+  lines.push(`My current nesting level is ${context.level}`) // current nesting level (increased by 1 for each parent that has `indenting: true`)
+  lines.push(`My parent node type is ${context.parentType}`) // type of the parent node
+  lines.push(`My custom metadata is ${JSON.stringify(context.meta)}`) // custom metadata that can be set by parent nodes
+
+  return lines.join('\n')
+}
+```
+
+## Rendering with Indentation
+
+The `isIndenting` flag tells the MarkdownManager that a node increases the nesting level:
+
+```typescript
+const CustomNode = Node.create({
+  name: 'customNode',
+
+  // ...
+
+  markdownOptions: {
+    indentsContent: true,
+  },
+
+  renderMarkdown: (node, helpers, context) => {
+    // Children will be rendered at context.level + 1 if helpers.indent() is used
+    const content = helpers.renderChildren(node.content || [])
+    return content
+  },
+})
+```
+
+This is important for proper indentation of nested lists and code blocks.
+
+### Custom Indentation Logic
+
+You can implement custom indentation:
+
+```typescript
+render: (node, helpers, context) => {
+  const content = helpers.renderChildren(node.content || [])
+
+  // Add custom indentation based on level
+  const indent = '  '.repeat(context.level)
+  const lines = content.split('\n')
+  const indented = lines.map(line => indent + line).join('\n')
+
+  return indented
+}
+```
+
+## Debug Serialization
+
+Log the JSON structure before serialization:
+
+```typescript
+const json = editor.getJSON()
+console.log(JSON.stringify(json, null, 2))
+
+const markdown = editor.markdown.serialize(json)
+console.log(markdown)
+```
+
+### Debug Serialization in Isolation
+
+```typescript
+const node = {
+  type: 'heading',
+  attrs: { level: 1 },
+  content: [{ type: 'text', text: 'Hello' }],
+}
+
+const renderHelpers = {
+  renderChildren: nodes => 'Hello',
+  // ... other helpers
+}
+
+const markdown = myExtension.options.markdown.render(node, renderHelpers, {})
+console.log(markdown)
+```
+
+## Performance Considerations
+
+### Caching Serialization
+
+Cache Markdown serialization results:
+
+```typescript
+let markdownCache = null
+let lastJSON = null
+
+editor.on('update', () => {
+  markdownCache = null // Invalidate cache
+})
+
+function getMarkdown() {
+  const currentJSON = editor.getJSON()
+
+  if (markdownCache && JSON.stringify(lastJSON) === JSON.stringify(currentJSON)) {
+    return markdownCache
+  }
+
+  lastJSON = currentJSON
+  markdownCache = editor.getMarkdown()
+  return markdownCache
+}
+```
+
+## Examples
+
+### Custom Heading Renderer
+
+```typescript
+const CustomHeading = Node.create({
+  name: 'customHeading',
+
+  renderMarkdown: (node, helpers, context) => {
+    const level = node.attrs?.level || 1 // lets get the heading level from the node attributes
+    const prefix = '#'.repeat(level) // now create the appropriate prefix based on the level
+    const content = helpers.renderChildren(node.content || []) // render the inline content of the heading
+
+    return `${prefix} ${content}\n\n` // we build the Markdown string here based off the information we have
+  },
+})
+```
+
+### YouTube Embed Renderer
+
+In this scenario we want to serialize a `youtubeEmbed` node back to a Markdown string that could be parsed by our custom YouTube tokenizer.
+
+For this example, the syntax will be `![youtube](videoId?start=60&width=800&height=450)`
+
+```typescript
+const YouTubeEmbed = Node.create({
+  name: 'youtubeEmbed',
+
+  renderMarkdown: (node, helpers) => {
+    // we can extract the attributes from the node
+    const videoId = node.attrs?.videoId || ''
+    const start = node.attrs?.start || 0
+    const width = node.attrs?.width || 800
+    const height = node.attrs?.height || 450
+
+    // and just pass the attributes to the Markdown string
+    return `![youtube](${videoId}?start=${start}&width=${width}&height=${height})\n\n`
+  },
+})
+```
+
+### Rendering list items with indentation
+
+For this example we want to render a custom list node that contains list items, each list items syntax should look like `=> item`.
+
+```typescript
+const CustomList = Node.create({
+  name: 'customList',
+
+  // ...
+
+  markdownOptions: {
+    indentsContent: true,
+  },
+
+  renderMarkdown: (node, helpers, context) => {
+    // We use a custom separator to join list items with newlines
+    const items = helpers.renderChildren(node.content || [], '\n')
+
+    return items
+  },
+})
+
+const CustomListItem = Node.create({
+  name: 'customListItem',
+
+  // ...
+
+  renderMarkdown: (node, helpers, context) => {
+    // First we extract the first child of the list item as the content (the paragraph node)
+    // and keep the rest of the children to manually render them afterwards
+    const [content, ...children] = node.content
+    const output = [`=> ${content}`]
+
+    // now we just render the direct child content for now
+    const mainContent = helpers.renderChildren(node.content || [])
+
+    // now we need to go through the children and render them indented as well
+    if (children && children.length > 0) {
+      children.forEach((child) => {
+        const childContent = helpers.renderChildren([child]) // render the child node - this also will recursively render its children
+        if (childContent) {
+          // split the lines of the child content and indent each line
+          const indentedChild = childContent
+            .split('\n')
+            .map((line) => (line ? helpers.indent(line) : ''))
+            .join('\n')
+          output.push(indentedChild) // this will push the child with correct indentation for this level
+        }
+      })
+    }
+
+    return output.join('\n') // join all lines with newlines
+  },
+})
+```
+
+Because this is very verbose, Tiptap exports a `renderNestedMarkdownContent()` helper from the `@tiptap/markdown` package that can be used to simplify this:
+
+```typescript
+import { Node } from '@tiptap/core'
+import { renderNestedMarkdownContent } from '@tiptap/markdown'
+
+const CustomListItem = Node.create({
+  name: 'customListItem',
+
+  // ...
+
+  renderMarkdown: (node, helpers, context) => {
+    return renderNestedMarkdownContent(node, helpers, '=> ', context)
+  },
+})
+```
+
+Read more on our [utilities](../api/utilities#rendernestedmarkdowncontent) page.

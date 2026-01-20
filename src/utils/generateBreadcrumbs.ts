@@ -34,6 +34,10 @@ export const generateBreadcrumbs = (config: SidebarConfig, pathname: string): Br
     let currentItem: SidebarLink | SidebarGroup | null = null
 
     for (const item of items) {
+      if ((item as { isActive: boolean }).isActive === false) {
+        continue
+      }
+
       if (item.href === checkedPathname && item.href !== pathname) {
         if (item.type === 'group') {
           currentItem = { ...item, href: item.children?.[0].href }

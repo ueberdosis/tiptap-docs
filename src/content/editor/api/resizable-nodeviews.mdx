@@ -1,0 +1,148 @@
+---
+title: Resizable Node Views
+meta:
+  title: Resizable Node Views | Tiptap Editor Docs
+  description: A small, framework-agnostic NodeView that wraps any HTMLElement and adds configurable resize handles.
+  category: Editor
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+A small, framework-agnostic NodeView that wraps any HTMLElement (image, iframe, video…) and adds configurable resize handles. It manages user interaction, applies min/max constraints, optionally preserves aspect ratio, and exposes callbacks for live updates and commits.
+
+---
+
+## What is a Resizable Node View?
+
+ResizableNodeView is a ProseMirror/Tiptap-compatible NodeView that:
+
+- Wraps your element in a container + wrapper
+- Adds configurable resize handles (corners and edges)
+- Emits `onResize` continuously while dragging
+- Emits `onCommit` once when the user finishes resizing (use this to persist new attributes)
+- Supports min/max constraints, aspect-ratio locking (config / Shift key), and class customization
+- Adds a `data-resize-state` attribute and optional `resizing` css class while active
+
+---
+
+## Options
+
+- `element: HTMLElement` — the element to make resizable (required)
+- `contentElement?: HTMLElement` — optional HTML node to use as contentElement (for contenteditable nodes)
+- `node: Node` — the ProseMirror node (required)
+- `getPos: () => number | undefined` — function that returns the node position (required to persist)
+- `onResize?: (width: number, height: number) => void` — optional, called continuously while dragging
+- `onCommit: (width: number, height: number) => void` — called once when the drag finishes
+- `onUpdate?: NodeView['update']` — optional node update handler
+- `options?: object` — optional configuration (see below)
+
+### `options` properties:
+
+- `directions?: ResizableNodeViewDirection[]`
+  Default: `['bottom-left', 'bottom-right', 'top-left', 'top-right']`
+  Allowed: `'top' | 'right' | 'bottom' | 'left' | 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'`
+
+- `min?: Partial<{ width: number; height: number; }>`
+  Default: `{ width: 8, height: 8 }` (pixels)
+
+- `max?: Partial<{ width: number; height: number; }>`
+  Default: `undefined` (no max)
+
+- `preserveAspectRatio?: boolean`
+  Default: `false`
+  When `true` always preserves aspect ratio. When `false`, pressing `Shift` while dragging temporarily preserves aspect ratio.
+
+- `className?: { container?: string; wrapper?: string; handle?: string; resizing?: string }`
+  Optional class names applied to container, wrapper, each handle, and a class added while actively resizing.
+
+---
+
+## Callbacks
+
+- `onResize(width, height)`: update the element visually (style.width/height) while dragging.
+- `onCommit(width, height)`: persist final dimensions (e.g., `editor.commands.updateAttributes(...)`).
+- `onUpdate(node, decorations, innerDecorations)`: return `true` to accept updates or `false` to re-create the node view.
+
+Example pattern to persist sizes inside `onCommit`:
+
+```ts
+const pos = getPos()
+if (pos !== undefined) {
+  editor.commands.updateAttributes('image', { width, height })
+}
+```
+
+## Usage example
+
+Minimal image extension node view:
+
+```ts
+// inside addNodeView()
+return ({ node, getPos, HTMLAttributes }) => {
+  const img = document.createElement('img')
+  img.src = HTMLAttributes.src
+
+  // copy non-size attributes to element
+  Object.entries(HTMLAttributes).forEach(([key, value]) => {
+    if (value == null) return
+    if (key === 'width' || key === 'height') return
+    img.setAttribute(key, String(value))
+  })
+
+  // instantiate ResizableNodeView
+  return new ResizableNodeView({
+    element: img,
+    node,
+    getPos,
+    onResize: (w, h) => {
+      img.style.width = `${w}px`
+      img.style.height = `${h}px`
+    },
+    onCommit: (w, h) => {
+      const pos = getPos()
+      if (pos === undefined) return
+      // persist new size to the node
+      editor.commands.updateAttributes('image', { width: w, height: h })
+    },
+    onUpdate: (updatedNode) => {
+      if (updatedNode.type !== node.type) return false
+      return true
+    },
+    options: {
+      directions: ['bottom-right', 'bottom-left', 'top-right', 'top-left'],
+      min: { width: 50, height: 50 },
+      preserveAspectRatio: false, // hold Shift to lock aspect ratio
+      className: {
+        container: 'my-resize-container',
+        wrapper: 'my-resize-wrapper',
+        handle: 'my-resize-handle',
+        resizing: 'is-resizing',
+      },
+    },
+  })
+}
+```
+
+### Notes:
+
+- The class does not inject visual styles; supply CSS for `[data-resize-handle]`, `.is-resizing`, etc. (demos provide minimal styles).
+- Currently contentEditable nodes are not fully supported and won't resize their content.
+
+---
+
+## Behavior details & edge cases
+
+- Aspect-ratio + constraints: when aspect ratio is preserved, constraints snap the dimension that hits a min/max first and compute the other dimension proportionally — the ratio is not broken.
+- Shift key: while resizing, pressing Shift toggles a temporary aspect-ratio lock (when `preserveAspectRatio` is `false`).
+
+---
+
+## Examples
+
+### Resizable Images
+
+<CodeDemo path="/Examples/ResizableImages" />
+
+### Resizable Custom Nodes
+
+<CodeDemo path="/Examples/ResizableNodes" />

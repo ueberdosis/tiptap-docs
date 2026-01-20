@@ -90,6 +90,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Nodes',
           children: [
             {
+              href: '/editor/extensions/nodes/audio',
+              title: 'Audio',
+            },
+            {
               href: '/editor/extensions/nodes/blockquote',
               title: 'Blockquote',
             },
@@ -190,6 +194,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Text',
             },
             {
+              href: '/editor/extensions/nodes/twitch',
+              title: 'Twitch',
+            },
+            {
               href: '/editor/extensions/nodes/youtube',
               title: 'Youtube',
             },
@@ -246,26 +254,14 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Functionality',
           children: [
             {
-              href: '/editor/extensions/functionality/ai-agent',
-              title: 'AI Agent',
-              tags: ['Team'],
-              beta: true,
-            },
-            {
-              href: '/editor/extensions/functionality/ai-changes',
-              title: 'AI Changes',
-              tags: ['Team'],
-              beta: true,
-            },
-            {
               href: '/editor/extensions/functionality/ai-generation',
               title: 'AI Generation',
               tags: ['Start'],
             },
             {
-              href: '/editor/extensions/functionality/ai-suggestion',
-              title: 'AI Suggestion',
-              tags: ['Team'],
+              href: '/editor/extensions/functionality/ai-toolkit',
+              title: 'AI Toolkit',
+              tags: ['Add-on'],
               beta: true,
             },
             {
@@ -367,6 +363,11 @@ export const sidebarConfig: SidebarConfig = {
               beta: true,
             },
             {
+              href: '/editor/extensions/functionality/pages',
+              title: 'Pages',
+              tags: ['Team'],
+            },
+            {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
             },
@@ -377,7 +378,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               href: '/editor/extensions/functionality/snapshot-compare',
-              title: 'Version Compare',
+              title: 'Snapshot Compare',
               tags: ['Team'],
             },
             {
@@ -529,6 +530,97 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/editor/markdown',
+      title: 'Markdown',
+      tags: ['beta'],
+      children: [
+        { href: '/editor/markdown', title: 'Introduction' },
+        {
+          href: '/editor/markdown/getting-started',
+          title: 'Getting Started',
+          children: [
+            {
+              title: 'Installation & Setup',
+              href: '/editor/markdown/getting-started/installation',
+            },
+            {
+              title: 'Basic Usage',
+              href: '/editor/markdown/getting-started/basic-usage',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/advanced-usage',
+          title: 'Advanced Usage',
+          children: [
+            {
+              title: 'Custom Tokenizer',
+              href: '/editor/markdown/advanced-usage/custom-tokenizer',
+            },
+            {
+              title: 'Custom Parsing',
+              href: '/editor/markdown/advanced-usage/custom-parsing',
+            },
+            {
+              title: 'Custom Serializing',
+              href: '/editor/markdown/advanced-usage/custom-serializing',
+            },
+          ],
+        },
+        {
+          href: '/editor/markdown/guides',
+          title: 'Guides',
+          children: [
+            {
+              title: 'Integrate Markdown in your Extension',
+              href: '/editor/markdown/guides/integrate-markdown-in-your-extension',
+            },
+            {
+              title: 'Create a Highlight Extension',
+              href: '/editor/markdown/guides/create-a-highlight-mark',
+            },
+            {
+              title: 'Create a Admonition Extension',
+              href: '/editor/markdown/guides/create-a-admonition-block',
+            },
+            {
+              title: 'Create a Emoji Extension',
+              href: '/editor/markdown/guides/create-a-emoji-inline-block',
+            },
+          ],
+        },
+        { href: '/editor/markdown/examples', title: 'Examples' },
+        {
+          href: '/editor/markdown/api',
+          title: 'API Reference',
+          children: [
+            {
+              title: 'Editor',
+              href: '/editor/markdown/api/editor',
+            },
+            {
+              title: 'MarkdownManager',
+              href: '/editor/markdown/api/markdown-manager',
+            },
+            {
+              title: 'Extension',
+              href: '/editor/markdown/api/extension',
+            },
+            {
+              title: 'Utilities',
+              href: '/editor/markdown/api/utilities',
+            },
+            {
+              title: 'Types',
+              href: '/editor/markdown/api/types',
+            },
+          ],
+        },
+        { href: '/editor/markdown/glossary', title: 'Glossary' },
+      ],
+    },
+    {
+      type: 'group',
       href: '/editor/api',
       title: 'API',
       children: [
@@ -639,6 +731,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'setNode',
                 },
                 {
+                  href: '/editor/api/commands/nodes-and-marks/set-text-direction',
+                  title: 'setTextDirection',
+                },
+                {
                   href: '/editor/api/commands/nodes-and-marks/split-block',
                   title: 'splitBlock',
                 },
@@ -665,6 +761,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   href: '/editor/api/commands/nodes-and-marks/unset-mark',
                   title: 'unsetMark',
+                },
+                {
+                  href: '/editor/api/commands/nodes-and-marks/unset-text-direction',
+                  title: 'unsetTextDirection',
                 },
                 {
                   href: '/editor/api/commands/nodes-and-marks/update-attributes',
@@ -783,12 +883,16 @@ export const sidebarConfig: SidebarConfig = {
               title: 'HTML',
             },
             {
-              href: '/editor/api/utilities/static-renderer',
-              title: 'Static Renderer',
-            },
-            {
               href: '/editor/api/utilities/jsx',
               title: 'JSX',
+            },
+            {
+              href: '/editor/api/utilities/position',
+              title: 'Position',
+            },
+            {
+              href: '/editor/api/utilities/static-renderer',
+              title: 'Static Renderer',
             },
             {
               href: '/editor/api/utilities/suggestion',
@@ -803,6 +907,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/node-positions',
           title: 'Node Positions',
+        },
+        {
+          title: 'Resizable Node views',
+          href: '/editor/api/resizable-nodeviews',
         },
         {
           href: '/editor/api/events',
