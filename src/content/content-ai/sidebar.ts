@@ -293,6 +293,16 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
+              title: 'Advanced guides',
+              href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
+              children: [
+                {
+                  title: 'Tiptap Shorthand',
+                  href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+                },
+              ],
+            },
+            {
               title: 'Changelog',
               href: '/content-ai/capabilities/server-ai-toolkit/changelog',
               children: [
