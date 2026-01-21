@@ -477,7 +477,6 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
         permanent: true,
       },
-
     ]
   },
 }
