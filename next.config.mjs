@@ -109,7 +109,7 @@ const nextConfig = {
       },
       {
         source: '/content-ai/custom-llms/integrate',
-        destination: '/content-ai/content-ai/custom-llms',
+        destination: '/content-ai/custom-llms',
         permanent: true,
       },
       {
@@ -445,11 +445,18 @@ const nextConfig = {
         permanent: true,
       },
       // END AI Toolkit redirects
+      // Server AI Toolkit redirects
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+        permanent: true,
+      },
       {
         source: '/content-ai/capabilities/server-ai-toolkit',
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
       },
+      // END Server AI Toolkit redirects
       {
         source: '/hocuspocus/introduction',
         destination: '/hocuspocus/getting-started/overview',
@@ -457,7 +464,12 @@ const nextConfig = {
       },
       {
         source: '/editor/ai/advanced-usage/custom-llm',
-        destination: '/content-ai/capabilities/generation/overview',
+        destination: 'content-ai/custom-llms',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/content-ai/custom-llms',
+        destination: '/content-ai/custom-llms',
         permanent: true,
       },
       {
