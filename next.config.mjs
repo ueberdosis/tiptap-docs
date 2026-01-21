@@ -109,7 +109,7 @@ const nextConfig = {
       },
       {
         source: '/content-ai/custom-llms/integrate',
-        destination: '/content-ai/content-ai/custom-llms',
+        destination: '/content-ai/custom-llms',
         permanent: true,
       },
       {
