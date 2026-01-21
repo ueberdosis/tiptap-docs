@@ -464,7 +464,12 @@ const nextConfig = {
       },
       {
         source: '/editor/ai/advanced-usage/custom-llm',
-        destination: '/content-ai/capabilities/generation/overview',
+        destination: 'content-ai/custom-llms',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/content-ai/custom-llms',
+        destination: '/content-ai/custom-llms',
         permanent: true,
       },
       {
