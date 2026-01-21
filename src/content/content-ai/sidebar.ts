@@ -138,12 +138,20 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
                 },
                 {
-                  title: 'AI engineering guide',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+                  title: 'Concepts',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/concepts',
+                },
+                {
+                  title: 'Suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions',
                 },
                 {
                   title: 'Style suggestions',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+                },
+                {
+                  title: 'AI engineering',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
                 {
                   title: 'Compare documents',
