@@ -22,8 +22,9 @@ meta:
 ---
 
 import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
 
-Have you ever wanted to drag nodes around your editor? Well, we did too—so here’s an extension for that.
+Have you ever wanted to drag nodes around your editor? Well, we did too—so here's an extension for that.
 
 The `DragHandle` extension allows you to easily handle dragging nodes around in the editor. You can define custom render functions, placement, and more.
 
@@ -115,6 +116,32 @@ DragHandle.configure({
 })
 ```
 
+### nested
+
+Enable drag handles for nested content such as list items, blockquotes, and other nested structures.
+
+When enabled, the drag handle will appear for nested blocks, not just top-level blocks. A rule-based scoring system determines which node to target based on cursor position and configured rules.
+
+Default: `false`
+
+```js
+// Enable with defaults
+DragHandle.configure({
+  nested: true,
+})
+
+// Enable with custom edge detection
+DragHandle.configure({
+  nested: {
+    edgeDetection: {
+      threshold: 20,
+    },
+  },
+})
+```
+
+See the [Nested Drag Handle](#nested-drag-handle) section below for detailed configuration options.
+
 ## Commands
 
 ### lockDragHandle()
@@ -142,3 +169,343 @@ Toggle draghandle lock state. If the drag handle is locked, it will be unlocked 
 ```js
 editor.commands.toggleDragHandle()
 ```
+
+## Nested Drag Handle
+
+By default, the drag handle only appears for top-level blocks. When `nested` is enabled, it also works with nested content like list items, blockquote paragraphs, and other nested structures.
+
+### Basic Usage
+
+```js
+// Enable with all defaults
+DragHandle.configure({
+  nested: true,
+})
+```
+
+### Configuration Options
+
+When you need more control, pass an options object:
+
+```js
+DragHandle.configure({
+  nested: {
+    // Edge detection configuration
+    edgeDetection: 'left', // or 'right', 'both', 'none', or custom config
+
+    // Custom rules for node selection
+    rules: [],
+
+    // Whether to use default rules
+    defaultRules: true,
+
+    // Restrict to specific container types
+    allowedContainers: ['bulletList', 'orderedList'],
+  },
+})
+```
+
+### Edge Detection
+
+Edge detection controls when to prefer the parent node over a nested node. When the cursor is near an edge of the content area, you often want to select the parent container rather than its nested content.
+
+#### Presets
+
+```js
+DragHandle.configure({
+  nested: {
+    // 'left' (default) - Prefer parent near left/top edges
+    edgeDetection: 'left',
+
+    // 'right' - Prefer parent near right/top edges (for RTL layouts)
+    edgeDetection: 'right',
+
+    // 'both' - Prefer parent near any horizontal edge
+    edgeDetection: 'both',
+
+    // 'none' - Disable edge detection entirely
+    edgeDetection: 'none',
+  },
+})
+```
+
+#### Custom Configuration
+
+For fine-tuned control, pass a configuration object:
+
+```js
+DragHandle.configure({
+  nested: {
+    edgeDetection: {
+      // Which edges trigger parent preference
+      edges: ['left', 'top'],
+
+      // Distance in pixels from edge to trigger (default: 12)
+      threshold: 20,
+
+      // How strongly to prefer parent (default: 500)
+      strength: 500,
+    },
+  },
+})
+```
+
+You can also pass a partial configuration to override specific values while keeping defaults:
+
+```js
+DragHandle.configure({
+  nested: {
+    // Only override threshold, keep default edges and strength
+    edgeDetection: { threshold: -16 },
+  },
+})
+```
+
+#### How Strength Works
+
+The `strength` value controls how aggressively the system prefers parent nodes when the cursor is near an edge. It works together with the scoring system:
+
+1. Each candidate node starts with a base score of **1000**
+2. When the cursor is near a configured edge, a deduction is calculated as: `strength × depth`
+3. The node with the highest remaining score is selected
+
+With the default strength of **500**:
+
+| Node Depth | Deduction | Remaining Score | Effect |
+|------------|-----------|-----------------|--------|
+| 1 (shallow) | 500 | 500 | Still selectable, but deprioritized |
+| 2 | 1000 | 0 | Barely selectable, loses to non-edge nodes |
+| 3+ (deep) | 1500+ | negative | Effectively excluded |
+
+This means deeper nested nodes are more aggressively deprioritized near edges, making it easier to select their parent containers.
+
+**Examples:**
+- `strength: 250` - Gentler preference; even depth-3 nodes remain somewhat selectable near edges
+- `strength: 500` - Default; depth-2+ nodes are strongly deprioritized near edges
+- `strength: 1000` - Aggressive; any nested node near an edge is effectively excluded
+
+<Callout title="Negative Threshold Values" variant="info">
+  Using a negative threshold value (e.g., `-16`) effectively reduces the area where edge detection triggers, making it easier to select nested items even when the cursor is near the edge. The cursor must be further inside the element before edge detection activates.
+</Callout>
+
+### Allowed Containers
+
+Restrict nested drag handles to specific container types:
+
+```js
+DragHandle.configure({
+  nested: {
+    // Only enable nested dragging inside lists
+    allowedContainers: ['bulletList', 'orderedList'],
+  },
+})
+```
+
+When set, the drag handle will only appear for nested content inside the specified container types. Top-level blocks are always draggable regardless of this setting.
+
+### Custom Rules
+
+The drag handle uses a scoring system to determine which node to select. Each candidate node starts with a score of 1000, and rules modify this score. The node with the highest final score is selected.
+
+#### Creating Custom Rules
+
+```js
+DragHandle.configure({
+  nested: {
+    rules: [
+      {
+        id: 'preferParagraphs',
+        evaluate: ({ node, parent, depth }) => {
+          // Return a score modifier:
+          // - Negative: Boost the node's score (more likely to be selected)
+          // - 0: No change, node remains at current score
+          // - 1-999: Deduction, node is less preferred
+          // - >= 1000: Node is effectively excluded
+
+          if (node.type.name === 'paragraph') {
+            return -200 // Boost paragraphs by 200 points
+          }
+          return 100 // Small penalty for other nodes
+        },
+      },
+    ],
+  },
+})
+```
+
+#### Score Modifiers Explained
+
+| Return Value | Effect | Example Use Case |
+|--------------|--------|------------------|
+| `-500` | Boost score by 500 | Strongly prefer this node type |
+| `-100` | Boost score by 100 | Slightly prefer this node |
+| `0` | No change | Node is neutral |
+| `100` | Reduce score by 100 | Slightly deprioritize |
+| `500` | Reduce score by 500 | Strongly deprioritize |
+| `1000+` | Effectively exclude | Never select this node |
+
+Since all nodes start at 1000, a node with a -200 boost ends up at 1200, while a node with a 100 penalty ends up at 900. The node with 1200 wins.
+
+#### Rule Context
+
+Each rule receives a context object with the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `node` | `Node` | The node being evaluated |
+| `pos` | `number` | Absolute position in the document |
+| `depth` | `number` | Depth in the document tree (0 = doc root) |
+| `parent` | `Node \| null` | Parent node (null if this is the doc) |
+| `index` | `number` | Index among siblings (0-based) |
+| `isFirst` | `boolean` | True if this is the first child |
+| `isLast` | `boolean` | True if this is the last child |
+| `$pos` | `ResolvedPos` | Resolved position for advanced queries |
+| `view` | `EditorView` | Editor view for DOM access |
+
+#### Example: Custom Question Block
+
+If you have a custom question block with alternatives, you might want to only allow dragging the alternatives:
+
+```js
+DragHandle.configure({
+  nested: {
+    rules: [
+      {
+        id: 'onlyAlternatives',
+        evaluate: ({ node, parent }) => {
+          // Inside a question, only alternatives should be draggable
+          if (parent?.type.name === 'question') {
+            return node.type.name === 'alternative' ? 0 : 1000
+          }
+          return 0
+        },
+      },
+    ],
+  },
+})
+```
+
+#### Disabling Default Rules
+
+If you want complete control over node selection, disable the default rules:
+
+```js
+DragHandle.configure({
+  nested: {
+    defaultRules: false,
+    rules: [
+      // Your custom rules here
+    ],
+  },
+})
+```
+
+<Callout title="Default Rules" variant="warning">
+  The default rules handle common cases like excluding inline content and handling list items correctly. Only disable them if you have specific requirements and understand the implications.
+</Callout>
+
+### Styling Considerations
+
+For nested drag handles to work well, your editor styles may need adjustments. The drag handle needs physical space to appear, and the edge detection threshold needs room to function.
+
+#### Add Left Margin or Padding
+
+The drag handle is positioned to the left of content. Without sufficient margin, it may overlap with text or appear outside the visible area:
+
+```css
+.ProseMirror {
+  /* Leave space for the drag handle on the left */
+  padding-left: 2rem;
+}
+
+/* Or use margin on direct children */
+.ProseMirror > * {
+  margin-left: 2rem;
+}
+```
+
+#### Nested Content Spacing
+
+For nested elements like list items, ensure there's enough indentation for the drag handle to appear at each nesting level:
+
+```css
+.ProseMirror ul,
+.ProseMirror ol {
+  /* Provide space for nested drag handles */
+  padding-left: 1.5rem;
+}
+
+.ProseMirror li {
+  /* Additional spacing if needed */
+  margin-left: 0.5rem;
+}
+```
+
+#### Edge Detection and Threshold
+
+The `threshold` value in edge detection is measured in pixels from the element's edge. If your content has no padding, a threshold of 12px means the cursor must be within 12px of the actual text. Adding padding to your content areas makes edge detection feel more natural:
+
+```css
+.ProseMirror blockquote {
+  /* Padding gives the edge detection room to breathe */
+  padding: 0.5rem 1rem;
+}
+
+.ProseMirror li > p {
+  /* Even small padding helps with edge detection */
+  padding-left: 0.25rem;
+}
+```
+
+#### Example: Complete Nested Drag Handle Styles
+
+```css
+.ProseMirror {
+  /* Base padding for drag handle space */
+  padding: 1rem 1rem 1rem 3rem;
+}
+
+.ProseMirror > * {
+  /* Consistent left margin for top-level blocks */
+  margin-left: 0;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  /* List indentation */
+  padding-left: 1.5rem;
+}
+
+.ProseMirror li {
+  /* Space between list marker and content */
+  padding-left: 0.25rem;
+}
+
+.ProseMirror blockquote {
+  /* Blockquote padding for comfortable dragging */
+  padding: 0.5rem 1rem;
+  margin-left: 0;
+  border-left: 3px solid #ccc;
+}
+
+/* Selection highlight for dragged nodes */
+.ProseMirror-selectednode,
+.ProseMirror-selectednoderange {
+  position: relative;
+}
+
+.ProseMirror-selectednode::before,
+.ProseMirror-selectednoderange::before {
+  content: '';
+  position: absolute;
+  inset: -0.25rem;
+  background-color: rgba(112, 207, 248, 0.3);
+  border-radius: 0.2rem;
+  pointer-events: none;
+  z-index: -1;
+}
+```
+
+<Callout title="Negative Thresholds" variant="info">
+  If adding padding is not possible, you can use a negative `threshold` value (e.g., `-16`) to reduce the edge detection area. This makes the system less likely to prefer parent nodes, allowing nested items to be selected even when the cursor is near the edge.
+</Callout>
