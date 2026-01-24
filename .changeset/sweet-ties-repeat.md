@@ -2,4 +2,4 @@
 'tiptap-docs': patch
 ---
 
-change install documentation for nuxt
+Update Nuxt installation guide for Nuxt 4
