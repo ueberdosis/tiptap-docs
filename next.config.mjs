@@ -445,11 +445,18 @@ const nextConfig = {
         permanent: true,
       },
       // END AI Toolkit redirects
+      // Server AI Toolkit redirects
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+        permanent: true,
+      },
       {
         source: '/content-ai/capabilities/server-ai-toolkit',
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
       },
+      // END Server AI Toolkit redirects
       {
         source: '/hocuspocus/introduction',
         destination: '/hocuspocus/getting-started/overview',
