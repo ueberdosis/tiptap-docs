@@ -308,6 +308,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Tiptap Shorthand',
                   href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
                 },
+                {
+                  title: 'Server comments',
+                  href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/comments',
+                },
               ],
             },
             {
