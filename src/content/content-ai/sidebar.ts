@@ -278,6 +278,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
                 },
                 {
+                  title: 'Comments',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/comments',
+                },
+                {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
                 },
