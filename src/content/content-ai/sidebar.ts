@@ -158,6 +158,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
                 },
                 {
+                  title: 'Tiptap Edit hooks',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/tiptap-edit-hooks',
+                },
+                {
                   title: 'Migration guides',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
                   children: [

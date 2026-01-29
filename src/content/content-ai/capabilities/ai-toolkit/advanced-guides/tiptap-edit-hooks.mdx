@@ -1,0 +1,150 @@
+---
+title: Tiptap Edit hooks
+meta:
+  title: Tiptap Edit hooks | Tiptap Content AI
+  description: Intercept, modify, or reject Tiptap Edit operations before they are applied.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Tiptap Edit hooks allow you to intercept operations before they are applied to the document. You can accept or reject each operation based on custom logic, and optionally modify the content or operation type when accepting.
+
+<Callout title="Experimental feature" variant="info">
+  Tiptap Edit hooks are currently an experimental feature and their API may change in the future.
+</Callout>
+
+## Use cases
+
+- **Content moderation**: Filter or sanitize AI-generated content before it reaches the document
+- **Custom validation**: Ensure operations meet business requirements
+- **Logging and analytics**: Track what changes the AI is making
+- **Access control**: Prevent modifications to certain parts of the document
+
+## The `beforeOperation` hook
+
+The `beforeOperation` hook is called before each Tiptap Edit operation is applied. It receives context about the operation and returns an action to take.
+
+### Hook context
+
+The hook receives a `BeforeOperationContext` object with these properties:
+
+| Property         | Type                           | Description                                                                                                       |
+| ---------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `operation`      | `TiptapEditOperation`          | The operation being executed, containing `type`, `target`, and `content`                                          |
+| `operationIndex` | `number`                       | Index of this operation in the batch (0-based)                                                                    |
+| `doc`            | `Node`                         | The document at the current point in the transaction                                                              |
+| `deleteContent`  | `Fragment \| null`             | The content that will be deleted (`null` for `insertBefore`/`insertAfter`)                                        |
+| `insertContent`  | `Fragment`                     | The content that will be inserted (as a [ProseMirror Fragment](https://prosemirror.net/docs/ref/#model.Fragment)) |
+| `range`          | `{ from: number; to: number }` | The position range where the operation will be applied                                                            |
+
+To access the editor instance inside your hook, capture it in a closure when defining the hook.
+
+### Hook return values
+
+The hook must return one of these actions:
+
+```ts
+// Accept the operation unchanged
+{ action: 'accept' }
+
+// Accept with a modified fragment (overrides the content to insert)
+{ action: 'accept', fragment: modifiedFragment }
+
+// Accept with a modified operation type
+{ action: 'accept', operationType: 'insertAfter' }
+
+// Accept with both modifications
+{ action: 'accept', fragment: modifiedFragment, operationType: 'replace' }
+
+// Skip this operation and record an error
+{ action: 'reject', error: 'Reason for rejection' }
+```
+
+The `fragment` property allows you to override the [ProseMirror Fragment](https://prosemirror.net/docs/ref/#model.Fragment) that will be inserted. The `operationType` property allows you to change the operation type (`'replace'`, `'insertBefore'`, or `'insertAfter'`).
+
+When an operation is rejected, the remaining operations in the batch continue to execute.
+
+## Usage
+
+### With `executeTool`
+
+```ts
+import { getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { log } from './lib/logger'
+
+const toolkit = getAiToolkit(editor)
+
+const result = toolkit.executeTool({
+  toolName: 'tiptapEdit',
+  input: {
+    operations: [['replace', 'abc123', '<p>New content</p>']],
+  },
+  tiptapEditHooks: {
+    beforeOperation: (context) => {
+      // Log every operation
+      log(`Operation type: ${context.operation.type}`)
+
+      // Example: reject operations that delete too much content
+      if (context.deleteContent && context.deleteContent.size > 1000) {
+        return {
+          action: 'reject',
+          error: 'Content to delete is too large',
+        }
+      }
+
+      return { action: 'accept' }
+    },
+  },
+})
+```
+
+### With `streamTool`
+
+```ts
+const result = toolkit.streamTool({
+  toolCallId: 'call_123',
+  toolName: 'tiptapEdit',
+  hasFinished: true,
+  input,
+  tiptapEditHooks: {
+    beforeOperation: (context) => {
+      // Change all replacements to insertAfter operations
+      if (context.operation.type === 'replace') {
+        return {
+          action: 'accept',
+          operationType: 'insertAfter',
+        }
+      }
+
+      return { action: 'accept' }
+    },
+  },
+})
+```
+
+### With `tiptapEditWorkflow`
+
+```ts
+const { content } = toolkit.tiptapRead()
+
+const operations = await callApiEndpoint({ content, task: 'Improve the writing' })
+
+const result = toolkit.tiptapEditWorkflow({
+  operations,
+  workflowId: 'edit-123',
+  tiptapEditHooks: {
+    beforeOperation: (context) => {
+      // Only allow replacements, not insertions
+      if (context.operation.type !== 'replace') {
+        return {
+          action: 'reject',
+          error: 'Only replace operations are allowed',
+        }
+      }
+
+      return { action: 'accept' }
+    },
+  },
+})
+```
