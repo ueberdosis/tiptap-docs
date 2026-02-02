@@ -34,6 +34,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Performance',
         },
         {
+          href: '/guides/react-composable-api',
+          title: 'React Composable API',
+        },
+        {
           href: '/guides/invalid-schema',
           title: 'Invalid schema handling',
         },
