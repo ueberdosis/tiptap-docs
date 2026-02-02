@@ -38,8 +38,8 @@ export async function getAllMetadata() {
  */
 export const getMetadataFromPath = cache(async (urlPath: string) => {
   // Convert URL path to possible file paths
-  const directPath = urlPath.substring(1) + '.mdx' // Remove leading slash
-  const indexPath = urlPath.substring(1) + '/index.mdx'
+  const directPath = `${urlPath.substring(1)}.mdx` // Remove leading slash
+  const indexPath = `${urlPath.substring(1)}/index.mdx`
 
   // Try direct path first, then index path
   let filePath: string | null = null
