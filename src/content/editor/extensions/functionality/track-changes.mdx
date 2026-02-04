@@ -1,0 +1,589 @@
+---
+title: Track Changes extension
+extension:
+  name: Track Changes
+  description: Enable suggestion mode for collaborative editing and document review workflows.
+  type: extension
+  icon: FileEdit
+tags:
+  - type: pro
+  - type: experimental
+meta:
+  category: Editor
+  title: Track Changes extension | Tiptap Editor Docs
+  description: Enable track changes and suggestion mode in your Tiptap editor for collaborative editing and document review.
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+The Track Changes extension enables suggestion mode for collaborative editing workflows. When enabled, all edits appear as proposals that can be accepted or rejected, similar to change tracking in word processors.
+
+<Callout title="Work in Progress" variant="warning">
+  This extension is under active development and not yet ready for production use. The API will change in future releases. This documentation is provisional.
+
+  Current limitations:
+  - Only inline text changes are supported (insertions and deletions)
+  - No block-level structural changes
+  - Attribute changes are not tracked
+</Callout>
+
+## Install
+
+```bash
+npm install @tiptap-pro/extension-track-changes
+```
+
+## Basic Setup
+
+```js
+import { Editor } from '@tiptap/core'
+import { TrackChanges } from '@tiptap-pro/extension-track-changes'
+
+const editor = new Editor({
+  extensions: [
+    TrackChanges.configure({
+      enabled: true,
+      userId: 'user-123',
+      userName: 'John Doe',
+    }),
+  ],
+})
+```
+
+## Settings
+
+### enabled
+
+Enable or disable track changes mode. When enabled, all edits become suggestions instead of direct changes.
+
+Default: `false`
+
+```js
+TrackChanges.configure({
+  enabled: true,
+})
+```
+
+### userId
+
+The ID of the current user making suggestions. This should come from your authentication system.
+
+Default: `'anonymous'`
+
+```js
+TrackChanges.configure({
+  userId: 'user-123',
+})
+```
+
+### userName
+
+Display name for the current user (optional). Useful for showing who created each suggestion in your UI.
+
+Default: `undefined`
+
+```js
+TrackChanges.configure({
+  userId: 'user-123',
+  userName: 'John Doe',
+})
+```
+
+### suggestionGroupingTimeout
+
+Time window in milliseconds for grouping adjacent suggestions. If a user makes continuous edits in the same area within this time window, they will be merged into a single suggestion. Set to `0` to disable grouping.
+
+Default: `2000`
+
+```js
+TrackChanges.configure({
+  suggestionGroupingTimeout: 3000,
+})
+```
+
+### onSuggestionCreate
+
+Callback fired when a new suggestion is created. Receives the suggestion object containing id, type, userId, createdAt, from, to, and text.
+
+Default: `undefined`
+
+```js
+TrackChanges.configure({
+  onSuggestionCreate: (suggestion) => {
+    console.log('New suggestion created:', suggestion)
+    // Update your UI, notify other users, etc.
+  },
+})
+```
+
+### onSuggestionAccept
+
+Callback fired when a suggestion is accepted. Receives the suggestion ID.
+
+Default: `undefined`
+
+```js
+TrackChanges.configure({
+  onSuggestionAccept: (id) => {
+    console.log('Suggestion accepted:', id)
+  },
+})
+```
+
+### onSuggestionReject
+
+Callback fired when a suggestion is rejected. Receives the suggestion ID.
+
+Default: `undefined`
+
+```js
+TrackChanges.configure({
+  onSuggestionReject: (id) => {
+    console.log('Suggestion rejected:', id)
+  },
+})
+```
+
+## Behavior
+
+The extension automatically groups adjacent suggestions to keep the document clean and make reviewing changes easier.
+
+### Suggestion Grouping
+
+When a user types continuously or deletes multiple characters in sequence, these edits are grouped into a single suggestion rather than creating one suggestion per character. Grouping occurs when:
+
+1. The new edit is **adjacent** to an existing suggestion (immediately before or after)
+2. The existing suggestion was created by the **same user**
+3. The existing suggestion is the **same type** (both insertions or both deletions)
+4. The time since the last edit is within the **grouping timeout window** (default: 2000ms)
+
+When edits are grouped, the suggestion's timestamp is updated to keep the grouping window active. This means continuous typing will keep extending the same suggestion until the user pauses for longer than the timeout.
+
+```js
+// Disable grouping entirely
+TrackChanges.configure({
+  suggestionGroupingTimeout: 0,
+})
+
+// Longer grouping window (5 seconds)
+TrackChanges.configure({
+  suggestionGroupingTimeout: 5000,
+})
+```
+
+### Deletion Merging
+
+When a user deletes content that overlaps with or is adjacent to existing delete suggestions, the marks are automatically merged to prevent nested or overlapping deletions. The merged suggestion uses the metadata (ID, user, timestamp) from the **oldest** existing delete mark in the range.
+
+This ensures that:
+
+- The document never contains nested delete marks
+- Related deletions are visually grouped together
+- The original author of the first deletion is preserved
+
+### Mixed Content Handling
+
+When deleting or replacing content that contains a mix of original text and previously suggested insertions:
+
+- **Suggested insertions** (text with `add` marks) are immediately removed from the document
+- **Original content** (text without `add` marks) is marked with a `delete` suggestion
+
+This behavior matches user expectations: if you delete text that was only suggested (not yet accepted), it simply disappears. Original document content requires explicit acceptance to be removed.
+
+## Usage
+
+### Enabling and Disabling Track Changes
+
+Toggle track changes mode on and off:
+
+```js
+// Enable track changes
+editor.commands.enableTrackChanges()
+
+// Disable track changes
+editor.commands.disableTrackChanges()
+
+// Toggle track changes
+editor.commands.toggleTrackChanges()
+```
+
+### Setting the Current User
+
+Change the user for new suggestions:
+
+```js
+editor.commands.setTrackChangesUser({
+  userId: 'user-456',
+  userName: 'Jane Smith',
+})
+```
+
+### Accepting and Rejecting Suggestions
+
+Accept or reject suggestions individually:
+
+```js
+// Accept suggestion at current selection
+editor.commands.acceptSuggestion()
+
+// Reject suggestion at current selection
+editor.commands.rejectSuggestion()
+
+// Accept specific suggestion by ID
+editor.commands.acceptSuggestion({ id: 'suggestion-123' })
+
+// Reject specific suggestion by ID
+editor.commands.rejectSuggestion({ id: 'suggestion-123' })
+```
+
+### Batch Operations
+
+Accept or reject all suggestions in the document at once:
+
+```js
+// Accept all suggestions
+editor.commands.acceptAllSuggestions()
+
+// Reject all suggestions
+editor.commands.rejectAllSuggestions()
+```
+
+## Commands
+
+### enableTrackChanges()
+
+Enable track changes mode. All subsequent edits will become suggestions.
+
+```js
+editor.commands.enableTrackChanges()
+```
+
+### disableTrackChanges()
+
+Disable track changes mode. Edits will be applied directly to the document.
+
+```js
+editor.commands.disableTrackChanges()
+```
+
+### toggleTrackChanges()
+
+Toggle track changes mode on or off.
+
+```js
+editor.commands.toggleTrackChanges()
+```
+
+### setTrackChangesUser()
+
+Change the current user for new suggestions.
+
+```js
+editor.commands.setTrackChangesUser({
+  userId: 'user-789',
+  userName: 'Alice Johnson',
+})
+```
+
+### acceptSuggestion()
+
+Accept a suggestion, applying the proposed change. For insertions, the suggestion mark is removed and text is kept. For deletions, the marked text is removed.
+
+```js
+// Accept suggestion at selection
+editor.commands.acceptSuggestion()
+
+// Accept specific suggestion
+editor.commands.acceptSuggestion({ id: 'suggestion-123' })
+```
+
+### rejectSuggestion()
+
+Reject a suggestion, reverting the proposed change. For insertions, the marked text is removed. For deletions, the suggestion mark is removed and text is kept.
+
+```js
+// Reject suggestion at selection
+editor.commands.rejectSuggestion()
+
+// Reject specific suggestion
+editor.commands.rejectSuggestion({ id: 'suggestion-123' })
+```
+
+### acceptAllSuggestions()
+
+Accept all suggestions in the document.
+
+```js
+editor.commands.acceptAllSuggestions()
+```
+
+### rejectAllSuggestions()
+
+Reject all suggestions in the document.
+
+```js
+editor.commands.rejectAllSuggestions()
+```
+
+## Utilities
+
+The extension exports several utility functions for working with suggestions:
+
+### findSuggestions()
+
+Find all suggestions in the document, with optional filtering.
+
+#### Arguments
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `editor` | `Editor` | — | The Tiptap editor instance |
+| `markName` | `string` | `'suggestion'` | The name of the suggestion mark |
+| `options` | `FindSuggestionsOptions` | `{}` | Optional filters (see below) |
+
+#### Options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `type` | `'add' \| 'delete'` | Filter by suggestion type |
+| `userId` | `string` | Filter by user ID |
+| `id` | `string` | Filter by suggestion ID |
+
+#### Returns
+
+`Suggestion[]` — Array of suggestions found in the document.
+
+```js
+import { findSuggestions } from '@tiptap-pro/extension-track-changes'
+
+// Find all suggestions
+const allSuggestions = findSuggestions(editor)
+
+// Find suggestions by type
+const insertions = findSuggestions(editor, 'suggestion', { type: 'add' })
+const deletions = findSuggestions(editor, 'suggestion', { type: 'delete' })
+
+// Find suggestions by user
+const userSuggestions = findSuggestions(editor, 'suggestion', { userId: 'user-123' })
+
+// Find specific suggestion
+const suggestion = findSuggestions(editor, 'suggestion', { id: 'suggestion-123' })
+```
+
+### findSuggestionById()
+
+Find a specific suggestion by ID.
+
+#### Arguments
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `editor` | `Editor` | — | The Tiptap editor instance |
+| `id` | `string` | — | The suggestion ID to find |
+| `markName` | `string` | `'suggestion'` | The name of the suggestion mark |
+
+#### Returns
+
+`Suggestion | undefined` — The suggestion if found, `undefined` otherwise.
+
+```js
+import { findSuggestionById } from '@tiptap-pro/extension-track-changes'
+
+const suggestion = findSuggestionById(editor, 'suggestion-123')
+
+if (suggestion) {
+  console.log(`Found suggestion: ${suggestion.text}`)
+}
+```
+
+### findSuggestionRanges()
+
+Find all document ranges covered by a suggestion. A single suggestion may span multiple text nodes when it crosses formatting boundaries.
+
+#### Arguments
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `editor` | `Editor` | — | The Tiptap editor instance |
+| `id` | `string` | — | The suggestion ID to find |
+| `markName` | `string` | `'suggestion'` | The name of the suggestion mark |
+
+#### Returns
+
+`Array<{ from: number; to: number }>` — Array of position ranges covered by this suggestion. Adjacent ranges are automatically merged.
+
+```js
+import { findSuggestionRanges } from '@tiptap-pro/extension-track-changes'
+
+const ranges = findSuggestionRanges(editor, 'suggestion-123')
+// Returns: [{ from: 10, to: 25 }, { from: 30, to: 35 }]
+
+// Useful for highlighting or decorating suggestions in your UI
+ranges.forEach(range => {
+  console.log(`Suggestion spans from ${range.from} to ${range.to}`)
+})
+```
+
+### getSuggestionAtSelection()
+
+Get the suggestion at the current selection position.
+
+#### Arguments
+
+| Argument | Type | Default | Description |
+| --- | --- | --- | --- |
+| `editor` | `Editor` | — | The Tiptap editor instance |
+| `markName` | `string` | `'suggestion'` | The name of the suggestion mark |
+
+#### Returns
+
+`Suggestion | undefined` — The suggestion at the current cursor position, or `undefined` if none.
+
+```js
+import { getSuggestionAtSelection } from '@tiptap-pro/extension-track-changes'
+
+const suggestion = getSuggestionAtSelection(editor)
+
+if (suggestion) {
+  // Show accept/reject buttons in your UI
+  showSuggestionPopup(suggestion)
+}
+```
+
+### generateSuggestionId()
+
+Generate a unique suggestion ID. Combines timestamp with random string for uniqueness.
+
+#### Arguments
+
+None.
+
+#### Returns
+
+`string` — A unique suggestion ID in the format `suggestion-{timestamp}-{random}`.
+
+```js
+import { generateSuggestionId } from '@tiptap-pro/extension-track-changes'
+
+const id = generateSuggestionId()
+// Returns: 'suggestion-1706621696789-k7x2m9p'
+```
+
+### getTimestamp()
+
+Get the current time as an ISO 8601 timestamp string.
+
+#### Arguments
+
+None.
+
+#### Returns
+
+`string` — Current time as ISO 8601 string.
+
+```js
+import { getTimestamp } from '@tiptap-pro/extension-track-changes'
+
+const timestamp = getTimestamp()
+// Returns: '2024-01-30T12:34:56.789Z'
+```
+
+## Types
+
+The extension exports TypeScript types for working with suggestions:
+
+### Suggestion
+
+Represents a suggestion in the document:
+
+```ts
+type Suggestion = {
+  id: string
+  type: 'add' | 'delete'
+  userId: string
+  createdAt: string
+  from: number
+  to: number
+  text: string
+}
+```
+
+### SuggestionMarkAttrs
+
+Attributes stored on the suggestion mark:
+
+```ts
+type SuggestionMarkAttrs = {
+  id: string
+  type: 'add' | 'delete'
+  userId: string
+  createdAt: string
+}
+```
+
+### TrackChangesOptions
+
+Configuration options for the extension:
+
+```ts
+type TrackChangesOptions = {
+  enabled: boolean
+  userId: string
+  userName?: string
+  suggestionGroupingTimeout: number
+  onSuggestionCreate?: (suggestion: Suggestion) => void
+  onSuggestionAccept?: (id: string) => void
+  onSuggestionReject?: (id: string) => void
+}
+```
+
+### Callback Types
+
+```ts
+type OnSuggestionCreate = (suggestion: Suggestion) => void
+type OnSuggestionAccept = (id: string) => void
+type OnSuggestionReject = (id: string) => void
+```
+
+## Styling
+
+The suggestion mark renders with data attributes that can be targeted with CSS:
+
+```css
+/* All suggestions */
+[data-suggestion] {
+  /* Base styles for all suggestions */
+}
+
+/* Insertions (additions) */
+[data-suggestion][data-suggestion-type="add"] {
+  background-color: rgba(0, 255, 0, 0.2);
+  text-decoration: underline;
+}
+
+/* Deletions */
+[data-suggestion][data-suggestion-type="delete"] {
+  background-color: rgba(255, 0, 0, 0.2);
+  text-decoration: line-through;
+}
+
+/* Style suggestions by user */
+[data-suggestion][data-user-id="user-123"] {
+  border-bottom: 2px solid blue;
+}
+
+/* Style specific suggestion */
+[data-suggestion][data-suggestion-id="suggestion-123"] {
+  outline: 2px solid orange;
+}
+```
+
+### Available Data Attributes
+
+| Attribute | Description |
+| --- | --- |
+| `data-suggestion` | Always present on suggestion marks |
+| `data-suggestion-id` | The unique suggestion ID |
+| `data-suggestion-type` | Either `'add'` or `'delete'` |
+| `data-user-id` | The ID of the user who created the suggestion |

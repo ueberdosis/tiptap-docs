@@ -406,6 +406,11 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Text align',
             },
             {
+              href: '/editor/extensions/functionality/track-changes',
+              title: 'Track Changes',
+              tags: ['Experiment'],
+            },
+            {
               href: '/editor/extensions/functionality/trailing-node',
               title: 'Trailing node',
             },
