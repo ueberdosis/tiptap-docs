@@ -1,0 +1,814 @@
+---
+title: Decorations
+meta:
+  title: Decorations | Tiptap Editor Docs
+  description: Learn about decorations in Tiptap - how to add visual styling and interactive widgets without modifying document structure. More in the docs!
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Decorations are a powerful feature in Tiptap that allow you to add visual styling, annotations, and interactive widgets to your editor without modifying the underlying document structure. They're computed dynamically based on the editor state and are perfect for features like syntax highlighting, spell checking, block actions, and more.
+
+## What are decorations?
+
+Decorations are temporary visual elements that exist only in the editor view. Unlike marks (which are part of the document structure and persist when you save content), decorations are calculated on-the-fly based on the current state of the editor.
+
+Think of decorations as a layer on top of your document that can:
+
+- Highlight specific text (like search results or syntax highlighting)
+- Add styling to blocks (like readability scores or validation states)
+- Insert interactive widgets (like action buttons or inline suggestions)
+
+<Callout title="Decorations vs Marks" variant="info">
+
+**Marks** are part of the document structure and are saved with your content. Use marks for user-generated formatting like bold, italic, or links.
+
+**Decorations** are computed from the editor state and aren&apos;t saved. Use decorations for editor features like highlighting, annotations, or UI elements.
+
+</Callout>
+
+## When to use decorations
+
+Decorations are ideal for:
+
+### Content analysis and feedback
+
+- **Spell checking**: Underline misspelled words
+- **Grammar checking**: Highlight grammar issues
+- **Readability scores**: Add visual indicators for content quality
+- **Word count indicators**: Show statistics per paragraph
+
+### Search and highlighting
+
+- **Search results**: Highlight matching text
+- **Syntax highlighting**: Color code for different token types
+- **Keyword highlighting**: Emphasize important terms
+
+### Interactive UI elements
+
+- **Block actions**: Add buttons for duplicating, deleting, or moving blocks
+- **Inline suggestions**: Show autocomplete or AI suggestions
+- **Floating toolbars**: Position UI relative to content
+- **Collaborative cursors**: Show other users' selections
+
+### Visual feedback
+
+- **Selection indicators**: Custom selection styling
+- **Validation indicators**: Show errors or warnings
+- **Content annotations**: Add comments or notes
+- **Diff highlighting**: Show changes between versions
+
+## Types of decorations
+
+Tiptap provides three types of decorations, each optimized for specific use cases:
+
+### 1. Inline decorations
+
+Inline decorations wrap ranges of inline content (text, marks, etc.) and can apply HTML attributes like classes or styles.
+
+**Use cases:**
+
+- Text highlighting
+- Syntax highlighting
+- Search results
+- Spell check underlines
+
+**Example:**
+
+```ts
+import { Extension } from '@tiptap/core'
+import { createInlineDecoration } from '@tiptap/core'
+
+const SearchHighlight = Extension.create({
+  name: 'searchHighlight',
+
+  addStorage() {
+    return {
+      searchTerm: '',
+    }
+  },
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state }) {
+        const decorations = []
+        const searchTerm = this.storage.searchTerm
+
+        if (!searchTerm) return decorations
+
+        state.doc.descendants((node, pos) => {
+          if (!node.isText) return
+
+          const text = node.text.toLowerCase()
+          const term = searchTerm.toLowerCase()
+          let index = text.indexOf(term)
+
+          while (index !== -1) {
+            decorations.push(
+              createInlineDecoration(pos + index, pos + index + term.length, {
+                class: 'search-highlight',
+              }),
+            )
+            index = text.indexOf(term, index + 1)
+          }
+        })
+
+        return decorations
+      },
+
+      shouldUpdate({ tr }) {
+        return tr.docChanged || tr.getMeta('updateSearch')
+      },
+    }
+  },
+})
+```
+
+### 2. Node decorations
+
+Node decorations wrap entire nodes and add attributes to the node's DOM element. They're perfect for block-level styling.
+
+**Use cases:**
+
+- Block readability indicators
+- Validation states
+- Block-level metadata display
+- Custom node styling based on content
+
+**Example:**
+
+```ts
+import { Extension } from '@tiptap/core'
+import { createNodeDecoration } from '@tiptap/core'
+
+const ReadabilityIndicator = Extension.create({
+  name: 'readabilityIndicator',
+
+  decorations: () => {
+    return {
+      create({ state }) {
+        const decorations = []
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== 'paragraph') return
+
+          // Calculate readability score
+          const wordCount = node.textContent.split(/\s+/).length
+          const avgWordLength = node.textContent.replace(/\s/g, '').length / wordCount
+
+          let score = 'easy'
+          if (wordCount > 30 || avgWordLength > 7) {
+            score = 'medium'
+          }
+          if (wordCount > 50 || avgWordLength > 10) {
+            score = 'hard'
+          }
+
+          decorations.push(
+            createNodeDecoration(
+              pos,
+              pos + node.nodeSize,
+              {
+                class: `readability-${score}`,
+                'data-word-count': String(wordCount),
+              },
+              {
+                // spec helps with decoration diffing
+                score,
+                wordCount,
+              },
+            ),
+          )
+        })
+
+        return decorations
+      },
+
+      shouldUpdate({ tr }) {
+        return tr.docChanged
+      },
+    }
+  },
+})
+```
+
+### 3. Widget decorations
+
+Widget decorations insert custom DOM elements at specific positions in the document. They can be interactive and react to user input.
+
+**Use cases:**
+
+- Block action menus
+- Inline suggestions
+- Floating UI elements
+- Custom interactive components
+
+**Example with plain JavaScript:**
+
+```ts
+import { Extension } from '@tiptap/core'
+import { createWidgetDecoration } from '@tiptap/core'
+
+const BlockActions = Extension.create({
+  name: 'blockActions',
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state }) {
+        const decorations = []
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'paragraph' && node.textContent.length > 0) {
+            decorations.push(
+              createWidgetDecoration(pos, (view, getPos) => {
+                const button = document.createElement('button')
+                button.textContent = '⋮'
+                button.className = 'block-actions-button'
+
+                button.onclick = () => {
+                  const currentPos = getPos()
+                  // Handle button click
+                  console.log('Button clicked at position:', currentPos)
+                }
+
+                return button
+              }),
+            )
+          }
+        })
+
+        return decorations
+      },
+
+      shouldUpdate({ tr }) {
+        return tr.docChanged
+      },
+    }
+  },
+})
+```
+
+**Example with React:**
+
+```tsx
+import { Extension, WidgetRenderer } from '@tiptap/react'
+import { createWidgetDecoration } from '@tiptap/core'
+import { BlockActionsWidget } from './BlockActionsWidget'
+
+const BlockActions = Extension.create({
+  name: 'blockActions',
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state }) {
+        const decorations = []
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'paragraph' && node.textContent.length > 0) {
+            decorations.push(
+              createWidgetDecoration(pos, (view, getPos) => {
+                return WidgetRenderer.create(BlockActionsWidget, {
+                  editor,
+                  pos,
+                  getPos,
+                  nodeType: node.type.name,
+                })
+              }),
+            )
+          }
+        })
+
+        return decorations
+      },
+
+      shouldUpdate({ tr }) {
+        return tr.docChanged
+      },
+    }
+  },
+})
+```
+
+## Understanding decoration lifecycle
+
+### Creation
+
+Decorations are created by the `create` function in your decoration configuration. This function:
+
+1. Receives the current editor state, view, and editor instance
+2. Traverses the document to find positions that need decorations
+3. Returns an array of decoration items
+
+```ts
+create({ state, view, editor }) {
+  const decorations = []
+
+  // Traverse document and create decorations
+  state.doc.descendants((node, pos) => {
+    if (shouldDecorate(node)) {
+      decorations.push(createDecoration(node, pos))
+    }
+  })
+
+  return decorations
+}
+```
+
+### Updates
+
+By default, decorations are recreated on every transaction. Use `shouldUpdate` to control when recreation happens:
+
+```ts
+shouldUpdate({ tr, oldState, newState }) {
+  // Only recreate when document changes
+  if (tr.docChanged) {
+    return true
+  }
+
+  // Or when selection changes
+  if (newState.selection.from !== oldState.selection.from) {
+    return true
+  }
+
+  // Or when custom metadata is set
+  if (tr.getMeta('forceDecorationsUpdate')) {
+    return true
+  }
+
+  return false
+}
+```
+
+### Diffing
+
+Tiptap efficiently diffs decorations to minimize DOM updates. The `spec` property helps with this:
+
+```ts
+// Without spec - may not detect content changes
+createNodeDecoration(pos, pos + node.nodeSize, {
+  class: 'scored-block',
+})
+
+// With spec - detects when score changes
+createNodeDecoration(
+  pos,
+  pos + node.nodeSize,
+  {
+    class: `score-${score}`,
+  },
+  {
+    score, // Changes trigger decoration update
+  },
+)
+```
+
+## Performance considerations
+
+### 1. Limit decoration scope
+
+Only create decorations where needed. For large documents, consider limiting to the visible viewport:
+
+```ts
+create({ state, view }) {
+  const decorations = []
+  const { from, to } = view.state.selection
+
+  // Only decorate near selection (±100 characters)
+  const start = Math.max(0, from - 100)
+  const end = Math.min(state.doc.content.size, to + 100)
+
+  state.doc.nodesBetween(start, end, (node, pos) => {
+    // Create decorations only in this range
+  })
+
+  return decorations
+}
+```
+
+### 2. Optimize `shouldUpdate`
+
+Avoid recreating decorations unnecessarily:
+
+```ts
+shouldUpdate({ tr, oldState, newState }) {
+  // ❌ Too frequent - runs on every transaction
+  return true
+
+  // ❌ Still frequent - runs on every keystroke
+  return tr.docChanged
+
+  // ✅ Better - only when specific content changes
+  const affectedNodes = new Set()
+  tr.steps.forEach(step => {
+    // Check if step affects nodes we care about
+  })
+  return affectedNodes.size > 0
+
+  // ✅ Best - only when explicitly requested
+  return tr.getMeta('updateMyDecorations') === true
+}
+```
+
+### 3. Use `spec` for efficient diffing
+
+The `spec` property enables efficient decoration updates:
+
+```ts
+decorations.push(
+  createNodeDecoration(
+    pos,
+    pos + node.nodeSize,
+    {
+      class: `status-${status}`,
+      'data-errors': errorCount,
+    },
+    {
+      // Include all values that affect the decoration
+      status,
+      errorCount,
+      // Tiptap uses these to detect changes
+    },
+  ),
+)
+```
+
+### 4. Cache expensive computations
+
+If creating decorations is expensive, consider caching:
+
+```ts
+const cache = new WeakMap()
+
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      const decorations = []
+
+      state.doc.descendants((node, pos) => {
+        let result = cache.get(node)
+
+        if (!result) {
+          result = expensiveComputation(node)
+          cache.set(node, result)
+        }
+
+        if (result.shouldDecorate) {
+          decorations.push(createDecoration(pos, result))
+        }
+      })
+
+      return decorations
+    },
+  }
+}
+```
+
+## Common patterns
+
+### Pattern 1: Selection-based decorations
+
+Highlight content based on the current selection:
+
+```ts
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      const { from, to, empty } = state.selection
+
+      if (empty) return []
+
+      return [
+        createInlineDecoration(from, to, {
+          class: 'custom-selection',
+        }),
+      ]
+    },
+
+    shouldUpdate({ oldState, newState }) {
+      return (
+        oldState.selection.from !== newState.selection.from ||
+        oldState.selection.to !== newState.selection.to
+      )
+    },
+  }
+}
+```
+
+### Pattern 2: Content-based decorations
+
+Analyze content and add decorations:
+
+```ts
+decorations: () => {
+  return {
+    create({ state }) {
+      const decorations = []
+
+      state.doc.descendants((node, pos) => {
+        if (node.isText && node.text) {
+          // Find URLs in text
+          const urlRegex = /https?:\/\/[^\s]+/g
+          let match
+
+          while ((match = urlRegex.exec(node.text)) !== null) {
+            decorations.push(
+              createInlineDecoration(pos + match.index, pos + match.index + match[0].length, {
+                class: 'auto-link',
+              }),
+            )
+          }
+        }
+      })
+
+      return decorations
+    },
+
+    shouldUpdate({ tr }) {
+      return tr.docChanged
+    },
+  }
+}
+```
+
+### Pattern 3: State-based decorations
+
+Create decorations based on external state:
+
+```ts
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      const isSpellCheckEnabled = editor.storage.spellCheck?.enabled
+
+      if (!isSpellCheckEnabled) {
+        return []
+      }
+
+      return createSpellCheckDecorations(state)
+    },
+
+    shouldUpdate({ tr }) {
+      return tr.docChanged || tr.getMeta('spellCheckToggled')
+    },
+  }
+}
+
+// Toggle spell check
+editor.commands.toggleSpellCheck = () => {
+  editor.storage.spellCheck.enabled = !editor.storage.spellCheck.enabled
+
+  // Trigger decoration update
+  editor.view.dispatch(editor.view.state.tr.setMeta('spellCheckToggled', true))
+}
+```
+
+### Pattern 4: Collaborative decorations
+
+Show other users' cursors and selections:
+
+```ts
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      const decorations = []
+      const users = editor.storage.collaboration?.users || []
+
+      users.forEach((user) => {
+        if (user.selection) {
+          decorations.push(
+            createInlineDecoration(
+              user.selection.from,
+              user.selection.to,
+              {
+                class: `user-selection user-${user.id}`,
+                style: `background-color: ${user.color}`,
+              },
+              {
+                userId: user.id,
+                userName: user.name,
+              },
+            ),
+          )
+        }
+      })
+
+      return decorations
+    },
+
+    shouldUpdate({ tr }) {
+      return tr.getMeta('collaborationUpdate') === true
+    },
+  }
+}
+```
+
+## Framework integration
+
+### React
+
+```tsx
+import { Extension, WidgetRenderer } from '@tiptap/react'
+import { createWidgetDecoration } from '@tiptap/core'
+import { MyWidget } from './MyWidget'
+
+const MyExtension = Extension.create({
+  name: 'myExtension',
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state }) {
+        return state.doc.descendants((node, pos) => {
+          if (shouldAddWidget(node)) {
+            return createWidgetDecoration(pos, (view, getPos) => {
+              return WidgetRenderer.create(MyWidget, {
+                editor,
+                pos,
+                getPos,
+                customProp: 'value',
+              })
+            })
+          }
+        })
+      },
+
+      shouldUpdate: ({ tr }) => tr.docChanged,
+    }
+  },
+})
+```
+
+### Vue 3
+
+```js
+import { Extension, WidgetRenderer } from '@tiptap/vue-3'
+import { createWidgetDecoration } from '@tiptap/core'
+import MyWidget from './MyWidget.vue'
+
+const MyExtension = Extension.create({
+  name: 'myExtension',
+
+  decorations: ({ editor }) => {
+    return {
+      create({ state }) {
+        const decorations = []
+
+        state.doc.descendants((node, pos) => {
+          if (shouldAddWidget(node)) {
+            decorations.push(
+              createWidgetDecoration(pos, (view, getPos) => {
+                return WidgetRenderer.create(MyWidget, {
+                  editor,
+                  pos,
+                  getPos,
+                })
+              }),
+            )
+          }
+        })
+
+        return decorations
+      },
+
+      shouldUpdate: ({ tr }) => tr.docChanged,
+    }
+  },
+})
+```
+
+## Tips and best practices
+
+### 1. Keep decorations lightweight
+
+Decorations are recreated frequently. Keep the `create` function fast:
+
+```ts
+// ❌ Expensive - regex compilation on every creation
+create({ state }) {
+  const pattern = new RegExp(this.options.pattern)
+  // ...
+}
+
+// ✅ Better - compile once
+const pattern = new RegExp(this.options.pattern)
+create({ state }) {
+  // Use pre-compiled pattern
+}
+```
+
+### 2. Use appropriate decoration types
+
+- **Inline decorations**: For text-level styling (highlights, underlines)
+- **Node decorations**: For block-level styling (borders, backgrounds)
+- **Widget decorations**: For inserting DOM elements (buttons, UI)
+
+### 3. Include meaningful `spec` data
+
+The `spec` helps Tiptap diff decorations efficiently:
+
+```ts
+createNodeDecoration(pos, pos + node.nodeSize, attributes, {
+  // Include all values that determine the decoration's appearance
+  status: computeStatus(node),
+  errorCount: countErrors(node),
+  timestamp: Date.now(), // Be careful with rapidly changing values
+})
+```
+
+### 4. Handle edge cases
+
+```ts
+create({ state, view }) {
+  const decorations = []
+
+  state.doc.descendants((node, pos) => {
+    // ✅ Check node exists and has expected properties
+    if (!node || !node.isText) return
+
+    // ✅ Handle empty text
+    if (!node.text || node.text.length === 0) return
+
+    // ✅ Validate positions
+    if (pos < 0 || pos >= state.doc.content.size) return
+
+    // Create decoration
+  })
+
+  return decorations
+}
+```
+
+### 5. Clean up widget decorations
+
+If your widgets have cleanup logic:
+
+```ts
+createWidgetDecoration(pos, (view, getPos) => {
+  const element = document.createElement('div')
+
+  // Add cleanup logic
+  const cleanup = () => {
+    // Remove event listeners, clear timers, etc.
+  }
+
+  // Store cleanup function
+  element.addEventListener('DOMNodeRemoved', cleanup)
+
+  return element
+})
+```
+
+## Debugging decorations
+
+### Inspect decorations in DevTools
+
+```ts
+import { decorationPluginKey } from '@tiptap/core'
+
+// In browser console
+const decorations = decorationPluginKey.getState(editor.state)
+console.log('Current decorations:', decorations)
+```
+
+### Log decoration updates
+
+```ts
+decorations: ({ editor }) => {
+  return {
+    create({ state }) {
+      console.log('Creating decorations...')
+      const decorations = createMyDecorations(state)
+      console.log('Created', decorations.length, 'decorations')
+      return decorations
+    },
+
+    shouldUpdate({ tr }) {
+      const shouldUpdate = tr.docChanged
+      console.log('Should update decorations?', shouldUpdate)
+      return shouldUpdate
+    },
+  }
+}
+```
+
+### Visualize decoration boundaries
+
+Add CSS to visualize decoration boundaries during development:
+
+```css
+/* Show inline decorations */
+[class*='decoration-'] {
+  outline: 1px solid red;
+}
+
+/* Show node decorations */
+[data-decoration-node] {
+  box-shadow: inset 0 0 0 2px blue;
+}
+```
+
+## Next steps
+
+- Check out the [Decorations API reference](/editor/api/decorations-manager) for detailed API documentation
+- Explore the [demo implementations](https://github.com/ueberdosis/tiptap/tree/main/demos/src/Experiments/DecorationsAPI) for real-world examples
+- Learn about [performance optimization](/editor/core-concepts/performance) for large documents

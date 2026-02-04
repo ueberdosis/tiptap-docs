@@ -526,6 +526,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'ProseMirror',
           href: '/editor/core-concepts/prosemirror',
         },
+        {
+          title: 'Decorations',
+          href: '/editor/core-concepts/decorations',
+        },
       ],
     },
     {
@@ -923,6 +927,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/paste-rules',
           title: 'Paste Rules',
+        },
+        {
+          href: '/editor/api/decorations-manager',
+          title: 'Decorations',
         },
       ],
     },
