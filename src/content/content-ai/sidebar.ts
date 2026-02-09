@@ -162,6 +162,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/tiptap-edit-hooks',
                 },
                 {
+                  title: 'AI Caret',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret',
+                },
+                {
                   title: 'Migration guides',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
                   children: [
