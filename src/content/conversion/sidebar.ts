@@ -57,7 +57,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Markdown',
           href: '/conversion/import/markdown/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
             {
               title: 'REST API',
@@ -89,12 +89,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Headers & Footers',
               href: '/conversion/export/docx/headers-footers',
-              tags: ['Team', 'New'],
             },
             {
               title: 'Custom page layout',
               href: '/conversion/export/docx/custom-page-layout',
-              tags: ['New'],
             },
             {
               title: 'Convert custom nodes',
@@ -110,8 +108,24 @@ export const sidebarConfig: SidebarConfig = {
           title: 'PDF',
           href: '/conversion/export/pdf/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/pdf/editor-export',
+            },
+            {
+              title: 'Headers & Footers',
+              href: '/conversion/export/pdf/headers-footers',
+            },
+            {
+              title: 'Custom page layout',
+              href: '/conversion/export/pdf/custom-page-layout',
+            },
+            {
+              title: 'Export styles',
+              href: '/conversion/export/pdf/export-styles',
+            },
             {
               title: 'REST API',
               href: '/conversion/export/pdf/rest-api',
@@ -122,8 +136,24 @@ export const sidebarConfig: SidebarConfig = {
           title: 'ODT',
           href: '/conversion/export/odt/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/odt/editor-export',
+            },
+            {
+              title: 'Headers & Footers',
+              href: '/conversion/export/odt/headers-footers',
+            },
+            {
+              title: 'Custom page layout',
+              href: '/conversion/export/odt/custom-page-layout',
+            },
+            {
+              title: 'Export styles',
+              href: '/conversion/export/odt/export-styles',
+            },
             {
               title: 'REST API',
               href: '/conversion/export/odt/rest-api',
@@ -134,8 +164,24 @@ export const sidebarConfig: SidebarConfig = {
           title: 'EPUB',
           href: '/conversion/export/epub/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/epub/editor-export',
+            },
+            {
+              title: 'Headers & Footers',
+              href: '/conversion/export/epub/headers-footers',
+            },
+            {
+              title: 'Custom page layout',
+              href: '/conversion/export/epub/custom-page-layout',
+            },
+            {
+              title: 'Export styles',
+              href: '/conversion/export/epub/export-styles',
+            },
             {
               title: 'REST API',
               href: '/conversion/export/epub/rest-api',
@@ -146,8 +192,24 @@ export const sidebarConfig: SidebarConfig = {
           title: 'DOC',
           href: '/conversion/export/doc/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/doc/editor-export',
+            },
+            {
+              title: 'Headers & Footers',
+              href: '/conversion/export/doc/headers-footers',
+            },
+            {
+              title: 'Custom page layout',
+              href: '/conversion/export/doc/custom-page-layout',
+            },
+            {
+              title: 'Export styles',
+              href: '/conversion/export/doc/export-styles',
+            },
             {
               title: 'REST API',
               href: '/conversion/export/doc/rest-api',
@@ -158,24 +220,17 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Markdown',
           href: '/conversion/export/markdown/rest-api',
           beta: true,
-          tags: ['Start'],
+          tags: ['Start', 'New'],
           children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/markdown/editor-export',
+            },
             {
               title: 'REST API',
               href: '/conversion/export/markdown/rest-api',
             },
           ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/conversion/resources',
-      title: 'Resources',
-      children: [
-        {
-          title: 'Legacy extensions',
-          href: '/guides/legacy-conversion',
         },
       ],
     },
