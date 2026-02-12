@@ -26,6 +26,15 @@ For production, always create JWTs **server-side** to keep your secret safe.
 --header 'X-App-Id: YOUR_APP_ID'
 ```
 
+### Document Server credentials (optional)
+
+To use Tiptap Cloud documents or comment tools, include Document Server credentials as JWT claims when generating your token:
+
+- `experimental_document_app_id`: Your Tiptap Cloud Document Server app ID
+- `experimental_document_secret`: Your Document Server admin API secret
+
+These credentials allow the AI Server to fetch and save documents from the Tiptap Document Server on your behalf.
+
 ## Base URL
 
 In the examples, `BASE_URL` is the base URL of the Tiptap Cloud AI service. The base URL of the Tiptap Cloud AI service is `https://api.tiptap.dev`. For on-premises deployments, this URL will be different.
@@ -103,6 +112,22 @@ Returns an object containing an array of tool definitions:
 
 Call this endpoint to execute a tool on a Tiptap document.
 
+### How to provide the document
+
+There are two ways to provide the document to the execute-tool endpoint:
+
+**Pass it directly** — Include the `document` field in the request body with your Tiptap JSON document. The server processes it and returns the modified document in the response.
+
+**Reference a Tiptap Cloud document** — Include `experimental_documentOptions` with a `documentId` instead of `document`. The server automatically fetches the document from the Tiptap Document Server, processes it, and saves changes back. This requires:
+1. JWT claims: `experimental_document_app_id` and `experimental_document_secret`
+2. The `experimental_documentOptions.documentId` field in the request body
+
+You must provide exactly one: either `document` or `experimental_documentOptions`. Providing both or neither will return a validation error.
+
+<Callout title="Thread tools require a Tiptap Cloud document" variant="info">
+  The `getThreads` and `editThreads` tools always require `experimental_documentOptions`.
+</Callout>
+
 ### Endpoint
 
 ```
@@ -110,6 +135,8 @@ POST /v3/ai/toolkit/execute-tool
 ```
 
 ### Request
+
+**Passing the document directly:**
 
 ```curl
 curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
@@ -126,15 +153,43 @@ curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
 }'
 ```
 
+**Using a Tiptap Cloud document** (JWT must include `experimental_document_app_id` and `experimental_document_secret` claims):
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+--header 'X-App-Id: YOUR_APP_ID' \
+--data '{
+    "toolName": "tiptapRead",
+    "input": { /* tool input */ },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id"
+    },
+    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
+    "chunkSize": 1000,
+    "format": "json"
+}'
+```
+
 ### Request body
 
 - `toolName` (`string`, required): The name of the tool to execute. Must be one of:
   - `"tiptapRead"`: Read part of the document using an efficient format
   - `"tiptapEdit"`: Edit the document using an efficient format
+  - `"getThreads"`: Retrieve all threads and comments in the document
+  - `"editThreads"`: Perform operations on threads and comments
 - `input` (`any`, required): The input parameters for the tool, as defined by the tool's input schema. The input format is optimized for efficient reading and editing operations.
-- `document` (`object`, required): The Tiptap JSON document to operate on
+- `document` (`object`, conditional): The Tiptap JSON document to operate on. Pass this when providing your own document. Mutually exclusive with `experimental_documentOptions`.
+- `experimental_documentOptions` (`object`, conditional): Use this to reference a Tiptap Cloud document by ID. The server fetches and saves the document automatically. Mutually exclusive with `document`.
+  - `documentId` (`string`, required): The ID of the document on the Document Server
+  - `userId` (`string`, optional): User ID for attributing thread/comment authorship
+- `experimental_commentsOptions` (`object`, optional): Metadata for thread/comment operations.
+  - `threadData` (`Record<string, any>`, optional): Metadata attached to new threads
+  - `commentData` (`Record<string, any>`, optional): Metadata attached to new comments
 - `schemaAwarenessData` (`SchemaAwarenessData`, required): The schema awareness data obtained from `getSchemaAwarenessData`
 - `chunkSize?` (`number`, optional): The chunk size for reading operations. Default: `1000`
+- `tiptapEditSelectableNodes?` (`string[]`, optional): Custom selectable node types for tiptapEdit operations.
 - `format?` (`string`, optional): The format in which the AI reads and edits the document. Must be one of:
   - `"json"` (default): Standard JSON format
   - `"shorthand"`: Tiptap Shorthand format, which reduces AI token costs by up to 80% compared to standard JSON
@@ -196,7 +251,11 @@ Returns a prompt string that describes the document schema:
 
 If an error occurs, the API will return an error response with an appropriate HTTP status code:
 
-- `400 Bad Request`: Invalid request body or parameters
+- `400 Bad Request`: Invalid request body or parameters. This includes:
+  - Missing both `document` and `experimental_documentOptions` (or providing both)
+  - Using `getThreads`/`editThreads` without `experimental_documentOptions`
+  - Providing `experimental_documentOptions` without Document Server credentials in JWT (`missing_document_credentials`)
 - `401 Unauthorized`: Missing or invalid JWT token or App ID
 - `404 Not Found`: Tool not found
 - `500 Internal Server Error`: Server error during tool execution
+- `502 Bad Gateway`: Failed to communicate with the Document Server (`document_load_failed`, `document_save_failed`)
