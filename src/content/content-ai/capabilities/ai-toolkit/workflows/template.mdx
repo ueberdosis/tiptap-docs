@@ -111,13 +111,11 @@ Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to cal
 
 Inside the API endpoint, convert the HTML template to a workflow configuration using `createTemplateWorkflow`. The function auto-extracts all template keys from the HTML, generates the system prompt, and creates the output schema.
 
-Unlike streaming workflows, the template workflow uses `generateText` because the complete response is needed before filling the template.
-
 ```ts
 // app/api/template-workflow/route.ts
 import { openai } from '@ai-sdk/openai'
 import { createTemplateWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
-import { Output, generateText } from 'ai'
+import { Output, streamText } from 'ai'
 
 export async function POST(req: Request) {
   const { htmlTemplate, task } = await req.json()
@@ -126,38 +124,38 @@ export async function POST(req: Request) {
   // It auto-extracts template keys and generates the prompt and schema.
   const workflow = createTemplateWorkflow({ htmlTemplate })
 
-  const result = await generateText({
+  const result = streamText({
     model: openai('gpt-5-mini'),
-    // System prompt
     system: workflow.systemPrompt,
-    // User message
     prompt: JSON.stringify({ task }),
     output: Output.object({ schema: workflow.zodOutputSchema }),
-    providerOptions: {
-      openai: {
-        reasoningEffort: 'minimal',
-      },
-    },
   })
 
-  return Response.json(result.output)
+  return result.toTextStreamResponse()
 }
 ```
 
 ## Client setup
 
-On the client side, define the template as Tiptap JSON. Before calling the API, convert it to HTML using `createHtmlTemplate` so the server can parse the template keys.
+On the client side, define the template as Tiptap JSON. Use the Vercel AI SDK's `useObject` hook to stream partial values from the server. Pass a permissive Zod schema (`z.object({}).passthrough()`) to accept any properties the server returns.
 
-When the API responds with the generated values, call `templateWorkflow` to fill the template and insert it into the editor. Use `position: 'document'` to replace the entire document content.
+As partial values arrive, call `templateWorkflow` with `hasFinished` and `workflowId` to progressively fill the template. The `workflowId` enables streaming mode where the method tracks the insertion range across calls and replaces content progressively. Before calling the API, convert the template to HTML using `createHtmlTemplate` so the server can parse the template keys.
 
 ```tsx
 // app/template-workflow/page.tsx
 'use client'
 
+import { experimental_useObject as useObject } from '@ai-sdk/react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { AiToolkit, createHtmlTemplate, getAiToolkit } from '@tiptap-pro/ai-toolkit'
-import { useState } from 'react'
+import {
+  AiToolkit,
+  createHtmlTemplate,
+  getAiToolkit,
+} from '@tiptap-pro/ai-toolkit'
+import { useEffect, useState } from 'react'
+import { v4 as uuid } from 'uuid'
+import { z } from 'zod'
 
 // Define the template as Tiptap JSON
 const template = {
@@ -177,6 +175,9 @@ const template = {
   ],
 }
 
+// A permissive schema that accepts any properties from the server
+const templateSchema = z.object({}).passthrough()
+
 export default function Page() {
   const editor = useEditor({
     immediatelyRender: false,
@@ -184,37 +185,38 @@ export default function Page() {
     content: '<p>Click "Generate" to fill the template.</p>',
   })
 
-  const [isLoading, setIsLoading] = useState(false)
+  const [workflowId, setWorkflowId] = useState('')
 
-  const generate = async () => {
-    if (!editor) return
-    setIsLoading(true)
+  const { submit, isLoading, object } = useObject({
+    api: '/api/template-workflow',
+    schema: templateSchema,
+  })
+
+  // Stream partial results as they arrive
+  useEffect(() => {
+    if (!editor || !object) return
 
     const toolkit = getAiToolkit(editor)
-
-    // Convert the template to HTML for the server
-    const htmlTemplate = createHtmlTemplate(template, editor.schema)
-
-    // Call the API endpoint
-    const response = await fetch('/api/template-workflow', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        htmlTemplate,
-        task: 'Generate an NDA between Acme Corp and Beta LLC',
-      }),
-    })
-
-    const values = await response.json()
-
-    // Fill the template and insert into the editor
     toolkit.templateWorkflow({
       template,
-      values,
+      values: object as Record<string, unknown>,
       position: 'document',
+      hasFinished: !isLoading,
+      workflowId,
     })
+  }, [object, workflowId, editor, isLoading])
 
-    setIsLoading(false)
+  const generate = () => {
+    if (!editor) return
+
+    const toolkit = getAiToolkit(editor)
+    const htmlTemplate = createHtmlTemplate(template, editor.schema)
+
+    setWorkflowId(uuid())
+    submit({
+      htmlTemplate,
+      task: 'Generate an NDA between Acme Corp and Beta LLC',
+    })
   }
 
   if (!editor) return null

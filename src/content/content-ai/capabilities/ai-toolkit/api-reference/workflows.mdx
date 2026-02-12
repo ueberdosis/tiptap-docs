@@ -381,23 +381,21 @@ The workflow expects a user prompt as a JSON object with:
 
 ```ts
 import { createTemplateWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
-import { Output, generateText } from 'ai'
+import { Output, streamText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
-// Get the HTML template and task from the API endpoint request
 const { htmlTemplate, task } = apiEndpointRequest
 
-// Create and configure the workflow
 const workflow = createTemplateWorkflow({ htmlTemplate })
 
-const result = await generateText({
+const result = streamText({
   model: openai('gpt-5-mini'),
   system: workflow.systemPrompt,
   prompt: JSON.stringify({ task }),
   output: Output.object({ schema: workflow.zodOutputSchema }),
 })
 
-return Response.json(result.output)
+return result.toTextStreamResponse()
 ```
 
 ## `templateWorkflow`
@@ -410,26 +408,38 @@ Fills a Tiptap JSON template with AI-generated values and inserts the result int
   - `template` (`Record<string, any>`): The template in Tiptap JSON format (a doc node or fragment array)
   - `values` (`TemplateValues`): AI-generated values to fill the template. Keys correspond to template attribute values.
   - `position?` (`InsertPosition`): Where to insert the filled template. Default: `'selection'`
+  - `hasFinished?` (`boolean`): Whether streaming has finished. When omitted, the method runs in non-streaming mode. Default: `true`
+  - `workflowId?` (`unknown`): Unique ID for this workflow run. When provided, enables streaming mode where the method tracks the insertion range across calls and replaces content progressively.
   - `reviewOptions?` (`ReviewOptions`): Control preview/review behavior
     - `mode?` (`'disabled' | 'review' | 'preview'`): Whether to review the changes before or after applying them. Default: `'disabled'`
 
 ### Example
 
 ```ts
-const toolkit = getAiToolkit(editor)
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { z } from 'zod'
 
-toolkit.templateWorkflow({
-  template: templateJson,
-  values: {
-    parties: '<p>This agreement is between <strong>Acme Corp</strong> and <strong>Beta LLC</strong>.</p>',
-    includeArbitration: true,
-    sectionLevel: 2,
-  },
-  position: 'document',
-  reviewOptions: {
-    mode: 'preview',
-  },
+const templateSchema = z.object({}).passthrough()
+
+const { submit, isLoading, object } = useObject({
+  api: '/api/template-workflow',
+  schema: templateSchema,
 })
+
+// Stream partial results in a useEffect
+useEffect(() => {
+  if (!editor || !object) return
+
+  const toolkit = getAiToolkit(editor)
+  toolkit.templateWorkflow({
+    template: templateJson,
+    values: object as Record<string, unknown>,
+    position: 'document',
+    hasFinished: !isLoading,
+    workflowId,
+  })
+}, [object, workflowId, editor, isLoading])
 ```
 
 ## `createHtmlTemplate` (utility)
@@ -452,4 +462,5 @@ import { createHtmlTemplate } from '@tiptap-pro/ai-toolkit'
 
 const htmlTemplate = createHtmlTemplate(templateJson, editor.schema)
 ```
+
 
