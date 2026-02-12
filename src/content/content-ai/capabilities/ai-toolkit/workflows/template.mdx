@@ -1,0 +1,244 @@
+---
+title: Template workflow
+meta:
+  title: Build a template workflow with the AI Toolkit | Tiptap Content AI
+  description: Use the Tiptap AI Toolkit to fill structured templates with AI-generated content.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="Experimental" variant="warning">
+  This feature is experimental and may change in future releases.
+</Callout>
+
+Fill structured Tiptap templates with AI-generated content and insert the result into the editor.
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/template-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## How templates work
+
+Tiptap templates are Tiptap JSON structures with special attributes that mark dynamic parts:
+
+- **`_templateSlot`** (string key): The entire node is replaced with AI-generated HTML content.
+- **`_templateIf`** (string key): The node is conditionally included based on a boolean value.
+- **`_templateAttributes`** (array of `{key, attribute}` objects): Specific node attributes are set from AI-generated values.
+
+Here is an example template in Tiptap JSON format:
+
+```json
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 1 },
+      "content": [{ "type": "text", "text": "Non-Disclosure Agreement" }]
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "_templateSlot": "parties" },
+      "content": [{ "type": "text", "text": "Party details will be generated here." }]
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "_templateIf": "includeArbitration" },
+      "content": [{ "type": "text", "text": "Arbitration clause content..." }]
+    },
+    {
+      "type": "heading",
+      "attrs": {
+        "level": 1,
+        "_templateAttributes": [{ "key": "sectionLevel", "attribute": "level" }]
+      },
+      "content": [{ "type": "text", "text": "Governing Law" }]
+    }
+  ]
+}
+```
+
+The AI generates a JSON object with values for each key:
+
+```json
+{
+  "parties": "<p>This agreement is between <strong>Acme Corp</strong> and <strong>Beta LLC</strong>.</p>",
+  "includeArbitration": true,
+  "sectionLevel": 2
+}
+```
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+This demo uses the AI Toolkit's template workflow to fill a legal document template (Non-Disclosure Agreement) with AI-generated content. The template has predefined sections with slots, conditional clauses, and dynamic attributes. The AI fills in the dynamic parts while the fixed legal boilerplate is preserved.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest template-workflow
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/openai zod
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+Inside the API endpoint, convert the HTML template to a workflow configuration using `createTemplateWorkflow`. The function auto-extracts all template keys from the HTML, generates the system prompt, and creates the output schema.
+
+Unlike streaming workflows, the template workflow uses `generateText` because the complete response is needed before filling the template.
+
+```ts
+// app/api/template-workflow/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createTemplateWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, generateText } from 'ai'
+
+export async function POST(req: Request) {
+  const { htmlTemplate, task } = await req.json()
+
+  // Create the workflow from the HTML template.
+  // It auto-extracts template keys and generates the prompt and schema.
+  const workflow = createTemplateWorkflow({ htmlTemplate })
+
+  const result = await generateText({
+    model: openai('gpt-5-mini'),
+    // System prompt
+    system: workflow.systemPrompt,
+    // User message
+    prompt: JSON.stringify({ task }),
+    output: Output.object({ schema: workflow.zodOutputSchema }),
+    providerOptions: {
+      openai: {
+        reasoningEffort: 'minimal',
+      },
+    },
+  })
+
+  return Response.json(result.output)
+}
+```
+
+## Client setup
+
+On the client side, define the template as Tiptap JSON. Before calling the API, convert it to HTML using `createHtmlTemplate` so the server can parse the template keys.
+
+When the API responds with the generated values, call `templateWorkflow` to fill the template and insert it into the editor. Use `position: 'document'` to replace the entire document content.
+
+```tsx
+// app/template-workflow/page.tsx
+'use client'
+
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, createHtmlTemplate, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { useState } from 'react'
+
+// Define the template as Tiptap JSON
+const template = {
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'Non-Disclosure Agreement' }],
+    },
+    {
+      type: 'paragraph',
+      attrs: { _templateSlot: 'parties' },
+      content: [{ type: 'text', text: 'Party details...' }],
+    },
+    // ... more template content
+  ],
+}
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: '<p>Click "Generate" to fill the template.</p>',
+  })
+
+  const [isLoading, setIsLoading] = useState(false)
+
+  const generate = async () => {
+    if (!editor) return
+    setIsLoading(true)
+
+    const toolkit = getAiToolkit(editor)
+
+    // Convert the template to HTML for the server
+    const htmlTemplate = createHtmlTemplate(template, editor.schema)
+
+    // Call the API endpoint
+    const response = await fetch('/api/template-workflow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        htmlTemplate,
+        task: 'Generate an NDA between Acme Corp and Beta LLC',
+      }),
+    })
+
+    const values = await response.json()
+
+    // Fill the template and insert into the editor
+    toolkit.templateWorkflow({
+      template,
+      values,
+      position: 'document',
+    })
+
+    setIsLoading(false)
+  }
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      <button onClick={generate} disabled={isLoading}>
+        {isLoading ? 'Generating...' : 'Generate'}
+      </button>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a polished template workflow application:
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/template-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Related guides
+
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/workflows#templateworkflow) of the `templateWorkflow` method
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/workflows#createtemplateworkflow-server-side-utility) of the `createTemplateWorkflow` utility
