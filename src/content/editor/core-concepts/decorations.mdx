@@ -1,0 +1,167 @@
+---
+title: Decorations
+description: How to use Tiptap's Decorations API - implementing decorations in extensions, decoration types, and performance tips.
+meta:
+  title: Decorations | Tiptap Editor Docs
+  description: Learn how to implement and optimize decorations in Tiptap extensions.
+  category: Editor
+---
+
+## TL;DR
+
+Decorations let you draw styling or UI on top of the document without changing the document content. Add a `decorations()` factory to an extension and return a small array of simple decoration items. Use `shouldUpdate` to avoid unnecessary recalculation.
+
+## What is the Decoration API?
+
+The Decoration API is a small, extension-facing surface that lets extensions describe visual decorations (highlights, badges, widgets) without mutating the document. Tiptap turns those descriptions into ProseMirror decorations and renders them in the editor view.
+
+## Decoration types 
+
+- inline – styling applied to a range of text (e.g., highlights).
+- node – attributes applied to an entire node (e.g., add a class to a paragraph).
+- widget – a DOM node rendered at a specific position (e.g., an inline badge or button). Widgets are non-editable.
+
+## How to add decorations to an extension
+
+Add a `decorations()` factory to your extension that returns an object with `create({ state, view, editor })` and an optional `shouldUpdate`.
+
+Inline example (using the helper):
+
+```js
+import { Extension, createInlineDecoration } from '@tiptap/core'
+
+export const MakeWordRed = Extension.create({
+  name: 'makeWordRed',
+
+  decorations: () => ({
+    create({ state }) {
+      // return an array of decoration items
+      return [createInlineDecoration(5, 11, { style: 'color: red' })]
+    },
+    shouldUpdate: ({ tr }) => tr.docChanged,
+  }),
+})
+```
+
+Node example (using the helper):
+
+```js
+import { Extension, createNodeDecoration } from '@tiptap/core'
+
+export const HighlightParagraph = Extension.create({
+  name: 'highlightParagraph',
+
+  decorations: () => ({
+    create({ state }) {
+      // highlight the first paragraph
+      const pos = 0
+      const end = 50
+      return [createNodeDecoration(pos, end, { class: 'my-paragraph' })]
+    },
+    shouldUpdate: ({ tr }) => tr.docChanged,
+  }),
+})
+```
+
+Widget example (using the helper):
+
+```js
+import { Extension, createWidgetDecoration } from '@tiptap/core'
+
+export const StarAfter = Extension.create({
+  name: 'starAfter',
+
+  decorations: () => ({
+    create() {
+      return [
+        createWidgetDecoration(10, () => {
+          const el = document.createElement('span')
+          el.textContent = ' ⭐'
+          el.setAttribute('contenteditable', 'false')
+          return el
+        }),
+      ]
+    },
+    shouldUpdate: ({ tr }) => tr.docChanged,
+  }),
+})
+```
+
+## Utility functions
+
+- `createInlineDecoration(from, to, attributes)` - returns a small object describing an inline decoration.
+- `createNodeDecoration(from, to, attributes)` - returns a node decoration object.
+- `createWidgetDecoration(at, widget)` - returns a widget item where `widget` is a function that creates a DOM node.
+
+Use these helpers for concise examples; under the hood Tiptap maps these items to ProseMirror decorations.
+
+## Create a decoration without helpers
+
+You can return the plain decoration items directly if you prefer to avoid helpers. The shape is intentionally small and simple:
+
+```js
+// manual inline decoration
+return [{ type: 'inline', from: 5, to: 11, attributes: { style: 'background: yellow' } }]
+
+// manual widget
+return [
+  {
+    type: 'widget',
+    from: 20,
+    to: 20,
+    widget: () => {
+      const el = document.createElement('button')
+      el.textContent = 'Click'
+      el.setAttribute('contenteditable', 'false')
+      return el
+    },
+  },
+]
+```
+
+Notes:
+
+- `from`/`to` are document positions.
+- For widgets, return a DOM node from the `widget` function. If you mount React components, return a container element and use the React widget helper from the React package.
+
+## Best practices & performance
+
+- Use `shouldUpdate` to limit recalculation. A common simple implementation is `({ tr }) => tr.docChanged`.
+- Keep `spec` data small (strings/numbers) if you add it to items - it's used to decide whether a decoration meaning changed.
+- Avoid scanning the whole document every transaction. Narrow traversal to nodes of interest or cache results per node when possible.
+- For widgets, provide a stable `spec.key` (or ensure your widget markup is stable) to avoid unnecessary remounts.
+
+More about `spec` and stability
+
+- The `spec` object on a decoration is used to decide whether a decoration's meaning changed between renders. Keep it tiny and primitive (strings, numbers, booleans). Avoid functions, DOM nodes, or large objects inside `spec`.
+- For widgets, include a stable identifier in `spec` (for example `spec.key: 'comment-123'`) so the renderer can reuse the same DOM node across updates and avoid remounting React components.
+- Do NOT rely only on document positions for stability. Positions move when the doc changes. Prefer a stable id from the node (for example an `id` in `node.attrs`) or a key you manage on the extension side.
+
+Short widget example with a stable key:
+
+```js
+return [
+  {
+    type: 'widget',
+    from: pos,
+    to: pos,
+    widget: () => {
+      const el = document.createElement('span')
+      el.textContent = '⭐'
+      el.setAttribute('contenteditable', 'false')
+      return el
+    },
+    spec: { key: 'my-widget-42' },
+  },
+]
+```
+
+- If you need to compute keys from node content, compute a stable id once and store it on the node (attrs/marks) or in a side map. Recomputing ephemeral keys on every `create` will cause remounts.
+- Combine sensible `shouldUpdate` logic with stable `spec` values: `shouldUpdate` decides when to recreate the list, `spec` decides whether individual decorations should be updated/reused.
+
+## Troubleshooting
+
+- Widgets flicker or lose internal state: give widgets stable keys (via `spec.key`) or avoid remounting DOM nodes.
+- Widget callbacks see wrong positions after edits: call the provided `getPos()` in widget callbacks (or use the editor APIs) rather than relying on an earlier captured `pos`.
+- Decorations don't update: check `shouldUpdate` and ensure it returns `true` for transactions that should trigger an update.
+
