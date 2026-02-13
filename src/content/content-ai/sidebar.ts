@@ -131,6 +131,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Comments',
                   href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
                 },
+                {
+                  title: 'Template',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/template',
+                },
               ],
             },
             {
