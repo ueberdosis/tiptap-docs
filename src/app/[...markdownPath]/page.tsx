@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
@@ -30,24 +30,35 @@ type Props = {
   searchParams: URLSearchParams
 }
 
-export async function generateMetadata({ params }: Props) {
-  const directPath = `${params.markdownPath.join('/')}.mdx`
-  const indexPath = `${params.markdownPath.join('/')}/index.mdx`
-
-  const canonicalUrl = createCanonicalUrl(params.markdownPath)
+/**
+ * Helper function to load MDX file for a given path.
+ * Cached per-request to avoid duplicate file checks and imports between generateMetadata and page component.
+ */
+const loadPageMdx = cache(async (markdownPath: string[]) => {
+  const directPath = `${markdownPath.join('/')}.mdx`
+  const indexPath = `${markdownPath.join('/')}/index.mdx`
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
 
   if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
-    return {}
+    return null
   }
 
   const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
+  }
+
+  return pageMdx
+})
+
+export async function generateMetadata({ params }: Props) {
+  const canonicalUrl = createCanonicalUrl(params.markdownPath)
+  const pageMdx = await loadPageMdx(params.markdownPath)
+
+  if (!pageMdx) {
+    return {}
   }
 
   return await createMetadata({
@@ -60,24 +71,12 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function MarkdownPage({ params }: Props) {
-  const directPath = `${params.markdownPath.join('/')}.mdx`
-  const indexPath = `${params.markdownPath.join('/')}/index.mdx`
-
   const canonicalUrl = createCanonicalUrl(params.markdownPath)
   const sidebar = await importSidebarConfigFromMarkdownPath(params.markdownPath)
+  const pageMdx = await loadPageMdx(params.markdownPath)
 
-  const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
-  const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
-
-  if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
+  if (!pageMdx) {
     notFound()
-  }
-
-  const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
-    default: () => JSX.Element
-    frontmatter?: PageFrontmatter
   }
 
   const techArticleSchema = {
