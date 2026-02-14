@@ -133,7 +133,7 @@ export type CardGridSubtitleProps = {
 export const Subtitle = forwardRef<HTMLSpanElement, CardGridSubtitleProps>(
   ({ asChild, children, className, size = 'md', ...rest }, ref) => {
     const cardGridItemCountClass = cn(
-      'font-black leading-[120%] text-grayAlpha-600 mb-3',
+      'font-black leading-[120%] text-grayAlpha-600 dark:text-gray-400 mb-3',
       size === 'md' ? 'text-[1.375rem]' : '',
       size === 'sm' ? 'text-[0.875rem]' : '',
       className,

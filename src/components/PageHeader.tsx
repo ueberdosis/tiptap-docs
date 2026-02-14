@@ -35,7 +35,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[42rem]',
+      'text-[3.125rem] font-bold text-black dark:text-white leading-none text-balance max-w-[42rem]',
       className,
     )
 
@@ -57,7 +57,10 @@ const PageHeaderDescription = forwardRef<HTMLParagraphElement, PageHeaderDescrip
   ({ asChild, children, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'p'
 
-    const descriptionClass = cn('text-[1.25rem] leading-[140%] text-black mt-8', className)
+    const descriptionClass = cn(
+      'text-[1.25rem] leading-[140%] text-black dark:text-white mt-8',
+      className,
+    )
 
     return (
       <Component className={descriptionClass} {...props} ref={ref}>

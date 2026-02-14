@@ -49,7 +49,7 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
         <Link ref={ref} target={target} href={href}>
           {children}
           {isExternal && !hideIcon ? (
-            <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />
+            <ExternalLinkIcon className="size-3.5 text-grayAlpha-400 dark:text-gray-500" />
           ) : null}
         </Link>
       </NavLinkButton>

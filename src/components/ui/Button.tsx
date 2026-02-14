@@ -22,22 +22,24 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       !rest.disabled
         ? cn(
             variant === 'primary' && !isActive
-              ? 'bg-grayAlpha-800 text-white hover:bg-grayAlpha-900 group-hover:bg-grayAlpha-900 active:bg-grayAlpha-900'
+              ? 'bg-grayAlpha-800 dark:bg-white text-white dark:text-black hover:bg-grayAlpha-900 dark:hover:bg-gray-200 group-hover:bg-grayAlpha-900 dark:group-hover:bg-gray-200 active:bg-grayAlpha-900 dark:active:bg-gray-300'
               : '',
-            variant === 'primary' && isActive ? 'bg-grayAlpha-900' : '',
+            variant === 'primary' && isActive ? 'bg-grayAlpha-900 dark:bg-gray-300' : '',
             variant === 'secondary' && !isActive
-              ? 'bg-grayAlpha-100 text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'bg-grayAlpha-100 dark:bg-white/10 text-black dark:text-white hover:bg-grayAlpha-200 dark:hover:bg-white/20 group-hover:bg-grayAlpha-200 dark:group-hover:bg-white/20 active:bg-grayAlpha-100 dark:active:bg-white/10'
               : '',
-            variant === 'secondary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'secondary' && isActive ? 'bg-grayAlpha-100 dark:bg-white/10' : '',
             variant === 'tertiary' && !isActive
-              ? 'bg-transparent text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'bg-transparent text-black dark:text-white hover:bg-grayAlpha-200 dark:hover:bg-white/10 group-hover:bg-grayAlpha-200 dark:group-hover:bg-white/10 active:bg-grayAlpha-100 dark:active:bg-white/5'
               : '',
-            variant === 'tertiary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'tertiary' && isActive ? 'bg-grayAlpha-100 dark:bg-white/10' : '',
           )
         : cn(
-            variant === 'primary' ? 'bg-transparent text-grayAlpha-400' : '',
-            variant === 'secondary' ? 'bg-grayAlpha-50 text-grayAlpha-400' : '',
-            variant === 'tertiary' ? 'bg-transparent text-grayAlpha-400' : '',
+            variant === 'primary' ? 'bg-transparent text-grayAlpha-400 dark:text-gray-600' : '',
+            variant === 'secondary'
+              ? 'bg-grayAlpha-50 dark:bg-white/5 text-grayAlpha-400 dark:text-gray-600'
+              : '',
+            variant === 'tertiary' ? 'bg-transparent text-grayAlpha-400 dark:text-gray-600' : '',
           ),
 
       size === 'medium' ? 'p-3 text-sm gap-1.5' : '',
