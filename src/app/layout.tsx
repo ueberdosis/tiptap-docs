@@ -9,7 +9,7 @@ import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN, GTM_ID } from '@/utils/constants'
 const inter = Inter({ subsets: ['latin'] })
 
-export async function getMetadata() {
+export async function generateMetadata() {
   return createMetadata({
     title: 'Tiptap Suite Documentation',
     description: 'Documentation for Tiptap and all Tiptap products',
@@ -67,7 +67,9 @@ export default function RootLayout({
         <link rel="icon" href={`${FULL_DOMAIN}/favicon.png`} sizes="any" />
         <meta name="docsearch:version" content="2.x" />
       </head>
-      <body className={cn(inter.className, 'bg-warmGray text-black')}>
+      <body
+        className={cn(inter.className, 'bg-warmGray text-black dark:bg-gray-950 dark:text-white')}
+      >
         {GTM_ID ? (
           <noscript>
             <iframe

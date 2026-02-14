@@ -40,50 +40,46 @@ export const CodeDemo = ({
 
   const iframeProps = {
     src: url,
-    className: `w-full ${iframeHeightClass}`,
+    className: `w-full ${iframeHeightClass} bg-white dark:bg-gray-950`,
     ...(isScrollable !== undefined && { scrolling: isScrollable }),
   }
 
   return (
     <>
       {hasCaption && (
-        <div
-          className="flex items-center gap-4 p-3 rounded-[0.625rem] mb-2 border border-grayAlpha-200 shadow-cardHover"
-          style={{
-            background:
-              'linear-gradient(45deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.3) 100%)',
-          }}
-        >
+        <div className="flex items-center gap-4 p-3 rounded-[0.625rem] mb-2 border border-grayAlpha-200 dark:border-white/10 shadow-cardHover bg-white dark:bg-black/5">
           {caption && (
             <p
-              className="flex-1 max-w-sm m-0 text-grayAlpha-700"
+              className="flex-1 max-w-sm m-0 text-grayAlpha-700 dark:text-gray-400"
               style={{ fontSize: '12px', lineHeight: '1.3' }}
             >
               {caption}
             </p>
           )}
           {captionActions && (
-            <div className="flex items-center gap-2 shrink-0 ml-auto text-xs">{captionActions}</div>
+            <div className="flex items-center gap-2 shrink-0 ml-auto text-xs dark:text-gray-300">
+              {captionActions}
+            </div>
           )}
         </div>
       )}
       <div
-        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
+        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white dark:bg-gray-950 overflow-hidden border dark:border-white/10`}
       >
         {external ? (
           <div
-            className={`${iframeHeightClass} flex flex-col items-center justify-center gap-6 bg-grayAlpha-50 text-center p-8`}
+            className={`${iframeHeightClass} flex flex-col items-center justify-center gap-6 bg-grayAlpha-50 dark:bg-gray-900 text-center p-8`}
           >
             {externalIcon && (
-              <div className="flex items-center justify-center size-12 rounded-full bg-white shadow-sm ring-1 ring-grayAlpha-200">
+              <div className="flex items-center justify-center size-12 rounded-full bg-white dark:bg-gray-800 shadow-sm ring-1 ring-grayAlpha-200 dark:ring-white/10">
                 {externalIcon}
               </div>
             )}
             <div className="max-w-xs space-y-1.5">
-              <div className="text-base font-semibold text-grayAlpha-900 leading-tight">
+              <div className="text-base font-semibold text-grayAlpha-900 dark:text-white leading-tight">
                 {externalTitle || 'View Live Demo'}
               </div>
-              <div className="text-sm text-grayAlpha-500 leading-relaxed">
+              <div className="text-sm text-grayAlpha-500 dark:text-gray-400 leading-relaxed">
                 {externalDescription || 'This demo needs to be opened in a new window.'}
               </div>
             </div>

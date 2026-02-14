@@ -64,7 +64,7 @@ export const LinkItem = ({
 
   const toggleButtonClassName = cn(
     'p-0.5 rounded',
-    !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
+    !isOpen ? 'hover:bg-grayAlpha-100 dark:hover:bg-gray-800' : 'bg-grayAlpha-100 dark:bg-gray-800',
   )
 
   return (
@@ -88,7 +88,9 @@ export const LinkItem = ({
             )}
           </span>
           <span className="flex gap-1 items-center">
-            {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
+            {link.external && (
+              <ExternalLinkIcon className="size-3.5 text-grayAlpha-400 dark:text-gray-500" />
+            )}
             {link.tags ? (
               <span className="flex items-center gap-0.5">
                 {link.tags.map((tag) => (
@@ -101,9 +103,9 @@ export const LinkItem = ({
             {link.children ? (
               <button className={toggleButtonClassName} onClick={toggleOpen}>
                 {isOpen ? (
-                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                  <ChevronDownIcon className="size-4 text-grayAlpha-500 dark:text-gray-400" />
                 ) : (
-                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                  <ChevronRightIcon className="size-4 text-grayAlpha-500 dark:text-gray-400" />
                 )}
               </button>
             ) : null}
@@ -113,7 +115,7 @@ export const LinkItem = ({
       {link.children ? (
         <div
           className={cn(
-            'pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300',
+            'pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300 dark:border-white/10',
             isOpen ? 'block' : 'hidden',
           )}
         >

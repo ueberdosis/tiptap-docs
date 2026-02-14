@@ -28,7 +28,7 @@ export const MobileSidebarNavigation = ({ config }: { config: SidebarConfig }) =
       <Dialog.Portal>
         <Dialog.Overlay className={overlayClassName} />
         <Dialog.Content className={contentClassName}>
-          <div className="px-4 p-8 rounded bg-white shadow-lg h-full pointer-events-auto">
+          <div className="px-4 p-8 rounded bg-white dark:bg-gray-900 shadow-lg h-full pointer-events-auto">
             <div className="h-full flex flex-col">
               <div className="flex-1 overflow-auto">
                 <DocsSidebar config={config} onItemClick={handleOnClick} />

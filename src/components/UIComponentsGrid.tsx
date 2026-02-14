@@ -23,8 +23,8 @@ function UIComponentCard({ comp }: { comp: UIComponentMetaWithUrl }) {
             {comp.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
         </div>
-        <div className="font-semibold text-black leading-[140%]">{comp.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{comp.description}</div>
+        <div className="font-semibold text-black dark:text-white leading-[140%]">{comp.name}</div>
+        <div className="mt-2 leading-[140%] text-grayAlpha-600 dark:text-gray-400">{comp.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {comp.isOpen ? <Tag>Open Source</Tag> : null}
         </div>
@@ -38,7 +38,7 @@ function UIComponentGroup({ comps, title }: { comps: UIComponentMetaWithUrl[]; t
 
   return (
     <div>
-      <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
+      <div className="text-xl font-bold mb-6 leading-[120%] dark:text-white">{title}</div>
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
         {comps.map((comp) => (
           <UIComponentCard comp={comp} key={comp.path} />

@@ -85,7 +85,10 @@ export type GridItemTitleProps = {
 export const ItemTitle = forwardRef<HTMLHeadingElement, GridItemTitleProps>(
   ({ asChild, className, children, ...props }, ref) => {
     const Component = asChild ? Slot : 'h3'
-    const itemTitleClass = cn('text-base font-bold mb-2 leading-[140%]', className)
+    const itemTitleClass = cn(
+      'text-base font-bold mb-2 leading-[140%] text-black dark:text-white',
+      className,
+    )
 
     return (
       <Component className={itemTitleClass} ref={ref} {...props}>
@@ -104,7 +107,10 @@ export type GridItemParagraph = {
 export const ItemParagraph = forwardRef<HTMLParagraphElement, GridItemParagraph>(
   ({ asChild, className, children, ...props }, ref) => {
     const Component = asChild ? Slot : 'div'
-    const itemParagraphClass = cn('text-base leading-[140%]', className)
+    const itemParagraphClass = cn(
+      'text-base leading-[140%] text-grayAlpha-600 dark:text-gray-400',
+      className,
+    )
 
     return (
       <Component className={itemParagraphClass} ref={ref} {...props}>
