@@ -83,11 +83,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/collaboration/documents/content-injection',
           tags: ['Team'],
         },
-        {
-          title: 'Semantic Search',
-          href: '/collaboration/documents/semantic-search',
-          beta: true,
-        },
       ],
     },
     {

@@ -53,10 +53,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/getting-started/overview',
           title: 'Pages',
         },
-        {
-          href: '/collaboration/documents/semantic-search',
-          title: 'Semantic Search',
-        },
       ],
     },
     {
