@@ -97,8 +97,9 @@ Before creating the helper functions, configure the following environment variab
 - **TIPTAP_CLOUD_AI_API_URL**: The base URL for the Server AI Toolkit API.
 - **TIPTAP_CLOUD_AI_SECRET**: Your secret key for authenticating with the Server AI Toolkit API. Used to generate JWT tokens.
 - **TIPTAP_CLOUD_AI_APP_ID**: Your App ID for the Server AI Toolkit API.
-- **TIPTAP_CLOUD_APP_ID**: Your Tiptap Cloud App ID for collaboration and document management.
-- **TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET**: Your REST API secret for accessing Tiptap Cloud's document management API
+- **TIPTAP_CLOUD_DOCUMENT_SERVER_ID**: Your Tiptap Cloud Document Server ID. Included as the `experimental_document_server_id` JWT claim so the Server AI Toolkit can fetch and save documents automatically.
+- **TIPTAP_CLOUD_SECRET**: The secret of the Tiptap Cloud Document Server.
+- **TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET**: Your Document Server management API secret. Included as the `experimental_document_server_management_api_secret` JWT claim for document access.
 
 Create a `.env` file in your project root with these variables:
 
@@ -107,26 +108,12 @@ Create a `.env` file in your project root with these variables:
 TIPTAP_CLOUD_AI_API_URL=https://api.tiptap.dev/v3/ai
 TIPTAP_CLOUD_AI_SECRET=your-secret-key
 TIPTAP_CLOUD_AI_APP_ID=your-app-id
-TIPTAP_CLOUD_APP_ID=your-tiptap-cloud-app-id
-TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET=your-document-management-api-secret
+TIPTAP_CLOUD_DOCUMENT_SERVER_ID=your-tiptap-cloud-document-server-id
+TIPTAP_CLOUD_SECRET=your-tiptap-cloud-document-server-secret
+TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET=your-tiptap-cloud-document-management-api-secret
 ```
 
 Get your App ID and secret key on the [Server AI Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page. The secret key is used to generate JWT tokens for authentication.
-
-<Callout title="Tiptap Cloud integration" variant="info">
-  This implementation uses Tiptap Cloud's REST API to manage document state. You'll need a Tiptap
-  Cloud account and the REST API secret to store and retrieve documents. The document ID is used to
-  track the document state across tool executions.
-</Callout>
-
-<Callout title="Approach with Tiptap Cloud documents" variant="info">
-  The Server AI Toolkit can now fetch and save Tiptap Cloud documents automatically when you
-  provide a `documentId` via `experimental_documentOptions`. This eliminates the need for the
-  `getDocument` and `updateDocument` helper functions shown below. See the
-  [comments guide](/content-ai/capabilities/server-ai-toolkit/agents/comments).
-
-  The tutorial below shows how to provide and manage the document yourself.
-</Callout>
 
 ### Helper functions
 
@@ -150,9 +137,9 @@ export function getTiptapCloudAiJwtToken(): string {
   }
 
   const payload = {
-    // Optional: Include these claims to use Tiptap Cloud documents
-    // experimental_document_app_id: process.env.TIPTAP_CLOUD_APP_ID,
-    // experimental_document_secret: process.env.TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET,
+    // Document Server credentials for automatic document fetching/saving
+    experimental_document_server_id: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID,
+    experimental_document_server_management_api_secret: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
   }
 
   return jwt.sign(payload, secret, { expiresIn: '1h' })
@@ -248,7 +235,7 @@ export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Pr
 
 ### Execute tool
 
-This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, current document state, and schema awareness data to the API, which processes the tool execution and returns the result along with an updated document if the tool modified it.
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and schema awareness data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
 
 ```ts
 // lib/server-ai-toolkit/execute-tool.ts
@@ -260,9 +247,9 @@ import { getTiptapCloudAiJwtToken } from './get-tiptap-cloud-ai-jwt-token'
 export async function executeTool(
   toolName: string,
   input: unknown,
-  document: unknown,
+  documentId: string,
   schemaAwarenessData: unknown,
-): Promise<{ output: unknown; docChanged: boolean; document?: unknown }> {
+): Promise<{ output: unknown; docChanged: boolean }> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev/v3/ai'
   const appId = process.env.TIPTAP_CLOUD_AI_APP_ID
 
@@ -280,7 +267,7 @@ export async function executeTool(
     body: JSON.stringify({
       toolName,
       input,
-      document,
+      experimental_documentOptions: { documentId },
       schemaAwarenessData,
     }),
   })
@@ -293,114 +280,6 @@ export async function executeTool(
 }
 ```
 
-### Get document
-
-This function retrieves the current document state from Tiptap Cloud's REST API using the document ID. It's called before each tool execution to ensure the tool operates on the latest version of the document, preventing conflicts with concurrent edits.
-
-```ts
-// lib/server-ai-toolkit/get-document.ts
-/**
- * Retrieves a document from Tiptap Collaboration REST API
- */
-export async function getDocument(documentId: string): Promise<unknown> {
-  const tiptapCloudAppId = process.env.TIPTAP_CLOUD_APP_ID
-  const documentManagementApiSecret = process.env.TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET
-
-  if (!tiptapCloudAppId) {
-    throw new Error('Missing TIPTAP_CLOUD_APP_ID')
-  }
-
-  if (!documentManagementApiSecret) {
-    throw new Error('Missing TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET')
-  }
-
-  const collabUrl = `https://${tiptapCloudAppId}.collab.tiptap.cloud/api/documents/${encodeURIComponent(
-    documentId,
-  )}?format=json`
-
-  const response = await fetch(collabUrl, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: documentManagementApiSecret,
-    },
-  })
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error(`Document ${documentId} not found`)
-    }
-    throw new Error(`Failed to retrieve document: ${response.status} ${response.statusText}`)
-  }
-
-  return response.json()
-}
-```
-
-### Update document
-
-This function updates the document state in Tiptap Cloud's REST API after a tool execution has modified it. It attempts to patch the existing document, and if the document doesn't exist (404), it creates a new one. This ensures the document state is persisted and synchronized across all clients.
-
-```ts
-// lib/server-ai-toolkit/update-document.ts
-/**
- * Updates a document in Tiptap Collaboration REST API
- */
-export async function updateDocument(documentId: string, document: unknown): Promise<void> {
-  const tiptapCloudAppId = process.env.TIPTAP_CLOUD_APP_ID
-  const documentManagementApiSecret = process.env.TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET
-
-  if (!tiptapCloudAppId) {
-    console.warn('Missing TIPTAP_CLOUD_APP_ID, skipping update')
-    return
-  }
-
-  if (!documentManagementApiSecret) {
-    console.warn('Missing TIPTAP_CLOUD_DOCUMENT_MANAGEMENT_API_SECRET, skipping update')
-    return
-  }
-
-  const collabUrl = `https://${tiptapCloudAppId}.collab.tiptap.cloud/api/documents/${encodeURIComponent(
-    documentId,
-  )}?format=json`
-
-  try {
-    const response = await fetch(collabUrl, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: documentManagementApiSecret,
-      },
-      body: JSON.stringify(document),
-    })
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        // Document doesn't exist, try to create it
-        const createResponse = await fetch(collabUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: documentManagementApiSecret,
-          },
-          body: JSON.stringify(document),
-        })
-
-        if (!createResponse.ok) {
-          console.error(
-            `Failed to create document: ${createResponse.status} ${createResponse.statusText}`,
-          )
-        }
-      } else {
-        console.error(`Failed to update document: ${response.status} ${response.statusText}`)
-      }
-    }
-  } catch (error) {
-    console.error('Error updating document:', error)
-  }
-}
-```
-
 Now create the main API route:
 
 ```ts
@@ -409,10 +288,8 @@ import { openai } from '@ai-sdk/openai'
 import { createAgentUIStreamResponse, ToolLoopAgent, tool, type UIMessage } from 'ai'
 import z from 'zod'
 import { executeTool } from '@/lib/server-ai-toolkit/execute-tool'
-import { getDocument } from '@/lib/server-ai-toolkit/get-document'
 import { getSchemaAwarenessPrompt } from '@/lib/server-ai-toolkit/get-schema-awareness-prompt'
 import { getToolDefinitions } from '@/lib/server-ai-toolkit/get-tool-definitions'
-import { updateDocument } from '@/lib/server-ai-toolkit/update-document'
 
 export async function POST(req: Request) {
   const {
@@ -440,16 +317,7 @@ export async function POST(req: Request) {
         inputSchema: z.fromJSONSchema(toolDef.inputSchema),
         execute: async (input) => {
           try {
-            // Get the latest version of the document before executing the tool
-            const document = await getDocument(documentId)
-
-            const result = await executeTool(toolDef.name, input, document, schemaAwarenessData)
-
-            // Update the document after executing the tool if it changed
-            if (result.docChanged && result.document && documentId) {
-              await updateDocument(documentId, result.document)
-            }
-
+            const result = await executeTool(toolDef.name, input, documentId, schemaAwarenessData)
             return result.output
           } catch (error) {
             console.error(`Failed to execute tool ${toolDef.name}:`, error)
@@ -499,7 +367,7 @@ First, create a server action to generate JWT tokens for Tiptap Cloud collaborat
 import jwt from 'jsonwebtoken'
 
 const TIPTAP_CLOUD_SECRET = process.env.TIPTAP_CLOUD_SECRET
-const TIPTAP_CLOUD_APP_ID = process.env.TIPTAP_CLOUD_APP_ID
+const TIPTAP_CLOUD_DOCUMENT_SERVER_ID = process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID
 
 export async function getCollabConfig(
   userId: string,
@@ -509,8 +377,8 @@ export async function getCollabConfig(
     throw new Error('TIPTAP_CLOUD_SECRET environment variable is not set')
   }
 
-  if (!TIPTAP_CLOUD_APP_ID) {
-    throw new Error('TIPTAP_CLOUD_APP_ID environment variable is not set')
+  if (!TIPTAP_CLOUD_DOCUMENT_SERVER_ID) {
+    throw new Error('TIPTAP_CLOUD_DOCUMENT_SERVER_ID environment variable is not set')
   }
 
   const payload = {
@@ -520,7 +388,7 @@ export async function getCollabConfig(
 
   const token = jwt.sign(payload, TIPTAP_CLOUD_SECRET, { expiresIn: '1h' })
 
-  return { token, appId: TIPTAP_CLOUD_APP_ID }
+  return { token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID }
 }
 ```
 
@@ -640,9 +508,17 @@ export default function Page() {
 ```
 
 <Callout title="Document state management" variant="info">
-  This implementation uses a `documentId` instead of passing the document directly. The document
-  state is managed server-side via Tiptap Cloud's REST API, which ensures consistency across tool
-  executions. The client uses Tiptap Collaboration to sync changes in real-time.
+  This implementation passes a `documentId` via `experimental_documentOptions` so the Server AI
+  Toolkit automatically fetches and saves the document from Tiptap Cloud. The client uses Tiptap
+  Collaboration to sync changes in real-time.
+</Callout>
+
+<Callout title="Alternative: provide the document directly" variant="info">
+  Instead of using Tiptap Cloud documents, you can provide and manage the document yourself by
+  passing a `document` field (instead of `experimental_documentOptions`) in the execute-tool
+  request body. With this approach, you need to fetch the document before each tool execution
+  and save the updated document when `result.docChanged` is `true`.
+  See the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
 </Callout>
 
 ## End result
