@@ -10,7 +10,6 @@ export type EnterpriseCalloutAutoProps = {
     | 'ai-agent'
     | 'ai-toolkit'
     | 'server-ai-toolkit'
-    | 'semantic-search'
     | 'docx'
     | 'deprecated'
   renderMode?: 'inline' | 'sidebar'
