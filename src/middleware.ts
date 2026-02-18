@@ -52,9 +52,12 @@ export function middleware(request: NextRequest) {
   }
 
   // Rewrite to the markdown API route
+  // Use nextUrl.clone() to preserve basePath (e.g. /docs)
   // Pass the content path via header since rewrite query params
   // are not visible to the API route in Next.js
-  const url = new URL('/api/markdown', request.url)
+  const url = request.nextUrl.clone()
+  url.pathname = '/api/markdown'
+  url.search = ''
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-markdown-path', contentPath)
 
