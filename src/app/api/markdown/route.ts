@@ -1,6 +1,6 @@
-import { NextRequest } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { NextRequest } from 'next/server'
 import { processRawMdx } from '@/server/mdxToMarkdown'
 import { FULL_DOMAIN } from '@/utils/constants'
 
@@ -38,9 +38,7 @@ function resolveMdxFile(urlPath: string): string | null {
 export async function GET(request: NextRequest) {
   // Path is passed via header from middleware, or via query param for direct access
   const urlPath =
-    request.headers.get('x-markdown-path') ??
-    request.nextUrl.searchParams.get('path') ??
-    ''
+    request.headers.get('x-markdown-path') ?? request.nextUrl.searchParams.get('path') ?? ''
 
   // Prevent path traversal
   const normalizedPath = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, '')
