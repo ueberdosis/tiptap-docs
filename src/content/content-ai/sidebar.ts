@@ -222,6 +222,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
                 },
                 {
+                  title: 'Review options',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/review-options',
+                },
+                {
                   title: 'Display suggestions',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
                 },
