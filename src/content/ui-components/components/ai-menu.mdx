@@ -119,7 +119,7 @@ const AiEditor = ({ aiToken }: { aiToken: string }) => {
     ],
     content: `
 <p>Today, we're exploring how AI is transforming creative workflows. From writing assistance to intelligent summarization, the tools at our fingertips are evolving fast. But how do we use them responsibly?</p>
-<p>In this article, we’ll look at real-world examples of AI enhancing—not replacing—human creativity.</p>
+<p>In this article, we'll look at real-world examples of AI enhancing—not replacing—human creativity.</p>
         `,
   })
 
@@ -134,7 +134,7 @@ const AiEditor = ({ aiToken }: { aiToken: string }) => {
       </div>
 
       <EditorContent editor={editor} role="presentation" className="control-showcase">
-        <AiMenu />
+        <AiMenu anchorToSelection />
       </EditorContent>
     </EditorContext.Provider>
   )
@@ -143,9 +143,10 @@ const AiEditor = ({ aiToken }: { aiToken: string }) => {
 
 #### Props
 
-| Name     | Type             | Default     | Description                |
-| -------- | ---------------- | ----------- | -------------------------- |
-| `editor` | `Editor \| null` | `undefined` | The Tiptap editor instance |
+| Name                | Type             | Default     | Description                                                                                                               |
+| ------------------- | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `editor`            | `Editor \| null` | `undefined` | The Tiptap editor instance                                                                                                |
+| `anchorToSelection` | `boolean`        | `false`     | When `true`, anchors the menu to the current text selection spanning the full editor width, with dynamic scroll tracking. |
 
 ### `<AiMenuStateProvider />`
 
@@ -167,9 +168,10 @@ The main content component that renders the AI menu interface.
 
 #### Props
 
-| Name     | Type             | Default     | Description                |
-| -------- | ---------------- | ----------- | -------------------------- |
-| `editor` | `Editor \| null` | `undefined` | The Tiptap editor instance |
+| Name                | Type             | Default     | Description                                                                                                               |
+| ------------------- | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `editor`            | `Editor \| null` | `undefined` | The Tiptap editor instance                                                                                                |
+| `anchorToSelection` | `boolean`        | `false`     | When `true`, anchors the menu to the current text selection spanning the full editor width, with dynamic scroll tracking. |
 
 ## Hooks
 
@@ -212,7 +214,7 @@ function MyComponent() {
 
 ### `useAiContentTracker()`
 
-Hook to track AI-generated content changes in the editor.
+Hook to track AI-generated content changes in the editor. Supports two positioning modes: a **streaming mode** (when `anchorToSelection` is `true` and AI is loading) that uses a `ResizeObserver` to continuously reposition the anchor as content streams in, and a **static mode** that creates a scroll-aware virtual anchor at the AI element's position.
 
 #### Usage
 
@@ -222,19 +224,29 @@ import { useAiContentTracker } from '@/components/tiptap-ui/ai-menu'
 function MyComponent() {
   const { editor } = useTiptapEditor()
 
-  useAiContentTracker(editor, {
-    onContentChange: (hasAiContent) => {
-      console.log('AI content detected:', hasAiContent)
-    },
+  useAiContentTracker({
+    editor,
+    aiGenerationActive: true,
+    setAnchorElement: (el) => store.setAnchorElement(el),
+    anchorToSelection: true,
   })
 
   return <div>Component with AI content tracking</div>
 }
 ```
 
+#### Parameters
+
+| Name                 | Type                             | Default | Description                                                                 |
+| -------------------- | -------------------------------- | ------- | --------------------------------------------------------------------------- |
+| `editor`             | `Editor \| null`                 | —       | The Tiptap editor instance                                                  |
+| `aiGenerationActive` | `boolean`                        | —       | Whether AI generation is currently active                                   |
+| `setAnchorElement`   | `(element: HTMLElement) => void` | —       | Callback to set the floating menu's anchor element                          |
+| `anchorToSelection`  | `boolean`                        | `false` | Use editor-width virtual anchors with scroll tracking and streaming support |
+
 ### `useTextSelectionTracker()`
 
-Hook to track text selection changes for menu positioning.
+Hook to track text selection changes for menu positioning. When `anchorToSelection` is `true`, creates editor-width virtual anchors at the selection's vertical position instead of using the raw selected DOM element.
 
 #### Usage
 
@@ -244,15 +256,29 @@ import { useTextSelectionTracker } from '@/components/tiptap-ui/ai-menu'
 function MyComponent() {
   const { editor } = useTiptapEditor()
 
-  useTextSelectionTracker(editor, {
-    onSelectionChange: (selection) => {
-      console.log('Selection changed:', selection)
-    },
+  useTextSelectionTracker({
+    editor,
+    aiGenerationActive: true,
+    showMenuAtElement: (el) => show(el),
+    setMenuVisible: (visible) => updateState({ isOpen: visible }),
+    anchorToSelection: true,
   })
 
   return <div>Component with selection tracking</div>
 }
 ```
+
+#### Parameters
+
+| Name                 | Type                                                            | Default | Description                                                           |
+| -------------------- | --------------------------------------------------------------- | ------- | --------------------------------------------------------------------- |
+| `editor`             | `Editor \| null`                                                | —       | The Tiptap editor instance                                            |
+| `aiGenerationActive` | `boolean`                                                       | —       | Whether AI generation is currently active                             |
+| `showMenuAtElement`  | `(element: HTMLElement) => void`                                | —       | Callback to show the menu at a given element                          |
+| `setMenuVisible`     | `(visible: boolean) => void`                                    | —       | Callback to toggle menu visibility                                    |
+| `onSelectionChange`  | `(element: HTMLElement \| null, rect: DOMRect \| null) => void` | —       | Optional callback when selection changes                              |
+| `prevent`            | `boolean`                                                       | `false` | Prevents tracking when `true`                                         |
+| `anchorToSelection`  | `boolean`                                                       | `false` | Use editor-width virtual anchors at the selection's vertical position |
 
 ## Sub-Components
 
@@ -353,6 +379,57 @@ const targetElement = findPrioritizedAIElement(editor)
 if (targetElement) {
   // Position menu relative to this element
 }
+```
+
+### `getSelectionRangeRect(editor)`
+
+Gets the bounding rect of the current text selection using the browser's Selection API, with a ProseMirror coordinate fallback. Returns `null` if the selection is empty.
+
+```tsx
+import { getSelectionRangeRect } from '@/components/tiptap-ui/ai-menu'
+
+const rect = getSelectionRangeRect(editor)
+if (rect) {
+  // Use rect for positioning
+}
+```
+
+### `createEditorWidthAnchorRect(editorDom, sourceRect)`
+
+Creates a full-width anchor `DOMRect` spanning the editor's content area (excluding padding and border) at the vertical position of the given source rect.
+
+```tsx
+import { createEditorWidthAnchorRect } from '@/components/tiptap-ui/ai-menu'
+
+const selectionRect = getSelectionRangeRect(editor)
+if (selectionRect) {
+  const anchorRect = createEditorWidthAnchorRect(editor.view.dom, selectionRect)
+  // anchorRect spans the full editor content width at the selection's vertical position
+}
+```
+
+### `createVirtualAnchor(rect, referenceElement?)`
+
+Creates a virtual anchor element that reports a bounding rect via `getBoundingClientRect()`. When a `referenceElement` is provided, the anchor stores offsets relative to the reference and dynamically recomputes viewport coordinates on each call, enabling scroll-aware positioning.
+
+```tsx
+import { createVirtualAnchor, createEditorWidthAnchorRect } from '@/components/tiptap-ui/ai-menu'
+
+const anchorRect = createEditorWidthAnchorRect(editor.view.dom, selectionRect)
+const anchor = createVirtualAnchor(anchorRect, editor.view.dom)
+
+// The anchor's getBoundingClientRect() will update as the editor scrolls
+store.setAnchorElement(anchor)
+```
+
+### `getEditorContentRect(editorDom)`
+
+Computes the content-area rect of the editor element, excluding padding and border. Returns an object with `left` and `width` properties.
+
+```tsx
+import { getEditorContentRect } from '@/components/tiptap-ui/ai-menu'
+
+const { left, width } = getEditorContentRect(editor.view.dom)
 ```
 
 ## AI Actions
