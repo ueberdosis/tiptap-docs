@@ -26,9 +26,45 @@ For production, always create JWTs **server-side** to keep your secret safe.
 --header 'X-App-Id: YOUR_APP_ID'
 ```
 
+### Document Server credentials
+
+Include Document Server credentials as JWT claims to let the Server AI Toolkit fetch and save documents from Tiptap Cloud automatically.
+
+- `experimental_document_server_id`: Your Tiptap Cloud Document Server ID
+- `experimental_document_server_management_api_secret`: Your Document Server management API secret
+
+```ts
+import jwt from 'jsonwebtoken'
+
+const JWT_TOKEN = jwt.sign(
+  {
+    experimental_document_server_id: 'your-document-server-id',
+    experimental_document_server_management_api_secret: 'your-document-server-management-api-secret',
+  },
+  'your-ai-secret-key',
+  { expiresIn: '1h' },
+)
+```
+
+The **AI secret** (used to sign the JWT) authenticates your requests with the Server AI Toolkit API. The **Document Server credentials** (`experimental_document_server_id` and `experimental_document_server_management_api_secret`) authorize the Server AI Toolkit to fetch and save documents on your behalf. Both are available on the [Tiptap Cloud dashboard](https://cloud.tiptap.dev).
+
 ## Base URL
 
 In the examples, `BASE_URL` is the base URL of the Tiptap Cloud AI service. The base URL of the Tiptap Cloud AI service is `https://api.tiptap.dev`. For on-premises deployments, this URL will be different.
+
+## How to provide the document
+
+There are two ways to provide a document when executing tools or workflows:
+
+**Use a Tiptap Cloud document (recommended)** — Include `experimental_documentOptions` with a `documentId` in the request body. The server automatically fetches the document from the Tiptap Document Server, processes it, and saves changes back. This requires Document Server credentials in your JWT claims (see [above](#document-server-credentials)).
+
+**Pass it directly** — Include the `document` field in the request body with your Tiptap JSON document. The server processes it and returns the modified document in the response.
+
+You must provide exactly one: either `experimental_documentOptions` or `document`. Providing both or neither will return a validation error.
+
+<Callout title="Thread tools require a Tiptap Cloud document" variant="info">
+  The `getThreads` and `editThreads` tools always require `experimental_documentOptions`.
+</Callout>
 
 ## Get tool definitions
 
@@ -111,6 +147,27 @@ POST /v3/ai/toolkit/execute-tool
 
 ### Request
 
+**Using a Tiptap Cloud document (recommended)** — JWT must include `experimental_document_server_id` and `experimental_document_server_management_api_secret` claims:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+--header 'X-App-Id: YOUR_APP_ID' \
+--data '{
+    "toolName": "tiptapRead",
+    "input": { /* tool input */ },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id"
+    },
+    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
+    "chunkSize": 1000,
+    "format": "json"
+}'
+```
+
+**Passing the document directly:**
+
 ```curl
 curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
 --header 'Content-Type: application/json' \
@@ -131,10 +188,19 @@ curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' \
 - `toolName` (`string`, required): The name of the tool to execute. Must be one of:
   - `"tiptapRead"`: Read part of the document using an efficient format
   - `"tiptapEdit"`: Edit the document using an efficient format
+  - `"getThreads"`: Retrieve all threads and comments in the document
+  - `"editThreads"`: Perform operations on threads and comments
 - `input` (`any`, required): The input parameters for the tool, as defined by the tool's input schema. The input format is optimized for efficient reading and editing operations.
-- `document` (`object`, required): The Tiptap JSON document to operate on
+- `experimental_documentOptions` (`object`, conditional): Use this to reference a Tiptap Cloud document by ID. The server fetches and saves the document automatically. Mutually exclusive with `document`.
+  - `documentId` (`string`, required): The ID of the document on the Document Server
+  - `userId` (`string`, optional): User ID for attributing thread/comment authorship
+- `document` (`object`, conditional): The Tiptap JSON document to operate on. Pass this when providing your own document. Mutually exclusive with `experimental_documentOptions`.
+- `experimental_commentsOptions` (`object`, optional): Metadata for thread/comment operations.
+  - `threadData` (`Record<string, any>`, optional): Metadata attached to new threads
+  - `commentData` (`Record<string, any>`, optional): Metadata attached to new comments
 - `schemaAwarenessData` (`SchemaAwarenessData`, required): The schema awareness data obtained from `getSchemaAwarenessData`
 - `chunkSize?` (`number`, optional): The chunk size for reading operations. Default: `1000`
+- `tiptapEditSelectableNodes?` (`string[]`, optional): Custom selectable node types for tiptapEdit operations.
 - `format?` (`string`, optional): The format in which the AI reads and edits the document. Must be one of:
   - `"json"` (default): Standard JSON format
   - `"shorthand"`: Tiptap Shorthand format, which reduces AI token costs by up to 80% compared to standard JSON
@@ -196,7 +262,11 @@ Returns a prompt string that describes the document schema:
 
 If an error occurs, the API will return an error response with an appropriate HTTP status code:
 
-- `400 Bad Request`: Invalid request body or parameters
-- `401 Unauthorized`: Missing or invalid JWT token or App ID
+- `400 Bad Request`: Invalid request body or parameters. This includes:
+  - Missing both `document` and `experimental_documentOptions` (or providing both)
+  - Using `getThreads`/`editThreads` without `experimental_documentOptions`
+  - Providing `experimental_documentOptions` without Document Server credentials in JWT (`missing_document_credentials`)
+- `401 Unauthorized`: Missing or invalid JWT or App ID
 - `404 Not Found`: Tool not found
 - `500 Internal Server Error`: Server error during tool execution
+- `502 Bad Gateway`: Failed to communicate with the Document Server (`document_load_failed`, `document_save_failed`)
