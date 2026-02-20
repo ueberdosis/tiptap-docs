@@ -85,10 +85,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/examples/advanced/interactive-react-and-vue-views',
         },
         {
-          title: 'Retrieval-Augmented Generation (RAG)',
-          href: '/examples/advanced/retrieval-augmented-generation-rag',
-        },
-        {
           title: 'React performance',
           href: '/examples/advanced/react-performance',
         },

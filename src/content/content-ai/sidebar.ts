@@ -52,6 +52,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
                 },
                 {
+                  title: 'Justified changes',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
+                },
+                {
                   title: 'Review as summary',
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
                 },
@@ -127,6 +131,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Comments',
                   href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
                 },
+                {
+                  title: 'Template',
+                  href: '/content-ai/capabilities/ai-toolkit/workflows/template',
+                },
               ],
             },
             {
@@ -160,6 +168,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Tiptap Edit hooks',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/tiptap-edit-hooks',
+                },
+                {
+                  title: 'AI Caret',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret',
                 },
                 {
                   title: 'Migration guides',
@@ -208,6 +220,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Schema awareness',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
+                },
+                {
+                  title: 'Review options',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/review-options',
                 },
                 {
                   title: 'Display suggestions',
@@ -276,6 +292,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'AI agent chatbot',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
+                },
+                {
+                  title: 'Review changes',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/review-changes',
                 },
                 {
                   title: 'Schema awareness',
