@@ -52,8 +52,8 @@ code {
 }
 
 .Prosemirror {
-  background-color: white;
-  color: black;
+  background-color: light-dark(white, black);
+  color: light-dark(black, white);
 }
 
 .toolbar {
@@ -64,9 +64,9 @@ code {
 }
 
 .toolbar--button {
-  background: black;
+  background: light-dark(black, white);
   border-radius: 0.25rem;
-  color: white;
+  color: light-dark(white, black);
   padding: 0.25rem;
 }
 

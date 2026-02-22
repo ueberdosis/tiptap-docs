@@ -187,7 +187,7 @@ export const Search = () => {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black bg-opacity-70 backdrop-blur" />
         <div className="fixed inset-0 z-50 flex items-start justify-center p-5 pointer-events-none">
-          <Dialog.Content className="flex flex-col bg-warmGray rounded-lg p-2 pointer-events-auto w-full max-w-[40rem] max-h-[90%] shadow-xl">
+          <Dialog.Content className="flex flex-col bg-warmGray dark:bg-gray-950 dark:text-white rounded-lg p-2 pointer-events-auto w-full max-w-[40rem] max-h-[90%] shadow-xl">
             {searchOpen ? (
               <SearchWrapper>
                 <SearchContent />
