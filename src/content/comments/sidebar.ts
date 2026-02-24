@@ -37,6 +37,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Configure',
           href: '/comments/core-concepts/configure',
         },
+        {
+          title: 'Thread authentication',
+          href: '/comments/core-concepts/thread-authentication',
+        },
       ],
     },
     {
