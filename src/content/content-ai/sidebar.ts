@@ -174,6 +174,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret',
                 },
                 {
+                  title: 'Non-TypeScript backends',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/non-typescript-backends',
+                },
+                {
                   title: 'Migration guides',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
                   children: [
