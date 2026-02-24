@@ -19,7 +19,7 @@ import { Requirements, RequirementItem } from '@/components/Requirements'
 
 Snapshot Compare lets you line-up two document versions and highlights everything that changed. Use it to track edits, review contributions, and restore earlier states.
 
-The Snapshot Compare extension adds extra functionality to the [Snapshots](/collaboration/documents/snapshot) by allowing you to visually compare changes made between two versions of a document so you can track what’s been added, removed, or modified. These comparisons are called _diffs_.
+The Snapshot Compare extension adds extra functionality to the [Snapshots](/collaboration/documents/snapshot) by allowing you to visually compare changes made between two versions of a document so you can track what's been added, removed, or modified. These comparisons are called _diffs_.
 
 <Requirements>
   <RequirementItem label="1. Activate trial or subscribe">
@@ -32,7 +32,7 @@ The Snapshot Compare extension adds extra functionality to the [Snapshots](/coll
     server](https://cloud.tiptap.dev/v2/configuration/document-server).
   </RequirementItem>
   <RequirementItem label="3. Install from private registry">
-    To install this extension, authenticate to Tiptap’s private npm registry by following the [setup
+    To install this extension, authenticate to Tiptap's private npm registry by following the [setup
     guide](/guides/pro-extensions).
   </RequirementItem>
 </Requirements>
@@ -41,7 +41,7 @@ The Snapshot Compare extension adds extra functionality to the [Snapshots](/coll
 
 ## Access the private registry
 
-The Snapshot Compare extension is published in Tiptap’s private npm registry. Integrate the extension by following the [private registry guide](/guides/pro-extensions). If you already authenticated your Tiptap account you can go straight to [#Install](#install).
+The Snapshot Compare extension is published in Tiptap's private npm registry. Integrate the extension by following the [private registry guide](/guides/pro-extensions). If you already authenticated your Tiptap account you can go straight to [#Install](#install).
 
 ## Install
 
@@ -55,10 +55,11 @@ npm install @tiptap-pro/extension-snapshot-compare
 
 You can configure the `SnapshotCompare` extension with the following options:
 
-| Setting              | Type                   | Default    | Description                                                       |
-| -------------------- | ---------------------- | ---------- | ----------------------------------------------------------------- |
-| provider             | `TiptapCollabProvider` | `null`     | The Collaboration provider instance                               |
-| mapDiffToDecorations | `function`             | `() => {}` | Control mapping a diff into a decoration to display their content |
+| Setting              | Type                   | Default     | Description                                                       |
+| -------------------- | ---------------------- | ----------- | ----------------------------------------------------------------- |
+| provider             | `TiptapCollabProvider` | `null`      | The Collaboration provider instance                               |
+| mapDiffToDecorations | `function`             | `undefined` | Control mapping a diff into a decoration to display their content |
+| transformDiffs       | `function`             | `undefined` | Transform diffs before they are used for rendering decorations    |
 
 Note that you need to provide the `user` identifier to the `TiptapCollabProvider`, as this information is used to optimize diffs.
 
@@ -91,18 +92,20 @@ SnapshotCompare.configure({
   mapDiffToDecorations: ({ diff, tr, editor, defaultMapDiffToDecorations }) => {
     if (diff.type === 'inline-insert') {
       // return ProseMirror decoration(s) or null
-      return Decoration.inline(
-        diff.from,
-        diff.to,
-        {
-          class: 'diff',
-          style: {
-            backgroundColor: diff.attribution.color.backgroundColor,
+      return [
+        Decoration.inline(
+          diff.from,
+          diff.to,
+          {
+            class: 'diff',
+            style: diff.attribution.color?.backgroundColor
+              ? `background-color: ${diff.attribution.color.backgroundColor}`
+              : undefined,
           },
-        },
-        // pass the diff as the decoration's spec, this is required for `extractAttributeChanges`
-        { diff },
-      )
+          // pass the diff as the decoration's spec, this is required for `extractAttributeChanges`
+          { diff },
+        ),
+      ]
     }
 
     // fallback to the default mapping
@@ -119,15 +122,30 @@ SnapshotCompare.configure({
 })
 ```
 
+#### Using `transformDiffs` to filter or modify diffs
+
+Use the `transformDiffs` option to filter or modify diffs before they are rendered as decorations.
+
+```ts
+SnapshotCompare.configure({
+  provider,
+  transformDiffs: (diffs) => {
+    // Filter out diffs from a specific user
+    return diffs.filter((diff) => diff.attribution.userId !== 'bot-user')
+  },
+})
+```
+
 ## Storage
 
 The `SnapshotCompare` storage object contains the following properties:
 
-| Key             | Type                  | Description                                   |
-| --------------- | --------------------- | --------------------------------------------- |
-| isPreviewing    | `boolean`             | Indicates whether the diff view is active     |
-| diffs           | `Diff[]`              | The diffs that are displayed in the diff view |
-| previousContent | `JSONContent \| null` | The content before the diff view was applied  |
+| Key             | Type                              | Description                                      |
+| --------------- | --------------------------------- | ------------------------------------------------ |
+| isPreviewing    | `boolean`                         | Indicates whether the diff view is active        |
+| diffs           | `DiffSet`                         | The diffs that are displayed in the diff view    |
+| previousContent | `JSONContent \| null`             | The content before the diff view was applied     |
+| tr              | `ChangeTrackingTransform \| null` | The change tracking transform that was applied   |
 
 Use the `isPreviewing` property to check if the diff view is currently active:
 
@@ -174,6 +192,8 @@ You can pass in additional options for more control over the diffing process:
 | `hydrateUserData` | Add contextual data to each user's changes                                               |
 | `onCompare`       | Handle the diffing result manually                                                       |
 | `enableDebugging` | Enable verbose logging for troubleshooting                                               |
+| `ignoredMarks`    | Mark types to ignore during diff comparison (default: `['inlineThread']`)                |
+| `ignoredNodes`    | Node types to ignore during diff comparison (default: `['blockThread']`)                 |
 
 #### Using `hydrateUserData` to add metadata
 
@@ -504,7 +524,7 @@ declare module '@tiptap/core' {
       /**
        * Given a change tracking transform, show the diff within the editor
        */
-      showDiff: (tr: ChangeTrackingTransform, options?: { diffs?: DiffSet }) => ReturnType
+      showDiff: (tr: ChangeTrackingTransform<Attribution>, options?: { diffs?: DiffSet }) => ReturnType
       /**
        * Hide the diff and restore the previous content
        */
@@ -513,8 +533,8 @@ declare module '@tiptap/core' {
        * Diffs two versions and renders the diff into the editor
        */
       compareVersions: <
-        T extends Pick<Attribution, 'color'> & Record<string, any> = Pick<Attribution, 'color'> &
-          Record<string, any>,
+        T extends Pick<Attribution, 'color'> & Record<string, unknown> = Pick<Attribution, 'color'> &
+          Record<string, unknown>,
       >(options: {
         /**
          * The version to start the diff from
@@ -571,6 +591,16 @@ declare module '@tiptap/core' {
          * Verbosely log the diffing process to help track down where things went wrong
          */
         enableDebugging?: boolean
+        /**
+         * Mark types to ignore during diff comparison
+         * @default ['inlineThread']
+         */
+        ignoredMarks?: string[]
+        /**
+         * Node types to ignore during diff comparison
+         * @default ['blockThread']
+         */
+        ignoredNodes?: string[]
       }) => ReturnType
     }
   }
@@ -603,6 +633,10 @@ export type SnapshotCompareOptions = {
      */
     defaultMapDiffToDecorations: typeof defaultMapDiffToDecorations
   }) => ReturnType<typeof defaultMapDiffToDecorations>
+  /**
+   * Allows transforming the diffs before they are used for rendering decorations
+   */
+  transformDiffs?: (diffs: DiffSet<Attribution>) => DiffSet<Attribution>
 }
 
 export type SnapshotCompareStorageInactive = {
