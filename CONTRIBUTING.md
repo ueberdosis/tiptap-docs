@@ -13,9 +13,9 @@ To contribute, please follow these steps:
      - `feature/<description>` for new features of the website or new content of the documentation.
 3. **Make Your Changes**: Implement your changes or additions to the documentation.
 4. **Test Your Changes**: Ensure your changes work correctly and do not introduce any issues.
-   - Run the docs locally with the `npm run dev` command. Preview the changes in your browser.
-   - Run the linter with `npm run lint` command.
-5. **Create a Changeset**: Run `npx changeset` to create a new changeset. Select the appropriate change type (patch, minor, or major) and write a meaningful message describing your changes.
+   - Run the docs locally with the `pnpm dev` command. Preview the changes in your browser.
+   - Run the linter with `pnpm lint` command.
+5. **Create a Changeset**: Run `pnpm changeset` to create a new changeset. Select the appropriate change type (patch, minor, or major) and write a meaningful message describing your changes.
 6. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message. We recommend using the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
 7. **Push to Your Fork**: Push your changes to your fork on GitHub.
 8. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. In the pull request, include:
