@@ -401,7 +401,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
+        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
         permanent: true,
       },
       {

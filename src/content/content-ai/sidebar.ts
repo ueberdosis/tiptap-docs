@@ -234,10 +234,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
                 },
                 {
-                  title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
-                },
-                {
                   title: 'Diff utility',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
                 },
