@@ -47,7 +47,9 @@ export type GeneralPageTag = {
     | 'mit'
     | 'business'
     | 'deprecated'
+    | 'version'
   tooltip?: string
+  label?: string
 }
 
 export type ImagePageTag = {

@@ -37,11 +37,15 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const pathname = usePathname()
-  const isActive = link.isActive ?? pathname === link.href
+  const isExactMatch = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
+  const hasActiveChild =
+    link.children?.some((child) => pathname === child.href || pathname.startsWith(child.href)) ??
+    false
+  const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
 
-  const [isOpen, setIsOpen] = useState(isActive || isActiveParent)
+  const [isOpen, setIsOpen] = useState(isActive || isActiveParent || hasActiveChild)
 
   const toggleOpen = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
