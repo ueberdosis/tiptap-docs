@@ -234,5 +234,47 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
+    {
+      type: 'group',
+      href: '/conversion/legacy',
+      title: 'Legacy Import/Export',
+      children: [
+        {
+          title: 'DOCX',
+          href: '/conversion/legacy/overview',
+          tags: ['Deprecated'],
+        },
+        {
+          title: 'ODT',
+          href: '/conversion/legacy/odt/editor-extensions',
+          tags: ['Deprecated'],
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/odt/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/odt/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'Markdown',
+          href: '/conversion/legacy/markdown/editor-extensions',
+          tags: ['Deprecated'],
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/markdown/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/markdown/rest-api',
+            },
+          ],
+        },
+      ],
+    },
   ],
 }
