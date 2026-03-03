@@ -5,7 +5,18 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'server-ai-toolkit' | 'docx' | 'pdf' | 'odt' | 'epub' | 'doc' | 'markdown' | 'deprecated'
+  variant:
+    | 'migration'
+    | 'ai-agent'
+    | 'ai-toolkit'
+    | 'server-ai-toolkit'
+    | 'docx'
+    | 'pdf'
+    | 'odt'
+    | 'epub'
+    | 'doc'
+    | 'markdown'
+    | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
   inverted?: boolean
