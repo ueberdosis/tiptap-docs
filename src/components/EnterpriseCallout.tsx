@@ -5,7 +5,7 @@ import { Button } from './ui/Button'
 import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
-  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'server-ai-toolkit' | 'docx' | 'deprecated'
+  variant: 'migration' | 'ai-agent' | 'ai-toolkit' | 'server-ai-toolkit' | 'docx' | 'pdf' | 'odt' | 'epub' | 'doc' | 'markdown' | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
   inverted?: boolean
@@ -43,6 +43,36 @@ const VARIANT_CONFIG: Record<
     title: 'Ship DOCX faster with expert support',
     description:
       'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOCX into your enterprise application.',
+    showWaitlist: true,
+  },
+  pdf: {
+    title: 'Ship PDF export faster with expert support',
+    description:
+      'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate PDF export into your enterprise application.',
+    showWaitlist: true,
+  },
+  odt: {
+    title: 'Ship ODT export faster with expert support',
+    description:
+      'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate ODT export into your enterprise application.',
+    showWaitlist: true,
+  },
+  epub: {
+    title: 'Ship EPUB export faster with expert support',
+    description:
+      'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate EPUB export into your enterprise application.',
+    showWaitlist: true,
+  },
+  doc: {
+    title: 'Ship DOC export faster with expert support',
+    description:
+      'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate DOC export into your enterprise application.',
+    showWaitlist: true,
+  },
+  markdown: {
+    title: 'Ship Markdown conversion faster with expert support',
+    description:
+      'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate Markdown conversion into your enterprise application.',
     showWaitlist: true,
   },
   deprecated: {
