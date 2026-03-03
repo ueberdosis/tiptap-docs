@@ -57,7 +57,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/guides/offline-support',
           title: 'Offline Collaboration',
         },
-{
+        {
           href: '/guides/upgrade-tiptap-v1',
           title: 'Upgrade Tiptap V1',
         },
