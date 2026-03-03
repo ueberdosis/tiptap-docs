@@ -24,20 +24,16 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/import',
       title: 'Import',
+      tags: ['Start'],
       children: [
         {
           title: 'DOCX',
-          href: '/conversion/import/docx/rest-api',
+          href: '/conversion/import/docx/editor-import',
           beta: true,
-          tags: ['Start'],
           children: [
             {
               title: 'Editor extension',
               href: '/conversion/import/docx/editor-import',
-            },
-            {
-              title: 'REST API',
-              href: '/conversion/import/docx/rest-api',
             },
             {
               title: 'Convert custom nodes',
@@ -51,13 +47,16 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Preserve images',
               href: '/conversion/import/docx/preserve-images',
             },
+            {
+              title: 'REST API',
+              href: '/conversion/import/docx/rest-api',
+            },
           ],
         },
         {
           title: 'Markdown',
           href: '/conversion/import/markdown/rest-api',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'REST API',
@@ -71,20 +70,16 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/export',
       title: 'Export',
+      tags: ['Start'],
       children: [
         {
           title: 'DOCX',
-          href: '/conversion/export/docx/rest-api',
+          href: '/conversion/export/docx/editor-export',
           beta: true,
-          tags: ['Start'],
           children: [
             {
               title: 'Editor extension',
               href: '/conversion/export/docx/editor-export',
-            },
-            {
-              title: 'REST API',
-              href: '/conversion/export/docx/rest-api',
             },
             {
               title: 'Headers & Footers',
@@ -102,13 +97,16 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Export styles',
               href: '/conversion/export/docx/export-styles',
             },
+            {
+              title: 'REST API',
+              href: '/conversion/export/docx/rest-api',
+            },
           ],
         },
         {
           title: 'PDF',
-          href: '/conversion/export/pdf/rest-api',
+          href: '/conversion/export/pdf/editor-export',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'Editor extension',
@@ -134,9 +132,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'ODT',
-          href: '/conversion/export/odt/rest-api',
+          href: '/conversion/export/odt/editor-export',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'Editor extension',
@@ -162,9 +159,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'EPUB',
-          href: '/conversion/export/epub/rest-api',
+          href: '/conversion/export/epub/editor-export',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'Editor extension',
@@ -190,9 +186,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'DOC',
-          href: '/conversion/export/doc/rest-api',
+          href: '/conversion/export/doc/editor-export',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'Editor extension',
@@ -218,9 +213,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Markdown',
-          href: '/conversion/export/markdown/rest-api',
+          href: '/conversion/export/markdown/editor-export',
           beta: true,
-          tags: ['Start', 'New'],
           children: [
             {
               title: 'Editor extension',
