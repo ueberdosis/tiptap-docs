@@ -76,7 +76,14 @@ export default function PrevNextTiles({ config, currentPath, isFullWidth }: Prop
 
   const normalizedCurrent = normalize(currentPath)
   const links = flatten(config.items).filter((l) => !!l.href && !l.external)
-  const normalizedLinks = links.map((l) => ({ ...l, _norm: normalize(l.href) }))
+  const seen = new Set<string>()
+  const deduped = links.filter((l) => {
+    const norm = normalize(l.href)
+    if (seen.has(norm)) return false
+    seen.add(norm)
+    return true
+  })
+  const normalizedLinks = deduped.map((l) => ({ ...l, _norm: normalize(l.href) }))
 
   const idx = normalizedLinks.findIndex((l) => l._norm === normalizedCurrent)
 
