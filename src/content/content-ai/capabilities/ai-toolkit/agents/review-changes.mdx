@@ -31,11 +31,11 @@ const result = toolkit.executeTool({
 })
 ```
 
-After executing the tool, several **suggestions** will be displayed inside the editor. Each suggestion represents a change that the AI model wants to make to the document.
+After executing the tool, several **suggestions** will be displayed inside the editor. Each suggestion represents a change that the AI model made to the document.
 
-Before continuing the conversation, the AI agent has to wait for the user to review the changes. So if the tool call modifies the document, then `addtoolOutput` should not be called immediately, and instead a review UI should be displayed.
+You can keep the conversation going while users review suggestions. Call `addToolOutput` immediately after each tool call, and show the review UI in parallel.
 
-Edit the code so that the chatbot stops and waits for the user to review the changes:
+Edit the code so that the chatbot continues running while showing a review UI:
 
 ```tsx
 const [reviewState, setReviewState] = useState({
@@ -49,7 +49,7 @@ const [reviewState, setReviewState] = useState({
   userFeedback: [] as SuggestionFeedbackEvent[],
 })
 
-const { messages, sendMessage, addtoolOutput } = useChat({
+const { messages, sendMessage, addToolOutput } = useChat({
   transport: new DefaultChatTransport({ api: '/api/chat' }),
   sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   async onToolCall({ toolCall }) {
@@ -67,9 +67,11 @@ const { messages, sendMessage, addtoolOutput } = useChat({
       },
     })
 
-    // If the tool call modifies the document, stop and display a review UI
+    // Continue the conversation right away
+    addToolOutput({ tool: toolName, toolCallId, output: result.output })
+
+    // If the tool call modifies the document, also show a review UI
     if (result.docChanged) {
-      // Show the review UI
       setReviewState({
         isReviewing: true,
         tool: toolName,
@@ -77,9 +79,6 @@ const { messages, sendMessage, addtoolOutput } = useChat({
         output: result.output,
         userFeedback: [],
       })
-    } else {
-      // Continue the conversation
-      addtoolOutput({ tool: toolName, toolCallId, output: result.output })
     }
   },
 })
@@ -372,9 +371,11 @@ export default function Page() {
         },
       })
 
-      // If the tool call modifies the document, halt the conversation and display the review UI
+      // Continue the conversation right away
+      addToolOutput({ tool: toolName, toolCallId, output: result.output })
+
+      // If the tool call modifies the document, also show a review UI
       if (result.docChanged) {
-        // Show the review UI
         setReviewState({
           isReviewing: true,
           tool: toolName,
@@ -382,9 +383,6 @@ export default function Page() {
           output: result.output,
           userFeedback: [],
         })
-      } else {
-        // Continue the conversation
-        addToolOutput({ tool: toolName, toolCallId, output: result.output })
       }
     },
   })
@@ -406,19 +404,17 @@ export default function Page() {
             .join('\n')}
         </div>
       ))}
-      {!reviewState.isReviewing && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (input.trim()) {
-              sendMessage({ text: input })
-              setInput('')
-            }
-          }}
-        >
-          <input value={input} onChange={(e) => setInput(e.target.value)} />
-        </form>
-      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (input.trim()) {
+            sendMessage({ text: input })
+            setInput('')
+          }
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+      </form>
       {reviewState.isReviewing && (
         <div>
           <h2>Reviewing Changes</h2>
@@ -429,18 +425,14 @@ export default function Page() {
               const result = toolkit.acceptAllSuggestions()
               // Combine all feedback events (previous + new)
               const userFeedback = [...reviewState.userFeedback, ...result.aiFeedback.events]
-              let output = reviewState.output
 
               // Add feedback to tool output if there are any changes that were not accepted
               if (userFeedback.length > 0 && userFeedback.some((event) => !event.accepted)) {
-                output += `\n\n<user_feedback>\n${JSON.stringify(userFeedback)}\n</user_feedback>`
+                sendMessage({
+                  text: `\n\n<user_feedback>\n${JSON.stringify(userFeedback)}\n</user_feedback>`,
+                })
               }
 
-              addToolOutput({
-                tool: reviewState.tool,
-                toolCallId: reviewState.toolCallId,
-                output,
-              })
               // Reset feedback events and close review UI
               setReviewState({
                 ...reviewState,
@@ -462,11 +454,7 @@ export default function Page() {
               const rejectionMessage =
                 'Some changes you made were rejected by the user. Ask the user why, and what you can do to improve them.'
               const outputWithFeedback = `${rejectionMessage}\n\n<user_feedback>\n${JSON.stringify(userFeedback)}\n</user_feedback>`
-              addToolOutput({
-                tool: reviewState.tool,
-                toolCallId: reviewState.toolCallId,
-                output: outputWithFeedback,
-              })
+              sendMessage({ text: outputWithFeedback })
               // Reset feedback events and close review UI
               setReviewState({
                 ...reviewState,
@@ -505,7 +493,7 @@ With the `reviewOptions.mode` parameter you can control when the changes are app
 
 See a complete reference of the `reviewOptions` parameter in the [API reference](/content-ai/capabilities/ai-toolkit/api-reference/execute-tool) for the `executeTool` method.
 
-Popular AI agent chatbots like [Cursor](https://www.cursor.com/) call multiple tools in a row and show a summary of all changes after the AI agent has finished all its work. To implement this type of workflow, follow the [Review changes as a summary](/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary) guide.
+Popular AI agent chatbots like [Cursor](https://www.cursor.com/) call multiple tools in a row. You can combine this guide with [Tool streaming](/content-ai/capabilities/ai-toolkit/agents/tool-streaming) to stream operations and keep the assistant responsive while suggestions are reviewed.
 
 ### Customize how suggestions are displayed
 
