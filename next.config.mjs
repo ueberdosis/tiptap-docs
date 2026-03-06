@@ -99,12 +99,37 @@ const nextConfig = {
       },
       {
         source: '/conversion/import-export/odt',
-        destination: '/conversion/import-export/odt/editor-extensions',
+        destination: '/conversion/legacy/odt/editor-extensions',
         permanent: true,
       },
       {
         source: '/conversion/import-export/markdown',
-        destination: '/conversion/import-export/markdown/editor-extensions',
+        destination: '/conversion/legacy/markdown/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/guides/legacy-conversion',
+        destination: '/conversion/legacy/overview',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/odt/editor-extensions',
+        destination: '/conversion/legacy/odt/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/odt/rest-api',
+        destination: '/conversion/legacy/odt/rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/markdown/editor-extensions',
+        destination: '/conversion/legacy/markdown/editor-extensions',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/markdown/rest-api',
+        destination: '/conversion/legacy/markdown/rest-api',
         permanent: true,
       },
       {

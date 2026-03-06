@@ -228,6 +228,14 @@ export const PageHeaderTag = ({
       </Tag>
     )
   }
+
+  if (tag.type === 'version') {
+    return (
+      <Tag variant="gray" tooltip={tag.tooltip}>
+        {tag.label || 'Version'}
+      </Tag>
+    )
+  }
 }
 
 export const PageHeader = {
