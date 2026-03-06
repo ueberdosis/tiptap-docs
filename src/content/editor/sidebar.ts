@@ -368,6 +368,11 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Team'],
             },
             {
+              href: '/editor/extensions/functionality/paste-handler',
+              title: 'Paste Handler',
+              tags: ['Team'],
+            },
+            {
               href: '/editor/extensions/functionality/placeholder',
               title: 'Placeholder',
             },
