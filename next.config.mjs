@@ -327,7 +327,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
         permanent: true,
       },
       {
