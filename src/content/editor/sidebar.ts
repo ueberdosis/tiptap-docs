@@ -406,8 +406,8 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Text align',
             },
             {
-              href: '/editor/extensions/functionality/track-changes',
-              title: 'Track Changes',
+              href: '/editor/extensions/functionality/tracked-changes',
+              title: 'Tracked Changes',
               tags: ['Experiment'],
             },
             {
