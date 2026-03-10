@@ -56,10 +56,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
                 },
                 {
-                  title: 'Review as summary',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
-                },
-                {
                   title: 'Tool streaming',
                   href: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
                 },
@@ -174,6 +170,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret',
                 },
                 {
+                  title: 'Non-TypeScript backends',
+                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/non-typescript-backends',
+                },
+                {
                   title: 'Migration guides',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
                   children: [
@@ -228,10 +228,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Display suggestions',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
-                },
-                {
-                  title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
                 },
                 {
                   title: 'Diff utility',

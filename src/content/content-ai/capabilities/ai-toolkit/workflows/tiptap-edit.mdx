@@ -54,6 +54,8 @@ npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
 
 Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
 
+If your backend is in another programming language than TypeScript, see [this guide](/content-ai/capabilities/ai-toolkit/advanced-guides/non-typescript-backends).
+
 Inside the API endpoint, create and configure the Tiptap Edit workflow using the `createTiptapEditWorkflow` function. The workflow includes a ready-to-use system prompt that instructs the AI model on how to generate edit operations.
 
 Additionally, you need to include these two properties in the user message:
@@ -71,7 +73,7 @@ import { createTiptapEditWorkflow } from '@tiptap-pro/ai-toolkit-tool-definition
 import { Output, streamText } from 'ai'
 
 export async function POST(req: Request) {
-  const { nodes, task } = await req.json()
+  const { content, task, context } = await req.json()
 
   // Create and configure the Tiptap Edit workflow (with the default settings).
   // It includes the ready-to-use system prompt and the output schema.
@@ -118,8 +120,13 @@ Every time the response changes, call the `tiptapEditWorkflow` method of the AI 
 import { experimental_useObject as useObject } from '@ai-sdk/react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { AiToolkit, getAiToolkit, tiptapEditWorkflowOutputSchema } from '@tiptap-pro/ai-toolkit'
-import { useEffect, useState } from 'react'
+import {
+  AiToolkit,
+  type TiptapReadResult,
+  getAiToolkit,
+  tiptapEditWorkflowOutputSchema,
+} from '@tiptap-pro/ai-toolkit'
+import { useEffect, useRef, useState } from 'react'
 import { v4 as uuid } from 'uuid'
 
 export default function Page() {
@@ -130,6 +137,7 @@ export default function Page() {
   })
 
   const [workflowId, setWorkflowId] = useState('')
+  const tiptapReadResultRef = useRef<TiptapReadResult | null>(null)
   const [task, setTask] = useState('Make the text more formal and professional')
 
   const { submit, isLoading, object } = useObject({
@@ -141,13 +149,16 @@ export default function Page() {
 
   // Stream partial results as they arrive
   useEffect(() => {
-    if (!editor || operations.length === 0) return
+    if (!editor || !operations) return
 
     const toolkit = getAiToolkit(editor)
+    if (!tiptapReadResultRef.current) return
+
     toolkit.tiptapEditWorkflow({
       operations,
       workflowId,
       hasFinished: !isLoading,
+      tiptapReadResult: tiptapReadResultRef.current,
     })
   }, [operations, workflowId, editor, isLoading])
 
@@ -157,13 +168,14 @@ export default function Page() {
     const toolkit = getAiToolkit(editor)
 
     // Obtain the content of the document to be edited
-    const { content } = toolkit.tiptapRead()
+    const readResult = toolkit.tiptapRead()
+    tiptapReadResultRef.current = readResult
 
     // Each workflow must have a unique ID
     setWorkflowId(uuid())
 
     // Call the API endpoint to start the workflow
-    submit({ content, task })
+    submit({ content: readResult.content, task })
   }
 
   return (
@@ -207,8 +219,51 @@ const editor = useEditor({
 
 See the [AI Caret guide](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret) for configuration options and CSS styles.
 
+## Edit part of the document
+
+To edit only a sub-section of the document, set the `range` option. This argument takes a [Range](/content-ai/capabilities/ai-toolkit/advanced-guides/concepts#range) with the region to edit.
+
+For example, to edit only the selected content:
+
+```ts
+const range = editor.state.selection
+
+// Read only the selected part of the document
+const { content } = toolkit.tiptapRead({ range })
+
+const operations = callApi(content)
+
+// Apply operations in the same range
+toolkit.tiptapEditWorkflow({
+  operations,
+})
+```
+
+For large documents, you can use the [`tiptapReadChunks`](/content-ai/capabilities/ai-toolkit/api-reference/read-the-document#tiptapreadchunks) method to split the document into chunks and process them in parallel. Each chunk includes a [Range](/content-ai/capabilities/ai-toolkit/advanced-guides/concepts#range) with the region of that chunk.
+
+## Show a review UI
+
+To let users review changes, configure the [review options](/content-ai/capabilities/ai-toolkit/api-reference/review-options). Changes will show up as suggestions that users can accept or reject.
+
+```tsx
+toolkit.tiptapEditWorkflow({
+  operations,
+  workflowId,
+  // Apply operations in preview mode
+  reviewOptions: { mode: 'preview' },
+  hasFinished: true,
+})
+
+// Accept all suggestions
+toolkit.acceptAllSuggestions()
+```
+
+See the [Suggestions](/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions) guide to learn more about suggestions.
+
 ## Related guides
 
 - [API reference](/content-ai/capabilities/ai-toolkit/api-reference/read-the-document#tiptapread) of the `tiptapRead` method
+- [API reference](/content-ai/capabilities/ai-toolkit/api-reference/read-the-document#tiptapreadchunks) of the `tiptapReadChunks` method
 - [API reference](/content-ai/capabilities/ai-toolkit/api-reference/workflows#tiptapeditworkflow) of the `tiptapEditWorkflow` method
+- [Suggestions](/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions): Learn about reviewing the document and displaying suggestions in the editor.
 - [AI Caret](/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret): Show a cursor where the AI is inserting content.

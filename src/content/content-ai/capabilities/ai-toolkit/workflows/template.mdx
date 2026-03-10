@@ -15,7 +15,12 @@ import { Callout } from '@/components/ui/Callout'
 
 Fill structured Tiptap templates with AI-generated content and insert the result into the editor.
 
-<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/template-workflow" />
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/template-workflow"
+/>
 
 See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 
@@ -109,6 +114,8 @@ npm install @tiptap-pro/ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
 
 Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
 
+If your backend is in another programming language than TypeScript, see [this guide](/content-ai/capabilities/ai-toolkit/advanced-guides/non-typescript-backends).
+
 Inside the API endpoint, convert the HTML template to a workflow configuration using `createTemplateWorkflow`. The function auto-extracts all template keys from the HTML, generates the system prompt, and creates the output schema.
 
 ```ts
@@ -127,7 +134,10 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai('gpt-5-mini'),
     system: workflow.systemPrompt,
-    prompt: JSON.stringify({ task, context: "Additional background information related to the task" }),
+    prompt: JSON.stringify({
+      task,
+      context: 'Additional background information related to the task',
+    }),
     output: Output.object({ schema: workflow.zodOutputSchema }),
   })
 
@@ -232,9 +242,167 @@ export default function Page() {
 
 With additional CSS styles, the result is a polished template workflow application:
 
-<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/template-workflow" />
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/template-workflow"
+/>
 
 See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Insert template in part of the document
+
+To insert the template result into a specific region instead of replacing the entire document, set the `position` option. It takes either a position or a [Range](/content-ai/capabilities/ai-toolkit/advanced-guides/concepts#range).
+
+```ts
+// Insert template result at a specific range
+toolkit.templateWorkflow({
+  template,
+  values: object,
+  position: { from: 10, to: 50 },
+  hasFinished: !isLoading,
+  workflowId,
+})
+```
+
+## Build a template editor
+
+You can build a system where users create and edit templates in a rich text editor and define which parts the AI should fill. Use the `_templateSlot` attribute to mark nodes as template fields.
+
+First, register the `TemplateField` extension in your editor. This extension adds the three template attributes (`_templateSlot`, `_templateIf`, `_templateAttributes`) as global attributes to all node types in the editor schema:
+
+```tsx
+import { TemplateField } from '@tiptap-pro/ai-toolkit'
+
+const editor = new Editor({
+  extensions: [StarterKit, TemplateField],
+})
+```
+
+<Callout title="TemplateField vs AiToolkit" variant="hint">
+  You can use `TemplateField` alongside the `AiToolkit` extension, or on its own if you only need
+  template field support without the full AI Toolkit functionality.
+</Callout>
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://deploy-preview-405--tiptap-pro.netlify.app/preview/Extensions/AiToolkitTemplateEditor/"
+/>
+
+The `TemplateField` extension provides commands for setting and unsetting template attributes on the node at the current selection:
+
+```tsx
+// Mark the selected node as a template slot
+editor.commands.setTemplateSlot('intro')
+
+// Remove the template slot
+editor.commands.unsetTemplateSlot()
+
+// Mark the selected node as conditionally included
+editor.commands.setTemplateIf('showDisclaimer')
+
+// Remove the conditional
+editor.commands.unsetTemplateIf()
+
+// Map template keys to node attributes
+editor.commands.setTemplateAttributes([{ key: 'sectionLevel', attribute: 'level' }])
+
+// Remove the attribute mappings
+editor.commands.unsetTemplateAttributes()
+```
+
+Style template slots using the `[_templateslot]` CSS attribute selector. The `TemplateField` extension outputs lowercased template attributes in the DOM:
+
+```css
+[_templateslot] {
+  border: 2px dashed #6a00f5;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: rgba(106, 0, 245, 0.05);
+  position: relative;
+}
+
+[_templateslot]::after {
+  content: attr(_templateslot);
+  position: absolute;
+  top: -10px;
+  right: 4px;
+  font-size: 10px;
+  background: #6a00f5;
+  color: white;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+```
+
+## Persist template fields after filling
+
+By default, the `templateWorkflow` method removes all `_templateSlot` attributes after filling the template. Set `preserveSlotAttr` to `true` to keep the attributes on the filled nodes:
+
+```tsx
+toolkit.templateWorkflow({
+  template,
+  values: object,
+  position: 'document',
+  hasFinished: !isLoading,
+  workflowId,
+  preserveSlotAttr: true,
+})
+```
+
+When `preserveSlotAttr` is enabled, each filled node retains its `_templateSlot` attribute. This lets you:
+
+- **Identify AI-filled content**: Inspect which parts of the document were generated by the AI.
+- **Re-fill template fields**: Use the filled document as a new template to regenerate specific sections.
+
+## Re-fill template fields
+
+When `preserveSlotAttr` is `true`, the filled document still contains `_templateSlot` attributes. You can extract the document JSON and pass it back to `templateWorkflow` to re-fill specific fields:
+
+```tsx
+// Extract the current document as a template
+const currentDoc = editor.getJSON()
+
+// Re-fill with new values
+const toolkit = getAiToolkit(editor)
+toolkit.templateWorkflow({
+  template: currentDoc,
+  values: newValues,
+  position: 'document',
+  preserveSlotAttr: true,
+})
+```
+
+This enables iterative editing workflows where users can ask the AI to regenerate individual sections without affecting the rest of the document.
+
+## Control which template fields are required
+
+By default, all template fields are required — the AI must fill every field. To make specific fields optional, use `requiredSlots`, `requiredConditions`, and `requiredAttributes` on the server side. Only listed fields are required; unlisted fields become optional:
+
+```ts
+// Server-side: only "intro" is required, other slots are optional
+const workflow = createTemplateWorkflow({
+  htmlTemplate,
+  requiredSlots: ['intro'],
+})
+```
+
+The AI will always fill required slots and may optionally fill other slots based on the task context.
+
+To make all fields of a type optional, pass an empty array:
+
+```ts
+// All slots are optional, but specific conditions and attributes are required
+const workflow = createTemplateWorkflow({
+  htmlTemplate,
+  requiredSlots: [],
+  requiredConditions: ['includeDisclaimer'],
+  requiredAttributes: ['headingLevel'],
+})
+```
 
 ## Related guides
 

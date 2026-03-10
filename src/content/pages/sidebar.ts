@@ -36,6 +36,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Headers & Footers',
           href: '/pages/core-concepts/page-header-footer',
+          tags: ['New'],
         },
         {
           title: 'Page break',
