@@ -408,7 +408,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/tracked-changes',
               title: 'Tracked Changes',
-              tags: ['Experiment'],
+              tags: ['Add-on'],
             },
             {
               href: '/editor/extensions/functionality/trailing-node',
