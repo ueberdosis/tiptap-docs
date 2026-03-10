@@ -1,25 +1,39 @@
+import fs from 'fs'
+import path from 'path'
 import { glob } from 'fast-glob'
-import { UIComponentMetaWithUrl } from '@/types'
+import { cache } from 'react'
+import frontmatter from 'front-matter'
+import { UIComponentMetaWithUrl, PageFrontmatter } from '@/types'
 
-export const getUIComponents = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
+/**
+ * Gets all UI components from MDX files.
+ * Reads frontmatter directly from files instead of compiling MDX for better performance.
+ * Cached per-request to avoid duplicate file reads.
+ */
+export const getUIComponents = cache(async (pathParam: string = '') => {
+  let pages = (await glob(`**/*.mdx`, { cwd: `src/${pathParam}` })).filter((p) => {
     return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
   })
 
-  const pathPrefix = path ? `${path}/` : ''
+  const pathPrefix = pathParam ? `${pathParam}/` : ''
 
   let allComponents = (await Promise.all(
     pages.map(async (page) => {
       const pagePath = `/${pathPrefix + page}`
-      const componentData = (await import(`@/content/${pagePath.replace('/content/', '')}`))
-        .frontmatter?.component as UIComponentMetaWithUrl | undefined
+
+      // Read frontmatter directly without compiling MDX - much faster and less memory
+      const filePath = path.join(process.cwd(), 'src', pathPrefix + page)
+      const mdxContent = fs.readFileSync(filePath, 'utf-8')
+      const { attributes } = frontmatter(mdxContent) as { attributes: PageFrontmatter }
+
+      const componentData = attributes.component as UIComponentMetaWithUrl | undefined
 
       if (!componentData) {
         return null
       }
 
       return [
-        path + pagePath,
+        pathParam + pagePath,
         {
           ...componentData,
           path: page,
@@ -39,4 +53,4 @@ export const getUIComponents = async (path: string = '') => {
 
   const componentsData = Object.fromEntries(allComponents)
   return componentsData
-}
+})

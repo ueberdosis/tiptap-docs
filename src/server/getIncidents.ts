@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import fm from 'front-matter'
+import { cache } from 'react'
 import { IncidentData, PageFrontmatter } from '@/types'
 
 // Helper function to safely parse dates
@@ -13,7 +14,11 @@ function parseDateSafely(dateString: string): Date | null {
   return isNaN(date.getTime()) ? null : date
 }
 
-export async function getIncidents(): Promise<IncidentData[]> {
+/**
+ * Gets all incidents from MDX files.
+ * Cached per-request to avoid duplicate file system scans.
+ */
+export const getIncidents = cache(async (): Promise<IncidentData[]> => {
   const incidentsDir = path.join(process.cwd(), 'src/content/resources/incidents')
 
   try {
@@ -71,4 +76,4 @@ export async function getIncidents(): Promise<IncidentData[]> {
     console.error('Error loading incidents:', error)
     return []
   }
-}
+})

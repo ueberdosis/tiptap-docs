@@ -1,21 +1,33 @@
+import fs from 'fs'
+import path from 'path'
 import { glob } from 'fast-glob'
-import { ExtensionMetaWithUrl } from '@/types'
+import { cache } from 'react'
+import frontmatter from 'front-matter'
+import { ExtensionMetaWithUrl, PageFrontmatter } from '@/types'
 
-export const getExtensions = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
+/**
+ * Gets all extensions from MDX files.
+ * Reads frontmatter directly from files instead of compiling MDX for better performance.
+ * Cached per-request to avoid duplicate file reads.
+ */
+export const getExtensions = cache(async (pathParam: string = '') => {
+  let pages = (await glob(`**/*.mdx`, { cwd: `src/${pathParam}` })).filter((p) => {
     return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
   })
 
-  const pathPrefix = path ? `${path}/` : ''
+  const pathPrefix = pathParam ? `${pathParam}/` : ''
 
   let allExtensions = (await Promise.all(
     pages.map(async (page) => {
       let pagePath = `/${pathPrefix + page}`
 
-      // eslint-disable-next-line @next/next/no-assign-module-variable
-      const module = await import(`@/content/${pagePath.replace('/content/', '')}`)
-      const extensionData = module.frontmatter?.extension as ExtensionMetaWithUrl | undefined
-      const pageTags = module.frontmatter?.tags || []
+      // Read frontmatter directly without compiling MDX - much faster and less memory
+      const filePath = path.join(process.cwd(), 'src', pathPrefix + page)
+      const mdxContent = fs.readFileSync(filePath, 'utf-8')
+      const { attributes } = frontmatter(mdxContent) as { attributes: PageFrontmatter }
+
+      const extensionData = attributes.extension as ExtensionMetaWithUrl | undefined
+      const pageTags = attributes.tags || []
 
       if (!extensionData) {
         return null
@@ -65,7 +77,7 @@ export const getExtensions = async (path: string = '') => {
       }
 
       return [
-        path + pagePath,
+        pathParam + pagePath,
         {
           ...extensionData,
           path: page,
@@ -90,4 +102,4 @@ export const getExtensions = async (path: string = '') => {
   const extensionData = Object.fromEntries(allExtensions)
 
   return extensionData
-}
+})
