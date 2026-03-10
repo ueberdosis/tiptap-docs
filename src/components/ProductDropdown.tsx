@@ -13,6 +13,7 @@ const options = [
   { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
   { label: 'Content AI', href: '/content-ai/getting-started/overview' },
   { label: 'Comments', href: '/comments/getting-started/overview' },
+  { label: 'Tracked Changes', href: '/editor/extensions/functionality/tracked-changes' },
   { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
   { label: 'Pages', href: '/pages/getting-started/overview' },
@@ -44,7 +45,7 @@ export const ProductDropdown = () => {
         </NavLinkButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="flex flex-col gap-6 z-50 py-6 px-2 lg:py-3 text-black bg-white border rounded-lg shadow-md border-grayAlpha-100 w-[14rem] lg:w-[10.43rem]">
+        <DropdownMenu.Content className="flex flex-col gap-6 z-50 py-6 px-2 lg:py-3 text-black bg-white border rounded-lg shadow-md border-grayAlpha-100 w-[14rem] lg:w-[11.5rem]">
           <div>
             <div className="uppercase font-bold leading-[120%] text-xs mb-3 px-2 block lg:hidden">
               Documentations
