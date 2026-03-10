@@ -133,6 +133,31 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/conversion/import-export/docx',
+        destination: '/conversion/getting-started/overview',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/custom-node-conversion',
+        destination: '/conversion/import/docx/custom-node-conversion',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/custom-page-layout',
+        destination: '/conversion/export/docx/custom-page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/preserve-images',
+        destination: '/conversion/import/docx/preserve-images',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/rest-api',
+        destination: '/conversion/getting-started/install',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/generation',
         destination: '/content-ai/capabilities/generation/overview',
         permanent: true,
