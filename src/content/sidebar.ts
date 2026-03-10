@@ -38,6 +38,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
+          href: '/editor/extensions/functionality/tracked-changes',
+          title: 'Tracked Changes',
+        },
+        {
           href: '/content-ai/getting-started/overview',
           title: 'Content AI',
         },
