@@ -38,7 +38,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
-          href: '/editor/extensions/functionality/tracked-changes',
+          href: '/tracked-changes/getting-started/overview',
           title: 'Tracked Changes',
         },
         {
