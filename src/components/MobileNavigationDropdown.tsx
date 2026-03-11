@@ -20,7 +20,7 @@ const options = [
       { label: 'Comments', href: '/comments/getting-started/overview' },
       {
         label: 'Tracked Changes',
-        href: '/editor/extensions/functionality/tracked-changes',
+        href: '/tracked-changes/getting-started/overview',
       },
       { label: 'Content AI', href: '/content-ai/getting-started/overview' },
       { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
