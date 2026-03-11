@@ -56,6 +56,25 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/tracked-changes/examples',
+      title: 'Examples',
+      children: [
+        {
+          title: 'Simple Tracked Changes',
+          href: '/tracked-changes/examples/simple',
+        },
+        {
+          title: 'With Collaboration',
+          href: '/tracked-changes/examples/collaboration',
+        },
+        {
+          title: 'With Comments',
+          href: '/tracked-changes/examples/comments',
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/tracked-changes/api-reference',
       title: 'API Reference',
       children: [
