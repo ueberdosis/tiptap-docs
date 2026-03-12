@@ -106,21 +106,25 @@ function stripLeadingH1(markdown: string): string {
 }
 
 /**
- * Process items with a concurrency limit.
+ * Process items with a sliding-window concurrency limit.
+ * Starts a new task as soon as any slot frees up, keeping all slots busy.
  */
 async function processWithConcurrency<T, R>(
   items: T[],
   limit: number,
-  fn: (item: T) => Promise<R>,
+  fn: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
-  const results: R[] = []
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
 
-  for (let i = 0; i < items.length; i += limit) {
-    const batch = items.slice(i, i + limit)
-    const batchResults = await Promise.all(batch.map(fn))
-    results.push(...batchResults)
+  async function worker() {
+    while (nextIndex < items.length) {
+      const i = nextIndex++
+      results[i] = await fn(items[i], i)
+    }
   }
 
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
   return results
 }
 
@@ -139,8 +143,7 @@ async function discoverAndFetchPackages(config: RepoConfig): Promise<ChangelogRe
   const results = await processWithConcurrency(
     allDirNames,
     CONCURRENCY_LIMIT,
-    async ({ dirName, packageDir }, ) => {
-      const index = allDirNames.findIndex((d) => d.dirName === dirName && d.packageDir === packageDir)
+    async ({ dirName, packageDir }, index) => {
       const prefix = `[${index + 1}/${total}]`
       const packageName = `${config.packageScope}/${dirName}`
       const slug = `${config.slugPrefix}${dirName}`
@@ -179,40 +182,50 @@ async function main() {
 
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
 
-  const allResults: ChangelogResult[] = []
+  // Process all repos concurrently
+  const repoResults = await Promise.all(
+    REPO_CONFIGS.map(async (config) => {
+      const packages: ChangelogResult[] = []
+      let root: ChangelogResult | null = null
 
-  const rootResults: ChangelogResult[] = []
-
-  for (const config of REPO_CONFIGS) {
-    try {
-      const results = await discoverAndFetchPackages(config)
-      allResults.push(...results)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.warn(
-        `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
-      )
-    }
-
-    // Fetch root CHANGELOG.md
-    try {
-      const content = await fetchChangelog(config, 'CHANGELOG.md')
-      if (content) {
-        const result: ChangelogResult = {
-          packageName: config.rootChangelogTitle,
-          slug: config.rootChangelogSlug,
-          content: stripLeadingH1(content),
-        }
-        rootResults.push(result)
-        console.log(`Fetched root changelog for ${config.rootChangelogTitle}`)
-      } else {
-        console.log(`No root CHANGELOG.md found for ${config.owner}/${config.repo}, skipping.`)
+      try {
+        const results = await discoverAndFetchPackages(config)
+        packages.push(...results)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(
+          `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
+        )
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.warn(`Warning: Failed to fetch root changelog for ${config.owner}/${config.repo}: ${message}. Skipping.`)
-    }
-  }
+
+      // Fetch root CHANGELOG.md
+      try {
+        const content = await fetchChangelog(config, 'CHANGELOG.md')
+        if (content) {
+          root = {
+            packageName: config.rootChangelogTitle,
+            slug: config.rootChangelogSlug,
+            content: stripLeadingH1(content),
+          }
+          console.log(`Fetched root changelog for ${config.rootChangelogTitle}`)
+        } else {
+          console.log(`No root CHANGELOG.md found for ${config.owner}/${config.repo}, skipping.`)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(
+          `Warning: Failed to fetch root changelog for ${config.owner}/${config.repo}: ${message}. Skipping.`,
+        )
+      }
+
+      return { packages, root }
+    }),
+  )
+
+  const allResults: ChangelogResult[] = repoResults.flatMap((r) => r.packages)
+  const rootResults: ChangelogResult[] = repoResults
+    .map((r) => r.root)
+    .filter((r): r is ChangelogResult => r !== null)
 
   // Add root changelogs to results
   allResults.push(...rootResults)
