@@ -231,20 +231,6 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Utils components',
-          href: '/ui-components/utils-components',
-          children: [
-            {
-              title: 'Floating element',
-              href: '/ui-components/utils-components/floating-element',
-            },
-            {
-              title: 'Suggestion menu',
-              href: '/ui-components/utils-components/suggestion-menu',
-            },
-          ],
-        },
-        {
           title: 'Node components',
           href: '/ui-components/node-components',
           children: [
@@ -357,6 +343,20 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Tooltip',
               href: '/ui-components/primitives/tooltip',
+            },
+          ],
+        },
+        {
+          title: 'Utilities',
+          href: '/ui-components/utils-components',
+          children: [
+            {
+              title: 'Floating element',
+              href: '/ui-components/utils-components/floating-element',
+            },
+            {
+              title: 'Suggestion menu',
+              href: '/ui-components/utils-components/suggestion-menu',
             },
           ],
         },
