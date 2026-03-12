@@ -18,12 +18,23 @@ const OSS_CONFIG: RepoConfig = {
   branch: 'main',
   slugPrefix: '',
   packageScope: '@tiptap',
-  packageDirs: ['packages'],
+  packageDirs: ['packages', 'packages-deprecated'],
   rootChangelogSlug: 'tiptap',
   rootChangelogTitle: 'Tiptap (open source)',
 }
 
-const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG]
+const PRO_CONFIG: RepoConfig = {
+  owner: 'ueberdosis',
+  repo: 'tiptap-pro',
+  branch: 'main',
+  slugPrefix: 'pro-',
+  packageScope: '@tiptap-pro',
+  packageDirs: ['packages'],
+  rootChangelogSlug: 'tiptap-pro',
+  rootChangelogTitle: 'Tiptap Pro',
+}
+
+const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
 
 const CONCURRENCY_LIMIT = 5
 const OUTPUT_DIR = path.join(process.cwd(), 'src/content/resources/changelog/_data')
@@ -55,7 +66,14 @@ async function listDirectories(
   const response = await fetch(url, { headers: getHeaders() })
 
   if (!response.ok) {
-    console.warn(`Failed to list ${dirPath} in ${config.owner}/${config.repo}: ${response.status}`)
+    if (response.status === 404 || response.status === 403) {
+      console.warn(
+        `Warning: Cannot access ${config.owner}/${config.repo}/${dirPath} (HTTP ${response.status}). ` +
+          `This may be a private repo — ensure GITHUB_TOKEN has access. Skipping.`,
+      )
+    } else {
+      console.warn(`Failed to list ${dirPath} in ${config.owner}/${config.repo}: ${response.status}`)
+    }
     return []
   }
 
@@ -164,8 +182,15 @@ async function main() {
   const allResults: ChangelogResult[] = []
 
   for (const config of REPO_CONFIGS) {
-    const results = await discoverAndFetchPackages(config)
-    allResults.push(...results)
+    try {
+      const results = await discoverAndFetchPackages(config)
+      allResults.push(...results)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(
+        `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
+      )
+    }
   }
 
   // Write individual package JSON files
