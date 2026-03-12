@@ -94,7 +94,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/resources/changelog',
-          title: 'Editor changelog',
+          title: 'Changelog',
           children: changelogChildren,
         },
         {

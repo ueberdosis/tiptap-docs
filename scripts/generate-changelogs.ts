@@ -20,7 +20,7 @@ const OSS_CONFIG: RepoConfig = {
   packageScope: '@tiptap',
   packageDirs: ['packages', 'packages-deprecated'],
   rootChangelogSlug: 'tiptap',
-  rootChangelogTitle: 'Tiptap (open source)',
+  rootChangelogTitle: 'Tiptap',
 }
 
 const PRO_CONFIG: RepoConfig = {
