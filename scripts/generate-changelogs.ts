@@ -181,6 +181,8 @@ async function main() {
 
   const allResults: ChangelogResult[] = []
 
+  const rootResults: ChangelogResult[] = []
+
   for (const config of REPO_CONFIGS) {
     try {
       const results = await discoverAndFetchPackages(config)
@@ -191,7 +193,29 @@ async function main() {
         `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
       )
     }
+
+    // Fetch root CHANGELOG.md
+    try {
+      const content = await fetchChangelog(config, 'CHANGELOG.md')
+      if (content) {
+        const result: ChangelogResult = {
+          packageName: config.rootChangelogTitle,
+          slug: config.rootChangelogSlug,
+          content: stripLeadingH1(content),
+        }
+        rootResults.push(result)
+        console.log(`Fetched root changelog for ${config.rootChangelogTitle}`)
+      } else {
+        console.log(`No root CHANGELOG.md found for ${config.owner}/${config.repo}, skipping.`)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`Warning: Failed to fetch root changelog for ${config.owner}/${config.repo}: ${message}. Skipping.`)
+    }
   }
+
+  // Add root changelogs to results
+  allResults.push(...rootResults)
 
   // Write individual package JSON files
   for (const result of allResults) {
@@ -208,13 +232,21 @@ async function main() {
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 2))
   console.log(`Wrote ${indexPath}`)
 
-  // Write sidebar-items.json (sorted alphabetically by package name)
-  const sidebarItems = allResults
-    .map((r) => ({
+  // Write sidebar-items.json (root changelogs first, then alphabetically by package name)
+  const rootSlugs = new Set(REPO_CONFIGS.map((c) => c.rootChangelogSlug))
+  const sidebarItems = [
+    ...rootResults.map((r) => ({
       href: `/resources/changelog/${r.slug}`,
       title: r.packageName,
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title))
+    })),
+    ...allResults
+      .filter((r) => !rootSlugs.has(r.slug))
+      .map((r) => ({
+        href: `/resources/changelog/${r.slug}`,
+        title: r.packageName,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title)),
+  ]
   const sidebarPath = path.join(OUTPUT_DIR, 'sidebar-items.json')
   fs.writeFileSync(sidebarPath, JSON.stringify(sidebarItems, null, 2))
   console.log(`Wrote ${sidebarPath}`)
