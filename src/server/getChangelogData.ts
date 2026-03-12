@@ -6,14 +6,12 @@ const DATA_DIR = path.join(process.cwd(), 'src/content/resources/changelog/_data
 export type ChangelogData = {
   packageName: string
   slug: string
-  version: string
   content: string
 }
 
 export type ChangelogIndexEntry = {
   slug: string
   packageName: string
-  version: string
 }
 
 export function getChangelogData(slug: string): ChangelogData | null {

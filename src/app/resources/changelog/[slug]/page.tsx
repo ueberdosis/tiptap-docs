@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props) {
   if (!data) return {}
 
   const title = `${data.packageName} Changelog`
-  const description = `Changelog for ${data.packageName} — latest version ${data.version}`
+  const description = `Changelog for ${data.packageName}`
   const canonicalUrl = createCanonicalUrl(['resources', 'changelog', params.slug])
 
   return await createMetadata({
@@ -47,7 +47,7 @@ export default async function ChangelogPage({ params }: Props) {
   const sidebar = await importSidebarConfigFromMarkdownPath(['resources'])
 
   const title = `${data.packageName} Changelog`
-  const description = `Changelog for ${data.packageName} — latest version ${data.version}`
+  const description = `Changelog for ${data.packageName}`
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
