@@ -15,6 +15,36 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/getting-started/overview',
         },
         {
+          title: 'Install',
+          href: '/ui-components/install/next',
+          children: [
+            {
+              title: 'Next.js',
+              href: '/ui-components/install/next',
+            },
+            {
+              title: 'Vite',
+              href: '/ui-components/install/vite',
+            },
+            {
+              title: 'React Router',
+              href: '/ui-components/install/react-router',
+            },
+            {
+              title: 'Laravel',
+              href: '/ui-components/install/laravel',
+            },
+            {
+              title: 'Astro',
+              href: '/ui-components/install/astro',
+            },
+            {
+              title: 'Manual',
+              href: '/ui-components/install/manual',
+            },
+          ],
+        },
+        {
           title: 'Style',
           href: '/ui-components/getting-started/style',
         },
@@ -42,37 +72,6 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Notion Editor',
           href: '/ui-components/templates/notion-like-editor',
           tags: ['Start'],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/ui-components/install',
-      title: 'Install',
-      children: [
-        {
-          title: 'Next.js',
-          href: '/ui-components/install/next',
-        },
-        {
-          title: 'Vite',
-          href: '/ui-components/install/vite',
-        },
-        {
-          title: 'React Router',
-          href: '/ui-components/install/react-router',
-        },
-        {
-          title: 'Laravel',
-          href: '/ui-components/install/laravel',
-        },
-        {
-          title: 'Astro',
-          href: '/ui-components/install/astro',
-        },
-        {
-          title: 'Manual',
-          href: '/ui-components/install/manual',
         },
       ],
     },
