@@ -1,4 +1,20 @@
+import fs from 'fs'
+import path from 'path'
 import { SidebarConfig } from '@/types'
+
+function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
+  try {
+    const filePath = path.join(
+      process.cwd(),
+      'src/content/resources/changelog/_data/sidebar-items.json',
+    )
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  } catch {
+    return []
+  }
+}
+
+const changelogChildren = loadChangelogSidebarItems()
 
 export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
@@ -78,7 +94,8 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/resources/changelog',
-          title: 'Editor changelog',
+          title: 'Changelog',
+          children: changelogChildren,
         },
         {
           href: 'https://tiptap.dev/pro-license',
