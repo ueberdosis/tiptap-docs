@@ -1,0 +1,205 @@
+---
+title: Tracked changes
+meta:
+  title: Tracked changes | Tiptap Content AI
+  description: Display AI-generated changes as tracked changes that users can accept or reject individually.
+  category: Content AI
+sidebars:
+  hideSecondary: true
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+<Callout title="Continuation from the AI agent chatbot guide" variant="info">
+  This guide continues the [AI agent chatbot
+  guide](/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot). Read it first.
+</Callout>
+
+Display AI-generated changes as tracked changes, so your users can review and accept or reject them individually. This integrates the AI Toolkit with the [Tracked Changes](/tracked-changes/getting-started/overview) extension.
+
+## Show tracked changes
+
+To display AI edits as tracked changes, set `reviewOptions.mode` to `'trackedChanges'` when executing a tool.
+
+### API endpoint
+
+The API endpoint is the same as in the [AI agent chatbot guide](/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot). No changes are needed on the server side to enable tracked changes.
+
+```ts
+// app/api/tracked-changes/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { createAgentUIStreamResponse, ToolLoopAgent, type UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  const agent = new ToolLoopAgent({
+    model: openai('gpt-4o-mini'),
+    instructions:
+      'You are an assistant that can edit rich text documents. Use tiptapRead before tiptapEdit.',
+    tools: toolDefinitions(),
+  })
+
+  return createAgentUIStreamResponse({
+    agent,
+    uiMessages: messages,
+  })
+}
+```
+
+### Client-side setup
+
+On the client, add the `TrackedChanges` extension and pass `reviewOptions` with mode `'trackedChanges'` to the `executeTool` method.
+
+The `TrackedChanges` extension must be configured with `enabled: false` — the AI Toolkit enables it automatically when needed.
+
+```tsx
+import { useChat } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { TrackedChanges } from '@tiptap-pro/extension-tracked-changes'
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit,
+      TrackedChanges.configure({
+        enabled: false,
+      }),
+      AiToolkit,
+    ],
+    content: `<p>Ask the AI to improve this document.</p>`,
+  })
+
+  const { messages, sendMessage, addToolOutput } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/tracked-changes' }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    async onToolCall({ toolCall }) {
+      if (!editor) return
+
+      const toolkit = getAiToolkit(editor)
+      const result = toolkit.executeTool({
+        toolName: toolCall.toolName,
+        input: toolCall.input,
+        reviewOptions: {
+          mode: 'trackedChanges',
+          trackedChangesOptions: {
+            userId: 'ai-assistant',
+            userMetadata: {
+              name: 'AI',
+            },
+          },
+        },
+      })
+
+      addToolOutput({
+        tool: toolCall.toolName,
+        toolCallId: toolCall.toolCallId,
+        output: result.output,
+      })
+    },
+  })
+
+  // ... render editor and chat UI
+}
+```
+
+After the AI edits the document, the changes appear as tracked changes. Users can accept or reject them using the `acceptSuggestion`, `rejectSuggestion`, `acceptAllSuggestions`, and `rejectAllSuggestions` commands from the Tracked Changes extension.
+
+### End result
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/tracked-changes" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Add comments with tracked changes
+
+You can make the AI provide a justification for each change. Each justification becomes a comment thread linked to its tracked change, using the [Comments](/comments/getting-started/overview) extension.
+
+### API endpoint
+
+On the server, pass the `operationMeta` option to `toolDefinitions` to add a `meta` field to edit operations. Then instruct the AI to provide a justification in the `meta` field.
+
+```ts
+// app/api/tracked-changes-comments/route.ts
+import { openai } from '@ai-sdk/openai'
+import { toolDefinitions } from '@tiptap-pro/ai-toolkit-ai-sdk'
+import { createAgentUIStreamResponse, ToolLoopAgent, type UIMessage } from 'ai'
+
+export async function POST(req: Request) {
+  const { messages }: { messages: UIMessage[] } = await req.json()
+
+  const agent = new ToolLoopAgent({
+    model: openai('gpt-4o-mini'),
+    instructions: `You are an assistant that can edit rich text documents.
+Rule: Use tiptapRead before tiptapEdit.
+Rule: When editing the document, ALWAYS provide a brief justification for each change in the meta field.`,
+    tools: toolDefinitions({
+      operationMeta:
+        'Brief justification explaining why this change improves the document.',
+    }),
+  })
+
+  return createAgentUIStreamResponse({
+    agent,
+    uiMessages: messages,
+  })
+}
+```
+
+### Client-side setup
+
+On the client, add the `CommentsKit` extension and pass `commentsOptions` to the `executeTool` method. The `commentsOptions` property configures the thread and comment metadata for the AI-generated comments.
+
+```tsx
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/ai-toolkit'
+import { CommentsKit } from '@tiptap-pro/extension-comments'
+import { TrackedChanges } from '@tiptap-pro/extension-tracked-changes'
+
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    TrackedChanges.configure({ enabled: false }),
+    AiToolkit,
+    CommentsKit.configure({
+      provider, // Your TiptapCollabProvider instance
+    }),
+  ],
+})
+
+// Inside onToolCall:
+const result = toolkit.executeTool({
+  toolName: toolCall.toolName,
+  input: toolCall.input,
+  reviewOptions: {
+    mode: 'trackedChanges',
+    trackedChangesOptions: {
+      userId: 'ai-assistant',
+      userMetadata: { name: 'AI' },
+    },
+  },
+  commentsOptions: {
+    threadData: { userName: 'AI' },
+    commentData: { userName: 'AI' },
+  },
+})
+```
+
+Each non-empty `meta` field in the edit operations becomes a comment thread linked to its tracked change. Users can review the change and read the AI's justification in the comments sidebar.
+
+### End result
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/tracked-changes-comments" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Learn more about [review options](/content-ai/capabilities/ai-toolkit/api-reference/review-options) in the API reference.
+- Add real-time streaming with the [streaming guide](/content-ai/capabilities/ai-toolkit/agents/streaming).
+- Learn about the [Tracked Changes](/tracked-changes/getting-started/overview) extension for styling and configuration options.
