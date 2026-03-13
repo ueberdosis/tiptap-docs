@@ -121,6 +121,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/pdf/custom-page-layout',
             },
             {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/pdf/custom-node-conversion',
+            },
+            {
               title: 'Export styles',
               href: '/conversion/export/pdf/export-styles',
             },
@@ -146,6 +150,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Custom page layout',
               href: '/conversion/export/odt/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/odt/custom-node-conversion',
             },
             {
               title: 'Export styles',
@@ -175,6 +183,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/epub/custom-page-layout',
             },
             {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/epub/custom-node-conversion',
+            },
+            {
               title: 'Export styles',
               href: '/conversion/export/epub/export-styles',
             },
@@ -200,6 +212,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Custom page layout',
               href: '/conversion/export/doc/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/doc/custom-node-conversion',
             },
             {
               title: 'Export styles',
