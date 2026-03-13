@@ -49,41 +49,27 @@ Create a [Next.js](https://nextjs.org/) project:
 npx create-next-app@latest server-ai-agent-chatbot
 ```
 
+<Callout title="Pro packages" variant="hint">
+  The Server AI Toolkit and Collaboration are pro packages. Before installation, you'll need to set up [access to Tiptap's private NPM
+  registry](/guides/pro-extensions).
+</Callout>
+
 Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
 
 ```bash
 npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jsonwebtoken
 ```
 
-Install the Server AI Toolkit package.
-
-<Callout title="Pro package" variant="hint">
-  The Server AI Toolkit is a pro package. Before installation, set up access to the private NPM
-  registry by following the [private registry guide](/guides/pro-extensions).
-</Callout>
+Install the Server AI Toolkit package:
 
 ```bash
 npm install @tiptap-pro/server-ai-toolkit
 ```
 
-Install TypeScript types for jsonwebtoken and uuid:
+Install TypeScript types for jsonwebtoken:
 
 ```bash
-npm install --save-dev @types/jsonwebtoken @types/uuid
-```
-
-## Get schema awareness data
-
-First, get the schema awareness data from your Tiptap editor. This data describes the document structure and is required for all API calls.
-
-```ts
-// lib/get-schema-awareness.ts
-import { Editor } from '@tiptap/core'
-import { getSchemaAwarenessData } from '@tiptap-pro/server-ai-toolkit'
-
-export function getSchemaAwareness(editor: Editor) {
-  return getSchemaAwarenessData(editor)
-}
+npm install --save-dev @types/jsonwebtoken
 ```
 
 ## API endpoint
@@ -111,15 +97,16 @@ TIPTAP_CLOUD_AI_APP_ID=your-app-id
 TIPTAP_CLOUD_DOCUMENT_SERVER_ID=your-tiptap-cloud-document-server-id
 TIPTAP_CLOUD_SECRET=your-tiptap-cloud-document-server-secret
 TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET=your-tiptap-cloud-document-management-api-secret
+OPENAI_API_KEY=your-openai-key # The AI SDK will pick this up automatically
 ```
 
 Get your App ID and secret key on the [Server AI Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page. The secret key is used to generate the JWT for authentication.
 
 ### Helper functions
 
-Create helper functions to interact with the Server AI Toolkit API:
+Create several helper functions to support your endpoint and interact with the Server AI Toolkit:
 
-### Get the JWT
+#### Get the JWT
 
 This function generates a JWT from the secret key for authenticating with the AI Toolkit API.
 
@@ -146,7 +133,7 @@ export function getTiptapCloudAiJwtToken(): string {
 }
 ```
 
-### Get tool definitions
+#### Get tool definitions
 
 This function fetches the available tool definitions from the Server AI Toolkit API.
 
@@ -193,9 +180,10 @@ export async function getToolDefinitions(schemaAwarenessData: unknown): Promise<
 }
 ```
 
-### Get schema awareness prompt
+#### Get schema awareness prompt
 
-This function retrieves a formatted prompt string from the Server AI Toolkit API that describes the document's schema to the AI model. This prompt is included in the agent's instructions to help the AI understand what nodes, marks, and attributes are available in the document.
+_Schema awareness_ is the Server AI Toolkit's capability to give your LLM understanding of your document structure. With this function, you generate
+that awareness as a formatted string that you'll include in your prompt to describe your document to the model.
 
 ```ts
 // lib/server-ai-toolkit/get-schema-awareness-prompt.ts
@@ -233,7 +221,7 @@ export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Pr
 }
 ```
 
-### Execute tool
+#### Execute tool
 
 This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and schema awareness data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
 
@@ -333,10 +321,10 @@ export async function POST(req: Request) {
   const agent = new ToolLoopAgent({
     model: openai('gpt-5-mini'),
     instructions: `You are an assistant that can edit rich text documents.
-In your responses, be concise and to the point. However, the content of the document you generate does not need to be concise and to the point, instead, it should follow the user's request as closely as possible.
-Before calling any tools, summarize you're going to do (in a sentence or less), as a high-level view of the task, like a human writer would describe it.
-Rule: In your responses, do not give any details of the tool calls
-Rule: In your responses, do not give any details of the HTML content of the document.
+In your responses, be concise and to the point. However, the content you generate in the document does not need to be concise and to the point: instead, it should follow the user's request as closely as possible.
+Before calling any tools, summarize you're going to do (in a sentence or less), as a high-level view of the task, as a human writer would describe it.
+Rule: In your responses, do not provide any details of the tool calls.
+Rule: In your responses, do not provide any details of the HTML content of the document.
 
 ${schemaAwarenessPrompt}`,
     tools,
@@ -358,10 +346,10 @@ ${schemaAwarenessPrompt}`,
 
 Create a client-side React component that renders the Tiptap Editor with collaboration support and a simple chat UI. This component leverages the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation.
 
-First, create a server action to generate a JWT for Tiptap Cloud collaboration. This function creates a secure JWT that authorizes the client to access a specific document in Tiptap Cloud's collaboration service.
+First, create a server function to generate a JWT for Tiptap Cloud collaboration. This function creates a secure JWT that authorizes the client to access a specific document in Tiptap Cloud's collaboration service.
 
 ```ts
-// app/server-ai-agent-chatbot/actions.ts
+// app/actions.ts
 'use server'
 
 import jwt from 'jsonwebtoken'
@@ -395,7 +383,7 @@ export async function getCollabConfig(
 Now create the main page component:
 
 ```tsx
-// app/server-ai-agent-chatbot/page.tsx
+// app/page.tsx
 'use client'
 
 import { useChat } from '@ai-sdk/react'
@@ -420,7 +408,7 @@ export default function Page() {
     extensions: [StarterKit, Collaboration.configure({ document: doc })],
   })
 
-  // Get the JWT and appId from server action
+  // Get the JWT and appId from server function
   useEffect(() => {
     const setupProvider = async () => {
       try {
@@ -436,7 +424,7 @@ export default function Page() {
             console.log('WebSocket connection opened.')
           },
           onConnect() {
-            editor?.commands.setContent(initialContent)
+            editor?.commands.setContent('Hello, world!')
           },
         })
 
@@ -456,18 +444,12 @@ export default function Page() {
     }
   }, [documentId, doc, editor])
 
-  // Fixes issue: https://github.com/vercel/ai/issues/7819
   const schemaAwarenessData = editor ? getSchemaAwarenessData(editor) : null
-  const schemaAwarenessDataRef = useRef(schemaAwarenessData)
-  schemaAwarenessDataRef.current = schemaAwarenessData
 
   const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/server-ai-agent-chatbot',
-      body: () => ({
-        schemaAwarenessData: schemaAwarenessDataRef.current,
-        documentId,
-      }),
+      body: { documentId },
     }),
   })
 
@@ -494,7 +476,7 @@ export default function Page() {
         onSubmit={(e) => {
           e.preventDefault()
           if (input.trim()) {
-            sendMessage({ text: input })
+            sendMessage({ text: input }, { body: { schemaAwarenessData } })
             setInput('')
           }
         }}
