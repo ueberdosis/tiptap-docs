@@ -56,12 +56,16 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
                 },
                 {
-                  title: 'Tool streaming',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+                  title: 'Streaming',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
                 },
                 {
                   title: 'Add comments',
                   href: '/content-ai/capabilities/ai-toolkit/agents/comments',
+                },
+                {
+                  title: 'Tracked changes',
+                  href: '/content-ai/capabilities/ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Multi-document',
