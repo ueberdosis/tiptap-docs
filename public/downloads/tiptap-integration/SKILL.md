@@ -1,3 +1,12 @@
+---
+name: tiptap-integration
+description: Helps coding agents integrate and work with the Tiptap rich text editor. Use when building or modifying a rich text editor with Tiptap, installing Tiptap extensions, or implementing features like collaboration, comments, AI, or document conversion.
+compatibility: Requires git and Node.js
+metadata:
+  author: tiptap
+  version: "1.0"
+---
+
 # Tiptap Integration Skill
 
 Instructions for coding agents integrating the Tiptap rich text editor
