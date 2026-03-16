@@ -73,6 +73,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Examples',
         },
         {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
+        },
+        {
           href: '/resources/tiptap-trial',
           title: 'Tiptap trial',
         },
@@ -87,10 +91,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/resources/incidents',
           title: 'Incidents',
-        },
-        {
-          href: '/resources/agent-skill',
-          title: 'Agent skill',
         },
         {
           href: 'https://tiptap.dev/pro-license',
