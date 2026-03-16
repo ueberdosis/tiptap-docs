@@ -81,6 +81,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Editor changelog',
         },
         {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
+        },
+        {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },

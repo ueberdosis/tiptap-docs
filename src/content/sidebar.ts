@@ -89,6 +89,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Incidents',
         },
         {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
+        },
+        {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
         },
