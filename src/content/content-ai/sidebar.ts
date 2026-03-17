@@ -302,8 +302,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/review-changes',
+                  title: 'Tracked changes',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Schema awareness',
