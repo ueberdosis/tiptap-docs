@@ -81,7 +81,7 @@ const USE_CASES: UseCase[] = [
   {
     title: 'Stream edits',
     description: 'Display AI tool calls and document changes in real-time as the agent works.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+    href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
     tags: ['AI Agents'],
     icon: Workflow,
   },

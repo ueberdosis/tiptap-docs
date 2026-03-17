@@ -362,7 +362,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/streaming',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/streaming',
         permanent: true,
       },
       // Live demo moved to advanced-guides
