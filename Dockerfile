@@ -47,6 +47,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+ARG GIT_COMMIT_SHA
+ARG GIT_COMMIT_REF_NAME
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
+ENV GIT_COMMIT_REF_NAME=$GIT_COMMIT_REF_NAME
+
 RUN npm run build
 
 # 2.5 ;) Dev runner
@@ -77,7 +82,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME 0.0.0.0
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]
