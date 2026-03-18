@@ -35,7 +35,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
         {disableCopy ? null : (
           <button
             onClick={onCopy}
-            className="flex items-center justify-center bg-white bg-opacity-0 border border-white rounded size-8 border-opacity-20 hover:bg-opacity-10 hover:border-opacity-40"
+            className="flex items-center justify-center bg-white/0 border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40"
           >
             <CopyIcon className="size-4" />
           </button>
