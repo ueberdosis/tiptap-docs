@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from './ui/Button'
-import TableOfContentIcon from '@/assets/icons/TableOfContent.svg?url'
+import TableOfContentIcon from '@/assets/icons/TableOfContent.svg'
 import { useToC } from '@/hooks/useToC'
 import { useAppState } from '@/providers/AppState'
 
@@ -13,7 +13,7 @@ export const ToCButton = () => {
 
   return (
     <Button variant="tertiary" size="small" onClick={() => setMobileTocOpen(true)}>
-      <img src={TableOfContentIcon.src} alt="" aria-hidden="true" className="size-4" />
+      <TableOfContentIcon className="size-4 text-grayAlpha-400" />
     </Button>
   )
 }

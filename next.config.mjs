@@ -1,8 +1,21 @@
 import createMdx from '@next/mdx'
 
+const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  turbopack: {
+    rules: {
+      '*.svg': {
+        condition: {
+          all: [{ not: 'foreign' }, { path: svgComponentPattern }],
+        },
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+    },
+  },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: { unoptimized: true },
   basePath: process.env.BASE_PATH ?? '',
