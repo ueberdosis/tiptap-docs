@@ -35,6 +35,19 @@ const nextConfig = {
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: { unoptimized: true },
   basePath: process.env.BASE_PATH ?? '',
+  async headers() {
+    const commitSha = process.env.GIT_COMMIT_SHA || 'unknown';
+    const shortSha = commitSha.substring(0, 7);
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Git-Commit', value: shortSha },
+          { key: 'X-Git-Branch', value: process.env.GIT_COMMIT_REF_NAME || 'unknown' },
+        ],
+      },
+    ]
+  },
   async redirects() {
     return [
       {
