@@ -19,7 +19,7 @@ The composable API is ideal when you:
 - Want a more declarative, component-based approach
 - Need to access the editor from multiple child components
 - Prefer automatic context management over manual prop passing
-- Want built-in loading states and SSR-friendly patterns
+- Are building complex editor UIs (toolbars, menus, sidebars, blocks)
 
 For simpler use cases or when you need more direct control, the [hook-based useEditor approach](/editor/getting-started/install/react) may be more appropriate.
 
@@ -33,11 +33,14 @@ The `<Tiptap>` component is the root provider that makes the editor instance ava
 
 ### Basic setup
 
-Create a new component and import the `Tiptap` component along with `useEditor`:
+Create a new React component and import the `Tiptap` component along with `useEditor` from `@tiptap/react` (menu components are imported from `@tiptap/react/menus`):
 
 ```tsx
 // src/Editor.tsx
+"use client"
+
 import { Tiptap, useEditor } from '@tiptap/react'
+import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 
 function Editor() {
@@ -46,18 +49,20 @@ function Editor() {
     content: '<p>Hello World!</p>',
   })
 
+  if (!editor) return null
+
   return (
-    <Tiptap instance={editor}>
-      <Tiptap.Loading>Loading editor...</Tiptap.Loading>
-      <MenuBar />
+    <Tiptap editor={editor}>
       <Tiptap.Content />
-      <Tiptap.BubbleMenu>
+
+      <BubbleMenu editor={editor}>
         <button>Bold</button>
         <button>Italic</button>
-      </Tiptap.BubbleMenu>
-      <Tiptap.FloatingMenu>
+      </BubbleMenu>
+
+      <FloatingMenu editor={editor}>
         <button>Add heading</button>
-      </Tiptap.FloatingMenu>
+      </FloatingMenu>
     </Tiptap>
   )
 }
@@ -67,14 +72,11 @@ export default Editor
 
 ### Available subcomponents
 
-The `<Tiptap>` component provides several subcomponents that handle common editor UI patterns:
-
 | Component | Description |
 | --- | --- |
 | `Tiptap.Content` | Renders the editor content area. Replaces `<EditorContent editor={editor} />`. |
-| `Tiptap.Loading` | Renders its children only while the editor is initializing. Useful for loading states. |
-| `Tiptap.BubbleMenu` | A context-aware bubble menu that appears on text selection. |
-| `Tiptap.FloatingMenu` | A context-aware floating menu that appears on empty lines. |
+
+Menu components are imported separately from `@tiptap/react/menus`.
 
 ## Accessing the editor in child components
 
@@ -82,17 +84,15 @@ One of the main benefits of the composable API is that child components can acce
 
 ### Using the useTiptap hook
 
-The `useTiptap` hook returns the editor instance and an `isReady` flag that indicates whether the editor has finished initializing.
+The `useTiptap` hook returns the editor instance from context.
 
 ```tsx
 import { useTiptap } from '@tiptap/react'
 
 function MenuBar() {
-  const { editor, isReady } = useTiptap()
+  const { editor } = useTiptap()
 
-  if (!isReady || !editor) {
-    return null
-  }
+  if (!editor) return null
 
   return (
     <div className="menu-bar">
@@ -116,7 +116,7 @@ function MenuBar() {
 Then include the menu bar anywhere inside your `<Tiptap>` component:
 
 ```tsx
-<Tiptap instance={editor}>
+<Tiptap editor={editor}>
   <MenuBar />
   <Tiptap.Content />
 </Tiptap>
@@ -127,17 +127,17 @@ Then include the menu bar anywhere inside your `<Tiptap>` component:
 For performance-sensitive components, use `useTiptapState` to subscribe to specific parts of the editor state. This prevents unnecessary re-renders when unrelated state changes.
 
 ```tsx
-import { useTiptap, useTiptapState } from '@tiptap/react'
+import { useTiptapState } from '@tiptap/react'
 
 function WordCount() {
-  const { isReady } = useTiptap()
+  const { editor } = useTiptap()
 
   const wordCount = useTiptapState((state) => {
     const text = state.editor.state.doc.textContent
     return text.split(/\s+/).filter(Boolean).length
   })
 
-  if (!isReady) {
+  if (!editor) {
     return null
   }
 
@@ -147,16 +147,12 @@ function WordCount() {
 
 The selector function receives an `EditorStateSnapshot` and should return only the data your component needs. The component will only re-render when the selected value changes.
 
-<Callout title="Important" variant="warning">
-  Only use `useTiptapState` when the editor is ready. Check `isReady` from `useTiptap()` before rendering components that use this hook.
-</Callout>
-
 ## Server-side rendering (SSR)
 
-The composable API works seamlessly with server-side rendering. Use the `immediatelyRender` option to prevent the editor from rendering on the server, and leverage `Tiptap.Loading` to display a placeholder:
+The composable API works seamlessly with server-side rendering. Since the editor instance is only created on the client, you can guard rendering until it exists:
 
 ```tsx
-'use client'
+"use client"
 
 import { Tiptap, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -165,21 +161,19 @@ export function MyEditor() {
   const editor = useEditor({
     extensions: [StarterKit],
     content: '<p>Hello World!</p>',
-    immediatelyRender: false,
   })
 
+  if (!editor) {
+    return <div className="skeleton">Loading editor...</div>
+  }
+
   return (
-    <Tiptap instance={editor}>
-      <Tiptap.Loading>
-        <div className="skeleton">Loading editor...</div>
-      </Tiptap.Loading>
+    <Tiptap editor={editor}>
       <Tiptap.Content />
     </Tiptap>
   )
 }
 ```
-
-The `Tiptap.Loading` component is particularly useful with SSR as it displays a placeholder until the editor initializes on the client.
 
 ## Performance considerations
 
@@ -187,7 +181,6 @@ The composable API is designed with performance in mind:
 
 - **Automatic context optimization**: The editor context is memoized to prevent unnecessary re-renders
 - **Selective subscriptions**: Use `useTiptapState` to subscribe only to the state you need
-- **Built-in loading states**: Prevent rendering child components until the editor is ready
 
 For more performance tips, see the [React Performance Guide](/guides/performance).
 
@@ -201,15 +194,13 @@ import { useCurrentEditor } from '@tiptap/react'
 function EditorJSONPreview() {
   const { editor } = useCurrentEditor()
 
-  if (!editor) {
-    return null
-  }
+  if (!editor) return null
 
   return <pre>{JSON.stringify(editor.getJSON(), null, 2)}</pre>
 }
 ```
 
-However, for new code, we recommend using `useTiptap()` which provides additional context like the `isReady` flag.
+However, for new code, we recommend using `useTiptap()`.
 
 ## API Reference
 
@@ -221,13 +212,13 @@ The root provider component that makes the editor instance available via React c
 
 | Prop | Type | Description |
 | --- | --- | --- |
-| `instance` | `Editor \| null` | The editor instance from `useEditor()` |
+| `editor` | `Editor \| null` | The editor instance from `useEditor()` |
 | `children` | `ReactNode` | Child components |
 
 **Example:**
 
 ```tsx
-<Tiptap instance={editor}>
+<Tiptap editor={editor}>
   <Tiptap.Content />
 </Tiptap>
 ```
@@ -241,16 +232,13 @@ Returns the Tiptap context value.
 | Property | Type | Description |
 | --- | --- | --- |
 | `editor` | `Editor \| null` | The editor instance |
-| `isReady` | `boolean` | `true` when the editor has finished initializing |
 
 **Example:**
 
 ```tsx
-const { editor, isReady } = useTiptap()
+const { editor } = useTiptap()
 
-if (!isReady || !editor) {
-  return null
-}
+if (!editor) return null
 ```
 
 ### useTiptapState hook
@@ -268,23 +256,24 @@ const value = useTiptapState(selector, equalityFn?)
 | Parameter | Type | Description |
 | --- | --- | --- |
 | `selector` | `(state: EditorStateSnapshot) => T` | Function to select state |
-| `equalityFn` | `(a: T, b: T) => boolean` | Optional equality function to control re-renders. Defaults to `deepEqual` from `fast-equals` (deep value comparison). |
+| `equalityFn` | `(a: T, b: T) => boolean` | Optional equality function to control re-renders |
 
 **Example:**
 
 ```tsx
-const isBold = useTiptapState((state) => state.editor.isActive('bold'))
+const isBold = useTiptapState((state) =>
+  state.editor.isActive('bold')
+)
 ```
 
 ## Comparison: Composable API vs Hook-based Approach
 
 | Feature | Composable API | Hook-based Approach |
 | --- | --- | --- |
-| Setup complexity | Low - declarative components | Medium - manual prop passing |
+| Setup complexity | Low – declarative components | Medium – manual prop passing |
 | Context management | Automatic | Manual via EditorContext.Provider |
 | Child component access | Easy via `useTiptap()` | Requires prop drilling or context |
-| Loading states | Built-in `Tiptap.Loading` | Manual implementation |
-| SSR support | Built-in with `Tiptap.Loading` | Requires manual null checks |
+| SSR support | Guarded render (`if (!editor)`) | Manual null checks |
 | Performance | Optimized with `useTiptapState` | Optimized with `useEditorState` |
 | Best for | Complex UIs with many child components | Simple UIs or direct control needed |
 
