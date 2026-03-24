@@ -166,10 +166,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
                 },
                 {
-                  title: 'Split view',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/split-view',
-                },
-                {
                   title: 'Tiptap Edit hooks',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/tiptap-edit-hooks',
                 },
@@ -240,10 +236,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Diff utility',
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
-                },
-                {
-                  title: 'Split view',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/split-view',
                 },
               ],
             },
