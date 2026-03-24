@@ -1,4 +1,4 @@
-import { SidebarConfig } from '@/types'
+import type { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'pages',
@@ -36,11 +36,15 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Headers & Footers',
           href: '/pages/core-concepts/page-header-footer',
-          tags: ['New'],
         },
         {
-          title: 'Page break',
-          href: '/pages/core-concepts/page-break',
+          title: 'Page gap & background',
+          href: '/pages/core-concepts/page-gap',
+        },
+        {
+          title: 'PageBreak node',
+          href: '/pages/core-concepts/page-break-node',
+          tags: ['New'],
         },
         {
           title: 'Limitations',

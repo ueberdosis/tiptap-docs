@@ -1,0 +1,272 @@
+---
+title: Build a suggestion list
+tags:
+  - type: addon
+meta:
+  title: Build a suggestion list | Tiptap Tracked Changes Docs
+  description: Create a sidebar component that displays all tracked change suggestions with accept and reject actions.
+  category: Tracked Changes
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Learn how to build a sidebar component that lists all pending suggestions in the document, showing who made each change and allowing users to accept or reject them.
+
+<Callout title="Framework note" variant="hint">
+  This guide uses React, but the same concepts apply to Vue and any other framework supported by
+  Tiptap.
+</Callout>
+
+## Prerequisites
+
+This guide assumes you have a working editor with the Tracked Changes extension. If you don't, follow the [editor setup guide](/tracked-changes/guides/editor-setup) first.
+
+## Query suggestions
+
+The extension exports a `findSuggestions` utility that returns all suggestions in the document. Call it on `onCreate` and `onUpdate` to keep your list in sync.
+
+```jsx
+import { useState } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { TrackedChanges, findSuggestions } from '@tiptap-pro/extension-tracked-changes'
+
+function Editor() {
+  const [suggestions, setSuggestions] = useState([])
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TrackedChanges.configure({
+        enabled: true,
+        userId: 'user-123',
+        userMetadata: { name: 'John Doe' },
+      }),
+    ],
+    content: '<p>Start editing to see tracked changes.</p>',
+    onCreate: ({ editor: currentEditor }) => {
+      setSuggestions(findSuggestions(currentEditor))
+    },
+    onUpdate: ({ editor: currentEditor }) => {
+      setSuggestions(findSuggestions(currentEditor))
+    },
+  })
+
+  // Deduplicate — a suggestion can span multiple text nodes
+  const uniqueSuggestions = Array.from(
+    new Map(suggestions.map(s => [s.id, s])).values(),
+  )
+
+  if (!editor) {
+    return null
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '1rem' }}>
+      <div style={{ flex: 1 }}>
+        <EditorContent editor={editor} />
+      </div>
+      <SuggestionList
+        suggestions={uniqueSuggestions}
+        onAccept={(id) => {
+          editor.commands.acceptSuggestion({ id })
+          setSuggestions(findSuggestions(editor))
+        }}
+        onReject={(id) => {
+          editor.commands.rejectSuggestion({ id })
+          setSuggestions(findSuggestions(editor))
+        }}
+      />
+    </div>
+  )
+}
+```
+
+`★ Insight ─────────────────────────────────────`
+A single suggestion can span multiple text nodes when it crosses formatting boundaries (e.g. part of the text is bold). `findSuggestions` returns one entry per text node, so deduplication by `id` is essential to avoid showing the same suggestion multiple times in the list.
+`─────────────────────────────────────────────────`
+
+## Build the SuggestionList component
+
+Each suggestion has a `type` (`add`, `delete`, or `replace`), the changed `text`, user metadata, and a timestamp. Use these to render a clear list.
+
+```jsx
+function SuggestionList({ suggestions, onAccept, onReject }) {
+  if (suggestions.length === 0) {
+    return (
+      <div style={{ width: 280, padding: '1rem' }}>
+        <p>No pending suggestions</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ width: 280, padding: '1rem' }}>
+      <h3>Suggestions ({suggestions.length})</h3>
+      {suggestions.map(suggestion => (
+        <SuggestionItem
+          key={suggestion.id}
+          suggestion={suggestion}
+          onAccept={() => onAccept(suggestion.id)}
+          onReject={() => onReject(suggestion.id)}
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+## Build the SuggestionItem component
+
+Display the suggestion type, text preview, user info, and action buttons.
+
+```jsx
+function SuggestionItem({ suggestion, onAccept, onReject }) {
+  const typeLabel = {
+    add: '+ Insertion',
+    delete: '− Deletion',
+    replace: '~ Replacement',
+  }
+
+  return (
+    <div style={{
+      padding: '0.75rem',
+      marginBottom: '0.5rem',
+      borderRadius: '0.375rem',
+      border: '1px solid #e2e8f0',
+    }}>
+      <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+        {typeLabel[suggestion.type]}
+      </div>
+
+      <div style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+        "{suggestion.text}"
+        {suggestion.type === 'replace' && suggestion.replacedText && (
+          <span style={{ color: '#64748b' }}>
+            {' '}(was: "{suggestion.replacedText}")
+          </span>
+        )}
+      </div>
+
+      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.5rem' }}>
+        {suggestion.userMetadata?.name || suggestion.userId}
+        {' · '}
+        {new Date(suggestion.createdAt).toLocaleTimeString()}
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button onClick={onAccept}>Accept</button>
+        <button onClick={onReject}>Reject</button>
+      </div>
+    </div>
+  )
+}
+```
+
+## Add bulk actions
+
+Add buttons above the list to accept or reject all suggestions at once.
+
+```jsx
+function SuggestionList({ suggestions, onAccept, onReject, onAcceptAll, onRejectAll }) {
+  return (
+    <div style={{ width: 280, padding: '1rem' }}>
+      <h3>Suggestions ({suggestions.length})</h3>
+
+      {suggestions.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button onClick={onAcceptAll}>Accept all</button>
+          <button onClick={onRejectAll}>Reject all</button>
+        </div>
+      )}
+
+      {suggestions.map(suggestion => (
+        <SuggestionItem
+          key={suggestion.id}
+          suggestion={suggestion}
+          onAccept={() => onAccept(suggestion.id)}
+          onReject={() => onReject(suggestion.id)}
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+Wire up the bulk actions in the parent:
+
+```jsx
+<SuggestionList
+  suggestions={uniqueSuggestions}
+  onAccept={(id) => {
+    editor.commands.acceptSuggestion({ id })
+    setSuggestions(findSuggestions(editor))
+  }}
+  onReject={(id) => {
+    editor.commands.rejectSuggestion({ id })
+    setSuggestions(findSuggestions(editor))
+  }}
+  onAcceptAll={() => {
+    editor.commands.acceptAllSuggestions()
+    setSuggestions([])
+  }}
+  onRejectAll={() => {
+    editor.commands.rejectAllSuggestions()
+    setSuggestions([])
+  }}
+/>
+```
+
+## Filter suggestions
+
+Use the options parameter on `findSuggestions` to filter by type or user:
+
+```jsx
+import { findSuggestions } from '@tiptap-pro/extension-tracked-changes'
+
+// Only insertions
+const insertions = findSuggestions(editor, 'suggestion', { type: 'add' })
+
+// Only deletions
+const deletions = findSuggestions(editor, 'suggestion', { type: 'delete' })
+
+// Only from a specific user
+const userSuggestions = findSuggestions(editor, 'suggestion', { userId: 'user-123' })
+```
+
+You can add filter controls in your sidebar to let users view specific suggestion types.
+
+## Listen to events
+
+For more reactive updates, listen to the extension's events instead of (or in addition to) polling on `onUpdate`:
+
+```jsx
+import { useEffect } from 'react'
+
+useEffect(() => {
+  if (!editor) return
+
+  const updateSuggestions = () => {
+    setSuggestions(findSuggestions(editor))
+  }
+
+  editor.on('trackedChanges:suggestionCreated', updateSuggestions)
+  editor.on('trackedChanges:suggestionAccepted', updateSuggestions)
+  editor.on('trackedChanges:suggestionRejected', updateSuggestions)
+  editor.on('trackedChanges:suggestionRemoved', updateSuggestions)
+  editor.on('trackedChanges:suggestionsUpdated', updateSuggestions)
+
+  return () => {
+    editor.off('trackedChanges:suggestionCreated', updateSuggestions)
+    editor.off('trackedChanges:suggestionAccepted', updateSuggestions)
+    editor.off('trackedChanges:suggestionRejected', updateSuggestions)
+    editor.off('trackedChanges:suggestionRemoved', updateSuggestions)
+    editor.off('trackedChanges:suggestionsUpdated', updateSuggestions)
+  }
+}, [editor])
+```
+
+## Next steps
+
+- Add [comments integration](/tracked-changes/guides/comments-integration) for a full review workflow
+- Explore the [utilities API](/tracked-changes/api-reference/utilities) for more query functions like `getSuggestionAtSelection` and `findSuggestionsInRange`

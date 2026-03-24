@@ -1,0 +1,108 @@
+---
+title: Advanced usage
+tags:
+  - type: addon
+meta:
+  title: Advanced usage | Tiptap Tracked Changes Docs
+  description: Learn about suggestion grouping, deletion merging, collaboration compatibility, and comments integration in Tiptap Tracked Changes.
+  category: Tracked Changes
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Advanced behaviors and integration patterns for the Tracked Changes extension.
+
+## Suggestion grouping
+
+When a user types continuously or deletes multiple characters in sequence, these edits are grouped into a single suggestion rather than creating one suggestion per character. Grouping occurs when:
+
+1. The new edit is **adjacent** to an existing suggestion (immediately before or after)
+2. The existing suggestion was created by the **same user**
+3. The existing suggestion is the **same type** (both insertions or both deletions)
+4. The time since the last edit is within the **grouping timeout window** (default: 2000ms)
+
+When edits are grouped, the suggestion's timestamp is updated to keep the grouping window active. This means continuous typing will keep extending the same suggestion until the user pauses for longer than the timeout.
+
+```js
+// Disable grouping entirely
+TrackedChanges.configure({
+  suggestionGroupingTimeout: 0,
+})
+
+// Longer grouping window (5 seconds)
+TrackedChanges.configure({
+  suggestionGroupingTimeout: 5000,
+})
+```
+
+## Deletion merging
+
+When a user deletes content that overlaps with or is adjacent to existing delete suggestions, the marks are automatically merged to prevent nested or overlapping deletions. The merged suggestion uses the metadata (ID, user, timestamp) from the **oldest** existing delete mark in the range.
+
+This ensures that:
+
+- The document never contains nested delete marks
+- Related deletions are visually grouped together
+- The original author of the first deletion is preserved
+
+## Mixed content handling
+
+When deleting or replacing content that contains a mix of original text and previously suggested insertions:
+
+- **Suggested insertions** (text with `add` marks) are immediately removed from the document
+- **Original content** (text without `add` marks) is marked with a `delete` suggestion
+
+This behavior matches user expectations: if you delete text that was only suggested (not yet accepted), it simply disappears. Original document content requires explicit acceptance to be removed.
+
+## Atom node tracking
+
+The extension automatically tracks changes to atom nodes like images, horizontal rules, and other non-text content. These nodes cannot have marks, so the extension uses node attributes (`suggestionId`, `suggestionType`, `suggestionUserId`, `suggestionCreatedAt`, `suggestionUserMetadata`) instead. This happens transparently — atom nodes appear in the same suggestion queries and can be accepted or rejected like any other suggestion.
+
+## Collaboration compatibility
+
+The extension is designed to work with Yjs-based collaboration. It automatically ignores:
+
+- **Remote sync transactions** from Yjs (`y-sync$` meta)
+- **History transactions** (undo/redo are handled natively by ProseMirror)
+- **Transactions with `addToHistory: false`** (typically remote changes)
+
+This means only local user edits are tracked as suggestions.
+
+## Comments integration
+
+The Tracked Changes extension integrates with the [Comments](/editor/extensions/functionality/comments) extension to enable review workflows where suggestions and comment threads are handled together. The integration is built on top of the event systems exposed by both extensions.
+
+When both extensions are active, comment threads are automatically linked to suggestions through thread metadata. This enables bidirectional synchronization:
+
+- **Resolving** a comment thread linked to a suggestion automatically **accepts** the suggestion
+- **Deleting** a comment thread linked to a suggestion automatically **rejects** the suggestion
+- **Accepting** a suggestion automatically **resolves** its linked comment thread
+- **Rejecting** a suggestion automatically **deletes** its linked comment thread
+
+When a suggestion's content changes (e.g., the user continues typing within a tracked insertion), the linked thread's metadata is updated to stay in sync.
+
+This means users can review changes through either the suggestion UI or the comments panel — both stay consistent.
+
+## Code block compatibility
+
+By default, Tiptap code blocks do not allow marks, which prevents suggestion marks from being applied inside code content. The extension exports a helper to work around this:
+
+```js
+import { CodeBlock } from '@tiptap/extension-code-block'
+import { TrackedChanges, withSuggestionMarkOnCodeBlock } from '@tiptap-pro/extension-tracked-changes'
+import StarterKit from '@tiptap/starter-kit'
+
+const TrackableCodeBlock = withSuggestionMarkOnCodeBlock(CodeBlock)
+
+const editor = new Editor({
+  extensions: [
+    StarterKit.configure({
+      codeBlock: false, // Disable the default code block
+    }),
+    TrackableCodeBlock, // Use the patched version
+    TrackedChanges.configure({ enabled: true, userId: 'user-123' }),
+  ],
+})
+```
+
+This also works with `CodeBlockLowlight` or any other code block extension.

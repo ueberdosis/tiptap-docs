@@ -4,7 +4,7 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v2.6.0
+    label: v2.12.0
 meta:
     title: Import DOCX REST API | Tiptap Conversion
     description: Learn how to import .docx files into Tiptap JSON format via the Conversion REST API.
@@ -46,7 +46,7 @@ curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
     -H "Authorization: Bearer YOUR_TOKEN" \
     -H "X-App-Id: YOUR_APP_ID" \
     -F "file=@/path/to/your/file.docx" \
-    -F "imageUploadCallbackUrl=https://your-image-upload-endpoint.com" \
+    -F 'imageUploadConfig={"url":"https://your-image-upload-endpoint.com","headers":{"Authorization":"Bearer your-upload-token"}}' \
     -F "prosemirrorNodes={\"nodeKey\":\"nodeValue\"}" \
     -F "prosemirrorMarks={\"markKey\":\"markValue\"}"
 ```
@@ -67,7 +67,7 @@ curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
 | Name                     | Type     | Description                                                                                                                  |
 | ------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `file`                   | `File`   | The file to convert                                                                                                          |
-| `imageUploadCallbackUrl` | `string` | The callback endpoint to upload images that were encountered within the uploaded document, [see more info](#image-uploading) |
+| `imageUploadConfig`      | `JSON string` | A JSON object configuring image uploads. Contains `url` (required), and optionally `headers`, `method`, and `queryParams`. See the [editor extension docs](/conversion/import/docx/editor-import#image-upload-configuration) for the full schema. |
 | `prosemirrorNodes`       | `Object string` | Custom node mapping for the conversion, [see more info](/conversion/import/docx/custom-node-conversion).       |
 | `prosemirrorMarks`       | `Object string` | Custom mark mapping for the conversion, [see more info](/conversion/import/docx/custom-mark-conversion)        |
 | `verbose` | `string \| number` | A configuration property to help you control the level of diagnostic output during the import process. This is especially useful for debugging or for getting more insight into what happens during conversion. See more at [Verbose output](#import-verbose-output) |
@@ -195,6 +195,75 @@ The import API extracts headers and footers from `.docx` files. When the documen
 
 Fields that are `null` indicate the document does not define content for that specific header or footer slot.
 
+## Footnotes & Endnotes in the response
+
+The import API extracts footnotes and endnotes from `.docx` files. When the document contains footnote or endnote content, additional fields are included in the `data` object of the response.
+
+### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `footnotes` | `Object` | An object keyed by footnote ID, where each value is a Tiptap JSON document (`{ type: "doc", content: [...] }`) |
+| `endnotes` | `Object` | An object keyed by endnote ID, where each value is a Tiptap JSON document (`{ type: "doc", content: [...] }`) |
+
+Documents without footnotes or endnotes return empty objects (`{}`), so existing integrations are unaffected.
+
+Inline references in the document body are represented as `footnoteReference` and `endnoteReference` nodes, each carrying a `noteId` attribute that links to the corresponding entry in `footnotes` or `endnotes`.
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "This sentence has a footnote" },
+            { "type": "footnoteReference", "attrs": { "noteId": "1" } },
+            { "type": "text", "text": " and an endnote" },
+            { "type": "endnoteReference", "attrs": { "noteId": "1" } },
+            { "type": "text", "text": "." }
+          ]
+        }
+      ]
+    },
+    "footnotes": {
+      "1": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": "This is the footnote content." }]
+          }
+        ]
+      }
+    },
+    "endnotes": {
+      "1": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": "This is the endnote content." }]
+          }
+        ]
+      }
+    },
+    "header": null,
+    "footer": null,
+    "headerFirstPage": null,
+    "footerFirstPage": null,
+    "headerOdd": null,
+    "footerOdd": null,
+    "headerEven": null,
+    "footerEven": null
+  }
+}
+```
+
 ### Custom node and mark mapping
 
 You can override the default `node/mark` types used during import by specifying them in the body of your request within `prosemirrorNodes` and `prosemirrorMarks` respectively. You would need to provide these if your editor uses custom `nodes/marks` and you want the imported `JSON` to use those.
@@ -221,6 +290,8 @@ You can similarly adjust headings, lists, marks like bold or italic, and more.
 | `tableheader`    | Defines which ProseMirror type is used for tableHeader conversion    |
 | `tablerow`       | Defines which ProseMirror type is used for tableRow conversion       |
 | `image`          | Defines which ProseMirror mark is used for image conversion          |
+| `footnoteReference` | Defines which ProseMirror type is used for footnote reference conversion |
+| `endnoteReference`  | Defines which ProseMirror type is used for endnote reference conversion  |
 
 #### Default marks
 
@@ -247,8 +318,8 @@ Currently supported features and known limitations for DOCX import:
 | **Media (Images)**               | ✓ Embedded images, size preserved                                          |
 | **Styles**                       | ✓ Font families*, Font colors, font sizes, background colors, line heights |
 | **Headers & Footers**            | ✓ Supported (requires [Pages extension](/editor/extensions/functionality/pages))                            |
-| **Sections & Page Breaks**       | ~ In development                                                           |
-| **Footnotes & Endnotes**         | ~ In development                                                           |
+| **Sections & Page Breaks**       | ✓ Page breaks supported (requires [PageBreak extension](/pages/core-concepts/page-break-node)) |
+| **Footnotes & Endnotes**         | ✓ Supported                                                                |
 | **Math**                         | ~ In development                                                           |
 | **Comments & Revisions**         | ✗                                                                          |
 | **Table of Contents**            | ✗                                                                          |

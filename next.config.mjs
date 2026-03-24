@@ -1,40 +1,37 @@
 import createMdx from '@next/mdx'
-import remarkFrontmatter from 'remark-frontmatter'
-import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
-import rehypeShiki from '@shikijs/rehype'
-import remarkGfm from 'remark-gfm'
+
+const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  webpack(config) {
-    // Grab the existing rule that handles SVG imports
-    const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'))
-
-    config.module.rules.push(
-      // Reapply the existing rule, but only for svg imports ending in ?url
-      {
-        ...fileLoaderRule,
-        test: /\.svg$/i,
-        resourceQuery: /url/, // *.svg?url
+  turbopack: {
+    rules: {
+      '*.svg': {
+        condition: {
+          all: [{ not: 'foreign' }, { path: svgComponentPattern }],
+        },
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
-      // Convert all other *.svg imports to React components
-      {
-        test: /\.svg$/i,
-        issuer: fileLoaderRule.issuer,
-        resourceQuery: { not: [...fileLoaderRule.resourceQuery.not, /url/] }, // exclude if *.svg?url
-        use: ['@svgr/webpack'],
-      },
-    )
-
-    // Modify the file loader rule to ignore *.svg, since we have it handled now.
-    fileLoaderRule.exclude = /\.svg$/i
-
-    return config
+    },
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: { unoptimized: true },
   basePath: process.env.BASE_PATH ?? '',
+  async headers() {
+    const commitSha = process.env.GIT_COMMIT_SHA || 'unknown'
+    const shortSha = commitSha.substring(0, 7)
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Git-Commit', value: shortSha },
+          { key: 'X-Git-Branch', value: process.env.GIT_COMMIT_REF_NAME || 'unknown' },
+        ],
+      },
+    ]
+  },
   async redirects() {
     return [
       {
@@ -130,6 +127,31 @@ const nextConfig = {
       {
         source: '/conversion/import-export/markdown/rest-api',
         destination: '/conversion/legacy/markdown/rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx',
+        destination: '/conversion/getting-started/overview',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/custom-node-conversion',
+        destination: '/conversion/import/docx/custom-node-conversion',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/custom-page-layout',
+        destination: '/conversion/export/docx/custom-page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/preserve-images',
+        destination: '/conversion/import/docx/preserve-images',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import-export/docx/rest-api',
+        destination: '/conversion/getting-started/install',
         permanent: true,
       },
       {
@@ -337,7 +359,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/streaming',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/streaming',
         permanent: true,
       },
       // Live demo moved to advanced-guides
@@ -523,10 +550,10 @@ const nextConfig = {
 
 const withMDX = createMdx({
   options: {
-    remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm],
+    remarkPlugins: ['remark-frontmatter', 'remark-mdx-frontmatter', 'remark-gfm'],
     rehypePlugins: [
       [
-        rehypeShiki,
+        '@shikijs/rehype',
         {
           theme: 'github-dark-high-contrast',
         },

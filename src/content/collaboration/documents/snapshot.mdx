@@ -101,7 +101,7 @@ You can integrate the [compare snapshots](/collaboration/documents/snapshot-comp
 | status            | `string`               | The status of the provider - can be `connecting`, `connected` or `disconnected` |
 | synced            | `boolean`              | Is the version history synced with the server                                   |
 | versioningEnabled | `boolean`              | Is versioning enabled                                                           |
-| versions          | `array<Version>`       | The array of versions that are stored in the history. Each version has `version` (number), `date` (number), `name` (optional string), and `meta` (optional object). |
+| versions          | `array<Version>`       | The array of versions that are stored in the history. Each version has `version` (number), `date` (number), `name` (optional string), and `meta` (optional object). See [automatic version metadata](#automatic-version-metadata) for details on the `meta` field. |
 
 ## Commands
 
@@ -212,6 +212,33 @@ The `saveVersion` command accepts three parameters:
 | force     | `boolean`                   | `false`     | Create the version even if no changes were detected      |
 | meta      | `Record<string, unknown>`   | `undefined` | Arbitrary metadata to attach to the version              |
 
+### Automatic version metadata
+
+Every version automatically includes a `__tiptap` key inside the `meta` object. This metadata is added by the server and provides context about how the version was created and who contributed to it.
+
+A version's `meta` field looks like this:
+
+```json
+{
+  "__tiptap": {
+    "trigger": "websocket",
+    "changesBy": ["#user1"],
+    "triggeredBy": "user1"
+  },
+  "wordCount": 81624434
+}
+```
+
+The `__tiptap` object contains the following fields:
+
+| Field       | Type       | Description                                                                                              |
+| ----------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| trigger     | `string`   | How the version was created. Possible values: `"websocket"` (via the editor/provider), `"api"` (via the REST API), `"autoVersioning"` (created automatically by the autoversioning feature), or `"revert"` (created when reverting to a previous version). |
+| changesBy   | `string[]` | A list of user identifiers who made changes included in this version.                                    |
+| triggeredBy | `string`   | The user identifier of the person who triggered the version creation.                                    |
+
+Any custom metadata you pass to `saveVersion` or the REST API is stored alongside the `__tiptap` key at the top level of `meta`. The `__tiptap` key is reserved and cannot be overwritten by custom metadata.
+
 ### Fetch versions from the server
 
 You can manually refresh the list of versions from the server using the `fetchVersions` command. This updates the extension storage with the latest version data.
@@ -302,7 +329,7 @@ provider.createVersion('My version', false, {
 
 ### Implementing version previews for your editor
 
-The examples above directly modify the document and do not provide local-only previews of the version. Therefore, you must create your own frontend solution for this requirement. You can leverage the stateless messaging system of the `TiptapCloudProvider` to request a specific version from the server.
+The examples above directly modify the document and do not provide local-only previews of the version. Therefore, you must create your own frontend solution for this requirement. You can use the `previewVersion` method on the `TiptapCollabProvider` to request a specific version from the server.
 
 Start by attaching a listener to the provider:
 
@@ -332,24 +359,13 @@ const unbindWatchContent = watchPreviewContent(provider, (content) => {
 unbindWatchContent()
 ```
 
-Following this setup, you can trigger `version.preview` requests like so:
+Following this setup, you can trigger `version.preview` requests like so:
 
 ```js
-// Define a function that sends a version.preview request to the provider
-const requestVersion = (version) => {
-  provider.sendStateless(
-    JSON.stringify({
-      action: 'version.preview',
-      // Include your version number here
-      version,
-    }),
-  )
-}
+// Request a specific version preview from the server
+provider.previewVersion(1)
 
-// Trigger the request
-requestVersion(1)
-
-// You can then link this function to button clicks or other UI elements to trigger the request.
+// You can link this to button clicks or other UI elements to trigger the request.
 ```
 
 To go beyond previews and compare different versions visually, the [compare snapshots](/collaboration/documents/snapshot-compare) extension provides an easy way to see the changes between any two versions within the editor.
@@ -408,14 +424,7 @@ provider.revertToVersion(1, {
 Creates a new version with an optional name and metadata.
 
 ```js
-provider.sendStateless(
-  JSON.stringify({
-    action: 'version.create',
-    name: 'My custom version',
-    force: false,
-    meta: { author: 'Jane Doe' },
-  }),
-)
+provider.createVersion('My custom version', false, { author: 'Jane Doe' })
 ```
 
 #### `versions.list`
@@ -423,9 +432,7 @@ provider.sendStateless(
 Requests the full list of versions from the server.
 
 ```js
-provider.sendStateless(
-  JSON.stringify({ action: 'versions.list' }),
-)
+const versions = await provider.listVersions()
 ```
 
 ### Incoming

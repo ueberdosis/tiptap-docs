@@ -48,6 +48,11 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/import/docx/preserve-images',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/import/docx/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'REST API',
               href: '/conversion/import/docx/rest-api',
             },
@@ -86,6 +91,11 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/docx/headers-footers',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/export/docx/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'Custom page layout',
               href: '/conversion/export/docx/custom-page-layout',
             },
@@ -117,8 +127,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/pdf/headers-footers',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/export/pdf/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'Custom page layout',
               href: '/conversion/export/pdf/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/pdf/custom-node-conversion',
             },
             {
               title: 'Export styles',
@@ -144,8 +163,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/odt/headers-footers',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/export/odt/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'Custom page layout',
               href: '/conversion/export/odt/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/odt/custom-node-conversion',
             },
             {
               title: 'Export styles',
@@ -171,8 +199,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/epub/headers-footers',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/export/epub/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'Custom page layout',
               href: '/conversion/export/epub/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/epub/custom-node-conversion',
             },
             {
               title: 'Export styles',
@@ -198,8 +235,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/doc/headers-footers',
             },
             {
+              title: 'Page breaks',
+              href: '/conversion/export/doc/page-breaks',
+              tags: ['New'],
+            },
+            {
               title: 'Custom page layout',
               href: '/conversion/export/doc/custom-page-layout',
+            },
+            {
+              title: 'Convert custom nodes',
+              href: '/conversion/export/doc/custom-node-conversion',
             },
             {
               title: 'Export styles',

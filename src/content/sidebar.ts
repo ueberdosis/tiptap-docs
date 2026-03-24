@@ -38,6 +38,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
+          href: '/tracked-changes/getting-started/overview',
+          title: 'Tracked Changes',
+        },
+        {
           href: '/content-ai/getting-started/overview',
           title: 'Content AI',
         },
@@ -67,6 +71,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/examples',
           title: 'Examples',
+        },
+        {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
         },
         {
           href: '/resources/tiptap-trial',
