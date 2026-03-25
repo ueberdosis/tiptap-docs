@@ -298,10 +298,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/review-changes',
                 },
                 {
-                  title: 'Schema awareness',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
-                },
-                {
                   title: 'Comments',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/comments',
                 },
@@ -333,6 +329,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Advanced guides',
               href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
               children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+                },
                 {
                   title: 'Tiptap Shorthand',
                   href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
