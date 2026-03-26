@@ -12,9 +12,9 @@ import { getChangelogData, getChangelogIndex } from '@/server/getChangelogData'
 import { renderMarkdown } from '@/server/renderMarkdown'
 
 type Props = {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 export async function generateStaticParams() {
@@ -23,12 +23,13 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const data = getChangelogData(params.slug)
+  const { slug } = await params
+  const data = getChangelogData(slug)
   if (!data) return {}
 
   const title = `${data.packageName} Changelog`
   const description = `Changelog for ${data.packageName}`
-  const canonicalUrl = createCanonicalUrl(['resources', 'changelog', params.slug])
+  const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
 
   return await createMetadata({
     title,
@@ -39,11 +40,12 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function ChangelogPage({ params }: Props) {
-  const data = getChangelogData(params.slug)
+  const { slug } = await params
+  const data = getChangelogData(slug)
   if (!data) notFound()
 
   const html = await renderMarkdown(data.content)
-  const canonicalUrl = createCanonicalUrl(['resources', 'changelog', params.slug])
+  const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
   const sidebar = await importSidebarConfigFromMarkdownPath(['resources'])
 
   const title = `${data.packageName} Changelog`
@@ -90,7 +92,7 @@ export default async function ChangelogPage({ params }: Props) {
           <div className="mdx-content" dangerouslySetInnerHTML={{ __html: html }} />
           <PrevNextTiles
             config={sidebar.sidebarConfig}
-            currentPath={`/resources/changelog/${params.slug}`}
+            currentPath={`/resources/changelog/${slug}`}
           />
         </Layout.Content>
         <Layout.SecondarySidebar />
