@@ -8,8 +8,6 @@ type RepoConfig = {
   slugPrefix: string
   packageScope: string
   packageDirs: string[]
-  rootChangelogSlug: string
-  rootChangelogTitle: string
 }
 
 const OSS_CONFIG: RepoConfig = {
@@ -19,8 +17,6 @@ const OSS_CONFIG: RepoConfig = {
   slugPrefix: '',
   packageScope: '@tiptap',
   packageDirs: ['packages', 'packages-deprecated'],
-  rootChangelogSlug: 'tiptap',
-  rootChangelogTitle: 'Tiptap',
 }
 
 const PRO_CONFIG: RepoConfig = {
@@ -30,8 +26,6 @@ const PRO_CONFIG: RepoConfig = {
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
   packageDirs: ['packages'],
-  rootChangelogSlug: 'tiptap-pro',
-  rootChangelogTitle: 'Tiptap Pro',
 }
 
 const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
@@ -185,50 +179,19 @@ async function main() {
   // Process all repos concurrently
   const repoResults = await Promise.all(
     REPO_CONFIGS.map(async (config) => {
-      const packages: ChangelogResult[] = []
-      let root: ChangelogResult | null = null
-
       try {
-        const results = await discoverAndFetchPackages(config)
-        packages.push(...results)
+        return await discoverAndFetchPackages(config)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.warn(
           `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
         )
+        return []
       }
-
-      // Fetch root CHANGELOG.md
-      try {
-        const content = await fetchChangelog(config, 'CHANGELOG.md')
-        if (content) {
-          root = {
-            packageName: config.rootChangelogTitle,
-            slug: config.rootChangelogSlug,
-            content: stripLeadingH1(content),
-          }
-          console.log(`Fetched root changelog for ${config.rootChangelogTitle}`)
-        } else {
-          console.log(`No root CHANGELOG.md found for ${config.owner}/${config.repo}, skipping.`)
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.warn(
-          `Warning: Failed to fetch root changelog for ${config.owner}/${config.repo}: ${message}. Skipping.`,
-        )
-      }
-
-      return { packages, root }
     }),
   )
 
-  const allResults: ChangelogResult[] = repoResults.flatMap((r) => r.packages)
-  const rootResults: ChangelogResult[] = repoResults
-    .map((r) => r.root)
-    .filter((r): r is ChangelogResult => r !== null)
-
-  // Add root changelogs to results
-  allResults.push(...rootResults)
+  const allResults: ChangelogResult[] = repoResults.flat()
 
   // Write individual package JSON files
   for (const result of allResults) {
@@ -245,21 +208,13 @@ async function main() {
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 2))
   console.log(`Wrote ${indexPath}`)
 
-  // Write sidebar-items.json (root changelogs first, then alphabetically by package name)
-  const rootSlugs = new Set(REPO_CONFIGS.map((c) => c.rootChangelogSlug))
-  const sidebarItems = [
-    ...rootResults.map((r) => ({
+  // Write sidebar-items.json sorted alphabetically by package name.
+  const sidebarItems = allResults
+    .map((r) => ({
       href: `/resources/changelog/${r.slug}`,
       title: r.packageName,
-    })),
-    ...allResults
-      .filter((r) => !rootSlugs.has(r.slug))
-      .map((r) => ({
-        href: `/resources/changelog/${r.slug}`,
-        title: r.packageName,
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title)),
-  ]
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title))
   const sidebarPath = path.join(OUTPUT_DIR, 'sidebar-items.json')
   fs.writeFileSync(sidebarPath, JSON.stringify(sidebarItems, null, 2))
   console.log(`Wrote ${sidebarPath}`)
