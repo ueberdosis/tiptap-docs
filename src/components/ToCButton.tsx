@@ -1,7 +1,7 @@
 'use client'
 
+import { TableOfContentIcon } from './icons/TableOfContentIcon'
 import { Button } from './ui/Button'
-import TableOfContentIcon from '@/assets/icons/TableOfContent.svg'
 import { useToC } from '@/hooks/useToC'
 import { useAppState } from '@/providers/AppState'
 
