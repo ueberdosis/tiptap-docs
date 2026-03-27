@@ -1,7 +1,7 @@
-import glob from 'fast-glob'
-import frontmatter from 'front-matter'
 import fs from 'node:fs'
 import path from 'node:path'
+import glob from 'fast-glob'
+import frontmatter from 'front-matter'
 import type { PageMeta } from '@/types'
 
 export async function getAllMetadata() {

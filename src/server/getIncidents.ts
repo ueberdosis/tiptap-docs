@@ -1,6 +1,6 @@
-import fm from 'front-matter'
 import fs from 'node:fs'
 import path from 'node:path'
+import fm from 'front-matter'
 import type { IncidentData, PageFrontmatter } from '@/types'
 
 // Helper function to safely parse dates
