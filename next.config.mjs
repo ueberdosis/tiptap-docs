@@ -518,6 +518,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
       },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/agents/review-changes',
+        destination: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
+        permanent: true,
+      },
       // END Server AI Toolkit redirects
       {
         source: '/hocuspocus/introduction',
