@@ -4,10 +4,18 @@ const require = createRequire(import.meta.url)
 
 const nextConfig = require('eslint-config-next')
 const prettierConfig = require('eslint-config-prettier')
+const mdxPlugin = require('eslint-plugin-mdx')
+const prettierPlugin = require('eslint-plugin-prettier')
 
 const config = [
   ...nextConfig,
+  mdxPlugin.flat,
   prettierConfig,
+  {
+    plugins: {
+      prettier: prettierPlugin,
+    },
+  },
   {
     files: ['**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}'],
     rules: {
