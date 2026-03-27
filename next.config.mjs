@@ -510,7 +510,12 @@ const nextConfig = {
       // Server AI Toolkit redirects
       {
         source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
         permanent: true,
       },
       {
