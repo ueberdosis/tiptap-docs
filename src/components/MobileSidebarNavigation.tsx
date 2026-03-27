@@ -2,10 +2,10 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import React, { useCallback } from 'react'
-import { DocsSidebar } from './SidebarRenderer'
 import { useAppState } from '@/providers/AppState'
+import type { SidebarConfig } from '@/types'
 import { cn } from '@/utils'
-import { SidebarConfig } from '@/types'
+import { DocsSidebar } from './SidebarRenderer'
 
 export const MobileSidebarNavigation = ({ config }: { config: SidebarConfig }) => {
   const { mobileNavigationOpen, setMobileNavigationOpen } = useAppState()

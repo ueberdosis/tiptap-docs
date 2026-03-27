@@ -4,7 +4,7 @@ export async function GET() {
   // Calculate expiration date: one year from now
   const expirationDate = new Date()
   expirationDate.setFullYear(expirationDate.getFullYear() + 1)
-  
+
   // Format as ISO 8601 string
   const expires = expirationDate.toISOString()
 

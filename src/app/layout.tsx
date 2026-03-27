@@ -1,12 +1,13 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Script from 'next/script'
-import { cn } from '@/utils'
 import { Providers } from '@/components/Providers'
-import { createMetadata } from '@/server/createMetadata'
 import { Search } from '@/components/Search'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
+import { createMetadata } from '@/server/createMetadata'
+import { cn } from '@/utils'
 import { FULL_DOMAIN, GTM_ID } from '@/utils/constants'
+
 const inter = Inter({ subsets: ['latin'] })
 
 export async function getMetadata() {
@@ -74,6 +75,7 @@ export default function RootLayout({
               src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
               height="0"
               width="0"
+              title="Google Tag Manager"
               style={{ display: 'none', visibility: 'hidden' }}
             ></iframe>
           </noscript>

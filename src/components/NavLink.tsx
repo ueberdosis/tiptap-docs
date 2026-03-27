@@ -2,7 +2,7 @@
 
 import { ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { HTMLAttributeAnchorTarget, forwardRef } from 'react'
+import { forwardRef, type HTMLAttributeAnchorTarget } from 'react'
 import Link from '@/components/Link'
 import { NavLinkButton } from '@/components/ui/NavLinkButton'
 

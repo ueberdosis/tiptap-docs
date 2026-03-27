@@ -2,11 +2,11 @@
 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronDownIcon } from 'lucide-react'
-import { NavLinkButton } from './ui/NavLinkButton'
-import { NavLink } from './NavLink'
-import { Tag } from './ui/Tag'
-import { VERSIONS, CURRENT_VERSION } from '@/utils/constants'
 import type { VersionData } from '@/types'
+import { CURRENT_VERSION, VERSIONS } from '@/utils/constants'
+import { NavLink } from './NavLink'
+import { NavLinkButton } from './ui/NavLinkButton'
+import { Tag } from './ui/Tag'
 
 const getItemLabel = ({ version }: { version: VersionData }) => {
   if (version.isLegacy) return 'Legacy'

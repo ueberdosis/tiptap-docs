@@ -1,4 +1,4 @@
-import { SandpackFiles } from '@codesandbox/sandpack-react'
+import type { SandpackFiles } from '@codesandbox/sandpack-react'
 import { nightOwl } from '@codesandbox/sandpack-themes'
 
 export const sandpackTheme = nightOwl

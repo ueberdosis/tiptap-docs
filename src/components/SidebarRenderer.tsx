@@ -3,11 +3,11 @@
 import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
+import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { cn } from '@/utils'
+import { Tag } from './ui/Tag'
 
 export const DocsSidebar = ({
   config,

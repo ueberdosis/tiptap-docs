@@ -1,9 +1,9 @@
 'use client'
 
-import { ExternalLink } from 'lucide-react'
 import IframeResizer from 'iframe-resizer-react'
-import { Button } from './ui/Button'
+import { ExternalLink } from 'lucide-react'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
+import { Button } from './ui/Button'
 
 export type CodeDemoProps = {
   src?: string

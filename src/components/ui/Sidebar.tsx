@@ -1,7 +1,7 @@
 import { Slot } from '@radix-ui/react-slot'
-import { ButtonHTMLAttributes, forwardRef } from 'react'
-import { Tag } from './Tag'
+import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/utils'
+import { Tag } from './Tag'
 
 export type SidebarTrack = {} & React.HTMLAttributes<HTMLDivElement>
 

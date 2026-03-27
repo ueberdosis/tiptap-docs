@@ -1,7 +1,7 @@
 import { Slot } from '@radix-ui/react-slot'
 import { forwardRef } from 'react'
-import { Card as CoreCard } from './ui/Card'
 import { cn } from '@/utils'
+import { Card as CoreCard } from './ui/Card'
 
 export type CardProps = {
   asChild?: boolean

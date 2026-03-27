@@ -1,8 +1,8 @@
-import { forwardRef } from 'react'
 import { ArrowRightIcon } from 'lucide-react'
+import { forwardRef } from 'react'
+import { cn } from '@/utils'
 import Link from './Link'
 import { Button } from './ui/Button'
-import { cn } from '@/utils'
 
 export type EnterpriseCalloutProps = {
   variant:

@@ -1,9 +1,9 @@
 import { Slot } from '@radix-ui/react-slot'
-import { forwardRef } from 'react'
-import Image, { ImageProps } from 'next/image'
 import { ArrowRightIcon } from 'lucide-react'
-import { Card } from './ui/Card'
+import Image, { type ImageProps } from 'next/image'
+import { forwardRef } from 'react'
 import { cn } from '@/utils'
+import { Card } from './ui/Card'
 
 export type CardGridWrapperProps = {
   asChild?: boolean

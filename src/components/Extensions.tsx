@@ -1,6 +1,6 @@
-import { ExtensionGrid } from './ExtensionGrid'
 import { getExtensions } from '@/server/getExtensions'
 import { ExtensionType } from '@/types'
+import { ExtensionGrid } from './ExtensionGrid'
 
 export const Extensions = async ({
   path = '/',

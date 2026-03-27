@@ -1,10 +1,10 @@
 import { Slot } from '@radix-ui/react-slot'
 import { forwardRef } from 'react'
+import Link from '@/components/Link'
+import type { ImagePageTag, PageTag } from '@/types'
+import { cn } from '@/utils'
 import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
-import Link from '@/components/Link'
-import { cn } from '@/utils'
-import { ImagePageTag, PageTag } from '@/types'
 
 export type PageHeaderWrapperProps = {
   asChild?: boolean

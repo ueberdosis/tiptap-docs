@@ -1,16 +1,16 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
+import { CloseIcon } from '@codesandbox/sandpack-react'
 import { SearchIcon } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
-import { CloseIcon } from '@codesandbox/sandpack-react'
-import { Tag } from './ui/Tag'
-import { Card } from './ui/Card'
-import { Button } from './ui/Button'
 import Link from '@/components/Link'
-import { ExtensionMetaWithUrl } from '@/types'
-import { getIcon } from '@/utils/iconKit'
 import { useQueryParam } from '@/hooks/useQueryParams'
+import type { ExtensionMetaWithUrl } from '@/types'
+import { getIcon } from '@/utils/iconKit'
+import { Button } from './ui/Button'
+import { Card } from './ui/Card'
+import { Tag } from './ui/Tag'
 
 const SEARCH_FILTER = {
   ALL: 'all',
@@ -124,7 +124,7 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: Sea
     <Card isClickable asChild>
       <Link href={ext.url} key={ext.path}>
         <div className="flex items-center justify-between gap-2 mb-5">
-          {!!Icon ? <Icon className="w-3.5 h-3.5" /> : null}
+          {Icon ? <Icon className="w-3.5 h-3.5" /> : null}
           <div className="ml-auto flex items-center gap-1">
             {ext.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
@@ -133,7 +133,9 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: Sea
         <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {/* Always show all tags regardless of filter */}
-          {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+          {ext.tags?.map((tag) => (
+            <Tag key={tag}>{tag}</Tag>
+          ))}
         </div>
       </Link>
     </Card>

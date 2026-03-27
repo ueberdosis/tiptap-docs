@@ -1,4 +1,4 @@
-import { SidebarConfig } from '@/types'
+import type { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',

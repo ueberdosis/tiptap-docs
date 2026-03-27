@@ -1,8 +1,8 @@
 import { glob } from 'fast-glob'
-import { UIComponentMetaWithUrl } from '@/types'
+import type { UIComponentMetaWithUrl } from '@/types'
 
 export const getUIComponents = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
+  const pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
     return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
   })
 

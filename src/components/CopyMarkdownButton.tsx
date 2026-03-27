@@ -3,8 +3,8 @@
 import { useClipboard } from '@mantine/hooks'
 import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useState } from 'react'
-import TurndownService from 'turndown'
 import { renderToString } from 'react-dom/server'
+import TurndownService from 'turndown'
 import { Button } from './ui/Button'
 
 export type CopyMarkdownButtonClientProps = {

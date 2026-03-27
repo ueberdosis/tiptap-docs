@@ -1,4 +1,4 @@
-import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
+import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 
 export type Breadcrumb = {
   href?: string
@@ -17,7 +17,7 @@ export const generateBreadcrumbs = (config: SidebarConfig, pathname: string): Br
     ] as Breadcrumb[]
   }
 
-  let breadcrumbs: Breadcrumb[] = [
+  const breadcrumbs: Breadcrumb[] = [
     {
       text: config.title,
       href: config.rootHref,

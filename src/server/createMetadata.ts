@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
 import { FULL_DOMAIN, IS_NEXT } from '@/utils/constants'
 import { isProductionSite } from '@/utils/isProductionSite'
 

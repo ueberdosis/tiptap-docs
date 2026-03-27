@@ -1,11 +1,11 @@
 // src/components/Requirements.tsx
 'use client'
 
-import React, { ReactNode, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronRightIcon } from 'lucide-react'
-import { Sidebar } from './ui/Sidebar'
+import React, { type ReactNode, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/utils'
+import { Sidebar } from './ui/Sidebar'
 
 export type RequirementItemProps = {
   /** Primary label, e.g. "Activate your trial" */

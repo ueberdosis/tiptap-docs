@@ -1,7 +1,7 @@
 'use client'
 
 import { useClipboard } from '@mantine/hooks'
-import { CopyIcon, CheckIcon } from 'lucide-react'
+import { CheckIcon, CopyIcon } from 'lucide-react'
 import { forwardRef, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/utils'
@@ -34,6 +34,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
         </div>
         {disableCopy ? null : (
           <button
+            type="button"
             onClick={onCopy}
             aria-label={clipboard.copied ? 'Copied' : 'Copy code'}
             className="flex items-center justify-center bg-white/0 border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"

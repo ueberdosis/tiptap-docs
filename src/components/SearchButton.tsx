@@ -1,7 +1,7 @@
 'use client'
 
-import { Button } from './ui/Button'
 import { useAppState } from '@/providers/AppState'
+import { Button } from './ui/Button'
 
 export const SearchButton = () => {
   const { setSearchOpen } = useAppState()

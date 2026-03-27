@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import type React from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export const useCommands = (items: any[]) => {
   const [currentIndex, setCurrentIndex] = useState<number | null>(null)

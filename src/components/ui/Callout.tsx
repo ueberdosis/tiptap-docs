@@ -1,5 +1,5 @@
-import { forwardRef } from 'react'
 import { InfoIcon, MessageCircleIcon, OctagonAlertIcon } from 'lucide-react'
+import { forwardRef } from 'react'
 import { cn } from '@/utils'
 
 export type CalloutProps = {

@@ -2,10 +2,10 @@
 
 import * as Dialog from '@radix-ui/react-dialog'
 import { useCallback } from 'react'
-import { TableOfContent } from './TableOfContent'
+import { useToC } from '@/hooks/useToC'
 import { useAppState } from '@/providers/AppState'
 import { cn } from '@/utils'
-import { useToC } from '@/hooks/useToC'
+import { TableOfContent } from './TableOfContent'
 
 export const MobileTableOfContent = () => {
   const { headlines, activeId } = useToC()

@@ -1,5 +1,5 @@
-import NextLink, { LinkProps } from 'next/link'
-import React, { HTMLProps, FC } from 'react'
+import NextLink, { type LinkProps } from 'next/link'
+import React, { type FC, type HTMLProps } from 'react'
 
 export const Link: FC<LinkProps & HTMLProps<HTMLAnchorElement>> = ({
   prefetch = false,

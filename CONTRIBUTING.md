@@ -14,7 +14,7 @@ To contribute, please follow these steps:
 3. **Make Your Changes**: Implement your changes or additions to the documentation.
 4. **Test Your Changes**: Ensure your changes work correctly and do not introduce any issues.
    - Run the docs locally with the `pnpm dev` command. Preview the changes in your browser.
-   - Run the linter with `pnpm lint` command.
+   - Run the Biome checks with the `pnpm lint` command.
 5. **Create a Changeset**: Run `pnpm changeset` to create a new changeset. Select the appropriate change type (patch, minor, or major) and write a meaningful message describing your changes.
 6. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message. We recommend using the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
 7. **Push to Your Fork**: Push your changes to your fork on GitHub.

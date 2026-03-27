@@ -1,6 +1,6 @@
-import { cn } from '@/utils'
-import noiseLight from '@/assets/noise-light.png'
 import noiseDark from '@/assets/noise-dark.png'
+import noiseLight from '@/assets/noise-light.png'
+import { cn } from '@/utils'
 
 export type NoisePatternProps = {
   children: React.ReactNode

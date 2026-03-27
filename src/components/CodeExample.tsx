@@ -1,16 +1,16 @@
 'use client'
 
 import {
-  SandpackProvider,
   SandpackCodeEditor,
   SandpackPreview,
-  SandpackProps,
+  type SandpackProps,
+  SandpackProvider,
 } from '@codesandbox/sandpack-react'
 import {
   defaultFiles,
-  sandpackTheme,
   dependencies,
   proDependencies,
+  sandpackTheme,
 } from '@/utils/sandpackConfiguration'
 
 export type CodeExampleProps = {

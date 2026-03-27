@@ -1,4 +1,4 @@
-import { MetadataRoute } from 'next'
+import type { MetadataRoute } from 'next'
 import { getAllContentPaths } from '@/server/getAllContentPaths'
 import { FULL_DOMAIN } from '@/utils/constants'
 

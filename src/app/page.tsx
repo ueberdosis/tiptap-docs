@@ -1,17 +1,16 @@
+import { AskAi } from '@/components/AskAi'
+import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import PrevNextTiles from '@/components/PrevNextTiles'
-import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { createMetadata } from '@/server/createMetadata'
 import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfigFromMarkdownPath'
-import { PageFrontmatter } from '@/types'
+import type { PageFrontmatter } from '@/types'
 import { FULL_DOMAIN } from '@/utils/constants'
-import { AskAi } from '@/components/AskAi'
 
 export async function generateMetadata() {
-  // @ts-ignore
   const pageMdx = (await import(`@/content/index.mdx`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter

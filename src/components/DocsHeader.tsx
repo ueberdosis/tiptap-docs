@@ -1,8 +1,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import type { PageMeta, SidebarConfig } from '@/types'
 import { PageHeader } from './PageHeader'
-import { PageMeta, SidebarConfig } from '@/types'
 
 type DocsHeaderProps = {
   allMeta: Record<string, PageMeta>

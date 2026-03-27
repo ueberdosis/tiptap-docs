@@ -1,15 +1,15 @@
 'use client'
 
+import { useHotkeys } from '@mantine/hooks'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Fragment, useCallback, useMemo } from 'react'
 import { Highlight, InstantSearch, SearchBox, useHits, useInstantSearch } from 'react-instantsearch'
-import { useHotkeys } from '@mantine/hooks'
 import Link from '@/components/Link'
-import { typesenseAdapter } from '@/utils/search'
 import { useCommands } from '@/hooks/useCommands'
-import { cn } from '@/utils'
-import { SearchHit } from '@/types'
 import { useAppState } from '@/providers/AppState'
+import type { SearchHit } from '@/types'
+import { cn } from '@/utils'
+import { typesenseAdapter } from '@/utils/search'
 
 const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => {
   const { result, parents } = useMemo(() => {

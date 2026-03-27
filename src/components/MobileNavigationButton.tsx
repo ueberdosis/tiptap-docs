@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
-import { usePathname } from 'next/navigation'
 import { ChevronDownIcon } from 'lucide-react'
-import { Button } from './ui/Button'
+import { usePathname } from 'next/navigation'
+import { useMemo } from 'react'
 import { useAppState } from '@/providers/AppState'
-import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
+import type { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
+import { Button } from './ui/Button'
 
 export const MobileNavigationButton = ({ config }: { config?: SidebarConfig }) => {
   const { setMobileNavigationOpen } = useAppState()

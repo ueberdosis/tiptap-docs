@@ -1,10 +1,10 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Button } from './Button'
 import Link from '@/components/Link'
-import { PageMeta } from '@/types'
+import type { PageMeta } from '@/types'
 import { getRepoBase } from '@/utils'
+import { Button } from './Button'
 
 export const PageEditStatus = ({
   allMeta,

@@ -1,10 +1,10 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronDownIcon, SparklesIcon } from 'lucide-react'
-import { Button } from './ui/Button'
+import { usePathname } from 'next/navigation'
 import { FULL_DOMAIN } from '@/utils/constants'
+import { Button } from './ui/Button'
 
 export const AskAi = () => {
   const pathname = usePathname()

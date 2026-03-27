@@ -1,7 +1,7 @@
 'use client'
 
-import { TableOfContent } from './TableOfContent'
 import { useToC } from '@/hooks/useToC'
+import { TableOfContent } from './TableOfContent'
 
 export const SidebarTableOfContent = () => {
   const { activeId, headlines } = useToC()

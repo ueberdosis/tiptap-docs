@@ -1,13 +1,13 @@
-import fs from 'fs'
-import path from 'path'
 import glob from 'fast-glob'
 import frontmatter from 'front-matter'
-import { PageMeta } from '@/types'
+import fs from 'node:fs'
+import path from 'node:path'
+import type { PageMeta } from '@/types'
 
 export async function getAllMetadata() {
-  let pages = await glob('**/*.mdx', { cwd: 'src/content' })
+  const pages = await glob('**/*.mdx', { cwd: 'src/content' })
 
-  let allMetadataEntries = (await Promise.all(
+  const allMetadataEntries = (await Promise.all(
     pages.map(async (page) => {
       let pagePath = `/${page.replace(/(^|\/)page\.mdx$/, '')}`
       pagePath = pagePath.replace(/\/\([^)]+\)\/?/g, '/')
@@ -21,7 +21,7 @@ export async function getAllMetadata() {
     }),
   )) as Array<[string, PageMeta & { path: string }]>
 
-  let allMetadata = Object.fromEntries(allMetadataEntries)
+  const allMetadata = Object.fromEntries(allMetadataEntries)
 
   return allMetadata
 }

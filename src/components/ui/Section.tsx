@@ -1,5 +1,5 @@
-import slugify from 'slugify'
 import { ArrowRightIcon } from 'lucide-react'
+import slugify from 'slugify'
 import { Button } from './Button'
 
 export type SectionProps = {

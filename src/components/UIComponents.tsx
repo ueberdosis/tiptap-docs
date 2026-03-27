@@ -1,6 +1,6 @@
-import { UIComponentsGrid } from './UIComponentsGrid'
 import { getUIComponents } from '@/server/getUIComponents'
 import { UIComponentType } from '@/types'
+import { UIComponentsGrid } from './UIComponentsGrid'
 
 export const UIComponents = async ({ path = '/' }: { path?: string }) => {
   const uiComponents = await getUIComponents(path)

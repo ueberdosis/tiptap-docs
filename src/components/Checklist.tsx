@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Square, Check } from 'lucide-react'
+import { Check, Square } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 
 interface CheckboxItemProps {
   children: React.ReactNode

@@ -1,10 +1,10 @@
-import type { MDXComponents } from 'mdx/types'
-import slugify from 'slugify'
 import { HashIcon } from 'lucide-react'
+import type { MDXComponents } from 'mdx/types'
 import React from 'react'
-import { Codeblock } from './components/Codeblock'
-import { Checklist, CheckboxItem } from './components/Checklist'
+import slugify from 'slugify'
 import Link from '@/components/Link'
+import { CheckboxItem, Checklist } from './components/Checklist'
+import { Codeblock } from './components/Codeblock'
 
 /**
  * Extracts the text from a nested children object
@@ -109,7 +109,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     a: (props) => {
       const isExternal = props.href?.startsWith('http')
 
-      // @ts-ignore
+      // @ts-expect-error
       return <Link {...props} target={isExternal ? '_blank' : props.target} />
     },
     // Direct custom component usage

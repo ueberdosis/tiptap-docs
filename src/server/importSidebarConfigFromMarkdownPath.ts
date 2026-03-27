@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import type { SidebarConfig } from '@/types'
 
@@ -7,7 +7,7 @@ export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]
   sidebarConfig: SidebarConfig | undefined
 }> {
   let importPath = ''
-  let steppedSegments: string[] = []
+  const steppedSegments: string[] = []
 
   const restSegments = ['', ...markdownPath]
 

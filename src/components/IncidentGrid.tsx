@@ -1,13 +1,12 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { Tag } from './ui/Tag'
-import { Card } from './ui/Card'
-import { Button } from './ui/Button'
-import { TagProps } from './ui/Tag'
 import Link from '@/components/Link'
-import { IncidentData, INCIDENT_SEVERITY_COLORS } from '@/types'
 import { useQueryParam } from '@/hooks/useQueryParams'
+import { INCIDENT_SEVERITY_COLORS, type IncidentData } from '@/types'
+import { Button } from './ui/Button'
+import { Card } from './ui/Card'
+import { Tag, type TagProps } from './ui/Tag'
 
 // Constants
 const INCIDENT_FILTER = {

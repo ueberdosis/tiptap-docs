@@ -1,10 +1,10 @@
 'use client'
 
+import { Slot } from '@radix-ui/react-slot'
 import { usePathname } from 'next/navigation'
 import { forwardRef } from 'react'
-import { Slot } from '@radix-ui/react-slot'
 import Link from '@/components/Link'
-import { SidebarConfig } from '@/types'
+import type { SidebarConfig } from '@/types'
 import { cn } from '@/utils'
 import { generateBreadcrumbs } from '@/utils/generateBreadcrumbs'
 

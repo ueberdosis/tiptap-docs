@@ -1,11 +1,10 @@
 import { Slot } from '@radix-ui/react-slot'
-import { forwardRef } from 'react'
 import { CheckIcon } from 'lucide-react'
-import { NoisePattern } from './NoisePattern'
-import { cn } from '@/utils'
-
+import { forwardRef } from 'react'
 import gradientBgDark from '@/assets/gradient-bg.svg?url'
 import gradientBgLight from '@/assets/gradient-bg-light.svg?url'
+import { cn } from '@/utils'
+import { NoisePattern } from './NoisePattern'
 
 export type WrapperProps = {
   asChild?: boolean

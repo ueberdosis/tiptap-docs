@@ -1,7 +1,7 @@
-import fs from 'fs'
-import path from 'path'
 import fm from 'front-matter'
-import { IncidentData, PageFrontmatter } from '@/types'
+import fs from 'node:fs'
+import path from 'node:path'
+import type { IncidentData, PageFrontmatter } from '@/types'
 
 // Helper function to safely parse dates
 function parseDateSafely(dateString: string): Date | null {

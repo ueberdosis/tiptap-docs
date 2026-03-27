@@ -32,7 +32,7 @@ export async function addFeedbackToNotion({
   }
   if (!helpful) {
     if (noOption) {
-      properties['Issue'] = { select: { name: noOption } }
+      properties.Issue = { select: { name: noOption } }
     }
     if (noText) {
       properties['Negative Feedback'] = { rich_text: [{ text: { content: noText } }] }

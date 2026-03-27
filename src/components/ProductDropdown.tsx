@@ -4,9 +4,9 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronDownIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useMemo } from 'react'
+import { cn } from '@/utils'
 import { NavLink } from './NavLink'
 import { NavLinkButton } from './ui/NavLinkButton'
-import { cn } from '@/utils'
 
 const options = [
   { label: 'Editor', href: '/editor/getting-started/overview' },
@@ -33,7 +33,7 @@ export const ProductDropdown = () => {
     })
   }, [pathname])
 
-  const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
+  const buttonClass = cn('text-base outline-none', activeItem ? 'font-semibold' : 'font-normal')
 
   return (
     <DropdownMenu.Root>

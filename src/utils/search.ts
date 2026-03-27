@@ -10,7 +10,7 @@ export const typesenseAdapter = new TypesenseInstantsearchAdapter({
       {
         host: process.env.NEXT_PUBLIC_DOCSEARCH_HOST || '',
         port: process.env.NEXT_PUBLIC_DOCSEARCH_PORT
-          ? parseInt(process.env.NEXT_PUBLIC_DOCSEARCH_PORT)
+          ? parseInt(process.env.NEXT_PUBLIC_DOCSEARCH_PORT, 10)
           : 443,
         protocol: process.env.NEXT_PUBLIC_DOCSEARCH_PROTOCOL || 'https',
       },

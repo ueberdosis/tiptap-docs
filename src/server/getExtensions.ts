@@ -1,8 +1,8 @@
 import { glob } from 'fast-glob'
-import { ExtensionMetaWithUrl } from '@/types'
+import type { ExtensionMetaWithUrl } from '@/types'
 
 export const getExtensions = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
+  const pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
     return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
   })
 
@@ -10,7 +10,7 @@ export const getExtensions = async (path: string = '') => {
 
   let allExtensions = (await Promise.all(
     pages.map(async (page) => {
-      let pagePath = `/${pathPrefix + page}`
+      const pagePath = `/${pathPrefix + page}`
 
       // eslint-disable-next-line @next/next/no-assign-module-variable
       const module = await import(`@/content/${pagePath.replace('/content/', '')}`)

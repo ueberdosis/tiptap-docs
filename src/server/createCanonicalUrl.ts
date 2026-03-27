@@ -1,4 +1,4 @@
-import { DOMAIN, BASE_PATH } from '@/utils/constants'
+import { BASE_PATH, DOMAIN } from '@/utils/constants'
 
 export const createCanonicalUrl = (path: string[]) => {
   const urlPath = [BASE_PATH, ...path].join('/')

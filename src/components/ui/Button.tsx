@@ -1,5 +1,5 @@
 import { Slot } from '@radix-ui/react-slot'
-import { ButtonHTMLAttributes, forwardRef } from 'react'
+import { type ButtonHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/utils'
 
 export type ButtonProps = {

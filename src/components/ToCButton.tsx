@@ -1,9 +1,9 @@
 'use client'
 
-import { TableOfContentIcon } from './icons/TableOfContentIcon'
-import { Button } from './ui/Button'
 import { useToC } from '@/hooks/useToC'
 import { useAppState } from '@/providers/AppState'
+import { TableOfContentIcon } from './icons/TableOfContentIcon'
+import { Button } from './ui/Button'
 
 export const ToCButton = () => {
   const { headlines } = useToC()

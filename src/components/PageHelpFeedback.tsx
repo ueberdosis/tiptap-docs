@@ -1,7 +1,8 @@
 'use client'
+import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import React, { useState } from 'react'
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Button } from './ui/Button'
+
 const NO_OPTIONS = ['Inaccurate', 'Missing information', 'Hard to understand', 'Code sample errors']
 
 export type FeedbackState = 'initial' | 'yes' | 'no' | 'submitted'
