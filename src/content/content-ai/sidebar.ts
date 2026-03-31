@@ -324,6 +324,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
                 },
                 {
+                  title: 'Review options',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
+                },
+                {
                   title: 'REST API',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
                 },
