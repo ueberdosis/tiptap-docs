@@ -549,6 +549,11 @@ const nextConfig = {
         destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
         permanent: true,
       },
+      {
+        source: '/pages/core-concepts/page-break',
+        destination: '/pages/core-concepts/page-break-node',
+        permanent: true,
+      },
     ]
   },
 }
