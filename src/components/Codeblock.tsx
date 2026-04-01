@@ -1,7 +1,7 @@
 'use client'
 
 import { useClipboard } from '@mantine/hooks'
-import { CopyIcon } from 'lucide-react'
+import { CopyIcon, CheckIcon } from 'lucide-react'
 import { forwardRef, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/utils'
@@ -18,7 +18,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
       className,
     )
 
-    const clipboard = useClipboard({ timeout: 500 })
+    const clipboard = useClipboard({ timeout: 1200 })
 
     const onCopy = useCallback(() => {
       if (contentRef.current) {
@@ -35,9 +35,27 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
         {disableCopy ? null : (
           <button
             onClick={onCopy}
-            className="flex items-center justify-center bg-white bg-opacity-0 border border-white rounded size-8 border-opacity-20 hover:bg-opacity-10 hover:border-opacity-40"
+            aria-label={clipboard.copied ? 'Copied' : 'Copy code'}
+            className="flex items-center justify-center bg-white/0 border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
           >
-            <CopyIcon className="size-4" />
+            <span className="relative size-4">
+              <CopyIcon
+                className={cn(
+                  'absolute inset-0 size-4 transition-all duration-200 ease-out',
+                  clipboard.copied
+                    ? 'opacity-0 scale-75 -rotate-12'
+                    : 'opacity-100 scale-100 rotate-0',
+                )}
+              />
+              <CheckIcon
+                className={cn(
+                  'absolute inset-0 size-4 transition-all duration-200 ease-out',
+                  clipboard.copied
+                    ? 'opacity-100 scale-100 rotate-0'
+                    : 'opacity-0 scale-75 rotate-12',
+                )}
+              />
+            </span>
           </button>
         )}
       </div>

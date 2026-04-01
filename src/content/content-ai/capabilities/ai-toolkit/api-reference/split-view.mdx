@@ -1,0 +1,188 @@
+---
+title: Split view
+meta:
+  title: Split view API reference | Tiptap Content AI
+  description: API reference for createSplitView and the SplitView instance methods.
+  category: Content AI
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+This page is the API reference for `createSplitView` and the `SplitView` instance.
+
+If you're new to the split view, start with the [split view guide](/content-ai/capabilities/ai-toolkit/advanced-guides/split-view).
+
+## `createSplitView`
+
+Creates a split view instance that wires together three editors for side-by-side change review.
+
+Called on the AI Toolkit instance:
+
+```ts
+const toolkit = getAiToolkit(mainEditor)
+const splitView = toolkit.createSplitView(options)
+```
+
+### Parameters
+
+- `options` (`CreateSplitViewOptions`): Configuration for the split view
+  - `leftEditor` (`Editor`): The left panel editor (shows the original document). Must have `AiToolkit` installed.
+  - `rightEditor` (`Editor`): The right panel editor (shows the modified document). Must have `AiToolkit` installed.
+  - `leftContainer?` (`HTMLElement`): Scroll container for the left panel. When provided together with `rightContainer`, enables automatic scroll synchronization.
+  - `rightContainer?` (`HTMLElement`): Scroll container for the right panel. When provided together with `leftContainer`, enables automatic scroll synchronization.
+  - `diffOptions?` (`SplitViewDiffOptions`): Options for the internal diff algorithm
+    - `mode?` (`'smart' | 'inline' | 'block'`): Diff algorithm mode. Defaults to `'smart'`.
+    - `groupInlineChanges?` (`number`): Threshold for grouping inline changes into block-level changes. Defaults to `0`.
+
+### Returns (`SplitView`)
+
+Returns a `SplitView` instance. See the [SplitView methods](#splitview-methods) section below.
+
+### Example
+
+```ts
+import { getAiToolkit } from '@tiptap-pro/ai-toolkit'
+
+const splitView = getAiToolkit(mainEditor).createSplitView({
+  leftEditor,
+  rightEditor,
+  leftContainer: leftScrollRef.current,
+  rightContainer: rightScrollRef.current,
+})
+```
+
+## `SplitView` methods
+
+### `sync`
+
+Recomputes the diff from the main editor's tracked changes and updates both panels. Loads the before/after snapshots into the left and right editors, then renders highlight decorations and spacers.
+
+Call this whenever the main editor's tracked changes have changed (for example after a new AI suggestion is applied).
+
+```ts
+splitView.sync()
+```
+
+### `getEntries`
+
+Returns the current list of diff entries computed by the last `sync()` call.
+
+```ts
+const entries = splitView.getEntries()
+// SplitDiffEntry[]
+```
+
+See [`SplitDiffEntry`](#splitdiffentry) for the shape of each entry.
+
+### `acceptEntry`
+
+Accepts a single diff entry by applying its underlying tracked change to the main editor, then re-syncs.
+
+```ts
+const accepted = splitView.acceptEntry('diff-tc-abc123')
+// Returns false if the entry was not found
+```
+
+### `rejectEntry`
+
+Rejects a single diff entry by reverting its underlying tracked change in the main editor, then re-syncs.
+
+```ts
+const rejected = splitView.rejectEntry('diff-tc-abc123')
+// Returns false if the entry was not found
+```
+
+### `acceptAll`
+
+Accepts all remaining tracked changes at once, then re-syncs.
+
+```ts
+splitView.acceptAll()
+```
+
+### `rejectAll`
+
+Rejects all remaining tracked changes at once, then re-syncs.
+
+```ts
+splitView.rejectAll()
+```
+
+### `setHighlight`
+
+Sets the highlighted diff entry ID for cross-editor hover highlighting. This is called automatically by the built-in hover listeners when `data-diff-id` elements are hovered. Only use this if you are implementing custom hover logic.
+
+```ts
+splitView.setHighlight('diff-tc-abc123') // highlight an entry
+splitView.setHighlight(null)             // clear highlight
+```
+
+### `on` / `off`
+
+Registers or removes an event listener.
+
+```ts
+const handler = (entries) => {
+  // entries: SplitDiffEntry[]
+  console.log(`${entries.length} diff entries remaining`)
+}
+
+splitView.on('sync', handler)
+splitView.off('sync', handler)
+```
+
+Currently supported events:
+
+| Event | Payload | Description |
+|---|---|---|
+| `sync` | `SplitDiffEntry[]` | Fires after each sync with the updated list of entries |
+
+### `destroy`
+
+Tears down the instance: cancels any pending animation frames, clears all decorations from both editors, and removes all event listeners.
+
+```ts
+splitView.destroy()
+```
+
+Always call `destroy()` when the split view is no longer needed (for example on component unmount).
+
+## `SplitDiffEntry`
+
+Each entry in the list returned by `getEntries()` has the following shape:
+
+```ts
+interface SplitDiffEntry {
+  /** Unique identifier, e.g. `"diff-tc-abc123"` */
+  id: string
+
+  /** Range of this change in the left (original) document */
+  rangeInBefore: { from: number; to: number }
+
+  /** Range of this change in the right (modified) document */
+  rangeInAfter: { from: number; to: number }
+
+  /** IDs of the tracked changes that make up this diff entry */
+  trackedChangeIds: string[]
+
+  /** Change type */
+  type?: 'add' | 'delete' | 'replace'
+}
+```
+
+## CSS decoration classes
+
+The split view applies the following CSS classes to the editor DOM. You must define styles for these classes in your own stylesheet.
+
+| Class | Applied to | Description |
+|---|---|---|
+| `split-diff-deletion` | Left editor | Highlights blocks that were deleted or modified |
+| `split-diff-insertion` | Right editor | Highlights blocks that were added or modified |
+| `split-diff-highlight` | Both editors | Added alongside deletion/insertion on the currently hovered entry |
+| `split-diff-spacer` | Both editors | Widget elements that maintain vertical alignment between panels |
+
+All decorated elements include a `data-diff-id` attribute set to the entry ID, which you can use for custom click and hover handling.
+
+<Callout title="Do not override spacer margins">
+  The split view sets `margin: 0` on each spacer element via inline style. Overriding this in CSS will break vertical alignment because the spacer height already accounts for the full visual gap including surrounding block margins.
+</Callout>

@@ -1,40 +1,37 @@
 import createMdx from '@next/mdx'
-import remarkFrontmatter from 'remark-frontmatter'
-import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
-import rehypeShiki from '@shikijs/rehype'
-import remarkGfm from 'remark-gfm'
+
+const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  webpack(config) {
-    // Grab the existing rule that handles SVG imports
-    const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'))
-
-    config.module.rules.push(
-      // Reapply the existing rule, but only for svg imports ending in ?url
-      {
-        ...fileLoaderRule,
-        test: /\.svg$/i,
-        resourceQuery: /url/, // *.svg?url
+  turbopack: {
+    rules: {
+      '*.svg': {
+        condition: {
+          all: [{ not: 'foreign' }, { path: svgComponentPattern }],
+        },
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
-      // Convert all other *.svg imports to React components
-      {
-        test: /\.svg$/i,
-        issuer: fileLoaderRule.issuer,
-        resourceQuery: { not: [...fileLoaderRule.resourceQuery.not, /url/] }, // exclude if *.svg?url
-        use: ['@svgr/webpack'],
-      },
-    )
-
-    // Modify the file loader rule to ignore *.svg, since we have it handled now.
-    fileLoaderRule.exclude = /\.svg$/i
-
-    return config
+    },
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: { unoptimized: true },
   basePath: process.env.BASE_PATH ?? '',
+  async headers() {
+    const commitSha = process.env.GIT_COMMIT_SHA || 'unknown'
+    const shortSha = commitSha.substring(0, 7)
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Git-Commit', value: shortSha },
+          { key: 'X-Git-Branch', value: process.env.GIT_COMMIT_REF_NAME || 'unknown' },
+        ],
+      },
+    ]
+  },
   async redirects() {
     return [
       {
@@ -513,7 +510,12 @@ const nextConfig = {
       // Server AI Toolkit redirects
       {
         source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
         permanent: true,
       },
       {
@@ -553,10 +555,10 @@ const nextConfig = {
 
 const withMDX = createMdx({
   options: {
-    remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm],
+    remarkPlugins: ['remark-frontmatter', 'remark-mdx-frontmatter', 'remark-gfm'],
     rehypePlugins: [
       [
-        rehypeShiki,
+        '@shikijs/rehype',
         {
           theme: 'github-dark-high-contrast',
         },
