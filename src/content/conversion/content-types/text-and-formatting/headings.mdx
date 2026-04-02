@@ -1,0 +1,154 @@
+---
+title: Headings
+tags:
+  - type: beta
+meta:
+  title: Headings | Tiptap Conversion
+  description: How headings (levels 1–6) are handled across the DOCX conversion pipeline — import, editor rendering, and export.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+In Word, headings are paragraphs with a heading style applied (Heading 1 through Heading 6). Tiptap represents them as `heading` nodes with a `level` attribute.
+
+## What you need
+
+- **Extensions:** `StarterKit` (includes `Heading`) + `TextAlign` (for preserving heading alignment)
+- **Configuration:** `TextAlign.configure({ types: ['heading', 'paragraph'] })`
+- **CSS:** Style `h1`–`h6` in your editor stylesheet — headings won't look like Word's theme styles by default
+- **Watch out:** Word heading levels 7–9 are silently dropped during import (Tiptap supports 1–6 only)
+
+## Support overview
+
+| | Import | Editor | Export |
+| --- | --- | --- | --- |
+| Heading levels 1–6 | Supported | Supported | Supported |
+| Heading levels 7–9 | Dropped (becomes paragraph) | Not supported | Not supported |
+| Custom heading styles | Resolved to closest standard level | Style name lost | Generic heading style applied |
+| Text alignment | Preserved | Requires TextAlign extension | Preserved |
+| Paragraph spacing | Converted to CSS | Not in heading schema | Applied via style overrides |
+| Indentation | Converted to attrs | Not in heading schema | Lost |
+
+## Import
+
+The conversion service detects Word heading styles (`Heading1` through `Heading6`, plus `Title` and `Subtitle`) and produces a `heading` node. Custom heading styles (e.g., "Company Heading" based on Heading 2) are resolved by walking the `basedOn` style chain — the resolved level is preserved, but the custom style name is discarded.
+
+**Title** maps to level 1. **Subtitle** maps to level 2.
+
+<CodeDemo src="https://feature-beta-conversion-extensions--tiptap-pro.netlify.app/preview/Extensions/ContentTypeHeadingsImport?hideSource=true" />
+
+The conversion service outputs heading nodes in this structure:
+
+```json
+{
+  "type": "heading",
+  "attrs": {
+    "level": 2,
+    "textAlign": "center"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "My Heading",
+      "marks": [
+        { "type": "bold", "attrs": {} }
+      ]
+    }
+  ]
+}
+```
+
+<Callout variant="warning" title="Heading levels 7–9">
+  Word supports heading levels 1–9, but Tiptap only supports 1–6. Headings at levels 7–9 are silently converted to regular paragraphs during import — no warning is emitted in the conversion output.
+</Callout>
+
+### What's preserved
+
+- Heading level (1–6)
+- Inline formatting within the heading (bold, italic, color, font — as marks on child text nodes)
+- Text alignment (as `textAlign` attribute)
+- Paragraph spacing before/after (as `marginTop`/`marginBottom` attributes)
+
+### What's lost
+
+- Heading levels 7–9 (become paragraphs)
+- Custom style names (resolved to standard level, name discarded)
+- Heading numbering (Word's automatic heading numbering is not preserved)
+- Borders, background colors, and other paragraph-level formatting beyond spacing and alignment
+
+## Editor rendering
+
+The `Heading` extension renders heading nodes as `<h1>` through `<h6>` HTML tags based on the `level` attribute. It's included in `StarterKit` — no separate installation needed.
+
+<CodeDemo src="https://feature-beta-conversion-extensions--tiptap-pro.netlify.app/preview/Extensions/ContentTypeHeadingsEditor?hideSource=true" />
+
+**Extension:** [`Heading`](/editor/extensions/nodes/heading) (included in `StarterKit`)
+**Package:** `@tiptap/extension-heading`
+**Schema:** `heading` node with `level` attribute (1–6, default: 1), inline content only
+
+### Text alignment requires an additional extension
+
+The Heading extension does **not** include text alignment. To preserve alignment from imported DOCX headings, install `TextAlign` and configure it to include headings:
+
+```ts
+import TextAlign from '@tiptap/extension-text-align'
+
+TextAlign.configure({
+  types: ['heading', 'paragraph'],
+})
+```
+
+Without this, any `textAlign` attribute from the import will be ignored by the editor.
+
+<Callout variant="hint" title="What about spacing and indentation?">
+  The heading node schema only defines the `level` attribute. Paragraph spacing (`marginTop`, `marginBottom`), indentation, borders, and other CSS-level attributes from the import are not part of the heading schema and are not rendered in the editor. To preserve these, you would need to extend the heading node with custom attributes.
+</Callout>
+
+### Visual differences from Word
+
+The editor renders headings with your CSS styles, not Word's theme styles. A Heading 2 in Word (typically Aptos Light, 13pt, blue) will look different in the editor unless you style `h2` to match. Structure is preserved; visual appearance is yours to control.
+
+## Export
+
+The export converter takes a `heading` node and produces a DOCX paragraph with the corresponding heading style. Text alignment (`left`, `center`, `right`, `justify`) is exported correctly.
+
+<CodeDemo src="https://feature-beta-conversion-extensions--tiptap-pro.netlify.app/preview/Extensions/ContentTypeHeadingsExport?hideSource=true" />
+
+**Level mapping:** `level: 1` → Word Heading 1, `level: 2` → Word Heading 2, through level 6.
+
+### Customizing exported heading styles
+
+The export applies default styles to each heading level (Aptos Light, specific sizes, blue color). Customize these via `styleOverrides`:
+
+```ts
+ExportDocx.configure({
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Heading1',
+        name: 'Heading 1',
+        run: {
+          font: 'Arial',
+          size: 32,        // half-points (32 = 16pt)
+          bold: true,
+          color: '000000',
+        },
+        paragraph: {
+          spacing: {
+            before: 240,   // twips (240 = 12pt)
+            after: 120,    // twips (120 = 6pt)
+          },
+        },
+      },
+    ],
+  },
+})
+```
+
+### What round-trips
+
+A Heading 2, center-aligned, with bold and colored text inside will survive a full import → edit → export cycle. The heading level, alignment, and inline formatting are all preserved.
+
+What changes: the exported heading will use the export's default (or overridden) styles rather than the original DOCX's theme styles. Font, size, spacing, and color are determined by the export configuration, not carried over from the original document.

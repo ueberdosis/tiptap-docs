@@ -73,47 +73,58 @@ export const LinkItem = ({
 
   return (
     <div ref={linkRef}>
-      <Sidebar.Button
-        asChild
-        isActive={isActive}
-        onClick={link.href === '' ? toggleOpen : undefined}
-      >
-        <Link
-          href={link.href}
-          onClick={onClick}
-          className="flex items-center justify-between w-full"
-          target={link.external ? '_blank' : undefined}
-          rel={link.external ? 'noopener noreferrer' : undefined}
+      {link.disabled ? (
+        <Sidebar.Button
+          isActive={false}
+          className="opacity-40 cursor-default pointer-events-none"
         >
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
-            {link.beta && (
-              <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
-            )}
           </span>
-          <span className="flex gap-1 items-center">
-            {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
-            {link.tags ? (
-              <span className="flex items-center gap-0.5">
-                {link.tags.map((tag) => (
-                  <Tag key={tag} className="select-none" variant="gray" size="small">
-                    {tag}
-                  </Tag>
-                ))}
-              </span>
-            ) : null}
-            {link.children ? (
-              <button className={toggleButtonClassName} onClick={toggleOpen}>
-                {isOpen ? (
-                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
-                ) : (
-                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
-                )}
-              </button>
-            ) : null}
-          </span>
-        </Link>
-      </Sidebar.Button>
+        </Sidebar.Button>
+      ) : (
+        <Sidebar.Button
+          asChild
+          isActive={isActive}
+          onClick={link.href === '' ? toggleOpen : undefined}
+        >
+          <Link
+            href={link.href}
+            onClick={onClick}
+            className="flex items-center justify-between w-full"
+            target={link.external ? '_blank' : undefined}
+            rel={link.external ? 'noopener noreferrer' : undefined}
+          >
+            <span className="flex-grow flex items-baseline">
+              <span>{link.title}</span>
+              {link.beta && (
+                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+              )}
+            </span>
+            <span className="flex gap-1 items-center">
+              {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
+              {link.tags ? (
+                <span className="flex items-center gap-0.5">
+                  {link.tags.map((tag) => (
+                    <Tag key={tag} className="select-none" variant="gray" size="small">
+                      {tag}
+                    </Tag>
+                  ))}
+                </span>
+              ) : null}
+              {link.children ? (
+                <button className={toggleButtonClassName} onClick={toggleOpen}>
+                  {isOpen ? (
+                    <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                  ) : (
+                    <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                  )}
+                </button>
+              ) : null}
+            </span>
+          </Link>
+        </Sidebar.Button>
+      )}
       {link.children ? (
         <div
           className={cn(
