@@ -2,13 +2,28 @@ import fs from 'fs'
 import path from 'path'
 import { SidebarConfig } from '@/types'
 
+function isSidebarItem(value: unknown): value is { href: string; title: string } {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const item = value as Record<string, unknown>
+
+  return (
+    typeof item.href === 'string' &&
+    typeof item.title === 'string'
+  )
+}
+
 function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
   try {
     const filePath = path.join(
       process.cwd(),
       'src/content/resources/changelog/_data/sidebar-items.json',
     )
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+
+    return Array.isArray(data) ? data.filter(isSidebarItem) : []
   } catch {
     return []
   }

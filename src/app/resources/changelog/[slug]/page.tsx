@@ -17,6 +17,8 @@ type Props = {
   }>
 }
 
+export const dynamicParams = false
+
 export async function generateStaticParams() {
   const index = getChangelogIndex()
   return index.map((entry) => ({ slug: entry.slug }))
@@ -50,6 +52,7 @@ export default async function ChangelogPage({ params }: Props) {
 
   const title = `${data.packageName} Changelog`
   const description = `Changelog for ${data.packageName}`
+  const schemaDate = '1970-01-01T00:00:00.000Z'
 
   const techArticleSchema = {
     '@context': 'https://schema.org',
@@ -57,8 +60,8 @@ export default async function ChangelogPage({ params }: Props) {
     headline: title,
     description,
     url: canonicalUrl,
-    datePublished: new Date(Date.now()).toISOString(),
-    dateModified: new Date(Date.now()).toISOString(),
+    datePublished: schemaDate,
+    dateModified: schemaDate,
     publisher: {
       '@type': 'Organization',
       name: 'Tiptap',

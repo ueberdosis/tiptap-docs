@@ -9,9 +9,9 @@ export async function renderMarkdown(markdown: string): Promise<string> {
   const result = await unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(remarkRehype)
     .use(rehypeShiki, { theme: 'github-dark-high-contrast' })
-    .use(rehypeStringify, { allowDangerousHtml: true })
+    .use(rehypeStringify)
     .process(markdown)
 
   return String(result)
