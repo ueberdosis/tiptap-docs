@@ -510,7 +510,12 @@ const nextConfig = {
       // Server AI Toolkit redirects
       {
         source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
+        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
         permanent: true,
       },
       {
@@ -542,6 +547,11 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
         destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
+        permanent: true,
+      },
+      {
+        source: '/pages/core-concepts/page-break',
+        destination: '/pages/core-concepts/page-break-node',
         permanent: true,
       },
     ]
