@@ -8,9 +8,6 @@ type RepoConfig = {
   slugPrefix: string
   packageScope: string
   packageDirs: string[]
-  rootSlug: string
-  rootPackageName: string
-  rootChangelogPath: string
 }
 
 const OSS_CONFIG: RepoConfig = {
@@ -20,9 +17,6 @@ const OSS_CONFIG: RepoConfig = {
   slugPrefix: '',
   packageScope: '@tiptap',
   packageDirs: ['packages', 'packages-deprecated'],
-  rootSlug: 'tiptap',
-  rootPackageName: 'Tiptap',
-  rootChangelogPath: 'CHANGELOG.md',
 }
 
 const PRO_CONFIG: RepoConfig = {
@@ -32,9 +26,6 @@ const PRO_CONFIG: RepoConfig = {
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
   packageDirs: ['packages'],
-  rootSlug: 'tiptap-pro',
-  rootPackageName: 'Tiptap Pro',
-  rootChangelogPath: 'CHANGELOG.md',
 }
 
 const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
@@ -353,23 +344,6 @@ async function discoverAndFetchPackages(
   }
 }
 
-async function fetchRootChangelog(config: RepoConfig): Promise<ChangelogResult | null> {
-  const content = await fetchChangelog(config, config.rootChangelogPath)
-
-  if (!content) {
-    console.warn(
-      `Warning: Missing root changelog for ${config.owner}/${config.repo}/${config.rootChangelogPath}.`,
-    )
-    return null
-  }
-
-  return {
-    packageName: config.rootPackageName,
-    slug: config.rootSlug,
-    content: stripLeadingH1(content),
-  }
-}
-
 async function main() {
   if (process.env.SKIP_CHANGELOGS === '1') {
     console.log('Skipping changelog generation because SKIP_CHANGELOGS=1')
@@ -388,14 +362,8 @@ async function main() {
   const repoResults = await Promise.all(
     REPO_CONFIGS.map(async (config) => {
       try {
-        const [rootResult, packageResults] = await Promise.all([
-          fetchRootChangelog(config),
-          discoverAndFetchPackages(config, cacheEntries),
-        ])
-
         return {
-          rootResult,
-          packageResults,
+          packageResults: await discoverAndFetchPackages(config, cacheEntries),
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -403,7 +371,6 @@ async function main() {
           `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
         )
         return {
-          rootResult: null,
           packageResults: {
             results: [],
             nextCacheEntries: [],
@@ -413,16 +380,13 @@ async function main() {
     }),
   )
 
-  const rootResults = repoResults.flatMap((repoResult) =>
-    repoResult.rootResult ? [repoResult.rootResult] : [],
-  )
   const packageResults = repoResults
     .flatMap((repoResult) => repoResult.packageResults.results)
     .sort((a, b) => a.packageName.localeCompare(b.packageName))
   const nextCacheEntries = repoResults.flatMap(
     (repoResult) => repoResult.packageResults.nextCacheEntries,
   )
-  const allResults: ChangelogResult[] = [...rootResults, ...packageResults]
+  const allResults: ChangelogResult[] = packageResults
 
   clearGeneratedOutput()
 
