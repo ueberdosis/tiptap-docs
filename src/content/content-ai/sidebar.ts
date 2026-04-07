@@ -302,8 +302,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
-                  title: 'Review changes',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/review-changes',
+                  title: 'Tracked changes',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Comments',
@@ -326,6 +326,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Schema awareness',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
+                },
+                {
+                  title: 'Review options',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
                 },
                 {
                   title: 'REST API',
