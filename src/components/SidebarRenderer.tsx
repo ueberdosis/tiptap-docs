@@ -29,6 +29,19 @@ export const DocsSidebar = ({
   )
 }
 
+function hasActiveDescendant(
+  children: Omit<SidebarLink, 'type'>[] | undefined,
+  pathname: string,
+): boolean {
+  if (!children) return false
+  return children.some(
+    (child) =>
+      pathname === child.href ||
+      pathname.startsWith(child.href) ||
+      hasActiveDescendant(child.children, pathname),
+  )
+}
+
 export const LinkItem = ({
   link,
   onClick,
@@ -39,9 +52,7 @@ export const LinkItem = ({
   const pathname = usePathname()
   const isExactMatch = link.isActive ?? pathname === link.href
   const isActiveParent = pathname.startsWith(link.href)
-  const hasActiveChild =
-    link.children?.some((child) => pathname === child.href || pathname.startsWith(child.href)) ??
-    false
+  const hasActiveChild = hasActiveDescendant(link.children, pathname)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
 

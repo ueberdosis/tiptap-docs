@@ -8,21 +8,119 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/conversion/getting-started',
-      title: 'get started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
           href: '/conversion/getting-started/overview',
         },
         {
+          title: 'Install',
+          href: '/conversion/getting-started/install',
+          children: [
+            {
+              title: 'DOCX',
+              href: '/conversion/getting-started/install',
+              children: [
+                {
+                  title: 'Import extension',
+                  href: '/conversion/import/docx/editor-import',
+                },
+                {
+                  title: 'Import REST API',
+                  href: '/conversion/import/docx/rest-api',
+                },
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/docx/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/docx/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'PDF',
+              href: '/conversion/export/pdf/editor-export',
+              children: [
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/pdf/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/pdf/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'Markdown',
+              href: '/conversion/import/markdown/rest-api',
+              children: [
+                {
+                  title: 'Import REST API',
+                  href: '/conversion/import/markdown/rest-api',
+                },
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/markdown/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/markdown/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'ODT',
+              href: '/conversion/export/odt/editor-export',
+              children: [
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/odt/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/odt/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'EPUB',
+              href: '/conversion/export/epub/editor-export',
+              children: [
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/epub/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/epub/rest-api',
+                },
+              ],
+            },
+            {
+              title: 'DOC',
+              href: '/conversion/export/doc/editor-export',
+              children: [
+                {
+                  title: 'Export extension',
+                  href: '/conversion/export/doc/editor-export',
+                },
+                {
+                  title: 'Export REST API',
+                  href: '/conversion/export/doc/rest-api',
+                },
+              ],
+            },
+          ],
+        },
+        {
           title: 'Supported features',
           href: '/conversion/getting-started/feature-support-matrix',
           tags: ['New'],
           disabled: true,
-        },
-        {
-          title: 'Authenticate',
-          href: '/conversion/getting-started/install',
         },
       ],
     },
@@ -38,7 +136,7 @@ export const sidebarConfig: SidebarConfig = {
           disabled: true,
         },
         {
-          title: 'Text & Formatting',
+          title: 'Text and formatting',
           href: '/conversion/content-types/text-and-formatting/headings',
           children: [
             {
@@ -61,24 +159,24 @@ export const sidebarConfig: SidebarConfig = {
               disabled: true,
             },
             {
-              title: 'Subscript & superscript',
+              title: 'Subscript and superscript',
               href: '/conversion/content-types/text-and-formatting/subscript-superscript',
               disabled: true,
             },
             {
-              title: 'Text color & highlight',
+              title: 'Text color and highlight',
               href: '/conversion/content-types/text-and-formatting/text-color-highlight',
               disabled: true,
             },
             {
-              title: 'Font family & size',
+              title: 'Font family and size',
               href: '/conversion/content-types/text-and-formatting/font-family-size',
               disabled: true,
             },
           ],
         },
         {
-          title: 'Structures & Media',
+          title: 'Structures and media',
           href: '/conversion/content-types/structures-and-media/bullet-lists',
           disabled: true,
           children: [
@@ -93,7 +191,7 @@ export const sidebarConfig: SidebarConfig = {
               disabled: true,
             },
             {
-              title: 'Nested & task lists',
+              title: 'Nested and task lists',
               href: '/conversion/content-types/structures-and-media/nested-task-lists',
               disabled: true,
             },
@@ -108,7 +206,7 @@ export const sidebarConfig: SidebarConfig = {
               disabled: true,
             },
             {
-              title: 'Table styling & borders',
+              title: 'Table styling and borders',
               href: '/conversion/content-types/structures-and-media/table-styling-borders',
               disabled: true,
             },
@@ -123,12 +221,12 @@ export const sidebarConfig: SidebarConfig = {
               disabled: true,
             },
             {
-              title: 'Hyperlinks & bookmarks',
+              title: 'Hyperlinks and bookmarks',
               href: '/conversion/content-types/structures-and-media/hyperlinks-bookmarks',
               disabled: true,
             },
             {
-              title: 'Blockquotes & code blocks',
+              title: 'Blockquotes and code blocks',
               href: '/conversion/content-types/structures-and-media/blockquotes-code-blocks',
               disabled: true,
             },
@@ -140,22 +238,22 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Page Layout',
+          title: 'Page layout',
           href: '/conversion/content-types/page-layout/headers-footers',
           disabled: true,
           children: [
             {
-              title: 'Headers & footers',
+              title: 'Headers and footers',
               href: '/conversion/content-types/page-layout/headers-footers',
               disabled: true,
             },
             {
-              title: 'Page breaks & sections',
+              title: 'Page breaks and sections',
               href: '/conversion/content-types/page-layout/page-breaks-sections',
               disabled: true,
             },
             {
-              title: 'Page size & margins',
+              title: 'Page size and margins',
               href: '/conversion/content-types/page-layout/page-size-margins',
               disabled: true,
             },
@@ -167,17 +265,17 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Specialized Content',
+          title: 'Specialized content',
           href: '/conversion/content-types/specialized-content/math-equations',
           disabled: true,
           children: [
             {
-              title: 'Math & equations',
+              title: 'Math and equations',
               href: '/conversion/content-types/specialized-content/math-equations',
               disabled: true,
             },
             {
-              title: 'Footnotes & endnotes',
+              title: 'Footnotes and endnotes',
               href: '/conversion/content-types/specialized-content/footnotes-endnotes',
               disabled: true,
             },
@@ -185,141 +283,6 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Word styles',
               href: '/conversion/content-types/specialized-content/word-styles',
               disabled: true,
-            },
-          ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/conversion/import',
-      title: 'Extension reference',
-      children: [
-        {
-          title: 'Import',
-          href: '/conversion/import/docx/editor-import',
-          children: [
-            {
-              title: 'DOCX',
-              href: '/conversion/import/docx/editor-import',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/import/docx/editor-import',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/import/docx/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'Markdown',
-              href: '/conversion/import/markdown/rest-api',
-              beta: true,
-              children: [
-                {
-                  title: 'REST API',
-                  href: '/conversion/import/markdown/rest-api',
-                },
-              ],
-            },
-          ],
-        },
-        {
-          title: 'Export',
-          href: '/conversion/export/docx/editor-export',
-          children: [
-            {
-              title: 'DOCX',
-              href: '/conversion/export/docx/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/docx/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/docx/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'PDF',
-              href: '/conversion/export/pdf/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/pdf/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/pdf/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'ODT',
-              href: '/conversion/export/odt/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/odt/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/odt/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'EPUB',
-              href: '/conversion/export/epub/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/epub/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/epub/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'DOC',
-              href: '/conversion/export/doc/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/doc/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/doc/rest-api',
-                },
-              ],
-            },
-            {
-              title: 'Markdown',
-              href: '/conversion/export/markdown/editor-export',
-              beta: true,
-              children: [
-                {
-                  title: 'Setup & configuration',
-                  href: '/conversion/export/markdown/editor-export',
-                },
-                {
-                  title: 'REST API',
-                  href: '/conversion/export/markdown/rest-api',
-                },
-              ],
             },
           ],
         },
@@ -337,7 +300,7 @@ export const sidebarConfig: SidebarConfig = {
           disabled: true,
         },
         {
-          title: 'Debugging & inspecting output',
+          title: 'Debugging and inspecting output',
           href: '/conversion/getting-started/guides/debugging',
           disabled: true,
         },
