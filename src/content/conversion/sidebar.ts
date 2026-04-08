@@ -20,97 +20,97 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             {
               title: 'DOCX',
-              href: '/conversion/getting-started/install',
+              href: '/conversion/install/docx/import',
               children: [
                 {
                   title: 'Import extension',
-                  href: '/conversion/import/docx/editor-import',
+                  href: '/conversion/install/docx/import',
                 },
                 {
                   title: 'Import REST API',
-                  href: '/conversion/import/docx/rest-api',
+                  href: '/conversion/install/docx/import-rest-api',
                 },
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/docx/editor-export',
+                  href: '/conversion/install/docx/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/docx/rest-api',
+                  href: '/conversion/install/docx/export-rest-api',
                 },
               ],
             },
             {
               title: 'PDF',
-              href: '/conversion/export/pdf/editor-export',
+              href: '/conversion/install/pdf/export',
               children: [
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/pdf/editor-export',
+                  href: '/conversion/install/pdf/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/pdf/rest-api',
+                  href: '/conversion/install/pdf/export-rest-api',
                 },
               ],
             },
             {
               title: 'Markdown',
-              href: '/conversion/import/markdown/rest-api',
+              href: '/conversion/install/markdown/import-rest-api',
               children: [
                 {
                   title: 'Import REST API',
-                  href: '/conversion/import/markdown/rest-api',
+                  href: '/conversion/install/markdown/import-rest-api',
                 },
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/markdown/editor-export',
+                  href: '/conversion/install/markdown/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/markdown/rest-api',
+                  href: '/conversion/install/markdown/export-rest-api',
                 },
               ],
             },
             {
               title: 'ODT',
-              href: '/conversion/export/odt/editor-export',
+              href: '/conversion/install/odt/export',
               children: [
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/odt/editor-export',
+                  href: '/conversion/install/odt/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/odt/rest-api',
+                  href: '/conversion/install/odt/export-rest-api',
                 },
               ],
             },
             {
               title: 'EPUB',
-              href: '/conversion/export/epub/editor-export',
+              href: '/conversion/install/epub/export',
               children: [
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/epub/editor-export',
+                  href: '/conversion/install/epub/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/epub/rest-api',
+                  href: '/conversion/install/epub/export-rest-api',
                 },
               ],
             },
             {
               title: 'DOC',
-              href: '/conversion/export/doc/editor-export',
+              href: '/conversion/install/doc/export',
               children: [
                 {
                   title: 'Export extension',
-                  href: '/conversion/export/doc/editor-export',
+                  href: '/conversion/install/doc/export',
                 },
                 {
                   title: 'Export REST API',
-                  href: '/conversion/export/doc/rest-api',
+                  href: '/conversion/install/doc/export-rest-api',
                 },
               ],
             },

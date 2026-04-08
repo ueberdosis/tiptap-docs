@@ -264,6 +264,82 @@ const nextConfig = {
         destination: '/ui-components/components/blockquote-button',
         permanent: true,
       },
+      // Conversion docs restructure: import/export pages moved under /install/<format>/
+      {
+        source: '/conversion/import/docx/editor-import',
+        destination: '/conversion/install/docx/import',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/docx/rest-api',
+        destination: '/conversion/install/docx/import-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/docx/editor-export',
+        destination: '/conversion/install/docx/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/docx/rest-api',
+        destination: '/conversion/install/docx/export-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/editor-export',
+        destination: '/conversion/install/pdf/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/rest-api',
+        destination: '/conversion/install/pdf/export-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/markdown/rest-api',
+        destination: '/conversion/install/markdown/import-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/markdown/editor-export',
+        destination: '/conversion/install/markdown/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/markdown/rest-api',
+        destination: '/conversion/install/markdown/export-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/editor-export',
+        destination: '/conversion/install/odt/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/rest-api',
+        destination: '/conversion/install/odt/export-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/editor-export',
+        destination: '/conversion/install/epub/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/rest-api',
+        destination: '/conversion/install/epub/export-rest-api',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/editor-export',
+        destination: '/conversion/install/doc/export',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/rest-api',
+        destination: '/conversion/install/doc/export-rest-api',
+        permanent: true,
+      },
       // The redirects below are temporary and should be moved to the reverse proxy
       // TODO: add these redirects to the reverse proxy
       {
