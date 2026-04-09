@@ -42,6 +42,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/core-concepts/page-gap',
         },
         {
+          title: 'Zoom',
+          href: '/pages/core-concepts/zoom',
+          tags: ['New'],
+        },
+        {
           title: 'PageBreak node',
           href: '/pages/core-concepts/page-break-node',
           tags: ['New'],
