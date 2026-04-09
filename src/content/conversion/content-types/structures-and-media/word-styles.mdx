@@ -1,0 +1,100 @@
+---
+title: Word styles
+tags:
+  - type: beta
+meta:
+  title: Word Styles | Tiptap Conversion
+  description: How Word paragraph styles and character styles are resolved during import and applied during export.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Word documents use a style system where every paragraph and text run references a named style. The conversion pipeline resolves known paragraph style names to their Tiptap equivalents and falls back to plain paragraphs for everything else. The `basedOn` inheritance chain is used only for resolving run-level formatting.
+
+## Recognized paragraph styles
+
+The import service recognizes these paragraph style names (matched case-insensitively). When a paragraph's canonical style name matches one of them, it is converted to the corresponding Tiptap node:
+
+| Word style name | Tiptap node | Notes |
+| --- | --- | --- |
+| `heading 1` through `heading 9` (regex `/^heading\s*\d+$/i`) | `heading` (level 1 through 9) | See [Headings](/conversion/content-types/text-and-formatting/headings) |
+| `quote` (case-insensitive exact match) | `blockquote` | See [Block elements](/conversion/content-types/structures-and-media/block-elements) |
+| Everything else | `paragraph` | See [Paragraphs](/conversion/content-types/text-and-formatting/paragraphs) |
+
+## The basedOn chain walk
+
+The `basedOn` inheritance chain is only used for resolving run-level formatting (font, size, bold, italic, etc.), not for determining paragraph type. A paragraph's type (heading, blockquote, or paragraph) is determined solely by its own canonical style name.
+
+For example, if a document defines "Company Heading" based on `Heading2`, the resolver checks the canonical name "Company Heading", does not match the heading regex or "quote", and maps the paragraph to a `paragraph` node. The `basedOn` link to `Heading2` is used only to inherit run formatting such as font family and size. To produce a heading, the style's own canonical name must match the heading pattern (e.g. `heading 2`).
+
+## Character styles
+
+Word also supports character styles applied to individual text runs. The import does not preserve character style names. Instead, the resolved formatting (bold, italic, color, font size, etc.) is already reflected in the run's CSS properties at parse time and gets mapped to Tiptap marks.
+
+This means a run styled "Strong" that resolves to bold produces a `bold` mark because the formatting includes `font-weight: bold`. The style name "Strong" itself is discarded.
+
+Custom character styles with non-standard formatting (small caps, letter spacing, text effects) will lose that formatting if the renderer does not handle it.
+
+## Editor
+
+There is no style extension in Tiptap. The editor does not have a concept of Word paragraph or character styles. Each content type has its own extension (Heading, Blockquote, CodeBlock, Paragraph), and formatting is handled through marks.
+
+## Export
+
+Each Tiptap node type maps to a fixed Word style:
+
+| Tiptap node | Exported Word style |
+| --- | --- |
+| `paragraph` | Normal |
+| `heading` (level 1 through 6) | Heading 1 through Heading 6 |
+| `blockquote` children | Quote |
+| List items | List Paragraph |
+
+Custom styles from the original document are not round-tripped. A paragraph imported from a "Legal Disclaimer" style will export as "Normal".
+
+### Default export style definitions
+
+| Style | Font | Size | Other |
+| --- | --- | --- | --- |
+| Normal | Aptos | 11pt | 10pt after-spacing, 1.15 line height |
+| Heading 1 | Aptos Light | 16pt | Bold, color #2E74B5 |
+| Heading 2 | Aptos Light | 14pt | Bold, color #2E74B5 |
+| Heading 3 | Aptos | 13pt | Bold, color #2E74B5 |
+| Heading 4 | Aptos | 12pt | Bold, color #2E74B5 |
+| Heading 5 | Aptos | 11pt | Bold, color #2E74B5 |
+| Title | Aptos Light | 22pt | Bold, black, centered |
+| Subtitle | Aptos Light | 16pt | Italic, gray, centered |
+| Quote | Aptos | (inherits) | Italic, centered |
+| Hyperlink | (inherits) | (inherits) | Color #0563C1, underline |
+
+### Customizing export styles
+
+Override any default style or add new ones using `styleOverrides`. Your overrides are deep-merged with the defaults: matching `id` values merge recursively, new `id` values are appended.
+
+```ts
+ExportDocx.configure({
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Normal',
+        name: 'Normal',
+        run: {
+          font: 'Calibri',
+          size: 24,        // half-points (24 = 12pt)
+        },
+        paragraph: {
+          spacing: {
+            after: 200,    // twips (200 = 10pt)
+            line: 276,     // 240ths of a line (276 = 1.15)
+          },
+        },
+      },
+    ],
+  },
+})
+```
+
+<Callout title="Units in style definitions" variant="info">
+  Font sizes are in half-points (24 = 12pt). Spacing values are in twips (20 twips = 1pt). Line spacing uses 240ths of a line (240 = single, 276 = 1.15). These units come from the `docx` library and match the OOXML specification.
+</Callout>

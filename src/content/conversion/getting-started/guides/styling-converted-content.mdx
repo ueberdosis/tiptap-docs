@@ -1,0 +1,282 @@
+---
+title: Styling converted content
+tags:
+  - type: beta
+meta:
+  title: Styling Converted Content | Tiptap Conversion
+  description: Why imported documents look different in the editor, and how to control the visual appearance of converted content with CSS, extension configuration, and custom attributes.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+When you import a DOCX file into the editor, the structure of the document is preserved but the visual appearance changes. This guide explains why, what styling information is available to you, and how to control it.
+
+## Why Word styling does not transfer
+
+Tiptap is headless. It converts document structure (nodes, marks, attributes) but does not apply Word's visual theme. Word documents use a layered styling system: document themes, named style definitions (like "Heading 2"), and direct formatting overrides on individual runs. The conversion service translates the structural meaning ("this is a Heading 2") but not the visual presentation ("Heading 2 is Aptos Light 13pt blue").
+
+Your editor renders content using your CSS. An `<h2>` in the editor looks however your stylesheet defines `h2`, not however Word defined "Heading 2."
+
+## What styling is preserved
+
+The conversion service extracts two categories of styling information from the DOCX:
+
+### Inline formatting (marks on text nodes)
+
+These are stored as marks on individual text nodes and are **automatically rendered** by standard Tiptap extensions as inline `style` attributes on `<span>` elements:
+
+| Styling | Mark attribute | Extension needed | HTML output |
+| --- | --- | --- | --- |
+| Text color | `textStyle.color` | Color | `style="color: #FF0000"` |
+| Font family | `textStyle.fontFamily` | FontFamily | `style="font-family: Courier New"` |
+| Font size | `textStyle.fontSize` | FontSize | `style="font-size: 14px"` |
+| Line height | `textStyle.lineHeight` | LineHeight | `style="line-height: 1.5"` |
+| Background color | `textStyle.backgroundColor` | BackgroundColor | `style="background-color: #FFFF00"` |
+| Highlight | `highlight.color` | Highlight (`multicolor: true`) | `<mark style="background-color: yellow">` |
+| Bold, italic, underline, strike | Separate marks | StarterKit | `<strong>`, `<em>`, `<u>`, `<s>` |
+
+If you have these extensions installed (see [ConvertKit](/conversion/import/docx/convert-kit) for the recommended set), inline formatting renders automatically with no additional CSS required.
+
+### Block-level formatting (attributes on paragraph and heading nodes)
+
+These are stored as attributes on `paragraph` and `heading` nodes. Text alignment is rendered by the TextAlign extension. All other attributes are **present in the imported JSON but not rendered** because the standard Paragraph and Heading extensions do not define them in their schema:
+
+| Styling | Node attribute | Format | Rendered? |
+| --- | --- | --- | --- |
+| Text alignment | `textAlign` | `"left"`, `"center"`, `"right"`, `"justify"` | Yes (requires TextAlign extension) |
+| Spacing before | `spacingBefore` | Integer (pixels) | No |
+| Spacing after | `spacingAfter` | Integer (pixels) | No |
+| Left indent | `indent` | Integer (pixels) | No |
+| First line indent | `firstLineIndent` | Integer (pixels) | No |
+| Line height | `lineHeight` | Number (multiplier) or integer (pixels) | No (paragraph-level; the mark-level lineHeight is rendered) |
+| Contextual spacing | `contextualSpacing` | Boolean | No |
+
+<Callout variant="warning" title="Schema validation strips unrecognized attributes">
+  When you call `setEditorContent()`, ProseMirror validates the content against your editor's schema. Attributes not defined in the node spec are removed. The raw JSON in `context.content` still contains all attributes, but they are lost once the content is loaded into the editor. To preserve them, you need to extend the node schema.
+</Callout>
+
+## Styling your editor to approximate Word
+
+Even without preserving every paragraph attribute, you can get close to Word's appearance through CSS.
+
+### Base heading styles
+
+Word's default heading styles use specific fonts, sizes, and colors. You can approximate them in your editor:
+
+```css
+.tiptap h1 {
+  font-family: 'Aptos Light', sans-serif;
+  font-size: 16pt;
+  font-weight: bold;
+  color: #2E74B5;
+  margin-top: 12pt;
+  margin-bottom: 6pt;
+  line-height: 1.15;
+}
+
+.tiptap h2 {
+  font-family: 'Aptos Light', sans-serif;
+  font-size: 14pt;
+  font-weight: bold;
+  color: #2E74B5;
+  margin-top: 12pt;
+  margin-bottom: 6pt;
+  line-height: 1.15;
+}
+
+.tiptap h3 {
+  font-family: 'Aptos', sans-serif;
+  font-size: 13pt;
+  font-weight: bold;
+  color: #2E74B5;
+  margin-top: 12pt;
+  margin-bottom: 6pt;
+  line-height: 1.15;
+}
+```
+
+### Body text
+
+Word's default "Normal" style uses Aptos 11pt with 10pt after-paragraph spacing and 1.15 line height:
+
+```css
+.tiptap p {
+  font-family: 'Aptos', sans-serif;
+  font-size: 11pt;
+  margin-top: 0;
+  margin-bottom: 10pt;
+  line-height: 1.15;
+}
+```
+
+### Tables
+
+Word tables typically have thin borders and no cell padding. The editor's default table styling may differ:
+
+```css
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.tiptap td,
+.tiptap th {
+  border: 1px solid #d0d0d0;
+  padding: 4px 8px;
+  vertical-align: top;
+}
+
+.tiptap th {
+  font-weight: bold;
+  background-color: #f5f5f5;
+}
+```
+
+### Lists
+
+Word uses specific indentation for nested lists. Matching this in CSS:
+
+```css
+.tiptap ul,
+.tiptap ol {
+  padding-left: 24px;
+  margin-top: 0;
+  margin-bottom: 2pt;
+}
+
+.tiptap li {
+  line-height: 1.15;
+}
+
+.tiptap li > ul,
+.tiptap li > ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+```
+
+## Matching export styles with editor styles
+
+The export extension applies its own default styles when writing DOCX files. These defaults (Aptos 11pt for Normal, specific heading sizes and colors) may not match what the user sees in the editor. To keep the appearance consistent across import, editing, and export, align your editor CSS with the export's `styleOverrides`:
+
+```ts
+ExportDocx.configure({
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Normal',
+        name: 'Normal',
+        run: { font: 'Aptos', size: 22 }, // 11pt in half-points
+        paragraph: {
+          spacing: { after: 200, line: 276 }, // 10pt after, 1.15 line height
+        },
+      },
+      {
+        id: 'Heading1',
+        name: 'Heading 1',
+        basedOn: 'Normal',
+        next: 'Normal',
+        run: { font: 'Aptos Light', size: 32, bold: true, color: '2E74B5' },
+        paragraph: {
+          spacing: { before: 240, after: 120, line: 276 },
+        },
+      },
+    ],
+  },
+})
+```
+
+If you use different fonts or sizes in your editor CSS, update the export `styleOverrides` to match so the exported DOCX reflects what the user saw while editing.
+
+## Extending extensions for unsupported attributes
+
+For paragraph-level attributes like `spacingBefore`, `spacingAfter`, `indent`, and `firstLineIndent`, you can extend the Paragraph extension to define them in the schema and render them as inline CSS:
+
+```ts
+import Paragraph from '@tiptap/extension-paragraph'
+
+const CustomParagraph = Paragraph.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      spacingBefore: {
+        default: null,
+        parseHTML: (element) => element.style.marginTop || null,
+        renderHTML: (attributes) => {
+          if (!attributes.spacingBefore) return {}
+          return { style: `margin-top: ${attributes.spacingBefore}px` }
+        },
+      },
+      spacingAfter: {
+        default: null,
+        parseHTML: (element) => element.style.marginBottom || null,
+        renderHTML: (attributes) => {
+          if (!attributes.spacingAfter) return {}
+          return { style: `margin-bottom: ${attributes.spacingAfter}px` }
+        },
+      },
+      indent: {
+        default: null,
+        parseHTML: (element) => element.style.marginLeft || null,
+        renderHTML: (attributes) => {
+          if (!attributes.indent) return {}
+          return { style: `margin-left: ${attributes.indent}px` }
+        },
+      },
+      firstLineIndent: {
+        default: null,
+        parseHTML: (element) => element.style.textIndent || null,
+        renderHTML: (attributes) => {
+          if (!attributes.firstLineIndent) return {}
+          return { style: `text-indent: ${attributes.firstLineIndent}px` }
+        },
+      },
+    }
+  },
+})
+```
+
+Use `CustomParagraph` instead of the default `Paragraph` in your editor setup. The same approach works for extending `Heading` to support these attributes on heading nodes.
+
+For the `letterSpacing` attribute on the `textStyle` mark, you can add it as a global attribute following the same pattern used by Color and FontFamily. See the [custom extensions guide](/editor/extensions/custom-extensions/extend-existing) for full details on extending existing extensions.
+
+## Intercepting content before loading
+
+If you want to transform or extract styling data before it enters the editor, use the `onImport` callback instead of the automatic `setEditorContent()`:
+
+```ts
+editor.chain().importDocx({
+  file,
+  onImport(context) {
+    if (context.error) {
+      console.error(context.error)
+      return
+    }
+
+    // context.content has the raw JSON with ALL attributes
+    // You can inspect, transform, or extract styling data here
+    const doc = context.content
+
+    // Example: log all paragraph spacing values
+    function walkNodes(nodes) {
+      for (const node of nodes) {
+        if (node.type === 'paragraph' && node.attrs) {
+          console.log('Spacing:', node.attrs.spacingBefore, node.attrs.spacingAfter)
+        }
+        if (node.content) walkNodes(node.content)
+      }
+    }
+    walkNodes(doc.content || [])
+
+    // Then load into editor (this triggers schema validation)
+    context.setEditorContent()
+  },
+}).run()
+```
+
+## Automatic style import
+
+Tiptap is working on a feature that extracts styles from the imported DOCX and applies them directly to the editor as CSS. When available, this will close the gap between how a document looks in Word and how it looks in the editor, without requiring manual CSS or custom extensions.
+
+Until then, the approaches described above give you full control over how converted content appears in your editor.

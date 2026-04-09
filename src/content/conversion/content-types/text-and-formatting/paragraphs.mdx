@@ -3,9 +3,138 @@ title: Paragraphs
 tags:
   - type: beta
 meta:
-  title: Paragraphs | Tiptap Conversion Components
-  description: How paragraphs are handled across the DOCX conversion pipeline — import, editor rendering, and export.
+  title: Paragraphs | Tiptap Conversion
+  description: How Word paragraphs are handled across the DOCX conversion pipeline, including what formatting survives import, rendering, and export.
   category: Conversion
 ---
 
-{/* Placeholder — content to be added after component investigation */}
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+Paragraphs are the most fundamental content type in any document. In Word they carry formatting like spacing, indentation, borders, and alignment. In Tiptap they map to the `paragraph` node, which is included in StarterKit by default.
+
+## What you need
+
+- **Extensions:** `StarterKit` (includes Paragraph) and `TextAlign` for alignment support
+- **Configuration:** `TextAlign.configure({ types: ['paragraph', 'heading'] })`
+- **What round-trips:** Text content and text alignment survive the full import, edit, and export cycle
+- **What does not round-trip:** Paragraph-level spacing, indentation, and line height are extracted during import but are not rendered in the editor and are not preserved during export. Borders and background colors are not extracted.
+
+<Callout title="Paragraph formatting is lossy" variant="warning">
+  Text content inside paragraphs converts perfectly. However, paragraph-level formatting such as spacing, indentation, and borders from Word does not survive the round-trip. If your documents rely heavily on custom paragraph spacing or borders, those values will be reset to the default "Normal" style on export.
+</Callout>
+
+## Support overview
+
+| | Import | Editor | Export |
+| --- | --- | --- | --- |
+| Text content | Supported | Supported | Supported |
+| Text alignment | Supported | Supported (TextAlign) | Supported |
+| Line height | Supported (paragraph attr) | Partial | Supported (reads textStyle mark) |
+| Paragraph spacing (before/after) | Supported (`spacingBefore`, `spacingAfter` attrs) | Not rendered | Not preserved |
+| Indentation | Supported (`indent`, `firstLineIndent` attrs) | Not rendered | Not preserved |
+
+## Import
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeParagraphsImport?hideSource=true" />
+
+When a DOCX file is imported, each Word paragraph becomes a `paragraph` node. The conversion service reads CSS properties from the Word markup and maps them to node attributes.
+
+The resulting JSON for a basic paragraph:
+
+```json
+{
+  "type": "paragraph",
+  "attrs": {
+    "textAlign": "left"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "This is a paragraph."
+    }
+  ]
+}
+```
+
+### What is preserved
+
+- All text content and inline formatting (bold, italic, links, and other marks)
+- Text alignment when the paragraph has explicit alignment in Word
+
+### What is lost
+
+The conversion service extracts paragraph-level attributes like `spacingBefore`, `spacingAfter`, `lineHeight`, `indent`, `firstLineIndent`, and `contextualSpacing` from the Word source. These values are present in the JSON, but since the Paragraph extension schema does not define these attributes, they are not recognized by the Paragraph extension schema and require a [custom extension](/editor/extensions/custom-extensions/extend-existing) to preserve. Paragraph-level borders and background colors are not extracted during import. To preserve the extracted attributes, follow the [invalid schema guide](/guides/invalid-schema) to handle unknown attributes, or [extend the Paragraph extension](/editor/extensions/custom-extensions/extend-existing) with custom attributes that map them to CSS styles.
+
+## Editor rendering
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeParagraphsEditor?hideSource=true" />
+
+The [Paragraph extension](/editor/extensions/nodes/paragraph) renders each paragraph as a `<p>` element. It is included in StarterKit, so no additional installation is needed for basic paragraph support.
+
+**Extension:** [`Paragraph`](/editor/extensions/nodes/paragraph) (included in `StarterKit`)
+**Package:** `@tiptap/extension-paragraph`
+**Schema:** `paragraph` node, inline content only, no custom attributes defined
+
+### Text alignment requires an additional extension
+
+To support text alignment in the editor, install and configure the [TextAlign extension](/editor/extensions/functionality/text-align):
+
+```ts
+import TextAlign from '@tiptap/extension-text-align'
+
+TextAlign.configure({
+  types: ['paragraph', 'heading'],
+})
+```
+
+Without TextAlign, the `textAlign` attribute from Word is not recognized by the schema. See the [invalid schema guide](/guides/invalid-schema) for how to manage unrecognized attributes.
+
+### Visual differences from Word
+
+The editor renders paragraphs with your CSS styles, not Word's document styles. Word's "Normal" style typically includes specific font, size, and spacing values that will not carry over to the editor. Structure and text content are preserved. Visual appearance is yours to control through your editor's CSS. See the [Styling converted content](/conversion/getting-started/guides/styling-converted-content) guide for how to manage this.
+
+## Export
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeParagraphsExport?hideSource=true" />
+
+During DOCX export, each `paragraph` node is written as a Word paragraph with the "Normal" style applied. The default Normal style uses Aptos 11pt font, 10pt after-paragraph spacing, and 1.15 line height.
+
+### What round-trips
+
+- All text content and inline marks
+- Text alignment is read from the paragraph node attributes and mapped to Word alignment
+- Line height is read from `textStyle` marks if present (note: import stores line height as a paragraph attr, but export reads it from textStyle marks — these are different locations that require custom schema work to bridge)
+
+### What is not exported
+
+All other paragraph attributes (margins, borders, indentation, background color) are not read during export regardless of whether they exist in the JSON.
+
+### Customizing export styles
+
+You can override the default paragraph styling using `styleOverrides` in the export configuration:
+
+```ts
+ExportDocx.configure({
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Normal',
+        name: 'Normal',
+        run: {
+          font: 'Calibri',
+          size: 24,        // half-points (24 = 12pt)
+        },
+        paragraph: {
+          spacing: {
+            after: 200,    // twips
+            line: 276,     // 240ths of a line (276 = 1.15 line height)
+          },
+        },
+      },
+    ],
+  },
+})
+```
+
+This lets you control font, size, spacing, and other Word-level properties for all paragraphs in the exported document.

@@ -3,9 +3,97 @@ title: Images
 tags:
   - type: beta
 meta:
-  title: Images | Tiptap Conversion Components
-  description: How images (inline, floating, various formats) are handled across the DOCX conversion pipeline.
+  title: Images | Tiptap Conversion
+  description: How images are handled when importing from DOCX, rendering in the editor, and exporting back to DOCX.
   category: Conversion
 ---
 
-{/* Placeholder — content to be added after component investigation */}
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+Images in DOCX documents are extracted during import, rendered in the editor, and re-embedded on export. The Image extension is not in StarterKit and must be installed separately.
+
+## What you need
+
+- `@tiptap/extension-image` (not in StarterKit)
+- An image upload endpoint configured via `imageUploadConfig` on the import extension
+
+<Callout title="imageUploadConfig is required for import" variant="warning">
+  When importing a DOCX, images are extracted as binary blobs from the file. Without an `imageUploadConfig`, the resulting `src` values will not be resolvable and images will appear broken. You must provide an upload endpoint so the converter can POST each image and replace internal references with real URLs.
+</Callout>
+
+## Support overview
+
+| Feature | Import | Editor | Export | Notes |
+| --- | --- | --- | --- | --- |
+| Inline images | Supported | Supported | Supported | Requires imageUploadConfig on import |
+| Floating/wrapped images | Partial | Not supported | Not supported | Anchor images are converted but wrap type is not tracked. All images become inline. Background/watermark images (`behindDoc`) are skipped. |
+| Image dimensions | Supported | Supported | Supported | Width and height are extracted from EMU values and passed as pixel attributes on the image node. Export reads width/height attrs. |
+| Alt text | Supported | Supported | Supported | `descr` and `title` from `wp:docPr` are extracted on import. Alt from editor node maps to DOCX alt text on export. |
+| Formats (PNG, JPEG, GIF, BMP, SVG) | Supported | Supported | Supported | |
+| EMF/WMF | Supported (import) | Depends on browser | Not supported (export) | Windows vector formats may not round-trip |
+| Image resizing | N/A | Supported | Supported | Resized dimensions export correctly |
+
+## Import
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeImagesImport?hideSource=true" />
+
+When a DOCX is imported, each embedded image is extracted from the zip archive as a blob. If you provide an `imageUploadConfig`, the converter POSTs each blob to your upload endpoint and replaces the internal reference with the URL your server returns.
+
+```ts
+ImportDocx.configure({
+  appId: 'your-app-id',
+  token: 'your-jwt',
+  imageUploadConfig: {
+    url: 'https://your-api.example.com/upload',
+  },
+})
+```
+
+Without this configuration, imported images will have unresolvable `src` values.
+
+<Callout title="Floating images are not fully supported" variant="info">
+  DOCX documents often contain images with text wrapping (square, tight, behind text). Anchor images are converted during import, but wrap type is not tracked. All images are inserted as inline nodes regardless of their original positioning. Background or watermark images (`behindDoc`) are skipped entirely.
+</Callout>
+
+## Editor rendering
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeImagesEditor?hideSource=true" />
+
+The Image extension adds an `image` node with `src`, `alt`, `title`, `width`, and `height` attributes. It renders as a standard `<img>` tag.
+
+```bash
+npm install @tiptap/extension-image
+```
+
+```ts
+import Image from '@tiptap/extension-image'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    Image.configure({ inline: true }),
+  ],
+})
+```
+
+To enable drag-to-resize handles, pass the `resize` option:
+
+```ts
+Image.configure({
+  inline: true,
+  resize: { enabled: true },
+})
+```
+
+Without the Image extension, imported image nodes require the Image extension to render. See the [invalid schema guide](/guides/invalid-schema) for handling strategies.
+
+## Export
+
+<CodeDemo src="http://localhost:3000/preview/Extensions/ContentTypeImagesExport?hideSource=true" />
+
+On export, each image node's `src` URL is fetched and the binary data is embedded into the DOCX. Supported export formats: PNG, JPG, JPEG, GIF, BMP, and SVG.
+
+If the node has `width` and `height` attributes (in pixels), those values are converted to points (1px = 0.75pt). If no dimensions are set, the exporter detects intrinsic size automatically. If detection fails, images default to 800x400 pixels.
+
+The `alt` attribute on the image node is mapped to the DOCX image's alt text fields.
