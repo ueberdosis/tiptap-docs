@@ -243,6 +243,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Lists',
               href: '/conversion/content-types/text-and-formatting/lists',
             },
+            {
+              title: 'Tabs',
+              href: '/conversion/content-types/text-and-formatting/tabs',
+            },
           ],
         },
         {
