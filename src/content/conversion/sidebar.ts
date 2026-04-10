@@ -312,21 +312,6 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Styling converted content',
           href: '/conversion/getting-started/guides/styling-converted-content',
         },
-        {
-          title: 'Building custom extensions',
-          href: '/conversion/getting-started/guides/custom-extensions',
-          disabled: true,
-        },
-        {
-          title: 'Debugging and inspecting output',
-          href: '/conversion/getting-started/guides/debugging',
-          disabled: true,
-        },
-        {
-          title: 'End-to-end walkthrough',
-          href: '/conversion/getting-started/guides/end-to-end-walkthrough',
-          disabled: true,
-        },
       ],
     },
   ],
