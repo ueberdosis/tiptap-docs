@@ -26,6 +26,11 @@ import { Requirements, RequirementItem } from '@/components/Requirements'
 
 Build a simple AI agent chatbot that can read and edit Tiptap documents.
 
+<Callout title="Persist the session across chat turns" variant="info">
+  Store the latest `sessionId` in the conversation history and reuse it on later tool calls. This
+  lets the server reject stale edits instead of overwriting newer user changes.
+</Callout>
+
 <CodeDemo
   isLarge
   path=""
@@ -50,8 +55,8 @@ npx create-next-app@latest server-ai-agent-chatbot
 ```
 
 <Callout title="Pro packages" variant="hint">
-  The Server AI Toolkit and Collaboration are pro packages. Before installation, you'll need to set up [access to Tiptap's private NPM
-  registry](/guides/pro-extensions).
+  The Server AI Toolkit and Collaboration are pro packages. Before installation, you'll need to set
+  up [access to Tiptap's private NPM registry](/guides/pro-extensions).
 </Callout>
 
 Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
@@ -126,7 +131,8 @@ export function getTiptapCloudAiJwtToken(): string {
   const payload = {
     // Document Server credentials for automatic document fetching/saving
     experimental_document_server_id: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID,
-    experimental_document_server_management_api_secret: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
+    experimental_document_server_management_api_secret:
+      process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
   }
 
   return jwt.sign(payload, secret, { expiresIn: '1h' })
@@ -222,9 +228,8 @@ export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Pr
 ```
 
 <Callout title="Using custom nodes?" variant="info">
-  If your editor includes custom nodes or marks, configure them with
-  `addJsonSchemaAwareness`. See the [custom nodes
-  guide](/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes).
+  If your editor includes custom nodes or marks, configure them with `addJsonSchemaAwareness`. See
+  the [custom nodes guide](/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes).
 </Callout>
 
 #### Execute tool
@@ -243,7 +248,8 @@ export async function executeTool(
   input: unknown,
   documentId: string,
   schemaAwarenessData: unknown,
-): Promise<{ output: unknown; docChanged: boolean }> {
+  options: { sessionId?: string } = {},
+): Promise<{ output: unknown; docChanged: boolean; sessionId: string }> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev/v3/ai'
   const appId = process.env.TIPTAP_CLOUD_AI_APP_ID
 
@@ -261,6 +267,7 @@ export async function executeTool(
     body: JSON.stringify({
       toolName,
       input,
+      sessionId: options.sessionId,
       experimental_documentOptions: { documentId },
       schemaAwarenessData,
     }),
@@ -274,16 +281,41 @@ export async function executeTool(
 }
 ```
 
+```ts
+// lib/server-ai-toolkit/session-id.ts
+import type { UIMessage } from 'ai'
+
+type ServerAiToolkitMessage = UIMessage<{ sessionId?: string }>
+
+export function getSessionIdFromConversationHistory(
+  messages: ServerAiToolkitMessage[],
+): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const sessionId = messages[index]?.metadata?.sessionId
+
+    if (typeof sessionId === 'string' && sessionId.length > 0) {
+      return sessionId
+    }
+  }
+
+  return undefined
+}
+```
+
 Now create the main API route:
 
 ```ts
 // app/api/server-ai-agent-chatbot/route.ts
 import { openai } from '@ai-sdk/openai'
-import { createAgentUIStreamResponse, ToolLoopAgent, tool, type UIMessage } from 'ai'
+import { createAgentUIStreamResponse, ToolLoopAgent, tool } from 'ai'
 import z from 'zod'
 import { executeTool } from '@/lib/server-ai-toolkit/execute-tool'
 import { getSchemaAwarenessPrompt } from '@/lib/server-ai-toolkit/get-schema-awareness-prompt'
 import { getToolDefinitions } from '@/lib/server-ai-toolkit/get-tool-definitions'
+import {
+  getSessionIdFromConversationHistory,
+  type ServerAiToolkitMessage,
+} from '@/lib/server-ai-toolkit/session-id'
 
 export async function POST(req: Request) {
   const {
@@ -291,10 +323,11 @@ export async function POST(req: Request) {
     schemaAwarenessData,
     documentId,
   }: {
-    messages: UIMessage[]
+    messages: ServerAiToolkitMessage[]
     schemaAwarenessData: unknown
     documentId: string
   } = await req.json()
+  let sessionId = getSessionIdFromConversationHistory(messages)
 
   // Get tool definitions from the Server AI Toolkit API
   const toolDefinitions = await getToolDefinitions(schemaAwarenessData)
@@ -311,7 +344,10 @@ export async function POST(req: Request) {
         inputSchema: z.fromJSONSchema(toolDef.inputSchema),
         execute: async (input) => {
           try {
-            const result = await executeTool(toolDef.name, input, documentId, schemaAwarenessData)
+            const result = await executeTool(toolDef.name, input, documentId, schemaAwarenessData, {
+              sessionId,
+            })
+            sessionId = result.sessionId
             return result.output
           } catch (error) {
             console.error(`Failed to execute tool ${toolDef.name}:`, error)
@@ -343,6 +379,8 @@ ${schemaAwarenessPrompt}`,
 
   return createAgentUIStreamResponse({
     agent,
+    messageMetadata: ({ part }) =>
+      part.type === 'finish' && sessionId ? { sessionId } : undefined,
     uiMessages: messages,
   })
 }
@@ -503,17 +541,22 @@ export default function Page() {
 
 <Callout title="Alternative: provide the document directly" variant="info">
   Instead of using Tiptap Cloud documents, you can provide and manage the document yourself by
-  passing a `document` field (instead of `experimental_documentOptions`) in the execute-tool
-  request body. With this approach, you need to fetch the document before each tool execution
-  and save the updated document when `result.docChanged` is `true`.
-  See the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
+  passing a `document` field (instead of `experimental_documentOptions`) in the execute-tool request
+  body. With this approach, you need to fetch the document before each tool execution and save the
+  updated document when `result.docChanged` is `true`. See the [REST API
+  reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
 </Callout>
 
 ## End result
 
 With additional CSS styles, the result is a simple but polished AI chatbot application that uses the Server AI Toolkit to edit documents:
 
-<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/server-ai-agent-chatbot" />
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-ai-agent-chatbot"
+/>
 
 See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 
