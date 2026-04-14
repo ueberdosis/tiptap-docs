@@ -310,6 +310,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/comments',
                 },
                 {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/selection-awareness',
+                },
+                {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
                 },
@@ -318,6 +322,24 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Workflows',
               href: '/content-ai/capabilities/server-ai-toolkit/workflows',
+              children: [
+                {
+                  title: 'Insert content',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/insert-content',
+                },
+                {
+                  title: 'Proofreader',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/proofreader',
+                },
+                {
+                  title: 'Tiptap Edit',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/tiptap-edit',
+                },
+                {
+                  title: 'Comments',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/comments',
+                },
+              ],
             },
             {
               title: 'API reference',

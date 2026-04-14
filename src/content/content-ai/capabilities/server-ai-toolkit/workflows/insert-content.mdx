@@ -1,0 +1,187 @@
+---
+title: Insert content
+meta:
+  title: Insert content | Tiptap Server AI Toolkit
+  description: Build a server-side workflow that replaces the current selection with AI-generated content.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a workflow that replaces the current selection with AI-generated content on the server.
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-insert-content-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+<Callout title="Prerequisites" variant="info">
+  This guide assumes you already configured JWT authentication for the Server AI Toolkit as shown in
+  the [AI agent chatbot guide](/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot).
+</Callout>
+
+## 1. Read the current selection from the AI Server
+
+The insert-content workflow starts by reading the selected content from a collaborative document.
+Call:
+
+- `POST /v3/ai/toolkit/read/read-selection`
+
+```ts
+const readResponse = await fetch(`${apiBaseUrl}/toolkit/read/read-selection`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwtToken}`,
+    'X-App-Id': appId,
+  },
+  body: JSON.stringify({
+    schemaAwarenessData,
+    range,
+    sessionId,
+    format: 'shorthand',
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const readResult = await readResponse.json()
+
+if (readResult.output.isEmpty) {
+  throw new Error('No selection available for insert-content workflow')
+}
+```
+
+## 2. Get the workflow definition and build the prompt
+
+Fetch the workflow definition and the schema awareness prompt, then combine them in the system
+prompt. The workflow definition comes from:
+
+- `POST /v3/ai/toolkit/workflows/insert-content`
+
+```ts
+const workflowResponse = await fetch(`${apiBaseUrl}/toolkit/workflows/insert-content`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwtToken}`,
+    'X-App-Id': appId,
+  },
+  body: JSON.stringify({
+    format: 'shorthand',
+  }),
+})
+
+const workflow = await workflowResponse.json()
+
+const schemaResponse = await fetch(`${apiBaseUrl}/toolkit/schema-awareness-prompt`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwtToken}`,
+    'X-App-Id': appId,
+  },
+  body: JSON.stringify({
+    schemaAwarenessData,
+  }),
+})
+
+const { prompt: schemaAwarenessPrompt } = await schemaResponse.json()
+
+const result = streamText({
+  model,
+  system: `${workflow.systemPrompt}\n\n${schemaAwarenessPrompt}`,
+  prompt: JSON.stringify({
+    task,
+    replace: readResult.output.content,
+    context: readResult.output.prompt,
+  }),
+  output: Output.object({ schema: z.fromJSONSchema(workflow.outputSchema) }),
+})
+
+const workflowOutput = await result.output
+```
+
+Using `format: 'shorthand'` keeps the model output compact while still validating it with a
+structured-output schema.
+
+## 3. Execute the workflow and get the inserted range
+
+Pass the generated shorthand string to the execute endpoint. The response includes the new range of
+the inserted content. Call:
+
+- `POST /v3/ai/toolkit/execute-workflow/insert-content`
+
+```ts
+const executeResponse = await fetch(`${apiBaseUrl}/toolkit/execute-workflow/insert-content`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwtToken}`,
+    'X-App-Id': appId,
+  },
+  body: JSON.stringify({
+    schemaAwarenessData,
+    format: 'shorthand',
+    input: workflowOutput.content,
+    range,
+    sessionId: readResult.sessionId,
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const executeResult = await executeResponse.json()
+```
+
+## 4. Restore the selection on the client
+
+After the collaborative document updates, reselect the inserted content so the user can keep
+working with the new text.
+
+```tsx
+const result: {
+  sessionId: string
+  range: { from: number; to: number } | null
+} = await response.json()
+
+if (result.range) {
+  editor.commands.focus()
+  editor.commands.setTextSelection(result.range)
+}
+```
+
+## Tracked changes
+
+Tracked-changes support for the insert-content workflow is coming soon.
+
+## End result
+
+The finished demo replaces the current selection and keeps the new content selected:
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-insert-content-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Review the [Server AI Toolkit REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api)
+- See the [REST API request details](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#execute-the-insert-content-workflow)

@@ -8,9 +8,7 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-The Server AI Toolkit provides REST API endpoints for getting tool definitions and executing tools on Tiptap documents.
-
-{/* eslint-disable-next-line prettier/prettier */}
+The Server AI Toolkit provides REST API endpoints for both **tools** and **workflows**.
 
 <Callout title="Postman collection" variant="info">
   Browse the{' '}
@@ -26,22 +24,13 @@ The Server AI Toolkit provides REST API endpoints for getting tool definitions a
 
 ## Authentication
 
-All API requests require authentication. Generate a JWT (JSON Web Token) using the `secret key` from your Tiptap Cloud account. Include this JWT in the `Authorization` header as a Bearer token, and include your App ID in the `X-App-Id` header.
+All requests must include:
 
-Get your App ID and secret key on the [Server AI Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
+- `Authorization: Bearer <JWT>`
+- `X-App-Id: <APP_ID>`
 
-For production, always create JWTs **server-side** to keep your secret safe.
-
-```curl
---header 'Authorization: Bearer YOUR_JWT_TOKEN' --header 'X-App-Id: YOUR_APP_ID'
-```
-
-### Document Server credentials
-
-Include Document Server credentials as JWT claims to let the Server AI Toolkit fetch and save documents from Tiptap Cloud automatically.
-
-- `experimental_document_server_id`: Your Tiptap Cloud Document Server ID
-- `experimental_document_server_management_api_secret`: Your Document Server management API secret
+Generate the JWT server-side with your AI secret. Get your App ID and secret key on the [Server AI
+Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
 
 ```ts
 import jwt from 'jsonwebtoken'
@@ -57,213 +46,536 @@ const JWT_TOKEN = jwt.sign(
 )
 ```
 
-The **AI secret** (used to sign the JWT) authenticates your requests with the Server AI Toolkit API. The **Document Server credentials** (`experimental_document_server_id` and `experimental_document_server_management_api_secret`) authorize the Server AI Toolkit to fetch and save documents on your behalf. Both are available on the [Tiptap Cloud dashboard](https://cloud.tiptap.dev).
+### Document Server credentials
+
+Include these JWT claims when you want the Server AI Toolkit to fetch and save Tiptap Cloud
+documents automatically:
+
+- `experimental_document_server_id`
+- `experimental_document_server_management_api_secret`
 
 ## Base URL
 
-In the examples, `BASE_URL` is the base URL of the Tiptap Cloud AI service. The base URL of the Tiptap Cloud AI service is `https://api.tiptap.dev`. For on-premises deployments, this URL will be different.
+The hosted base URL is:
+
+```txt
+https://api.tiptap.dev
+```
+
+In the examples below, requests are written as `BASE_URL/v3/ai/...`.
 
 ## How to provide the document
 
-There are two ways to provide a document when executing tools or workflows:
+Most tool and workflow endpoints accept exactly one document source:
 
-**Use a Tiptap Cloud document (recommended)** — Include `experimental_documentOptions` with a `documentId` in the request body. The server automatically fetches the document from the Tiptap Document Server, processes it, and saves changes back. This requires Document Server credentials in your JWT claims (see [above](#document-server-credentials)).
+- `document`: Inline Tiptap JSON
+- `experimental_documentOptions`: A Tiptap Cloud document reference
 
-**Pass it directly** — Include the `document` field in the request body with your Tiptap JSON document. The server processes it and returns the modified document in the response.
+Example with a Tiptap Cloud document:
 
-You must provide exactly one: either `experimental_documentOptions` or `document`. Providing both or neither will return a validation error.
+```json
+{
+  "experimental_documentOptions": {
+    "documentId": "your-document-id",
+    "userId": "ai-assistant"
+  }
+}
+```
 
-<Callout title="Thread tools require a Tiptap Cloud document" variant="info">
-  The `getThreads` and `editThreads` tools always require `experimental_documentOptions`.
+Example with an inline document:
+
+```json
+{
+  "document": {
+    "type": "doc",
+    "content": []
+  }
+}
+```
+
+<Callout title="Threads require a cloud document" variant="info">
+  Thread and comment endpoints always require `experimental_documentOptions.documentId`.
 </Callout>
 
-## Get tool definitions
+## Formats
 
-Call this endpoint to get the available tool definitions for the Server AI Toolkit.
+Most endpoints accept a `format` field:
 
-### Endpoint
+- `"json"`: Standard JSON representation
+- `"shorthand"`: Tiptap Shorthand, a token-efficient format for prompts and model output
 
-```
+`proofreader` currently supports shorthand only.
+
+## Tool endpoints
+
+### Get tool definitions
+
+```txt
 POST /v3/ai/toolkit/tools
 ```
 
-### Request
+Returns the available tool definitions for AI agents.
 
-```curl
-curl --location 'BASE_URL/v3/ai/toolkit/tools' --header 'Content-Type: application/json' --header 'Authorization: Bearer YOUR_JWT_TOKEN' --header 'X-App-Id: YOUR_APP_ID' --data '{
-    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
-    "tools": {
-      "tiptapRead": true,
-      "tiptapEdit": true
-    },
-    "operationMeta": "Brief justification explaining why this change improves the document.",
-    "format": "json"
-}'
-```
+Request body:
 
-### Request body
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `tools?` (`object`, optional): Enable or disable individual tools
+- `operationMeta?` (`string | null`, optional)
+- `format?` (`'json' | 'shorthand'`, optional)
 
-- `schemaAwarenessData` (`SchemaAwarenessData`, required): The schema awareness data obtained from `getSchemaAwarenessData`. This data describes the document structure for the Server AI Toolkit API.
-- `tools?` (`EnabledTools`, optional): Configuration for enabling/disabling specific tools. Each property can be set to `true` (enabled) or `false` (disabled). If not provided, all tools are enabled by default.
-  - `tiptapRead?` (`boolean`, optional): Enable/disable the `tiptapRead` tool (default: `true`)
-  - `tiptapEdit?` (`boolean`, optional): Enable/disable the `tiptapEdit` tool (default: `true`)
-- `operationMeta?` (`string | null`, optional): Adds a `meta` string field to `tiptapEdit` operations. Use this when you want the AI to attach a justification or other per-operation metadata.
-- `format?` (`string`, optional): The format in which the AI reads and edits the document. Must be one of:
-  - `"json"` (default): Standard JSON format
-  - `"shorthand"`: Tiptap Shorthand format, which reduces AI token costs by up to 80% compared to standard JSON
+Response:
 
-### Response
+- `tools` (`array`)
+  - `name` (`string`)
+  - `description` (`string`)
+  - `inputSchema` (`object`)
 
-Returns an object containing an array of tool definitions:
+### Execute a tool
 
-- `tools` (`array`): An array of tool definitions. Each tool definition includes:
-  - `name` (`string`): The name of the tool (e.g., `"tiptapRead"`, `"tiptapEdit"`)
-  - `description` (`string`): A description of what the tool does
-  - `inputSchema` (`object`): The JSON schema for the tool's input parameters
-
-### Example response
-
-```json
-{
-  "tools": [
-    {
-      "name": "tiptapRead",
-      "description": "Tool description",
-      "inputSchema": {
-        /* JSON schema for tool input */
-      }
-    },
-    {
-      "name": "tiptapEdit",
-      "description": "Tool description",
-      "inputSchema": {
-        /* JSON schema for tool input */
-      }
-    }
-  ]
-}
-```
-
-## Execute a tool
-
-Call this endpoint to execute a tool on a Tiptap document.
-
-### Endpoint
-
-```
+```txt
 POST /v3/ai/toolkit/execute-tool
 ```
 
-### Request
+Executes one Server AI Toolkit tool such as `tiptapRead`, `tiptapEdit`, `getThreads`, or
+`editThreads`.
 
-**Using a Tiptap Cloud document (recommended)** — JWT must include `experimental_document_server_id` and `experimental_document_server_management_api_secret` claims:
+Request body:
+
+- `toolName` (`string`, required)
+- `input` (`unknown`, required)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- `experimental_commentsOptions?` (`{ threadData?: Record<string, unknown>, commentData?: Record<string, unknown> }`, optional): Metadata attached to new threads and comments created during thread-related tool execution.
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output` (`unknown`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+## Workflow endpoints
+
+### Get a workflow definition
+
+Use one of these endpoints:
+
+- `POST /v3/ai/toolkit/workflows/edit`
+- `POST /v3/ai/toolkit/workflows/insert-content`
+- `POST /v3/ai/toolkit/workflows/proofreader`
+- `POST /v3/ai/toolkit/workflows/threads`
+
+Request body:
+
+- `format` (`'json' | 'shorthand'`, required)
+
+Response:
+
+- `systemPrompt` (`string`)
+- `outputSchema` (`object`)
+
+Example:
 
 ```curl
-curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' --header 'Content-Type: application/json' --header 'Authorization: Bearer YOUR_JWT_TOKEN' --header 'X-App-Id: YOUR_APP_ID' --data '{
-    "toolName": "tiptapRead",
-    "input": { /* tool input */ },
+curl --location 'BASE_URL/v3/ai/toolkit/workflows/edit' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "format": "shorthand"
+  }'
+```
+
+### Read document content for a workflow
+
+```txt
+POST /v3/ai/toolkit/read/read-document
+```
+
+Reads document content and returns workflow-ready content.
+
+Request body:
+
+- `range?` (`{ from: number, to: number }`, optional): Defaults to the entire document when omitted.
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `sessionId?` (`string | null`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `sessionId` (`string`)
+- `output`
+  - `success` (`boolean`)
+  - `content?` (`unknown`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/read/read-document' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Read the current selection
+
+```txt
+POST /v3/ai/toolkit/read/read-selection
+```
+
+Reads the selection and returns either a selection payload or an explicit empty state.
+
+Request body:
+
+- `range` (`{ from: number, to: number }`, required)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `sessionId?` (`string | null`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `sessionId` (`string`)
+- `output`
+  - when the selection is empty:
+    - `isEmpty` (`true`)
+  - when the selection contains content:
+    - `isEmpty` (`false`)
+    - `content` (`unknown`)
+    - `nodeHashes` (`string[]`)
+    - `nodeRange` (`{ from: number, to: number }`)
+    - `prompt` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/read/read-selection' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "range": { "from": 10, "to": 42 },
+    "format": "shorthand",
     "experimental_documentOptions": {
       "documentId": "your-document-id"
-    },
-    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
-    "chunkSize": 32000,
-    "format": "json"
-}'
+    }
+  }'
 ```
 
-**Passing the document directly:**
+### Read threads
+
+```txt
+POST /v3/ai/toolkit/read/threads
+```
+
+Reads all threads and comments for a Tiptap Cloud document.
+
+Request body:
+
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `experimental_documentOptions` (`{ documentId: string, userId?: string }`, required)
+
+Response:
+
+- `output`
+  - `threads?` (`unknown[]`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
 
 ```curl
-curl --location 'BASE_URL/v3/ai/toolkit/execute-tool' --header 'Content-Type: application/json' --header 'Authorization: Bearer YOUR_JWT_TOKEN' --header 'X-App-Id: YOUR_APP_ID' --data '{
-    "toolName": "tiptapRead",
-    "input": { /* tool input */ },
-    "document": { /* Tiptap JSON document */ },
-    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
-    "chunkSize": 32000,
-    "format": "json"
-}'
+curl --location 'BASE_URL/v3/ai/toolkit/read/threads' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "format": "shorthand",
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
 ```
 
-### Request body
+### Execute the insert-content workflow
 
-- `toolName` (`string`, required): The name of the tool to execute. Must be one of:
-  - `"tiptapRead"`: Read part of the document using an efficient format
-  - `"tiptapEdit"`: Edit the document using an efficient format
-  - `"getThreads"`: Retrieve all threads and comments in the document
-  - `"editThreads"`: Perform operations on threads and comments
-- `input` (`any`, required): The input parameters for the tool, as defined by the tool's input schema. The input format is optimized for efficient reading and editing operations.
-- `experimental_documentOptions` (`object`, conditional): Use this to reference a Tiptap Cloud document by ID. The server fetches and saves the document automatically. Mutually exclusive with `document`.
-  - `documentId` (`string`, required): The ID of the document on the Document Server
-  - `userId` (`string`, optional): User ID for attributing thread/comment authorship
-- `document` (`object`, conditional): The Tiptap JSON document to operate on. Pass this when providing your own document. Mutually exclusive with `experimental_documentOptions`.
-- `experimental_commentsOptions` (`object`, optional): Metadata for thread/comment operations.
-  - `threadData` (`Record<string, any>`, optional): Metadata attached to new threads
-  - `commentData` (`Record<string, any>`, optional): Metadata attached to new comments
-- `schemaAwarenessData` (`SchemaAwarenessData`, required): The schema awareness data obtained from `getSchemaAwarenessData`
-- `chunkSize?` (`number`, optional): The chunk size for reading operations. Default: `32000`
-- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional): Review-mode configuration for tool execution. See the [review options reference](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options).
-- `format?` (`string`, optional): The format in which the AI reads and edits the document. Must be one of:
-  - `"json"` (default): Standard JSON format
-  - `"shorthand"`: Tiptap Shorthand format, which reduces AI token costs by up to 80% compared to standard JSON
-
-### Response
-
-Returns the result of the tool execution:
-
-- `output` (`any`): The output of the tool execution. The output format is optimized for efficient reading and editing operations.
-- `hasError` (`boolean`): Whether an error occurred during execution
-- `docChanged` (`boolean`): Whether the document was modified
-- `document` (`object | null`): The updated Tiptap JSON document. Returns `null` if the document was not modified, or the updated document if `docChanged` is `true`
-
-## Get schema awareness prompt
-
-Call this endpoint to get a prompt string that describes the document schema for use with AI models.
-
-### Endpoint
-
+```txt
+POST /v3/ai/toolkit/execute-workflow/insert-content
 ```
+
+Request body:
+
+- `input` (`unknown`, required): Generated insert-content payload
+- `range?` (`{ from: number, to: number }`, optional)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `sessionId?` (`string | null`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `sessionId` (`string`)
+- `output`
+  - `error?` (`string`)
+  - `range?` (`{ from: number, to: number }`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/insert-content' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": "This is the replacement content.",
+    "range": { "from": 10, "to": 42 },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Execute the Tiptap Edit workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/tiptap-edit
+```
+
+Request body:
+
+- `input` (`object`, required): Edit workflow operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `sessionId?` (`string | null`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `sessionId` (`string`)
+- `output`
+  - `operationResults?` (`array`)
+  - `reason?` (`'validationError' | 'unexpectedError'`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/tiptap-edit' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": [
+        {
+          "type": "replace",
+          "target": "abc123",
+          "content": "# Updated heading\n\nUpdated paragraph content."
+        }
+      ]
+    },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Execute the proofreader workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/proofreader
+```
+
+Request body:
+
+- `input` (`object`, required): Proofreader operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'shorthand'`, required)
+- `sessionId?` (`string | null`, optional)
+- `chunkSize?` (`number`, optional)
+- `reviewOptions?` ([`ReviewOptions`](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options), optional)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `sessionId` (`string`)
+- `output`
+  - `operationResults` (`array`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/proofreader' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": []
+    },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "trackedChanges",
+      "trackedChangesOptions": {
+        "userId": "ai-assistant"
+      }
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id"
+    }
+  }'
+```
+
+### Execute the comments workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/threads
+```
+
+Request body:
+
+- `input` (`object`, required): Thread operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `experimental_documentOptions` (`{ documentId: string, userId?: string }`, required)
+- `experimental_commentsOptions?` (`{ threadData?: Record<string, unknown>, commentData?: Record<string, unknown> }`, optional): Metadata attached to new threads and comments created by the workflow.
+
+Response:
+
+- `output`
+  - `operations?` (`array`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": [
+        {
+          "type": "createComment",
+          "threadId": "thread-123",
+          "content": "Please clarify this point."
+        }
+      ]
+    },
+    "format": "shorthand",
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    },
+    "experimental_commentsOptions": {
+      "threadData": {
+        "source": "ai"
+      },
+      "commentData": {
+        "source": "ai"
+      }
+    }
+  }'
+```
+
+## Schema awareness prompt
+
+```txt
 POST /v3/ai/toolkit/schema-awareness-prompt
 ```
 
-### Request
+Returns a prompt that describes the editor schema for the requested format.
 
-```curl
-curl --location 'BASE_URL/v3/ai/toolkit/schema-awareness-prompt' --header 'Content-Type: application/json' --header 'Authorization: Bearer YOUR_JWT_TOKEN' --header 'X-App-Id: YOUR_APP_ID' --data '{
-    "schemaAwarenessData": { /* schema awareness data from getSchemaAwarenessData */ },
-    "format": "json"
-}'
-```
+Request body:
 
-### Request body
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional)
 
-- `schemaAwarenessData` (`SchemaAwarenessData`, required): The schema awareness data obtained from `getSchemaAwarenessData`. This data describes the document structure for the Server AI Toolkit API.
-- `format?` (`string`, optional): The format in which the AI reads and edits the document. Must be one of:
-  - `"json"` (default): Standard JSON format
-  - `"shorthand"`: Tiptap Shorthand format, which reduces AI token costs by up to 80% compared to standard JSON
+Response:
 
-### Response
-
-Returns a prompt string that describes the document schema:
-
-- `prompt` (`string`): A text prompt that describes the document schema structure, suitable for inclusion in AI model prompts
-
-### Example response
-
-```json
-{
-  "prompt": "Schema Awareness prompt"
-}
-```
+- `prompt` (`string`)
 
 ## Error handling
 
-If an error occurs, the API will return an error response with an appropriate HTTP status code:
+The API uses standard HTTP error codes:
 
-- `400 Bad Request`: Invalid request body or parameters. This includes:
-  - Missing both `document` and `experimental_documentOptions` (or providing both)
-  - Using `getThreads`/`editThreads` without `experimental_documentOptions`
-  - Providing `experimental_documentOptions` without Document Server credentials in JWT (`missing_document_credentials`)
+- `400 Bad Request`: Invalid body, invalid format, missing document source, or missing Document
+  Server credentials
 - `401 Unauthorized`: Missing or invalid JWT or App ID
-- `404 Not Found`: Tool not found
-- `500 Internal Server Error`: Server error during tool execution
-- `502 Bad Gateway`: Failed to communicate with the Document Server (`document_load_failed`, `document_save_failed`)
+- `404 Not Found`: Unknown endpoint or tool
+- `422 Unprocessable Entity`: Validation failed
+- `429 Too Many Requests`: Duplicate request or rate-limit protection
+- `500 Internal Server Error`: Unexpected server error
+- `502 Bad Gateway`: Failed to load or save the Tiptap Cloud document
+
+## Related pages
+
+- [Review options](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options)
+- [Schema awareness](/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness)

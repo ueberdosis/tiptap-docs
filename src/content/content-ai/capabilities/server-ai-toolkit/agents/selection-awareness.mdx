@@ -1,0 +1,156 @@
+---
+title: Selection awareness
+meta:
+  title: Selection awareness | Tiptap Server AI Toolkit
+  description: Make a server-side AI agent aware of the active editor selection before it edits the document.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a server-side AI agent that reads the current selection before it decides how to edit the
+document.
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-selection-awareness"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+<Callout title="Continuation from the AI agent chatbot guide" variant="info">
+  This guide extends the [AI agent chatbot
+  guide](/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot). Reuse the same
+  authentication setup from that guide.
+</Callout>
+
+## 1. Track the active selection
+
+Add the `Selection` extension and store the current range whenever the selection changes.
+
+```tsx
+import { Selection } from '@tiptap/extensions'
+import { EditorContent, useEditor } from '@tiptap/react'
+import { ServerAiToolkit } from '@tiptap-pro/server-ai-toolkit'
+import { useRef } from 'react'
+
+const selectionRangeRef = useRef({ from: 0, to: 0 })
+
+const editor = useEditor({
+  immediatelyRender: false,
+  extensions: [StarterKit, Collaboration.configure({ document: doc }), ServerAiToolkit, Selection],
+  onSelectionUpdate: ({ editor: currentEditor }) => {
+    selectionRangeRef.current = {
+      from: currentEditor.state.selection.from,
+      to: currentEditor.state.selection.to,
+    }
+  },
+})
+```
+
+## 2. Send the selection with the user message
+
+When the user sends a message, include the schema awareness data, document ID, and captured
+selection range in the request body.
+
+```tsx
+const { messages, sendMessage, status } = useChat({
+  transport: new DefaultChatTransport({
+    api: '/api/server-selection-awareness',
+  }),
+})
+
+sendMessage(
+  { text: input },
+  {
+    body: {
+      schemaAwarenessData: getSchemaAwarenessData(editor),
+      documentId,
+      selectionRange: selectionRangeRef.current,
+    },
+  },
+)
+```
+
+## 3. Read the selection from the AI Server
+
+In your backend route, call the Server AI Toolkit selection-read endpoint before the agent starts
+its tool loop:
+
+- `POST /v3/ai/toolkit/read/read-selection`
+
+```ts
+const response = await fetch(`${apiBaseUrl}/toolkit/read/read-selection`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwtToken}`,
+    'X-App-Id': appId,
+  },
+  body: JSON.stringify({
+    schemaAwarenessData,
+    range: selectionRange,
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    format: 'json',
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const selectionResult = await response.json()
+
+const selectionPrompt = !selectionResult.output.isEmpty
+  ? selectionResult.output.prompt
+  : 'There is currently no active selection.'
+```
+
+The returned `prompt` contains a model-friendly description of the selected content and its
+position in the document.
+
+## 4. Add the selection context to the agent instructions
+
+Inject the selection prompt into the agent instructions so the model knows what part of the
+document it should focus on.
+
+```ts
+const agent = new ToolLoopAgent({
+  model,
+  instructions: `You are an assistant that can edit rich text documents.
+Use the selection context before making changes.
+
+<selection-context>
+${selectionPrompt}
+</selection-context>
+
+${schemaAwarenessPrompt}`,
+  tools,
+})
+```
+
+The agent can then use the regular Server AI Toolkit tools to read more context and edit the
+document, while staying grounded on the active selection.
+
+## End result
+
+The result is a server-side AI chat experience that only rewrites the content the user selected:
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-selection-awareness"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Review the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#read-the-current-selection)
+- Learn about [schema awareness](/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness)
