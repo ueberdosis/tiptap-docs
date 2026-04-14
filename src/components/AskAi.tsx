@@ -72,7 +72,7 @@ Output format:
         <DropdownMenu.Content
           sideOffset={5}
           align="end"
-          className="min-w-[160px] bg-white border border-grayAlpha-200 shadow-cardLight rounded-lg p-1.5"
+          className="min-w-[160px] bg-popover text-popover-foreground border border-border shadow-cardLight rounded-lg p-1.5"
         >
           {urls.map((url) => (
             <DropdownMenu.Item key={url.key} asChild>
@@ -80,7 +80,7 @@ Output format:
                 href={url.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-gray-700 hover:bg-grayAlpha-100 rounded-lg p-2 cursor-pointer outline-none ring-0 flex items-center gap-2"
+                className="text-sm font-medium text-foreground-muted hover:bg-surface-muted rounded-lg p-2 cursor-pointer outline-none ring-0 flex items-center gap-2"
               >
                 <div
                   className="size-4 flex items-center justify-center"

@@ -13,7 +13,7 @@ export const ToCButton = () => {
 
   return (
     <Button variant="tertiary" size="small" onClick={() => setMobileTocOpen(true)}>
-      <TableOfContentIcon className="size-4 text-grayAlpha-400" />
+      <TableOfContentIcon className="size-4 text-foreground-subtle" />
     </Button>
   )
 }

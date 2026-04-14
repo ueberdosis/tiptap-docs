@@ -13,13 +13,17 @@ export const NavLinkButton = forwardRef<HTMLButtonElement, NavLinkButtonProps>(
     const linkClass = cn(
       'px-2.5 flex items-center gap-1 py-1.5 rounded-[0.625rem] transition-colors duration-100',
       variant === 'default' && !isActive
-        ? 'bg-transparent text-gray-900 hover:bg-grayAlpha-200'
+        ? 'bg-transparent text-foreground hover:bg-interactive-hover'
         : '',
       variant === 'default' && isActive
-        ? 'bg-transparent font-bold text-gray-900 hover:bg-grayAlpha-200'
+        ? 'bg-transparent font-bold text-foreground hover:bg-interactive-hover'
         : '',
-      variant === 'invert' && !isActive ? 'bg-black text-white hover:bg-neutral-800' : '',
-      variant === 'invert' && isActive ? 'bg-black font-bold text-white hover:bg-neutral-800' : '',
+      variant === 'invert' && !isActive
+        ? 'bg-inverse text-inverse-foreground hover:bg-inverse/90'
+        : '',
+      variant === 'invert' && isActive
+        ? 'bg-inverse font-bold text-inverse-foreground hover:bg-inverse/90'
+        : '',
       props.className,
     )
 

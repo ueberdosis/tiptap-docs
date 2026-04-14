@@ -40,7 +40,7 @@ export const ProductCard = ({
           {tags.map((tag) => (
             <span
               key={tag}
-              className="px-1.5 py-0.5 text-xs leading-[120%] text-grayAlpha-800 border border-grayAlpha-200 rounded-lg select-none"
+              className="px-1.5 py-0.5 text-xs leading-[120%] text-foreground border border-border rounded-lg select-none"
             >
               {tag}
             </span>
@@ -48,8 +48,8 @@ export const ProductCard = ({
         </div>
       </div>
       <div>
-        <h3 className="font-semibold text-black leading-[140%]">{title}</h3>
-        <p className="leading-[140%] mt-2 text-grayAlpha-600">{description}</p>
+        <h3 className="font-semibold text-foreground leading-[140%]">{title}</h3>
+        <p className="leading-[140%] mt-2 text-foreground-muted">{description}</p>
       </div>
       <div className="flex items-center gap-2 mt-8">
         <Button asChild variant="secondary">
