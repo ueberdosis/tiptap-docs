@@ -346,10 +346,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [
                 {
-                  title: 'Workflows',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/workflows',
-                },
-                {
                   title: 'Schema awareness',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
                 },
