@@ -9,18 +9,17 @@ export type NoisePatternProps = {
 }
 
 export const NoisePattern = ({ className, children, variant = 'light' }: NoisePatternProps) => {
-  const noiseClassName = cn(
-    'absolute inset-0 w-full h-full bg-repeat bg-[length:480px_480px]',
-    variant === 'light' ? 'mix-blend-soft-light bg-blend-soft-light' : 'opacity-40',
-  )
-
   return (
-    <div className={cn('absolute pointer-events-none select-none', className)}>
+    <div
+      className={cn('noise-pattern absolute pointer-events-none select-none', className)}
+      data-noise-variant={variant}
+    >
       {children}
       <div
-        className={noiseClassName}
+        className="noise-pattern__texture absolute inset-0 w-full h-full bg-repeat bg-[length:480px_480px]"
         style={{
-          backgroundImage: `url(${variant === 'light' ? noiseLight.src : noiseDark.src})`,
+          ['--noise-light-image' as string]: `url(${noiseLight.src})`,
+          ['--noise-dark-image' as string]: `url(${noiseDark.src})`,
         }}
       />
     </div>

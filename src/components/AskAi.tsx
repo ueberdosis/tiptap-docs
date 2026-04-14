@@ -83,7 +83,7 @@ Output format:
                 className="text-sm font-medium text-foreground-muted hover:bg-surface-muted rounded-lg p-2 cursor-pointer outline-none ring-0 flex items-center gap-2"
               >
                 <div
-                  className="size-4 flex items-center justify-center"
+                  className="size-4 flex items-center justify-center text-current [&_svg]:fill-current [&_svg]:stroke-current [&_path]:fill-current [&_path]:stroke-current"
                   dangerouslySetInnerHTML={{ __html: url.icon }}
                 ></div>
                 <span className="flex-auto">{url.label}</span>

@@ -13,6 +13,7 @@ import { MobileNavigationButton } from '../MobileNavigationButton'
 import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
+import { ThemeToggle } from '../ThemeToggle'
 import { VersionSwitch } from '../VersionSwitch'
 import styles from './Layout.module.css'
 import Link from '@/components/Link'
@@ -78,6 +79,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             </nav>
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            <ThemeToggle />
             <div className="hidden xl:block">
               <SearchButton />
             </div>
@@ -201,6 +203,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         )}
         ref={ref}
       >
+        <ThemeToggle mobile />
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
         <footer className="border-t border-border-strong pt-8 pb-[3.125rem]">

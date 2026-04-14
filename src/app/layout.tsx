@@ -24,6 +24,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${GTM_ID}');`
 
+const THEME_SCRIPT = `(function(){try{var key='docs-theme';var stored=localStorage.getItem(key);var preference=stored==='light'||stored==='dark'?stored:'system';var resolved=preference==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':preference==='system'?'light':preference;var root=document.documentElement;root.dataset.theme=resolved;root.dataset.themePreference=preference;root.style.colorScheme=resolved;}catch(e){var root=document.documentElement;root.dataset.theme='light';root.dataset.themePreference='system';root.style.colorScheme='light';}})();`
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -62,10 +64,11 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href={`${FULL_DOMAIN}/favicon.png`} sizes="any" />
         <meta name="docsearch:version" content="2.x" />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className={cn(inter.className, 'bg-background text-foreground')}>
         {GTM_ID ? (
