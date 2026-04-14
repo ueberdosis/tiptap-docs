@@ -1,6 +1,6 @@
 import createMdx from '@next/mdx'
 
-const svgComponentPattern = /^src\/assets\/(icons|images)\/.*\.svg$/
+const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
