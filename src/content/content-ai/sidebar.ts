@@ -314,6 +314,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/selection-awareness',
                 },
                 {
+                  title: 'Streaming',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/streaming',
+                },
+                {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
                 },
