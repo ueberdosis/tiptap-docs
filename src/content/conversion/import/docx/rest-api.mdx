@@ -71,6 +71,7 @@ curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
 | `prosemirrorNodes`       | `Object string` | Custom node mapping for the conversion, [see more info](/conversion/import/docx/custom-node-conversion).       |
 | `prosemirrorMarks`       | `Object string` | Custom mark mapping for the conversion, [see more info](/conversion/import/docx/custom-mark-conversion)        |
 | `verbose` | `string \| number` | A configuration property to help you control the level of diagnostic output during the import process. This is especially useful for debugging or for getting more insight into what happens during conversion. See more at [Verbose output](#import-verbose-output) |
+| `extractCssStyles` | `"true" \| "false"` | **Experimental.** When `"true"`, the response includes a `cssStyles` field with the DOCX style catalog translated to CSS-compatible key/value pairs. Defaults to `"false"`. See [CSS style extraction](#css-style-extraction-experimental) for the output shape and caveats. |
 
 ### Import verbose output
 
@@ -263,6 +264,94 @@ Inline references in the document body are represented as `footnoteReference` an
   }
 }
 ```
+
+## CSS style extraction (experimental)
+
+<Callout title="Experimental feature" variant="warning">
+  `extractCssStyles` is opt-in and experimental. The shape of the response may
+  change without notice. Pin exact client versions if you depend on it, and
+  read the [CSS injection documentation](/conversion/import/docx/css-injection)
+  for the full list of supported selectors, CSS properties, and known
+  limitations.
+</Callout>
+
+Pass `extractCssStyles=true` on the request to have the response include a `cssStyles` field. The field contains the DOCX default-style catalog translated to CSS-compatible key/value pairs, keyed by CSS selector.
+
+### Request
+
+```bash
+curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -H "X-App-Id: YOUR_APP_ID" \
+    -F "file=@/path/to/your/file.docx" \
+    -F "extractCssStyles=true"
+```
+
+### Response field
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cssStyles` | `Object \| null` | An object keyed by CSS selector, where each value is an object of CSS properties. `null` or empty (`{}`) when the document has no extractable default styles or when the feature was not requested. |
+
+### Supported selectors
+
+The extractor maps DOCX named styles to this fixed set of CSS selectors. Styles that don't match the map are dropped silently.
+
+`p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `blockquote`, `ul li`, `ol li`, `strong`, `em`, `u`, `s`, `a`, `code`
+
+### Supported CSS properties
+
+Each selector above can carry any subset of the following, depending on what the DOCX style defined.
+
+`color`, `fontSize`, `fontFamily`, `fontWeight`, `fontStyle`, `textDecoration`, `backgroundColor`, `textAlign`, `marginTop`, `marginBottom`, `lineHeight`
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Document body..." }]
+        }
+      ]
+    },
+    "cssStyles": {
+      "p": {
+        "fontSize": "16px",
+        "fontFamily": "Calibri",
+        "lineHeight": 1.15,
+        "marginBottom": "8pt"
+      },
+      "h1": {
+        "fontSize": "28px",
+        "fontWeight": "bold",
+        "color": "#1F3864",
+        "marginTop": "24pt",
+        "marginBottom": "6pt"
+      },
+      "a": {
+        "color": "#0563C1",
+        "textDecoration": "underline"
+      },
+      "blockquote": {
+        "fontStyle": "italic",
+        "color": "#595959"
+      }
+    }
+  }
+}
+```
+
+Notes on the output:
+
+- **Values are strings or numbers.** Pixel-based properties (`fontSize`) are emitted as `"Npx"` strings; point-based spacing (`marginTop`, `marginBottom`) is emitted as `"Npt"`; unitless multipliers (`lineHeight` under the `auto` line rule) are emitted as plain numbers.
+- **Style inheritance is resolved.** Child DOCX styles include everything they inherit from their parents (via `basedOn`) — the output is flattened, you do not have to walk a chain.
+- **Localized documents are supported.** Named styles in non-English Word builds are mapped back to their canonical selector before emission.
+- **Missing fields mean "not defined".** A selector only appears when at least one property could be extracted. If the DOCX has no style catalog at all, `cssStyles` is `null`.
 
 ### Custom node and mark mapping
 
