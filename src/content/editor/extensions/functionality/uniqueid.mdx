@@ -22,6 +22,7 @@ meta:
 ---
 
 import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
 
 The `UniqueID` extension adds unique IDs to the node types you configure.
 The extension keeps track of your nodes, even if you split them, merge them, undo/redo changes, crop content, paste content … It just works.
@@ -106,6 +107,121 @@ UniqueID.configure({
   updateDocument: false,
 })
 ```
+
+## Usage with Collaboration
+
+<Callout title="Important" variant="warning">
+When using the UniqueID extension together with the [Collaboration extension](/editor/extensions/functionality/collaboration), ensure that the editor is only mounted **after** the collaboration provider has synced. Mounting the editor on an unsynced `Y.Doc` can lead to unintended document state (e.g., persistent empty paragraphs), which the UniqueID extension will then preserve.
+</Callout>
+
+### Incorrect setup
+
+In this example, the editor is mounted immediately with the Collaboration extension before the provider has synced. This causes the editor to initialize against an empty `Y.Doc`, which leads to unintended document mutations.
+
+```tsx
+import Collaboration from '@tiptap/extension-collaboration'
+import { isChangeOrigin } from '@tiptap/extension-collaboration'
+import { EditorContent, useEditor } from '@tiptap/react'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import { useEffect } from 'react'
+import * as Y from 'yjs'
+
+const doc = new Y.Doc()
+
+export default () => {
+  // ❌ Editor is mounted before the provider has synced
+  const editor = useEditor({
+    extensions: [
+      // ...other extensions
+      UniqueID.configure({
+        types: ['paragraph', 'heading'],
+        filterTransaction: (transaction) => !isChangeOrigin(transaction),
+      }),
+      Collaboration.configure({
+        document: doc,
+      }),
+    ],
+    content: '<p>Initial content</p>', // This will be duplicated on every sync
+  })
+
+  useEffect(() => {
+    // Provider connects and syncs after the editor is already mounted
+    const provider = new TiptapCollabProvider({
+      name: 'your-document-name',
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT',
+      document: doc,
+    })
+  }, [])
+
+  return <EditorContent editor={editor} />
+}
+```
+
+### Correct setup
+
+To avoid this issue, follow this initialization order:
+
+1. Initialize the `Y.Doc`
+2. Start the collaboration provider
+3. Wait for the `synced` event
+4. Check if the collaborative document is empty
+5. Mount the editor with the correct content
+
+```tsx
+import Collaboration from '@tiptap/extension-collaboration'
+import { isChangeOrigin } from '@tiptap/extension-collaboration'
+import { EditorContent, useEditor } from '@tiptap/react'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import { useEffect } from 'react'
+import * as Y from 'yjs'
+
+const doc = new Y.Doc()
+
+export default () => {
+  const editor = useEditor({
+    extensions: [
+      // ...other extensions
+      UniqueID.configure({
+        types: ['paragraph', 'heading'],
+        filterTransaction: (transaction) => !isChangeOrigin(transaction),
+      }),
+      Collaboration.configure({
+        document: doc,
+      }),
+    ],
+    // Do not set content here — wait for sync
+  })
+
+  useEffect(() => {
+    const provider = new TiptapCollabProvider({
+      name: 'your-document-name',
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT',
+      document: doc,
+
+      onSynced() {
+        // Only seed content if the collaborative document is empty
+        const isEmpty = doc.getXmlFragment('default').length === 0
+
+        if (isEmpty && editor) {
+          editor.commands.setContent(yourInitialContent)
+        }
+      },
+    })
+  }, [])
+
+  return <EditorContent editor={editor} />
+}
+```
+
+### Key points
+
+- **Do not initialize editor content before sync.** Do not rely on default editor state when using collaboration.
+- **Use `filterTransaction`** to ignore mutations from collaboration. See the [filterTransaction setting](#filtertransaction).
+- **Avoid reusing corrupted document names during development.** If a bad state has already been persisted, use a new document name to start clean.
+
+For the full collaboration setup guide, refer to the [Install Collaboration](/collaboration/getting-started/install) documentation.
 
 ## Server side Unique ID utility
 
