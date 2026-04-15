@@ -1,0 +1,180 @@
+---
+title: Inject DOCX default styles as CSS
+tags:
+  - type: start
+  - type: experiment
+  - type: version
+    label: v0.10.0
+meta:
+    title: CSS Injection (Import DOCX) | Tiptap Conversion
+    description: Extract the default styles from a DOCX file as CSS and inject them into your Tiptap editor on import. Experimental feature — API may change.
+    category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Callout variant="warning" title="Experimental feature">
+  The APIs, attribute names, and behaviour documented on this page may change
+  without notice. Pin exact package versions if you depend on this feature. Read
+  the **What won't work** section before you adopt it.
+</Callout>
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    Authenticate to Tiptap's private npm registry by following the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+<CodeDemo isPro path="/Extensions/ImportDocxCssStyles" />
+
+## What this does
+
+DOCX files carry a style catalog — the named definitions (`Heading1`, `Normal`, `Quote`, etc.) that tell Word how body text, headings, hyperlinks, and lists should look. Every paragraph or run in a DOCX either inherits from one of these named styles or overrides individual properties inline.
+
+Without this feature, the Tiptap Convert API flattens those styles into per-node attributes — you see fontSize, color, and spacing applied inline on each paragraph, but the reusable named styles that Word used as a source of truth are discarded.
+
+This feature extracts the named-style catalog as a **CSS object** (keyed by CSS selector) and can either return it to you directly or inject it as a scoped `<style>` tag into your page. The result: the document's baseline typography renders through CSS rules that cascade — not through inline attributes on every node — so your editor visually matches the original DOCX without bloating the document model.
+
+## Install
+
+```bash
+npm i @tiptap-pro/extension-import-docx@^0.10.0
+```
+
+## How it works
+
+A four-step pipeline:
+
+1. **Opt in on the import request.** The extension asks the Convert API to include the style catalog when `cssStyles.enabled` is `true`.
+2. **Convert service extracts.** The converter reads the DOCX style definitions, resolves inheritance chains (`basedOn`), translates OOXML properties to CSS equivalents, and returns a `cssStyles` object on the import response.
+3. **Extension builds CSS rules.** The `cssStyles` object is compiled to a CSS string, scoped by the selector you configure (default `.tiptap`).
+4. **Auto-inject or hand-off.** If `autoInject: true`, the extension appends a scoped `<style>` element to `document.head`. If `autoInject: false`, you receive the raw `cssStyles` object on the `onImport` callback and decide what to do with it.
+
+```ts
+import { Import } from '@tiptap-pro/extension-import-docx'
+
+Import.configure({
+  appId: 'your-app-id',
+  token: 'your-jwt',
+  cssStyles: {
+    enabled: true,      // extract styles on every import
+    autoInject: true,   // automatically inject as a scoped <style> tag
+    selector: '.tiptap', // scope the rules under this selector
+  },
+})
+```
+
+Or control it per-call:
+
+```ts
+editor
+  .chain()
+  .importDocx({
+    file,
+    cssStyles: { enabled: true, autoInject: false },
+    onImport(context) {
+      // `context.cssStyles` is the raw object — apply it however you like
+      console.log(context.cssStyles)
+    },
+  })
+  .run()
+```
+
+## What works
+
+**Selectors (16):** the feature extracts named styles mapped to these CSS selectors only.
+
+| Kind | Selectors |
+|------|-----------|
+| Block-level | `p`, `h1`–`h6`, `blockquote`, `ul li`, `ol li` |
+| Inline / marks | `strong`, `em`, `u`, `s`, `a`, `code` |
+
+**CSS properties (11):** each selector above can receive any subset of these, depending on what the DOCX style defined.
+
+| Property | DOCX source | Notes |
+|----------|-------------|-------|
+| `fontSize` | `w:sz` (half-points) | Converted to `Npx` (`halfPoints / 2`) |
+| `color` | `w:color` | Hex; `"auto"` is skipped |
+| `fontFamily` | `w:rFonts` | Prefers `@w:ascii`, falls back to `hAnsi`, then `cs` |
+| `fontWeight` | `w:b` | `"bold"` or `"normal"` |
+| `fontStyle` | `w:i` | `"italic"` or `"normal"` |
+| `textDecoration` | `w:u` + `w:strike` | Combined (e.g. `"underline line-through"`) |
+| `backgroundColor` | `w:shd[@fill]` | Hex; `"auto"` is skipped |
+| `textAlign` | `w:jc` | `left` / `center` / `right` / `justify` (DOCX `both` → `justify`) |
+| `marginTop` | `w:spacing[@before]` | Twips → `Npt` |
+| `marginBottom` | `w:spacing[@after]` | Twips → `Npt` |
+| `lineHeight` | `w:spacing[@line]` + `[@lineRule]` | `auto` → unitless multiplier; `exact`/`atLeast` → `Npt` |
+
+**Other behaviours:**
+- **Inheritance chains.** `basedOn` references resolve iteratively with cycle detection — a child style includes everything it inherits from its parent.
+- **Localized documents.** DOCX files authored in non-English Word builds (e.g. Spanish `Título1`, German `Überschrift1`) are mapped back to their canonical names (`heading 1`) so the selector assignment still works.
+- **Failure is invisible.** If extraction throws for any reason (malformed styles.xml, unexpected attributes), it returns `{}` and the import continues normally — the feature never blocks a working import.
+
+## What won't work
+
+<Callout variant="warning" title="These are intentional limits">
+These are not bugs. They are explicit, documented boundaries of the feature. If your workflow depends on any of the items below, this feature is not the right tool.
+</Callout>
+
+- **Pseudo-classes.** `:hover`, `:focus`, `:first-child`, etc. The DOCX style model has no equivalent; none are extracted.
+- **Arbitrary selectors.** The 16 selectors in the table above are the entire map. Any DOCX style whose purpose falls outside that map (`TableGrid`, `TOC1`, `FootnoteText`, custom user styles) is dropped.
+- **Letter spacing.** Supported by the export-side compiler, but **not** extracted on import.
+- **Specificity beyond the selector itself.** The injected rules are scoped under your selector (e.g. `.tiptap h1 { … }`). They do not account for cascade ordering against your own stylesheet — you must make sure your CSS doesn't accidentally override them or vice versa.
+- **Inline overrides.** If a specific paragraph or run overrides its style inline in Word (e.g. one `<w:r>` sets `w:color` directly), those overrides continue to render via node attributes on the Tiptap node, not via the injected stylesheet. You cannot "un-override" inline formatting by editing the injected CSS.
+- **Non-text styles.** Table styles (`w:tblStyle`), numbering styles (`w:numId`), character styles like page numbers — not part of the map.
+
+## What to expect
+
+- A single scoped `<style>` element attached to `document.head` after each successful import with `autoInject: true`. Subsequent imports replace the previous element — you will only ever have one active at a time.
+- The raw `cssStyles` object on your `onImport` callback's context, regardless of the `autoInject` setting. You can ignore auto-inject entirely and apply the styles yourself — write them to a file, send them to a theming system, whatever makes sense for your app.
+- Styles scoped to your editor — default `.tiptap`, configurable via `cssStyles.selector`. Leaking into other parts of your page only happens if you set the selector to something global (e.g. `body`).
+- Silent failure modes. If the DOCX carries no style catalog, or every named style falls outside the 16-selector map, `cssStyles` comes back empty and no style tag is injected.
+
+## What not to expect
+
+- **Pixel-perfect Word fidelity.** Word uses an intrinsic layout engine with paragraph-spacing semantics that differ from CSS (e.g. collapsed margins, before/after contextual spacing). The extracted CSS is a faithful translation of the DOCX *style definitions*, not a reproduction of Word's layout output.
+- **Dynamic updates on live editing.** The styles are injected once per import. If the user edits the document in Tiptap afterwards, the injected styles do not re-compute — they describe the imported document's baseline, not the current editor state.
+- **Cross-document merging.** Each import replaces the previous `<style>` tag. Importing two DOCX files in a row gives you the second document's styles only. If you need to merge, read both `cssStyles` objects from `onImport` and merge them yourself.
+- **Round-trip guarantees.** The extract-then-export cycle is not lossless; see the [CSS to DOCX](/conversion/export/docx/css-to-docx) export page for the reverse direction and its own caveats.
+
+## Configuration reference
+
+```ts
+Import.configure({
+  cssStyles: {
+    enabled?: boolean,     // default: false. Turn extraction on.
+    autoInject?: boolean,  // default: false. Append <style> tag to document.head.
+    selector?: string,     // default: '.tiptap'. Scope for injected rules.
+  },
+})
+```
+
+Per-call override:
+
+```ts
+editor.chain().importDocx({
+  file,
+  cssStyles: { enabled, autoInject, selector }, // any subset
+  onImport(context) { /* context.cssStyles is available here */ },
+})
+```
+
+REST API query parameter (if you're calling `/import/docx` directly):
+
+```
+POST /import/docx?extractCssStyles=true
+```
+
+## Related
+
+- [CSS to DOCX (export)](/conversion/export/docx/css-to-docx) — the reverse direction: compile your editor's CSS back into DOCX style definitions.
+- [ConvertKit](/conversion/import/docx/convertkit) — the companion extension bundle that adds DOCX-aware attributes to Paragraph, Heading, Table, and more.
+- [REST API — CSS style extraction](/conversion/import/docx/rest-api#css-style-extraction-experimental) — the raw `extractCssStyles` parameter and full response shape.
