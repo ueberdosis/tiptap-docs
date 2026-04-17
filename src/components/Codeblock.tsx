@@ -14,7 +14,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
   ({ children, className, disableCopy, ...rest }, ref) => {
     const contentRef = useRef<HTMLDivElement>(null)
     const wrapperClassName = cn(
-      'bg-black text-white my-5 p-4 rounded-lg text-sm flex items-start gap-2',
+      'bg-code text-code-foreground my-5 p-4 rounded-lg text-sm flex items-start gap-2',
       className,
     )
 
@@ -36,7 +36,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
           <button
             onClick={onCopy}
             aria-label={clipboard.copied ? 'Copied' : 'Copy code'}
-            className="flex items-center justify-center bg-white/0 border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
+            className="flex items-center justify-center bg-code-foreground/0 border border-code-border rounded size-8 hover:bg-code-foreground/10 hover:border-code-foreground/40 transition-colors duration-200"
           >
             <span className="relative size-4">
               <CopyIcon

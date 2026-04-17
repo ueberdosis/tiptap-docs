@@ -20,12 +20,6 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
     const [showTooltip, setShowTooltip] = useState(false)
     const tagRef = useRef<HTMLSpanElement | null>(null)
     const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
-    const [mounted, setMounted] = useState(false)
-
-    useEffect(() => {
-      setMounted(true)
-      return () => setMounted(false)
-    }, [])
 
     useEffect(() => {
       if (showTooltip && tagRef.current) {
@@ -39,14 +33,19 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
 
     const tagClass = cn(
       'text-xs font-semibold leading-[120%] px-1.5 py-0.5 border rounded',
-      variant === 'neutral' ? 'text-grayAlpha-800 bg-white border-grayAlpha-200' : '',
-      variant === 'gray' ? 'bg-grayAlpha-100 border-grayAlpha-100 text-grayAlpha-600' : '',
-      variant === 'invert' ? 'text-whiteAlpha-900 bg-grayAlpha-800 border-grayAlpha-800' : '',
-      variant === 'success' ? 'text-green-900 bg-green-100 border-[#0BDA81]' : '',
-      variant === 'info' ? 'text-purpleAlpha-800 bg-purpleAlpha-50 border-purpleAlpha-500' : '',
-      variant === 'hint' ? 'text-yellow-900 bg-yellow-100 border-yellow-500' : '',
-      variant === 'warning' ? 'text-red-900 bg-red-100 border-red-500' : '',
-      variant === 'gray' ? 'text-grayAlpha-600 bg-grayAlpha-100 border-grayAlpha-100' : '',
+      variant === 'neutral' ? 'text-foreground bg-card border-border' : '',
+      variant === 'gray' ? 'bg-surface-muted border-surface-muted text-foreground-muted' : '',
+      variant === 'invert' ? 'text-inverse-foreground bg-inverse border-inverse-border' : '',
+      variant === 'success'
+        ? 'text-success-foreground bg-success-muted border-success-border'
+        : '',
+      variant === 'info' ? 'text-info-foreground bg-info-muted border-info-border' : '',
+      variant === 'hint'
+        ? 'text-warning-foreground bg-warning-muted border-warning-border'
+        : '',
+      variant === 'warning'
+        ? 'text-destructive-foreground bg-destructive-muted border-destructive-border'
+        : '',
       size === 'medium' ? 'text-xs px-1.5 py-0.5' : '',
       size === 'small' ? 'text-[0.625rem] px-1 py-0.5 font-semibold' : '',
       tooltip ? 'cursor-pointer' : '',
@@ -75,7 +74,7 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
           {children}
         </Component>
 
-        {mounted &&
+        {typeof document !== 'undefined' &&
           tooltip &&
           showTooltip &&
           createPortal(
@@ -89,12 +88,12 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
             >
               <div
                 className={cn(
-                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
+                  'bg-tooltip text-tooltip-foreground py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
                   tooltipFontSize,
                 )}
               >
                 {tooltip}
-                <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent border-t-black"></div>
+                <div className="absolute top-full left-1/2 -ml-1.5 border-[6px] border-transparent border-t-tooltip"></div>
               </div>
             </div>,
             document.body,

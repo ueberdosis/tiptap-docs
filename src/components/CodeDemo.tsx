@@ -48,7 +48,7 @@ export const CodeDemo = ({
     <>
       {hasCaption && (
         <div
-          className="flex items-center gap-4 p-3 rounded-[0.625rem] mb-2 border border-grayAlpha-200 shadow-cardHover"
+          className="flex items-center gap-4 p-3 rounded-[0.625rem] mb-2 border border-border shadow-cardHover"
           style={{
             background:
               'linear-gradient(45deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.3) 100%)',
@@ -56,7 +56,7 @@ export const CodeDemo = ({
         >
           {caption && (
             <p
-              className="flex-1 max-w-sm m-0 text-grayAlpha-700"
+              className="flex-1 max-w-sm m-0 text-foreground-muted"
               style={{ fontSize: '12px', lineHeight: '1.3' }}
             >
               {caption}
@@ -68,22 +68,22 @@ export const CodeDemo = ({
         </div>
       )}
       <div
-        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
+        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-card text-card-foreground overflow-hidden`}
       >
         {external ? (
           <div
-            className={`${iframeHeightClass} flex flex-col items-center justify-center gap-6 bg-grayAlpha-50 text-center p-8`}
+            className={`${iframeHeightClass} flex flex-col items-center justify-center gap-6 bg-surface-muted text-center p-8`}
           >
             {externalIcon && (
-              <div className="flex items-center justify-center size-12 rounded-full bg-white shadow-sm ring-1 ring-grayAlpha-200">
+              <div className="flex items-center justify-center size-12 rounded-full bg-card shadow-sm ring-1 ring-border">
                 {externalIcon}
               </div>
             )}
             <div className="max-w-xs space-y-1.5">
-              <div className="text-base font-semibold text-grayAlpha-900 leading-tight">
+              <div className="text-base font-semibold text-foreground leading-tight">
                 {externalTitle || 'View Live Demo'}
               </div>
-              <div className="text-sm text-grayAlpha-500 leading-relaxed">
+              <div className="text-sm text-foreground-subtle leading-relaxed">
                 {externalDescription || 'This demo needs to be opened in a new window.'}
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import { Toaster } from 'sonner'
 import { AppStateProvider } from '@/providers/AppState'
+import { ThemeProvider } from '@/providers/Theme'
 import { usePageTrack } from '@/hooks/usePageTrack'
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
@@ -10,7 +11,9 @@ export const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
       <Toaster />
-      <AppStateProvider>{children}</AppStateProvider>
+      <ThemeProvider>
+        <AppStateProvider>{children}</AppStateProvider>
+      </ThemeProvider>
     </>
   )
 }
