@@ -15,9 +15,9 @@ export type WrapperProps = {
 export const Wrapper = forwardRef<HTMLDivElement, WrapperProps>(
   ({ asChild, variant = 'dark', children, className, ...rest }, ref) => {
     const boxClass = cn(
-      'no-markdown relative text-white rounded-xl bg-gray-950 overflow-hidden shadow-cardLight',
+      'no-markdown relative text-inverse-foreground rounded-xl bg-inverse overflow-hidden shadow-cardLight',
       'transition-shadow hover:shadow-cardHover',
-      variant === 'dark' ? 'bg-gray-950 text-white' : 'bg-white text-black',
+      variant === 'dark' ? 'bg-inverse text-inverse-foreground' : 'bg-card text-card-foreground',
       className,
     )
     const patternClass = cn(
@@ -117,7 +117,7 @@ export const ListItem = forwardRef<HTMLLIElement, ListItemProps>(
     return (
       <Component ref={ref} {...rest} className={listItemClass}>
         <span className="block flex-none">
-          <CheckIcon className="size-5 text-green" />
+          <CheckIcon className="size-5 text-success" />
         </span>
         <span className="block flex-1">
           {title ? <span className="font-semibold">{title}</span> : null}

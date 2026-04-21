@@ -16,7 +16,7 @@ export default async function NotFoundPage() {
       <Layout.Wrapper>
         <Layout.Content className="mx-auto">
           <div className="h-[50vh] flex flex-col justify-center max-w-[46rem]">
-            <div className="text-purple-500 leading-[110%] text-sm font-semibold mb-3">404</div>
+            <div className="text-accent leading-[110%] text-sm font-semibold mb-3">404</div>
             <h1 className="text-3xl lg:text-5xl leading-none font-bold">Phew, you found it.</h1>
             <p className="mt-8 text-sm lg:text-[1.125rem] leading-[1.6]">
               You came here, looking for something, and all you get is our 404 page. The page you

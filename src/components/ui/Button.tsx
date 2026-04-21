@@ -22,22 +22,22 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       !rest.disabled
         ? cn(
             variant === 'primary' && !isActive
-              ? 'bg-grayAlpha-800 text-white hover:bg-grayAlpha-900 group-hover:bg-grayAlpha-900 active:bg-grayAlpha-900'
+              ? 'bg-inverse text-inverse-foreground hover:bg-inverse/95 group-hover:bg-inverse/95 active:bg-inverse/95'
               : '',
-            variant === 'primary' && isActive ? 'bg-grayAlpha-900' : '',
+            variant === 'primary' && isActive ? 'bg-inverse/95 text-inverse-foreground' : '',
             variant === 'secondary' && !isActive
-              ? 'bg-grayAlpha-100 text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'bg-interactive-active text-foreground hover:bg-interactive-hover group-hover:bg-interactive-hover active:bg-interactive-active'
               : '',
-            variant === 'secondary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'secondary' && isActive ? 'bg-interactive-active text-foreground' : '',
             variant === 'tertiary' && !isActive
-              ? 'bg-transparent text-black hover:bg-grayAlpha-200 group-hover:bg-grayAlpha-200 active:bg-grayAlpha-100'
+              ? 'bg-transparent text-foreground hover:bg-interactive-hover group-hover:bg-interactive-hover active:bg-interactive-active'
               : '',
-            variant === 'tertiary' && isActive ? 'bg-grayAlpha-100' : '',
+            variant === 'tertiary' && isActive ? 'bg-interactive-active text-foreground' : '',
           )
         : cn(
-            variant === 'primary' ? 'bg-transparent text-grayAlpha-400' : '',
-            variant === 'secondary' ? 'bg-grayAlpha-50 text-grayAlpha-400' : '',
-            variant === 'tertiary' ? 'bg-transparent text-grayAlpha-400' : '',
+            variant === 'primary' ? 'bg-transparent text-foreground-subtle' : '',
+            variant === 'secondary' ? 'bg-surface-muted text-foreground-subtle' : '',
+            variant === 'tertiary' ? 'bg-transparent text-foreground-subtle' : '',
           ),
 
       size === 'medium' ? 'p-3 text-sm gap-1.5' : '',

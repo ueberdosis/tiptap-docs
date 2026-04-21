@@ -39,7 +39,7 @@ export const CodeExample = ({ files, withPro = false, ...rest }: CodeExampleProp
       customSetup={{ dependencies: getDependencies(withPro) }}
       template="react"
     >
-      <div className="border border-grayAlpha-300 rounded-lg overflow-hidden shadow-cardLight">
+      <div className="border border-border-strong rounded-lg overflow-hidden shadow-cardLight">
         <SandpackPreview />
         <SandpackCodeEditor showLineNumbers showInlineErrors />
       </div>
