@@ -81,34 +81,67 @@ The Server AI Toolkit is a cloud or on-premises service. Authenticate to access 
 3. **Generate a JWT** using a library like `jsonwebtoken`. In production, always create JWTs **server-side** to keep your secret safe.
 4. **Use the JWT** in your API requests. Pass it in the `Authorization` header as a Bearer token and the App ID in `X-App-Id`.
 
+### Environment variables
+
+Configure the following environment variables:
+
+```sh
+# .env
+TIPTAP_CLOUD_AI_API_URL=https://api.tiptap.dev/v3/ai
+TIPTAP_CLOUD_AI_SECRET=your-secret-key
+TIPTAP_CLOUD_AI_APP_ID=your-app-id
+TIPTAP_CLOUD_DOCUMENT_SERVER_ID=your-tiptap-cloud-document-server-id
+TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET=your-tiptap-cloud-document-management-api-secret
+```
+
+- **TIPTAP_CLOUD_AI_API_URL**: The base URL for the Server AI Toolkit API.
+- **TIPTAP_CLOUD_AI_SECRET**: Your "Content AI Secret" from the [Content AI settings](https://cloud.tiptap.dev/v2/cloud/ai) page. Used to sign the JWT.
+- **TIPTAP_CLOUD_AI_APP_ID**: Your "Content AI App ID" from the [Content AI settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
+- **TIPTAP_CLOUD_DOCUMENT_SERVER_ID**: Your Tiptap Cloud Document Server ID from the [Document Server settings](https://cloud.tiptap.dev/v2/configuration/document-server) page. Included as the `experimental_document_server_id` JWT claim so the Server AI Toolkit can fetch and save documents automatically.
+- **TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET**: Your Document Server management API secret. Included as the `experimental_document_server_management_api_secret` JWT claim for document access.
+
+### Create a JWT token
+
+This function generates a JWT from `TIPTAP_CLOUD_AI_SECRET` for authenticating with the Server AI Toolkit API. It includes Document Server credentials so the Server AI Toolkit can automatically fetch and save your Tiptap Cloud documents.
+
 ```ts
+// lib/server-ai-toolkit/create-jwt-token.ts
 import jwt from 'jsonwebtoken'
 
-const TIPTAP_CLOUD_AI_API_URL = 'https://api.tiptap.dev'
-const TIPTAP_CLOUD_AI_SECRET = 'your-secret-key'
-const TIPTAP_CLOUD_AI_APP_ID = 'your-app-id'
-const TIPTAP_DOCUMENT_SERVER_ID = 'your-document-server-id'
-const TIPTAP_DOCUMENT_SERVER_MANAGEMENT_API_SECRET = 'your-document-server-management-api-secret'
+/**
+ * Generates a JWT from TIPTAP_CLOUD_AI_SECRET for authenticating with the Server AI Toolkit API
+ */
+export function createJwtToken(): string {
+  return jwt.sign(
+    {
+      // Document Server credentials for automatic document fetching/saving
+      experimental_document_server_id: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID,
+      experimental_document_server_management_api_secret:
+        process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
+    },
+    process.env.TIPTAP_CLOUD_AI_SECRET,
+    { expiresIn: '1h' },
+  )
+}
+```
 
-// Generate JWT from secret
-// Include Document Server credentials so the Server AI Toolkit can
-// automatically fetch and save Tiptap Cloud documents.
-const JWT_TOKEN = jwt.sign(
-  {
-    // Document Server credentials for Tiptap Cloud documents
-    experimental_document_server_id: TIPTAP_DOCUMENT_SERVER_ID,
-    experimental_document_server_management_api_secret:
-      TIPTAP_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
-  },
-  TIPTAP_CLOUD_AI_SECRET,
-  { expiresIn: '1h' },
-)
+### Get authentication headers
 
-// Request headers for the Server AI Toolkit API
-const headers = {
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${JWT_TOKEN}`,
-  'X-App-Id': TIPTAP_CLOUD_AI_APP_ID,
+This function returns the authentication headers required for all Server AI Toolkit API requests.
+
+```ts
+// lib/server-ai-toolkit/get-auth-headers.ts
+import { createJwtToken } from './create-jwt-token'
+
+/**
+ * Returns the authentication headers for the Server AI Toolkit API
+ */
+export function getAuthHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${createJwtToken()}`,
+    'X-App-Id': process.env.TIPTAP_CLOUD_AI_APP_ID,
+  }
 }
 ```
 
@@ -121,12 +154,16 @@ const headers = {
 
 ## Call API endpoints
 
-Once authenticated, call the Server AI Toolkit API endpoints:
+Once authenticated, call the Server AI Toolkit API endpoints using the `getAuthHeaders` function:
 
 ```ts
-const response = await fetch(`${TIPTAP_CLOUD_AI_API_URL}/v3/ai/toolkit/tools`, {
+import { getAuthHeaders } from './lib/server-ai-toolkit/get-auth-headers'
+
+const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev/v3/ai'
+
+const response = await fetch(`${apiBaseUrl}/toolkit/tools`, {
   method: 'POST',
-  headers,
+  headers: getAuthHeaders(),
   body: JSON.stringify({
     schemaAwarenessData,
   }),
