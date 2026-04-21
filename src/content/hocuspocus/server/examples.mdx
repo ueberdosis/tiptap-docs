@@ -23,44 +23,60 @@ npx @hocuspocus/cli --s3 --s3-bucket my-documents
 
 ### Express
 
-Hocuspocus can be used with any WebSocket implementation that uses `ws` under the hood. When you don't call `listen()` on Hocuspocus, it will not start a WebSocket server itself but rather relies on you calling its [`handleConnection()` method](/hocuspocus/server/usage) manually.
+When you don't call `listen()` on Hocuspocus, it will not start a WebSocket server itself — you are responsible for calling its [`handleConnection()` method](/hocuspocus/server/usage) and forwarding messages/close events to the returned `ClientConnection`.
 
-To use Hocuspocus with [Express](https://expressjs.com), you need to use the `express-ws` package that adds WebSocket endpoints to Express applications. Then add a new WebSocket route and use Hocuspocus' `handleConnection()` method to do the rest.
+Since v4, Hocuspocus is built on [crossws](https://github.com/unjs/crossws), so the same integration pattern works across Express, Koa, raw `node:http`, and other Node frameworks — mount `crossws`'s Node adapter on the server's `upgrade` event and wire it to Hocuspocus:
 
-```js
+```ts
+import { Logger } from '@hocuspocus/extension-logger'
+import { Hocuspocus, type WebSocketLike } from '@hocuspocus/server'
+import { createServer } from 'node:http'
+import crossws from 'crossws/adapters/node'
 import express from 'express'
-import expressWebsockets from 'express-ws'
-import { Hocuspocus } from '@hocuspocus/server'
 
-// Configure Hocuspocus
 const hocuspocus = new Hocuspocus({
-  // ...
+  extensions: [new Logger()],
 })
 
-// Setup your express instance using the express-ws extension
-const { app } = expressWebsockets(express())
+const app = express()
 
-// A basic http route
 app.get('/', (request, response) => {
   response.send('Hello World!')
 })
 
-// Add a websocket route for Hocuspocus
-// You can set any contextual data like in the onConnect hook
-// and pass it to the handleConnection method.
-app.ws('/collaboration', (websocket, request) => {
-  const context = {
-    user: {
-      id: 1234,
-      name: 'Jane',
-    },
-  }
+const server = createServer(app)
 
-  hocuspocus.handleConnection(websocket, request, context)
+const ws = crossws({
+  hooks: {
+    open(peer) {
+      const clientConnection = hocuspocus.handleConnection(
+        peer.websocket as unknown as WebSocketLike,
+        peer.request as Request,
+        { user_id: 1234 },
+      )
+      ;(peer as any)._hocuspocus = clientConnection
+    },
+    message(peer, message) {
+      ;(peer as any)._hocuspocus?.handleMessage(message.uint8Array())
+    },
+    close(peer, event) {
+      ;(peer as any)._hocuspocus?.handleClose({
+        code: event.code,
+        reason: event.reason,
+      })
+    },
+    error(peer, error) {
+      console.error('WebSocket error for peer:', peer.id)
+      console.error(error)
+    },
+  },
 })
 
-// Start the server
-app.listen(1234, () => console.log('Listening on http://127.0.0.1:1234'))
+server.on('upgrade', (request, socket, head) => {
+  ws.handleUpgrade(request, socket, head)
+})
+
+server.listen(1234, () => console.log('Listening on http://127.0.0.1:1234'))
 ```
 
 IMPORTANT! Some extensions use the `onRequest`, `onUpgrade` and `onListen` hooks, which will not be fired in this scenario.
@@ -77,32 +93,37 @@ import { Hocuspocus } from '@hocuspocus/server'
 import { serve } from '@hono/node-server'
 import { createNodeWebSocket } from '@hono/node-ws'
 
-// Configure Hocuspocus
 const hocuspocus = new Hocuspocus({
   // …
 })
 
-// Setup Hono server
 const app = new Hono()
 
-// Node.js specific
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
-// We mount HocusPocus in the Hono server
 app.get(
-  '/hocuspocus',
-  upgradeWebSocket((c) => ({
-    onOpen(_evt, ws) {
-      hocuspocus.handleConnection(ws.raw, c.req.raw as any)
-    },
-  })),
+  '/',
+  upgradeWebSocket((c) => {
+    let clientConnection
+    return {
+      onOpen(_evt, ws) {
+        ws.raw.binaryType = 'arraybuffer'
+        clientConnection = hocuspocus.handleConnection(ws.raw, c.req.raw, {})
+      },
+      onMessage(evt) {
+        clientConnection?.handleMessage(new Uint8Array(evt.data))
+      },
+      onClose() {
+        clientConnection?.handleClose()
+      },
+    }
+  }),
 )
 
-// Start server
 const server = serve(
   {
     fetch: app.fetch,
-    port: 8787,
+    port: 8000,
   },
   (info) => {
     hocuspocus.hooks('onListen', {
@@ -113,48 +134,164 @@ const server = serve(
   },
 )
 
-// Setup WebSocket support (Node.js specific)
 injectWebSocket(server)
 ```
 
 IMPORTANT! Some extensions use the `onUpgrade` and `onRequest` hooks, which will not be fired in this scenario.
 
+### Bun
+
+Since v4, Hocuspocus uses [crossws](https://github.com/unjs/crossws) under the hood, so it runs beyond Node.js. On Bun, instantiate `Hocuspocus` directly and bridge `crossws` to `Bun.serve`:
+
+```ts
+import { Logger } from "@hocuspocus/extension-logger";
+import { Hocuspocus } from "@hocuspocus/server";
+import crossws from "crossws/adapters/bun";
+
+const hocuspocus = new Hocuspocus({
+	extensions: [new Logger()],
+});
+
+const ws = crossws({
+	hooks: {
+		open(peer) {
+			// Use peer methods instead of peer.websocket to avoid
+			// Bun's Proxy `this` binding issue with ServerWebSocket
+			const wsLike = {
+				get readyState() {
+					return peer.websocket.readyState ?? 3; // 3 = CLOSED
+				},
+				send(data: any) {
+					peer.send(data);
+				},
+				close(code?: number, reason?: string) {
+					peer.close(code, reason);
+				},
+			};
+			const clientConnection = hocuspocus.handleConnection(
+				wsLike,
+				peer.request as Request,
+			);
+			(peer as any)._hocuspocus = clientConnection;
+		},
+		message(peer, message) {
+			(peer as any)._hocuspocus?.handleMessage(message.uint8Array());
+		},
+		close(peer, event) {
+			(peer as any)._hocuspocus?.handleClose({
+				code: event.code,
+				reason: event.reason,
+			});
+		},
+		error(peer, error) {
+			console.error("WebSocket error for peer:", peer.id);
+			console.error(error);
+		},
+	},
+});
+
+Bun.serve({
+	port: 8000,
+	websocket: ws.websocket,
+	fetch(request, server) {
+		if (request.headers.get("upgrade") === "websocket") {
+			return ws.handleUpgrade(request, server);
+		}
+
+		return new Response("Welcome to Hocuspocus!");
+	},
+});
+```
+
+### Deno
+
+Deno exposes `Deno.upgradeWebSocket()` and standard `WebSocket` events, which map cleanly to `handleConnection()`:
+
+```ts
+import { Hocuspocus } from "@hocuspocus/server"
+
+const hocuspocus = new Hocuspocus({
+  name: "collaboration",
+})
+
+Deno.serve((req) => {
+  if (req.headers.get("upgrade") !== "websocket") {
+    return new Response(null, { status: 501 })
+  }
+
+  const { socket, response } = Deno.upgradeWebSocket(req)
+  socket.binaryType = "arraybuffer"
+
+  const clientConnection = hocuspocus.handleConnection(socket, req)
+
+  socket.addEventListener("message", (event) => {
+    clientConnection.handleMessage(new Uint8Array(event.data))
+  })
+
+  socket.addEventListener("close", (event) => {
+    clientConnection.handleClose({ code: event.code, reason: event.reason })
+  })
+
+  return response
+})
+```
+
+The exact plumbing depends on your runtime, but the building blocks are the same: forward the WebSocket, `Request`, and optional context to `handleConnection()`, then dispatch incoming messages and close events to the returned `ClientConnection`.
+
 ### Koa
 
-```js
-import Koa from 'koa'
-import websocket from 'koa-easy-ws'
-import { Hocuspocus } from '@hocuspocus/server'
-import { Logger } from '@hocuspocus/extension-logger'
+Like the Express example above, the v4 recipe uses the `crossws` Node adapter on the underlying HTTP server:
 
-// Configure Hocuspocus
+```ts
+import { Logger } from '@hocuspocus/extension-logger'
+import { Hocuspocus, type WebSocketLike } from '@hocuspocus/server'
+import { createServer } from 'node:http'
+import crossws from 'crossws/adapters/node'
+import Koa from 'koa'
+
 const hocuspocus = new Hocuspocus({
-  // …
+  extensions: [new Logger()],
 })
 
 const app = new Koa()
 
-// Setup your koa instance using the koa-easy-ws extension
-app.use(websocket())
-
-// Add a websocket route for Hocuspocus
-// You can set any contextual data like in the onConnect hook
-// and pass it to the handleConnection method.
-app.use(async (ctx, next) => {
-  const ws = await ctx.ws()
-
-  hocuspocus.handleConnection(
-    ws,
-    ctx.request,
-    // additional data (optional)
-    {
-      user_id: 1234,
-    },
-  )
+app.use(async (ctx) => {
+  ctx.body = 'Hello World!'
 })
 
-// Start the server
-app.listen(1234)
+const server = createServer(app.callback())
+
+const ws = crossws({
+  hooks: {
+    open(peer) {
+      const clientConnection = hocuspocus.handleConnection(
+        peer.websocket as unknown as WebSocketLike,
+        peer.request as Request,
+        { user_id: 1234 },
+      )
+      ;(peer as any)._hocuspocus = clientConnection
+    },
+    message(peer, message) {
+      ;(peer as any)._hocuspocus?.handleMessage(message.uint8Array())
+    },
+    close(peer, event) {
+      ;(peer as any)._hocuspocus?.handleClose({
+        code: event.code,
+        reason: event.reason,
+      })
+    },
+    error(peer, error) {
+      console.error('WebSocket error for peer:', peer.id)
+      console.error(error)
+    },
+  },
+})
+
+server.on('upgrade', (request, socket, head) => {
+  ws.handleUpgrade(request, socket, head)
+})
+
+server.listen(1234)
 ```
 
 IMPORTANT! Some extensions use the `onRequest`, `onUpgrade` and `onListen` hooks, which will not be fired in this scenario.
@@ -235,7 +372,8 @@ const hocusServer = new Server({
   ...
   onAuthenticate(data) {
         return new Promise((resolve, reject) => {
-            const headers = data.requestHeaders;
+            // In v4, requestHeaders is a web-standard Headers object
+            const headers = Object.fromEntries(data.requestHeaders.entries());
             headers["X-CSRF-TOKEN"] = data.token;
             axios.get(
                 process.env.APP_URL + '/api/hocus',

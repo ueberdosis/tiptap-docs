@@ -1,0 +1,277 @@
+---
+title: React bindings
+meta:
+  title: React bindings | Tiptap Collaboration Docs
+  description: Use @hocuspocus/provider-react to wire Hocuspocus into React apps with components and hooks.
+  category: Hocuspocus
+---
+
+Since v4, Hocuspocus ships with dedicated React bindings via the [`@hocuspocus/provider-react`](https://www.npmjs.com/package/@hocuspocus/provider-react) package. It exposes two components for managing the WebSocket connection and room lifecycle, plus hooks for subscribing to provider state (connection, sync, awareness, events) — all built on `useSyncExternalStore` and React StrictMode–safe.
+
+## Install
+
+```bash
+npm install @hocuspocus/provider @hocuspocus/provider-react yjs
+```
+
+Peer dependencies: React 18 or 19, Yjs `^13.6.8`, and a matching version of `@hocuspocus/provider`.
+
+## Getting started
+
+Wrap your collaborative subtree with `HocuspocusProviderWebsocketComponent` (which manages the shared WebSocket) and one or more `HocuspocusRoom` components (one per document). Inside the room, hooks like `useHocuspocusProvider`, `useHocuspocusAwareness`, and `useHocuspocusConnectionStatus` give you access to the provider.
+
+```tsx
+import {
+  HocuspocusProviderWebsocketComponent,
+  HocuspocusRoom,
+} from '@hocuspocus/provider-react'
+
+export function App() {
+  return (
+    <HocuspocusProviderWebsocketComponent url="ws://127.0.0.1:1234">
+      <HocuspocusRoom name="example-document">
+        <Editor />
+      </HocuspocusRoom>
+    </HocuspocusProviderWebsocketComponent>
+  )
+}
+```
+
+The websocket component creates a single `HocuspocusProviderWebsocket` for its subtree. Multiple `HocuspocusRoom`s can share it, which avoids connection overhead when switching between documents (aka multiplexing).
+
+## Components
+
+### HocuspocusProviderWebsocketComponent
+
+Manages the shared `HocuspocusProviderWebsocket` instance. Create it once near the top of your app.
+
+```tsx
+<HocuspocusProviderWebsocketComponent url="ws://127.0.0.1:1234">
+  {children}
+</HocuspocusProviderWebsocketComponent>
+```
+
+**Props**
+
+| Prop                | Type                            | Description                                                                                                   |
+|---------------------|---------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `url`               | `string`                        | The Hocuspocus server URL. Required unless `websocketProvider` is provided.                                   |
+| `websocketProvider` | `HocuspocusProviderWebsocket`   | Bring your own socket instance for full control. Mutually exclusive with `url`.                               |
+| `children`          | `ReactNode`                     | Usually one or more `HocuspocusRoom`s.                                                                        |
+
+The component handles React StrictMode double-mounts gracefully — the WebSocket is created once per mount cycle and only destroyed if it wasn't externally provided.
+
+### HocuspocusRoom
+
+Creates a document-specific `HocuspocusProvider` that attaches to the shared WebSocket. Must be rendered inside `HocuspocusProviderWebsocketComponent`.
+
+```tsx
+<HocuspocusRoom
+  name="example-document"
+  token={async () => fetchJwt()}
+  onAuthenticationFailed={(data) => console.error(data.reason)}
+  onSynced={() => console.log('synced')}
+>
+  <Editor />
+</HocuspocusRoom>
+```
+
+**Props**
+
+| Prop       | Type                                                                | Description                                                                                             |
+|------------|---------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `name`     | `string`                                                            | Document name. Required.                                                                                |
+| `document` | `Y.Doc`                                                             | Optional — bring your own Y.Doc. If omitted, one is created for you.                                    |
+| `token`    | `string \| (() => string) \| (() => Promise<string>)`               | JWT (or async resolver) sent to the server for authentication.                                          |
+| `onOpen`, `onConnect`, `onClose`, `onDisconnect`, `onStatus`, `onSynced`, `onUnsyncedChanges`, `onMessage`, `onOutgoingMessage`, `onStateless`, `onAuthenticated`, `onAuthenticationFailed`, `onAwarenessUpdate`, `onAwarenessChange`, `onDestroy` | Function | Optional handlers for each [provider event](/hocuspocus/provider/events). |
+
+Changing `name`, `document`, `token`, or the upstream websocket provider recreates the underlying provider. Everything else is kept stable.
+
+## Hooks
+
+All hooks below must be used inside a `HocuspocusRoom`. They throw if there is no room context.
+
+### useHocuspocusProvider
+
+Returns the `HocuspocusProvider` instance for the current room. Use it when you need direct access to the provider — for example to wire Tiptap's `Collaboration` / `CollaborationCaret` extensions to the provider's Y.Doc and awareness.
+
+```tsx
+import { useHocuspocusProvider } from '@hocuspocus/provider-react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
+import { StarterKit } from '@tiptap/starter-kit'
+
+function Editor() {
+  const provider = useHocuspocusProvider()
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      Collaboration.configure({ document: provider.document }),
+      CollaborationCaret.configure({
+        provider,
+        user: { name: 'John Doe', color: '#ffcc00' },
+      }),
+    ],
+  })
+
+  return <EditorContent editor={editor} />
+}
+```
+
+### useHocuspocusConnectionStatus
+
+Subscribe to the WebSocket connection status. Returns `'connecting' | 'connected' | 'disconnected'`.
+
+```tsx
+import { useHocuspocusConnectionStatus } from '@hocuspocus/provider-react'
+
+function ConnectionIndicator() {
+  const status = useHocuspocusConnectionStatus()
+
+  return (
+    <div className={`status-${status}`}>
+      {status === 'connected'
+        ? 'Online'
+        : status === 'connecting'
+          ? 'Connecting…'
+          : 'Offline'}
+    </div>
+  )
+}
+```
+
+### useHocuspocusSyncStatus
+
+Subscribe to whether local changes have been synced with the server. Returns `'synced' | 'syncing'`.
+
+```tsx
+import { useHocuspocusSyncStatus } from '@hocuspocus/provider-react'
+
+function SaveIndicator() {
+  const syncStatus = useHocuspocusSyncStatus()
+
+  return <div>{syncStatus === 'syncing' ? 'Saving…' : 'All changes saved'}</div>
+}
+```
+
+### useHocuspocusAwareness
+
+Subscribe to the list of connected users (awareness states). Returns an array of objects with a `clientId` plus whatever state you've set on awareness (name, color, cursor, …).
+
+```tsx
+import { useHocuspocusAwareness } from '@hocuspocus/provider-react'
+
+function UserList() {
+  const users = useHocuspocusAwareness()
+
+  return (
+    <div className="avatars">
+      {users.map((user) => (
+        <div
+          key={user.clientId}
+          style={{ backgroundColor: user.color as string }}
+          title={user.name as string}
+        >
+          {(user.name as string | undefined)?.[0]}
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### useHocuspocusEvent
+
+Subscribe to any [provider event](/hocuspocus/provider/events) with a stable subscription (the handler ref is kept up to date internally, so you don't need to memoize).
+
+```tsx
+import { useHocuspocusEvent } from '@hocuspocus/provider-react'
+
+function AuthGuard() {
+  useHocuspocusEvent('authenticationFailed', (data) => {
+    console.error('Auth failed:', data.reason)
+    redirectToLogin()
+  })
+
+  useHocuspocusEvent('close', (data) => {
+    console.log('Connection closed', data.event.code, data.event.reason)
+  })
+
+  return null
+}
+```
+
+## Full example — Tiptap + awareness
+
+Putting it all together with a Tiptap editor, a connection indicator, and a user list:
+
+```tsx
+import {
+  HocuspocusProviderWebsocketComponent,
+  HocuspocusRoom,
+  useHocuspocusAwareness,
+  useHocuspocusConnectionStatus,
+  useHocuspocusProvider,
+} from '@hocuspocus/provider-react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
+import { StarterKit } from '@tiptap/starter-kit'
+
+function Editor() {
+  const provider = useHocuspocusProvider()
+  const status = useHocuspocusConnectionStatus()
+  const users = useHocuspocusAwareness()
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      Collaboration.configure({ document: provider.document }),
+      CollaborationCaret.configure({
+        provider,
+        user: { name: 'John Doe', color: '#ffcc00' },
+      }),
+    ],
+  })
+
+  return (
+    <>
+      <header>
+        <span>Status: {status}</span>
+        <span>{users.length} online</span>
+      </header>
+      <EditorContent editor={editor} />
+    </>
+  )
+}
+
+export function App() {
+  return (
+    <HocuspocusProviderWebsocketComponent url="ws://127.0.0.1:1234">
+      <HocuspocusRoom name="example-document">
+        <Editor />
+      </HocuspocusRoom>
+    </HocuspocusProviderWebsocketComponent>
+  )
+}
+```
+
+## Switching documents (multiplexing)
+
+Because the WebSocket lives on the outer component, swapping the `name` prop on `HocuspocusRoom` destroys the old document provider and creates a new one without reconnecting the socket:
+
+```tsx
+function Workspace({ docId }: { docId: string }) {
+  return (
+    <HocuspocusProviderWebsocketComponent url="ws://127.0.0.1:1234">
+      <HocuspocusRoom name={docId}>
+        <Editor />
+      </HocuspocusRoom>
+    </HocuspocusProviderWebsocketComponent>
+  )
+}
+```
+
+If you want several documents open concurrently over the same socket, render multiple `HocuspocusRoom`s as siblings. When connecting to a v4 server and multiplexing many providers with potentially colliding document names, consider enabling [`sessionAwareness`](/hocuspocus/provider/configuration) on the underlying `HocuspocusProviderWebsocket`.
