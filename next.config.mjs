@@ -453,7 +453,35 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/suggestions',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
+        destination: '/content-ai/capabilities/ai-toolkit/api-reference/suggestions',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions-with-comments',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/agents/tracked-changes',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
+        destination:
+          '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
         permanent: true,
       },
       {
