@@ -50,10 +50,28 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Review changes',
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
-                },
-                {
-                  title: 'Justified changes',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
+                  children: [
+                    {
+                      title: 'Tracked changes',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
+                    },
+                    {
+                      title: 'Tracked changes with comments',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes-with-comments',
+                    },
+                    {
+                      title: 'Suggestions',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions',
+                    },
+                    {
+                      title: 'Suggestions with comments',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions-with-comments',
+                    },
+                    {
+                      title: 'Style suggestions',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
+                    },
+                  ],
                 },
                 {
                   title: 'Streaming',
@@ -62,10 +80,6 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Add comments',
                   href: '/content-ai/capabilities/ai-toolkit/agents/comments',
-                },
-                {
-                  title: 'Tracked changes',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Multi-document',
@@ -150,14 +164,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/concepts',
                 },
                 {
-                  title: 'Suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions',
-                },
-                {
-                  title: 'Style suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
-                },
-                {
                   title: 'AI engineering',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
@@ -234,8 +240,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/review-options',
                 },
                 {
-                  title: 'Display suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
+                  title: 'Suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/suggestions',
                 },
                 {
                   title: 'Diff utility',
