@@ -305,6 +305,53 @@ When a user double-clicks a header or footer to edit it, the extension exposes t
 - `activeEditor` – The Tiptap Editor instance for the currently open header or footer editor (or `null`)
 - `activeEditorType` – `'header'`, `'footer'`, or `null`
 - `activePageNumber` – The page number being edited (or `null`)
+- `headerEditorOn` / `headerEditorOff` – Subscribe/unsubscribe to events on the header overlay's inner Tiptap editor
+- `footerEditorOn` / `footerEditorOff` – Subscribe/unsubscribe to events on the footer overlay's inner Tiptap editor
+
+The extension also listens to `focus` events from the header and footer inner editors. When the user focuses an open header or footer editor, `activeEditor`, `activeEditorType`, and `activePageNumber` are refreshed from the active overlay.
+
+### Listening to header/footer editor events
+
+Headers and footers have their own editors. You can subscribe to events from these editors via `editor.storage.pages`.
+
+```tsx
+import { useEffect, useState } from 'react'
+
+function HeaderFooterStatus({ editor }) {
+  const [activeEditorType, setActiveEditorType] = useState(null)
+  const [activePageNumber, setActivePageNumber] = useState(null)
+
+  useEffect(() => {
+    if (!editor) return
+
+    const syncActiveEditorState = () => {
+      const { activeEditorType, activePageNumber } = editor.storage.pages
+      setActiveEditorType(activeEditorType)
+      setActivePageNumber(activePageNumber)
+    }
+
+    editor.storage.pages.headerEditorOn?.('focus', syncActiveEditorState)
+    editor.storage.pages.footerEditorOn?.('focus', syncActiveEditorState)
+
+    return () => {
+      editor.storage.pages.headerEditorOff?.('focus', syncActiveEditorState)
+      editor.storage.pages.footerEditorOff?.('focus', syncActiveEditorState)
+    }
+  }, [editor])
+
+  if (!activeEditorType || !activePageNumber) {
+    return <span>Editing document</span>
+  }
+
+  return (
+    <span>
+      Editing {activeEditorType} on page {activePageNumber}
+    </span>
+  )
+}
+```
+
+You can use the same helpers for other Tiptap editor events, such as `update`, `selectionUpdate`, `blur`, or `transaction`.
 
 ### Building a custom toolbar
 
@@ -317,6 +364,7 @@ import { useEffect, useState } from 'react'
 function DocumentEditor() {
   const [headerFooterEditor, setHeaderFooterEditor] = useState(null)
   const [activeEditorType, setActiveEditorType] = useState(null)
+  const [activePageNumber, setActivePageNumber] = useState(null)
 
   const editor = useEditor({
     extensions: [
@@ -332,14 +380,22 @@ function DocumentEditor() {
   useEffect(() => {
     if (!editor) return
 
-    const handleUpdate = () => {
-      const { activeEditor, activeEditorType } = editor.storage.pages
+    const syncActiveHeaderFooterEditor = () => {
+      const { activeEditor, activeEditorType, activePageNumber } = editor.storage.pages
       setHeaderFooterEditor(activeEditor)
       setActiveEditorType(activeEditorType)
+      setActivePageNumber(activePageNumber)
     }
 
-    editor.on('update', handleUpdate)
-    return () => editor.off('update', handleUpdate)
+    editor.on('update', syncActiveHeaderFooterEditor)
+    editor.storage.pages.headerEditorOn?.('focus', syncActiveHeaderFooterEditor)
+    editor.storage.pages.footerEditorOn?.('focus', syncActiveHeaderFooterEditor)
+
+    return () => {
+      editor.off('update', syncActiveHeaderFooterEditor)
+      editor.storage.pages.headerEditorOff?.('focus', syncActiveHeaderFooterEditor)
+      editor.storage.pages.footerEditorOff?.('focus', syncActiveHeaderFooterEditor)
+    }
   }, [editor])
 
   // Use the active editor (header/footer or main)
@@ -355,7 +411,12 @@ function DocumentEditor() {
   return (
     <div>
       <div className="toolbar">
-        <span>Editing: {activeEditorType || 'Document'}</span>
+        <span>
+          Editing:{' '}
+          {activeEditorType && activePageNumber
+            ? `${activeEditorType} on page ${activePageNumber}`
+            : 'Document'}
+        </span>
         <button
           className={isBoldActive ? 'is-active' : ''}
           onClick={() => activeEditor?.chain().focus().toggleBold().run()}
