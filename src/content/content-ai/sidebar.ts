@@ -78,7 +78,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
                 },
                 {
-                  title: 'Add comments',
+                  title: 'Comments',
                   href: '/content-ai/capabilities/ai-toolkit/agents/comments',
                 },
                 {
