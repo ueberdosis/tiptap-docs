@@ -52,10 +52,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/import/docx/rest-api',
             },
             {
-              title: 'ConvertKit',
-              href: '/conversion/import/docx/convert-kit',
-            },
-            {
               title: 'Customize',
               href: '/conversion/import/docx/custom-node-mapping',
               children: [

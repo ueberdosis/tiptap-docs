@@ -286,6 +286,11 @@ const nextConfig = {
         destination: '/conversion/import/docx/image-handling',
         permanent: true,
       },
+      {
+        source: '/conversion/import/docx/convert-kit',
+        destination: '/conversion/import/docx/convertkit',
+        permanent: true,
+      },
       // Export: renamed files (editor-export → editor-extension)
       {
         source: '/conversion/export/docx/editor-export',
