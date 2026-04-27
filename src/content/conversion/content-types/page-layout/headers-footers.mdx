@@ -24,7 +24,7 @@ Headers and footers in Word carry repeated content at the top and bottom of ever
 | Default header/footer | Supported | Supported ([Pages](/pages/getting-started/overview)) | Supported |
 | Different first page | Supported | Supported | Supported |
 | Different odd/even pages | Supported | Supported | Supported |
-| Page number placeholders | Not supported | Supported (`{page}`, `{total}`) | Via header/footer content |
+| Page number placeholders | Not converted from DOCX (PAGE/NUMPAGES fields import as their cached display value, e.g. the literal text `1`) | Supported (`{page}`, `{total}` substituted at render time by the Pages extension) | Pass through as literal text. The export does not emit DOCX PAGE/NUMPAGES fields, so a header `Page {page} of {total}` appears in the exported DOCX as the string `Page {page} of {total}`. |
 | Rich text in headers/footers | Supported | Supported | Supported |
 
 ## Import
@@ -50,12 +50,23 @@ When using the editor extension with the [Pages extension](/pages/getting-starte
 
 Each field contains valid Tiptap JSON or `null` if the source document does not include that variant.
 
-<Callout variant="info" title="Odd-page headers use the default fields">
-  In Word, the "default" header type serves as the odd-page header. The `header`/`footer` fields contain this content. `headerOdd`/`footerOdd` are always null in the API response.
+<Callout variant="info" title="Odd-page headers come back in the default fields">
+  Word's OOXML model uses three header types: `default`, `first`, and `even`. When "Different odd and even pages" is enabled in Word, the **default** header is what shows on odd pages. The API mirrors this:
+
+  - `header` / `footer` carry the **default** (odd-page) content.
+  - `headerEven` / `footerEven` carry the even-page content.
+  - `headerFirstPage` / `footerFirstPage` carry the first-page content.
+  - `headerOdd` / `footerOdd` are always `null`. They exist as fields in the response shape for symmetry only.
+
+  To get the odd-page header, read `context.header` (not `context.headerOdd`). If a source document only references first-page and even-page headers without a default, no odd-page content will be present in the response: the importer can't synthesize content the source did not include.
 </Callout>
 
 <Callout variant="info" title="Pages extension required for auto-application">
   Without the Pages extension, the import extension still returns header/footer data in the callback, but it cannot apply them to the editor automatically. You can access them via the `onImport` callback and handle them in your own code.
+</Callout>
+
+<Callout variant="warning" title="Page number fields in headers come in as static text">
+  Word stores page numbers (and other field codes like `DATE`, `AUTHOR`, `NUMPAGES`) as `<w:fldChar>` / `<w:instrText>` sequences whose cached display value is what the document had when it was last opened. The importer captures that cached value as plain text. A header reading `Page 5 of 12` in Word imports as the literal string `Page 5 of 12`, not as the dynamic `Page {page} of {total}` template the Pages extension would re-evaluate. To get live page numbering in the editor after import, replace the imported static text with a Pages-extension template (e.g. via `editor.commands.setHeader('Page {page} of {total}')`) or post-process `context.header` in the `onImport` callback.
 </Callout>
 
 ## Editor
@@ -68,7 +79,7 @@ The Pages extension supports three header/footer modes matching Word's behavior:
 - **Different first page:** Separate header/footer on the first page
 - **Different odd/even pages:** Separate headers/footers for odd and even pages
 
-Page numbers are rendered through placeholders: `{page}` for current page, `{total}` for total page count.
+Page numbers are rendered through placeholders: `{page}` for current page, `{total}` for total page count. These placeholders are an editor-side feature: the Pages extension substitutes them when rendering each page. They are **not** translated into DOCX page-number fields on export. See the warning in the [Export](#export) section below.
 
 After import, the user can double-click an imported header or footer to edit it. The Pages extension exposes the active overlay editor through `editor.storage.pages` and provides `headerEditorOn` / `headerEditorOff` (and `footerEditorOn` / `footerEditorOff`) event-subscription helpers, useful for syncing toolbars or reacting to focus changes. See [Active editor state](/pages/core-concepts/page-header-footer#active-editor-state) on the Page header and footer guide.
 
@@ -102,6 +113,10 @@ ExportDocx.configure({
 The export supports `default`, `first`, and `even` variants for both headers and footers. The `differentFirstPage` and `evenAndOddHeaders` flags are set automatically when the corresponding variants are provided.
 
 Explicit header/footer options override automatic extraction from the Pages extension.
+
+<Callout variant="warning" title="`{page}` and `{total}` are not converted to DOCX page-number fields">
+  The Pages extension's `{page}` and `{total}` placeholders are substituted when rendering pages in the editor, but the export does not detect them. Whatever string the editor produces (including `{page}` / `{total}` if the export reads from raw header content rather than rendered output) lands in the DOCX as literal text. Word will display the curly-brace tokens themselves, not a dynamic page count. To get a live page-number field in the exported DOCX today, supply a `Docx.Header` / `Docx.Footer` instance manually with the appropriate `docx.js` field-code primitives instead of relying on the Pages-extension auto-extraction.
+</Callout>
 
 ### What round-trips
 
