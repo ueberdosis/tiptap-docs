@@ -43,20 +43,21 @@ If you have these extensions installed (see [ConvertKit](/conversion/import/docx
 
 ### Block-level formatting (attributes on paragraph and heading nodes)
 
-These are stored as attributes on `paragraph` and `heading` nodes. Text alignment is rendered by the TextAlign extension. All other attributes are **present in the imported JSON but not rendered** because the standard Paragraph and Heading extensions do not define them in their schema:
+These are stored as attributes on `paragraph` and `heading` nodes. Whether they render depends on which extensions you have installed.
 
-| Styling | Node attribute | Format | Rendered? |
-| --- | --- | --- | --- |
-| Text alignment | `textAlign` | `"left"`, `"center"`, `"right"`, `"justify"` | Yes (requires TextAlign extension) |
-| Spacing before | `spacingBefore` | Integer (pixels) | No |
-| Spacing after | `spacingAfter` | Integer (pixels) | No |
-| Left indent | `indent` | Integer (pixels) | No |
-| First line indent | `firstLineIndent` | Integer (pixels) | No |
-| Line height | `lineHeight` | Number (multiplier) or integer (pixels) | No (paragraph-level; the mark-level lineHeight is rendered) |
-| Contextual spacing | `contextualSpacing` | Boolean | No |
+| Styling | Node attribute | Format | With standard extensions | With [ConvertKit](/conversion/import/docx/convertkit) |
+| --- | --- | --- | --- | --- |
+| Text alignment | `textAlign` | `"left"`, `"center"`, `"right"`, `"justify"` | Requires `TextAlign` | Rendered (TextAlign included) |
+| Spacing before | `spacingBefore` | Number (pixels) | Not rendered | `margin-top: Npx` |
+| Spacing after | `spacingAfter` | Number (pixels) | Not rendered | `margin-bottom: Npx` |
+| Left indent | `indent` | Number (pixels) | Not rendered | `padding-left: Npx` |
+| First line indent | `firstLineIndent` | Number (pixels) | Not rendered | `text-indent: Npx` |
+| Line height | `lineHeight` | String (e.g. `"1.5"`, `"24px"`) | Not rendered (paragraph-level; the mark-level `textStyle.lineHeight` is rendered by `LineHeight`) | `line-height: <value>` |
+| Font size (paragraph mark) | `fontSize` | String (e.g. `"11pt"`) | Not rendered (the mark-level `textStyle.fontSize` is rendered by `FontSize`) | `font-size: <value>` (used by spacer paragraphs) |
+| Contextual spacing | `contextualSpacing` | Boolean | Not rendered | `data-contextual-spacing="true"` + injected CSS rule that suppresses margin between adjacent contextual-spacing paragraphs |
 
 <Callout variant="warning" title="Schema validation strips unrecognized attributes">
-  When you call `setEditorContent()`, ProseMirror validates the content against your editor's schema. Attributes not defined in the node spec are removed. The raw JSON in `context.content` still contains all attributes, but they are lost once the content is loaded into the editor. To preserve them, you need to extend the node schema.
+  When you call `setEditorContent()`, ProseMirror validates the content against your editor's schema. Attributes not defined in the node spec are removed. The raw JSON in `context.content` still contains all attributes, but they are lost once the content is loaded into the editor. To preserve them, install [ConvertKit](/conversion/import/docx/convertkit) (which extends the schema for all the attributes above) or extend the node schema yourself.
 </Callout>
 
 ## Styling your editor to approximate Word
@@ -194,45 +195,23 @@ If you use different fonts or sizes in your editor CSS, update the export `style
 
 ## Extending extensions for unsupported attributes
 
-For paragraph-level attributes like `spacingBefore`, `spacingAfter`, `indent`, and `firstLineIndent`, you can extend the Paragraph extension to define them in the schema and render them as inline CSS:
+[ConvertKit](/conversion/import/docx/convertkit) already extends `Paragraph`, `Heading`, `Image`, and the table stack with the DOCX-specific attributes the Convert API produces. If you use ConvertKit, the paragraph and heading attributes in the table above render automatically — you do not need to write the extension yourself.
+
+The pattern below is for attributes ConvertKit does not cover (the canonical case is `textStyle.letterSpacing`, which the Convert API extracts but no bundled extension renders) or for editors that opt out of ConvertKit and need to roll their own.
 
 ```ts
-import Paragraph from '@tiptap/extension-paragraph'
+import { TextStyle } from '@tiptap/extension-text-style'
 
-const CustomParagraph = Paragraph.extend({
+const TextStyleWithLetterSpacing = TextStyle.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
-      spacingBefore: {
+      letterSpacing: {
         default: null,
-        parseHTML: (element) => element.style.marginTop || null,
+        parseHTML: (element) => element.style.letterSpacing || null,
         renderHTML: (attributes) => {
-          if (!attributes.spacingBefore) return {}
-          return { style: `margin-top: ${attributes.spacingBefore}px` }
-        },
-      },
-      spacingAfter: {
-        default: null,
-        parseHTML: (element) => element.style.marginBottom || null,
-        renderHTML: (attributes) => {
-          if (!attributes.spacingAfter) return {}
-          return { style: `margin-bottom: ${attributes.spacingAfter}px` }
-        },
-      },
-      indent: {
-        default: null,
-        parseHTML: (element) => element.style.marginLeft || null,
-        renderHTML: (attributes) => {
-          if (!attributes.indent) return {}
-          return { style: `margin-left: ${attributes.indent}px` }
-        },
-      },
-      firstLineIndent: {
-        default: null,
-        parseHTML: (element) => element.style.textIndent || null,
-        renderHTML: (attributes) => {
-          if (!attributes.firstLineIndent) return {}
-          return { style: `text-indent: ${attributes.firstLineIndent}px` }
+          if (!attributes.letterSpacing) return {}
+          return { style: `letter-spacing: ${attributes.letterSpacing}` }
         },
       },
     }
@@ -240,9 +219,16 @@ const CustomParagraph = Paragraph.extend({
 })
 ```
 
-Use `CustomParagraph` instead of the default `Paragraph` in your editor setup. The same approach works for extending `Heading` to support these attributes on heading nodes.
+Then disable the bundled `TextStyle` and add your extended one alongside ConvertKit:
 
-For the `letterSpacing` attribute on the `textStyle` mark, you can add it as a global attribute following the same pattern used by Color and FontFamily. See the [custom extensions guide](/editor/extensions/custom-extensions/extend-existing) for full details on extending existing extensions.
+```ts
+ConvertKit.configure({
+  textStyleKit: { textStyle: false },
+}),
+TextStyleWithLetterSpacing,
+```
+
+The same pattern works for any other attribute the converter emits but no extension renders. See the [custom extensions guide](/editor/extensions/custom-extensions/extend-existing) for the full mechanics of extending existing extensions.
 
 ## Intercepting content before loading
 
@@ -280,6 +266,8 @@ editor.chain().importDocx({
 
 ## Automatic style import
 
-Tiptap is working on a feature that extracts styles from the imported DOCX and applies them directly to the editor as CSS. When available, this will close the gap between how a document looks in Word and how it looks in the editor, without requiring manual CSS or custom extensions.
+If you would rather not hand-author CSS to approximate Word's look, the experimental [CSS injection](/conversion/import/docx/css-injection) feature extracts the imported document's named-style catalog (`Heading1`, `Normal`, `Quote`, etc.) and either returns it as a CSS object or injects it as a scoped `<style>` tag into the page. The result is closer to how the source document looked in Word, without manual CSS authoring per document.
 
-Until then, the approaches described above give you full control over how converted content appears in your editor.
+CSS injection covers 16 selectors (block-level: `p`, `h1`–`h6`, `blockquote`, `ul li`, `ol li`; inline: `strong`, `em`, `u`, `s`, `a`, `code`) and 11 typography properties (`fontSize`, `color`, `fontFamily`, `fontWeight`, `fontStyle`, `textDecoration`, `backgroundColor`, `textAlign`, `marginTop`, `marginBottom`, `lineHeight`). Inline overrides on individual runs and arbitrary selectors are intentionally out of scope — see the page for the full list of caveats.
+
+The two features combine: ConvertKit ensures imported node attributes survive the editor's schema and render correctly, and CSS injection brings the document's typography catalog through as cascading CSS. The hand-written CSS approaches earlier in this guide remain useful when neither feature covers what you need.
