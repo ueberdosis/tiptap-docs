@@ -90,6 +90,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/guides/table-with-pages',
         },
         {
+          title: 'PagesTableKit',
+          href: '/pages/guides/pages-tablekit',
+          tags: ['Experimental'],
+        },
+        {
           title: 'PageKit',
           href: '/pages/guides/pagekit-usage',
         },

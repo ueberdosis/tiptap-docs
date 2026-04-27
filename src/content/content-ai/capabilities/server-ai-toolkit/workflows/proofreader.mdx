@@ -1,0 +1,187 @@
+---
+title: Proofreader
+meta:
+  title: Proofreader | Tiptap Server AI Toolkit
+  description: Build a server-side proofreader that reads a document, generates corrections, and applies them on the server.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a proofreader that reads a document on the server, generates corrections, and applies them on
+the server.
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-proofreader-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+<Callout title="Proofreader format" variant="info">
+  The Server AI Toolkit proofreader workflow currently uses `format: 'shorthand'`.
+</Callout>
+
+<Callout title="Reuse the same session across read and execute" variant="info">
+  The read step returns a `sessionId`. Send that same `sessionId` with the execute request so the
+  server can reject stale edits when the document changed after the AI read it.
+</Callout>
+
+Before starting, set up authentication by following the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization).
+
+## 1. Read the document content from the AI Server
+
+Start by reading the document in shorthand format. Call:
+
+- `POST /v3/ai/toolkit/read/read-document`
+
+```ts
+import { getAuthHeaders } from '@/lib/server-ai-toolkit/get-auth-headers'
+
+const readResponse = await fetch(`${apiBaseUrl}/toolkit/read/read-document`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    sessionId,
+    format: 'shorthand',
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const readResult = await readResponse.json()
+```
+
+## 2. Generate proofreader operations
+
+Get the workflow definition from the AI Server, combine it with the schema awareness prompt, and
+ask the model to return proofreader operations.
+
+```ts
+const workflowResponse = await fetch(`${apiBaseUrl}/toolkit/workflows/proofreader`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    format: 'shorthand',
+  }),
+})
+
+const workflow = await workflowResponse.json()
+
+const schemaResponse = await fetch(`${apiBaseUrl}/toolkit/schema-awareness-prompt`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+  }),
+})
+
+const { prompt: schemaAwarenessPrompt } = await schemaResponse.json()
+
+const result = streamText({
+  model,
+  system: `${workflow.systemPrompt}\n\n${schemaAwarenessPrompt}`,
+  prompt: JSON.stringify({
+    content: readResult.output.content,
+    task: 'Correct all grammar and spelling mistakes',
+  }),
+  output: Output.object({ schema: z.fromJSONSchema(workflow.outputSchema) }),
+})
+
+const output = await result.output
+```
+
+## 3. Execute the workflow
+
+Execute the workflow directly to apply the corrections to the document. Call:
+
+- `POST /v3/ai/toolkit/execute-workflow/proofreader`
+
+```ts
+const executeResponse = await fetch(`${apiBaseUrl}/toolkit/execute-workflow/proofreader`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    format: 'shorthand',
+    input: output,
+    sessionId: readResult.sessionId,
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const executeResult = await executeResponse.json()
+```
+
+## 4. Trigger the workflow from the editor UI
+
+The client sends the document ID and current session ID, then stores the updated session ID from the
+response.
+
+```tsx
+const runProofreader = async () => {
+  const response = await fetch('/api/server-proofreader-workflow', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      documentId,
+      schemaAwarenessData: getSchemaAwarenessData(editor),
+      sessionId,
+    }),
+  })
+
+  const result: { sessionId: string } = await response.json()
+  setSessionId(result.sessionId)
+}
+```
+
+## Tracked changes
+
+Integrate this workflow with the [Tracked Changes](/tracked-changes/getting-started/overview) extension to show a review UI after the AI edits the document, and allow users to accept
+and reject changes.
+
+In the request to `POST /v3/ai/toolkit/execute-workflow/proofreader`, configure the `reviewOptions` parameter:
+
+```ts
+reviewOptions: {
+  mode: 'trackedChanges',
+  trackedChangesOptions: {
+    userId: 'ai-assistant',
+  },
+}
+```
+
+See the [AI Toolkit demos](https://github.com/ueberdosis/ai-toolkit-demos) for examples on how to integrate Server AI Toolkit workflows with Tracked Changes.
+
+## End result
+
+The result is a collaborative proofreader workflow for server-side grammar and spelling fixes:
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-proofreader-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Review [review options](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options)
+- See the [REST API request details](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#execute-the-proofreader-workflow)

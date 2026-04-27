@@ -1,0 +1,199 @@
+---
+title: ConvertKit — DOCX-aware editor extensions
+tags:
+  - type: start
+  - type: experiment
+  - type: version
+    label: v0.1.0
+meta:
+    title: ConvertKit | Tiptap Conversion
+    description: A bundled Tiptap extension that configures the editor for DOCX-imported content. Experimental feature — API may change.
+    category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Callout variant="warning" title="Experimental feature">
+  The APIs, attribute names, and bundled extensions documented on this page may
+  change without notice. Pin exact package versions if you depend on ConvertKit.
+  Read the **What won't work** section before you adopt it.
+</Callout>
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    Authenticate to Tiptap's private npm registry by following the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+<CodeDemo isPro path="/Extensions/ImportDocxCssStyles" />
+
+## What this does
+
+A DOCX file carries formatting metadata that the stock Tiptap extensions do not know about — paragraph spacing in twips, table-row height rules, image crop percentages, vertical cell alignment, per-side border widths. If you render DOCX content with vanilla Tiptap, that information is lost or mis-rendered.
+
+**ConvertKit is a single extension that configures your editor for DOCX-imported content.** Drop it in and you get:
+
+- 27 bundled extensions wired up to handle everything the Convert API produces.
+- Custom Paragraph, Heading, Image, Table, TableRow, TableCell, and TableHeader extensions that accept the DOCX-specific attributes.
+- A small CSS reset injected at editor creation that normalises browser defaults so DOCX spacing values render accurately.
+- Every bundled extension is individually configurable or disableable.
+
+## Install
+
+```bash
+npm i @tiptap-pro/extension-convert-kit@^0.1.0
+```
+
+## How it works
+
+Three parts:
+
+1. **Extension bundle.** ConvertKit is a Tiptap `Extension` that adds child extensions via `addExtensions()`. Each child is either a base Tiptap extension (Bold, Italic, BulletList, …) or a custom override (Paragraph with spacing, Table with width, …). You can pass `false` for any slot to exclude that child.
+2. **Custom attributes.** The custom extensions extend their base counterparts (e.g. `Paragraph.extend(…)`) and declare additional attributes in `addAttributes()`. Parsing happens from HTML / JSON on editor init; rendering happens via `renderHTML()` onto inline `style` or `data-*` attributes.
+3. **CSS resets.** On `onCreate`, ConvertKit appends a `<style id="tiptap-convert-kit-css-resets">` to `document.head`. On `onDestroy`, it removes it. The reset normalises paragraph margins, table line-heights, cell vertical-alignment, and the `.cell-content` wrapper behaviour for exact-height rows.
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+const editor = new Editor({
+  extensions: [ConvertKit],
+})
+```
+
+Customise or disable specific children:
+
+```ts
+new Editor({
+  extensions: [
+    ConvertKit.configure({
+      heading: { levels: [1, 2, 3] }, // only allow H1–H3
+      codeBlock: false,               // drop the code-block node entirely
+      table: false,                   // swap for a different table stack
+    }),
+  ],
+})
+```
+
+## What works
+
+### Bundled extensions
+
+ConvertKit ships **27** extensions:
+
+| Category | Extensions |
+|----------|------------|
+| Core | `Document`, `Text`, `Paragraph`*, `Heading`* |
+| Marks | `Bold`, `Italic`, `Underline`, `Strike`, `Code`, `Link` |
+| Blocks | `Blockquote`, `HorizontalRule`, `HardBreak`, `CodeBlock`, `PageBreak` |
+| Lists | `BulletList`, `OrderedList`, `ListItem`, `ListKeymap` |
+| Media | `Image`* |
+| Styling | `TextStyleKit` (Color, FontFamily, FontSize), `TextAlign`, `Highlight` (multicolor), `Superscript`, `Subscript` |
+| UI helpers | `Dropcursor`, `Gapcursor` |
+| Tables | `ConvertTableKit` (Table*, TableRow*, TableCell*, TableHeader*) |
+
+Extensions marked with `*` are custom, DOCX-aware overrides of the Tiptap base — see the next section for what they add.
+
+### DOCX attributes added on top of Tiptap base extensions
+
+| Extension | Added attributes | Source |
+|-----------|------------------|--------|
+| `Paragraph` | `spacingBefore`, `spacingAfter`, `lineHeight`, `fontSize`, `indent`, `hangingIndent`, `contextualSpacing` | DOCX `w:pPr` + `w:rPr` on paragraph mark |
+| `Heading` | same as `Paragraph` | DOCX `w:pPr` + `w:rPr` on paragraph mark |
+| `Image` | `cropTop`, `cropBottom`, `cropLeft`, `cropRight` | DOCX `a:srcRect` on drawings |
+| `Table` | `width`, `indent` (+ `cellMinWidth: 1` default, vs Tiptap's `25`) | DOCX `w:tblW`, `w:tblInd`, `w:tblGrid` |
+| `TableRow` | `height`, `heightRule` (`exact` / `atLeast`) | DOCX `w:trHeight` + `w:hRule` |
+| `TableCell` / `TableHeader` | `background`, `verticalAlign`, per-side border (`width` / `style` / `color` on top/bottom/left/right) | DOCX `w:tcPr` |
+
+### CSS resets injected at editor creation
+
+- All `*` descendants of `.tiptap`: `box-sizing: border-box`, zero top/bottom margin.
+- `table`: `border-collapse: collapse`, inherited border colour.
+- `table tr`: `line-height: 1`, zero top/bottom margin + padding.
+- `table td`, `table th`: `line-height: 1`, `vertical-align: top`, zero margin + padding.
+- `table tr[data-height-rule="exact"] td > .cell-content`: `overflow: hidden; height: var(--tr-height)` — this is what makes exact-height rows actually clip content. A CSS `height` on a `<td>` doesn't do what you'd expect for a `display: table-cell` element; the `.cell-content` wrapper is the block-level element that carries the clamp.
+- `table td p`, `table th p`: `white-space: normal` to counter any upstream `white-space: pre-line` inheritance.
+- `.ProseMirror-trailingBreak`: zero margins + padding (so the trailing break doesn't introduce phantom spacing).
+- `.tiptap p`: `line-height: 1`, zero margin + padding.
+
+### Small-but-important defaults
+
+- `cellMinWidth: 1` on Table. Tiptap defaults to `25`, which inflates DOCX spacer columns (1–15 px narrow columns used for layout) into visible gaps. ConvertKit caps the minimum at `1` px.
+- `textAlign` configured with `types: ['paragraph', 'heading']` so DOCX paragraph justification flows through both blocks.
+- `highlight` configured with `multicolor: true` so DOCX `w:highlight` colours come through as-is.
+
+## What won't work
+
+<Callout variant="warning" title="These are intentional limits">
+These are not bugs. They are explicit, documented boundaries of the feature. If your workflow depends on any of the items below, this feature is not the right tool.
+</Callout>
+
+- **Floating tables.** DOCX `w:tblpPr` (tables positioned relative to an anchor with text wrapping) render as plain stacked inline tables. The positioning metadata is dropped by the converter. Intended — float layout fidelity is out of scope.
+- **Negative table indents.** `w:tblInd` values below zero are preserved in `attrs.indent` but clamped to `0` at render time. Word renders negative indents into the paper gutter; browsers have no gutter, so rendering them would push the table past the page edge.
+- **Exact-height row overflow.** Rows with `heightRule: "exact"` clip overflowing content via the `.cell-content` wrapper's `overflow: hidden`. Content taller than the declared height is not visible.
+- **Over-wide table widths.** Tables whose declared `width` exceeds the container render with `max-width: 100%` — the declared width is preserved in `attrs.width` but visually clamped.
+- **Multi-page layout.** ConvertKit does not paginate. If you need tables that span pages, an actual page container, headers/footers, or page breaks to be respected visually, pair ConvertKit with the [Pages extension](/pages/getting-started/overview) and use [PagesTableKit](/pages/guides/pages-tablekit) for the table extensions.
+- **Footnotes, endnotes, comments.** Not rendered. The converter emits them as paragraphs or drops them; ConvertKit does not add any footnote/comment UI.
+
+## What to expect
+
+- One `<style id="tiptap-convert-kit-css-resets">` element added to `document.head` on editor creation, removed on editor destroy. Multiple ConvertKit-powered editors share the same element by ID (inserted once).
+- A consistent render of DOCX-imported content across your app. Images with non-zero DOCX crops actually render cropped; rows with `heightRule: "atLeast"` grow vertically when their columns shrink; cells with `verticalAlign: "center"` center their content.
+- Full compatibility with the rest of the Tiptap Pro extension ecosystem. `@tiptap-pro/extension-import-docx` and `@tiptap-pro/extension-export-docx` are the natural siblings; `@tiptap-pro/extension-pages-tablekit` stacks on top if you need pagination.
+
+## What not to expect
+
+- **A drop-in StarterKit replacement.** The CSS resets assume DOCX-origin content (zeroed paragraph margins, tight line-height). Using ConvertKit as your everyday editor kit for non-DOCX content will give you a visually compressed default style — you'll have to add your own typography rules back on top.
+- **DOCX fidelity beyond the node-attr level.** ConvertKit wires up the attributes the Convert API produces. If the converter doesn't parse a given DOCX feature, ConvertKit can't render it.
+- **Automatic resize handles on tables.** ConvertKit's Table extension inherits from `@tiptap/extension-table` and supports the standard resize behaviour — but the default `cellMinWidth: 1` means handles can drag columns down to 1 px wide, which is usually not what you want for hand-editing. Override `table.cellMinWidth` when mixing DOCX imports with hand authoring.
+
+## Configuration reference
+
+Every key is optional. Pass `false` to exclude an extension. Pass a partial options object to forward to the underlying extension's `configure()`. Defaults for each key are `{}`.
+
+```ts
+ConvertKit.configure({
+  document:       Record<string, never> | false,
+  text:           Record<string, never> | false,
+  paragraph:      Partial<ParagraphOptions>      | false,
+  heading:        Partial<HeadingOptions>        | false,
+  blockquote:     Partial<BlockquoteOptions>     | false,
+  bold:           Partial<BoldOptions>           | false,
+  italic:         Partial<ItalicOptions>         | false,
+  underline:      Partial<UnderlineOptions>      | false,
+  strike:         Partial<StrikeOptions>         | false,
+  code:           Partial<CodeOptions>           | false,
+  link:           Partial<LinkOptions>           | false,
+  bulletList:     Partial<BulletListOptions>     | false,
+  orderedList:    Partial<OrderedListOptions>    | false,
+  listItem:       Partial<ListItemOptions>       | false,
+  listKeymap:     Partial<ListKeymapOptions>     | false,
+  hardBreak:      Partial<HardBreakOptions>      | false,
+  horizontalRule: Partial<HorizontalRuleOptions> | false,
+  dropcursor:     Partial<DropcursorOptions>     | false,
+  gapcursor:      Record<string, never>          | false,
+  codeBlock:      Partial<CodeBlockOptions>      | false,
+  image:          Partial<ImageOptions>          | false,
+  textStyleKit:   Partial<TextStyleKitOptions>   | false,
+  textAlign:      Partial<TextAlignOptions>      | false, // default: { types: ['paragraph', 'heading'] }
+  highlight:      Partial<HighlightOptions>      | false, // default: { multicolor: true }
+  superscript:    Partial<SuperscriptExtensionOptions> | false,
+  subscript:      Partial<SubscriptExtensionOptions>   | false,
+  pageBreak:      Partial<PageBreakOptions>      | false,
+  table:          Partial<ConvertTableKitOptions> | false,
+})
+```
+
+## Related
+
+- [PagesTableKit](/pages/guides/pages-tablekit) — companion package that wraps ConvertKit's Table extensions in a CSS-Grid NodeView compatible with the Pages extension's pagination.
+- [CSS injection (import)](/conversion/import/docx/css-injection) — pair ConvertKit with CSS injection to get typographic fidelity from the DOCX style catalog.
+- [Editor extension (import DOCX)](/conversion/import/docx/editor-import) — how the `ImportDocx` extension calls into the Convert API.

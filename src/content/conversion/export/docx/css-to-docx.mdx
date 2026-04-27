@@ -1,0 +1,162 @@
+---
+title: Export editor CSS as DOCX styles
+tags:
+  - type: start
+  - type: experiment
+  - type: version
+    label: v0.16.0
+meta:
+    title: CSS to DOCX | Tiptap Conversion
+    description: Compile CSS rules from your editor into DOCX style definitions on export. Experimental feature — API may change.
+    category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Callout variant="warning" title="Experimental feature">
+  The APIs and property mapping documented on this page may change without
+  notice. Pin exact package versions if you depend on this feature. Read the
+  **What won't work** section before you adopt it.
+</Callout>
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    Authenticate to Tiptap's private npm registry by following the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+<CodeDemo isPro path="/Extensions/ExportDocxCssStyles" />
+
+## What this does
+
+Exporting from Tiptap to DOCX normally takes your document's **node and mark attributes** and writes them inline onto every paragraph, run, and cell. The result is a DOCX file where every element carries its own copy of `fontSize`, `color`, and spacing — verbose, redundant, and visually identical but structurally poor.
+
+This feature lets you keep your editor's **stylesheet** as the source of truth. You provide CSS rules (either explicitly or by letting us extract them from the browser), and on export we compile those rules into DOCX **style definitions** — the named entries Word uses as its own source of truth. The exported DOCX has a proper style catalog that Word users can edit once to change the look of every paragraph that uses the style.
+
+Paired with [CSS injection on import](/conversion/import/docx/css-injection), you get a round-trip path for the *style layer* of your document — separate from the *content layer*.
+
+A second demo shows the browser-extraction variant:
+
+<CodeDemo isPro path="/Extensions/ExportDocxCssStylesExtract" />
+
+## Install
+
+```bash
+npm i @tiptap-pro/extension-export-docx@^0.16.0
+```
+
+## How it works
+
+Three steps:
+
+1. **Collect the CSS.** The exporter reads your styles from two possible sources (you can use either or both):
+   - an explicit `styles` object you pass to `configure()`
+   - the browser's live stylesheets (if `extractFromDocument: true`), scoped to your editor root
+2. **Compile each selector.** The compiler looks up each selector in a fixed map (the same 16 selectors as the import side), converts each CSS property to its DOCX equivalent, and drops properties it can't map.
+3. **Merge into the styles catalog.** The compiled DOCX style fragments are merged into the export options' styles catalog, then handed to the DOCX writer.
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  cssStyles: {
+    styles: {
+      h1: { fontSize: '32px', fontWeight: 'bold', color: '#1a1a1a' },
+      p:  { fontSize: '16px', lineHeight: 1.5, marginTop: '0pt', marginBottom: '8pt' },
+      blockquote: { fontStyle: 'italic', color: '#555' },
+    },
+    // Optional: also pick up rules from the live browser stylesheets
+    extractFromDocument: true,
+    // Optional: base for rem/em resolution
+    baseFontSize: 16,
+  },
+})
+```
+
+When `extractFromDocument: true`, the exporter walks `document.styleSheets`, picks rules whose selectors match the 16-selector map scoped under your editor root, and merges them with any explicit `styles`. **Explicit styles win per-property.**
+
+## What works
+
+**Selectors (16):** same as the import side.
+
+`p`, `h1`–`h6`, `blockquote`, `ul li`, `ol li`, `strong`, `em`, `u`, `s`, `a`, `code`
+
+**CSS properties.** Each selector can carry any subset of the following. Unlisted properties are skipped with a `console.warn` during export.
+
+- `fontSize` — converted to half-points (DOCX `w:sz`)
+- `color` — mapped to DOCX `w:color` (hex)
+- `fontFamily` — mapped to DOCX `w:rFonts`
+- `fontWeight` — `bold` toggles `w:b`
+- `fontStyle` — `italic` toggles `w:i`
+- `textDecoration` — `underline` → `w:u`, `line-through` → `w:strike`
+- `backgroundColor` — mapped to DOCX `w:shd` fill
+- `letterSpacing` — supported on export (not extracted on import)
+- `textAlign` — mapped to DOCX `w:jc` (`justify` → DOCX `both`)
+- `marginTop` / `marginBottom` — mapped to `w:spacing` `before` / `after` (in twips)
+- `lineHeight` — unitless → auto line rule (proportional); `Npt` → exact; `Npx` → converted
+
+**Unit conversion.** The compiler accepts `px`, `pt`, `rem`, `em`. `rem` and `em` are resolved against `baseFontSize` (default `16`). Other units (`%`, `vh`, `ch`, etc.) are not recognised and the property is skipped.
+
+**List merging.** Both `ul li` and `ol li` map to the DOCX `ListParagraph` style. If both are defined, their properties are merged; per-property, the later entry wins.
+
+## What won't work
+
+<Callout variant="warning" title="These are intentional limits">
+These are not bugs. They are explicit, documented boundaries of the feature. If your workflow depends on any of the items below, this feature is not the right tool.
+</Callout>
+
+- **Cross-origin stylesheets.** Browser security blocks `.cssRules` access on any stylesheet served from a different origin. `extractFromDocument` silently skips those sheets. If your theme lives on a CDN, pass the rules explicitly via `styles` instead.
+- **Pseudo-classes, pseudo-elements, media queries.** `a:hover`, `p::first-line`, `@media (min-width: …)` — none of these map to DOCX. They're dropped.
+- **CSS variables and `calc()`.** The compiler reads declared values, not computed values — `var(--brand)` or `calc(100% - 2rem)` are not resolved. Resolve them before passing the styles in.
+- **Arbitrary selectors.** The 16-selector map is the whole menu. Descendants like `.prose p` or `article h1` resolve only if they match the map exactly *after scope stripping* — otherwise dropped.
+- **Cascade and specificity.** The compiler flattens each selector to a single property set. If you have conflicting rules for the same selector at different specificities, only the compiled result lands in DOCX — the cascade is not preserved.
+- **Computed-style inheritance.** The browser extractor reads `document.styleSheets` directly. It does not walk the DOM or compute inherited values. If a property is inherited in the browser but not declared on the target selector, it will not be exported.
+
+## What to expect
+
+- A DOCX file with a proper `styles.xml` that a Word user can edit centrally.
+- Exactly one DOCX style entry per matched selector with exactly the properties that mapped cleanly. Everything else is either merged from an explicit `styles` override or skipped with a `console.warn`.
+- Deterministic behaviour: given the same inputs (`styles` object and DOM stylesheets), exports are byte-comparable.
+- Safe server-side usage: if `document` is undefined (Node, SSR), `extractFromDocument` is a no-op — no errors thrown, nothing injected.
+
+## What not to expect
+
+- **Round-trip identity with the import side.** Some CSS → DOCX conversions are lossy (for example: `line-height: 1.5` → auto line rule, but re-importing that DOCX will emit the line-height back as a unitless multiplier, which may not equal `1.5` exactly if Word normalised the stored value).
+- **Media-query-aware exports.** DOCX has no media queries. If your responsive CSS differs between mobile and desktop, you get whatever rule matched when you called `configure()` (usually desktop).
+- **Visual fidelity against the browser render.** DOCX's rendering engine (Word, LibreOffice, Google Docs) interprets styles differently from a browser. Expect small differences in line spacing, kerning, and paragraph spacing.
+- **Automatic theme translation.** Colours, fonts, and sizes map 1:1. Word "themes" (accent colours, font pairings) do not — if you want a Word theme, you have to set one up on the export options directly.
+
+## Configuration reference
+
+```ts
+ExportDocx.configure({
+  cssStyles: {
+    // Either: explicit object of selectors → CSS declarations
+    styles?: {
+      p?: { fontSize?: string; color?: string; /* … */ },
+      h1?: { /* … */ },
+      // …any of the 16 selectors
+    },
+
+    // Or: extract from the browser's live stylesheets
+    extractFromDocument?: boolean,  // default: false
+
+    // Base size for resolving rem / em
+    baseFontSize?: number,  // default: 16
+  },
+})
+```
+
+## Related
+
+- [CSS injection (import)](/conversion/import/docx/css-injection) — the reverse direction.
+- [Export styles](/conversion/export/docx/export-styles) — the original DOCX export styles guide (manual style definitions, not CSS-based).
+- [REST API](/conversion/export/docx/rest-api) — the DOCX export endpoint.

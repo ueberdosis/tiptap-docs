@@ -38,6 +38,16 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/import/docx/editor-extension',
             },
             {
+              title: 'ConvertKit',
+              href: '/conversion/import/docx/convertkit',
+              tags: ['Experimental'],
+            },
+            {
+              title: 'CSS injection',
+              href: '/conversion/import/docx/css-injection',
+              tags: ['Experimental'],
+            },
+            {
               title: 'REST API',
               href: '/conversion/import/docx/rest-api',
             },
@@ -93,6 +103,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Editor extension',
               href: '/conversion/export/docx/editor-extension',
+            },
+            {
+              title: 'CSS to DOCX',
+              href: '/conversion/export/docx/css-to-docx',
+              tags: ['Experimental'],
             },
             {
               title: 'REST API',

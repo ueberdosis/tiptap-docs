@@ -11,7 +11,9 @@ Hocuspocus offers hooks to extend its functionality and integrate it into existi
 
 Hooks accept a hook payload as first argument. The payload is an object that contains data you can use and manipulate, allowing you to built complex things on top of this simple mechanic, like [extensions](/hocuspocus/guides/custom-extensions).
 
-Hooks are required to return a [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise); the easiest way to do that is to mark the function as `async` (Node.js version must 14+). In this way, you can do things like executing API requests, running DB queries, trigger webhooks or whatever you need to do to integrate it into your application.
+Hooks are required to return a [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise); the easiest way to do that is to mark the function as `async` (Node.js 22+ is required since v4). In this way, you can do things like executing API requests, running DB queries, trigger webhooks or whatever you need to do to integrate it into your application.
+
+Since v4, hook payloads use web-standard `Request` and `Headers` objects instead of Node.js `IncomingMessage` and `IncomingHttpHeaders`. Read headers with `requestHeaders.get('authorization')` rather than `requestHeaders['authorization']`. The `onUpgrade` and `onRequest` hooks are the exception — they still use Node.js types because they operate at the HTTP level before the WebSocket upgrade.
 
 ## Lifecycle
 
@@ -86,7 +88,6 @@ throwing an error that implements CloseEvent (see example below).
 The `data` passed to the `beforeHandleMessage` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from "http";
 import { URLSearchParams } from "url";
 import { Doc } from "yjs";
 import { CloseEvent } from "@hocuspocus/common";
@@ -97,7 +98,7 @@ const data = {
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   update: Uint8Array,
   socketId: string,
@@ -160,18 +161,18 @@ specify a token, the hook is called with an empty string.
 The `data` passed to the `onAuthenticate` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders, IncomingMessage } from "http";
 import { URLSearchParams } from "url";
 import { Doc } from "yjs";
 
 const data = {
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
-  request: IncomingMessage,
+  request: Request,
   socketId: string,
   token: string,
+  providerVersion: string | undefined,
   connection: {
     readOnly: boolean,
   },
@@ -226,7 +227,7 @@ const data = {
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   socketId: string,
   token: string,
@@ -288,28 +289,27 @@ The `onAwarenessUpdate` hooks are called when awareness changed ([Provider Aware
 The `data` passed to the `onAwarenessUpdate` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from 'http'
-import { URLSearchParams } from 'url'
 import { Awareness } from 'y-protocols/awareness'
+import type { Connection, TransactionOrigin } from '@hocuspocus/server'
 
 const data = {
-  clientsCount: number,
-  context: any,
   document: Document,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
-  requestParameters: URLSearchParams,
   update: Uint8Array,
-  socketId: string,
   added: number[],
   updated: number[],
   removed: number[],
   awareness: Awareness,
   states: { clientId: number, [key: string | number]: any }[],
-
+  // Structured origin of the awareness update (since v4)
+  transactionOrigin: TransactionOrigin,
+  // Optional: the connection that triggered this update (since v4)
+  connection?: Connection,
 }
 ```
+
+Since v4 the payload is simplified. Connection-specific fields (`context`, `requestHeaders`, `requestParameters`, `socketId`) have been removed. Access them through the optional `connection` (e.g. `connection?.context`).
 
 **Example**
 
@@ -338,9 +338,9 @@ It's highly recommended to debounce extensive operations as this hook can be fir
 The `data` passed to the `onChange` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from "http";
 import { URLSearchParams } from "url";
 import { Doc } from "yjs";
+import type { TransactionOrigin } from "@hocuspocus/server";
 
 const data = {
   clientsCount: number,
@@ -348,10 +348,12 @@ const data = {
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   update: Uint8Array,
   socketId: string,
+  // Structured origin (since v4) — use isTransactionOrigin() and switch on .source
+  transactionOrigin: TransactionOrigin,
 };
 ```
 
@@ -449,17 +451,17 @@ The `onConnect` hook will be called when a new connection is established. It sho
 The `data` passed to the `onConnect` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from "http";
 import { URLSearchParams } from "url";
 import { Doc } from "yjs";
 
 const data = {
   documentName: string,
   instance: Hocuspocus,
-  request: IncomingMessage,
-  requestHeaders: IncomingHttpHeaders,
+  request: Request,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   socketId: string,
+  providerVersion: string | undefined,
   connection: {
     readOnly: boolean,
   },
@@ -519,7 +521,6 @@ The `onDisconnect` hooks are called when a connection is terminated. It should r
 The `data` passed to the `onDisconnect` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from "http";
 import { URLSearchParams } from "url";
 import { Doc } from "yjs";
 
@@ -529,7 +530,7 @@ const data = {
   document: Document,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   socketId: string,
 };
@@ -611,7 +612,7 @@ const ydoc = TiptapTransformer.toYdoc(
 
 If you want to import HTML, you have to [convert it to Tiptap-compatible JSON first](https://tiptap.dev/api/utilities/html/#generate-json-from-html)
 
-However, we expect you to return a Y.js document from the `onLoadDocument` hook, no matter where it’s from.
+However, we expect you to return a Y.js document (or a raw `Uint8Array` Yjs update, since v4) from the `onLoadDocument` hook, no matter where it’s from.
 
 ```js
 import { Server } from '@hocuspocus/server'
@@ -626,6 +627,17 @@ const server = new Server({
 })
 
 server.listen()
+```
+
+Since v4 you can also return a raw `Uint8Array` of Yjs updates directly, which is convenient for storage extensions:
+
+```js
+const server = new Server({
+  async onLoadDocument({ documentName }) {
+    const update = await loadUpdateFromStorage(documentName)
+    return update // Uint8Array
+  },
+})
 ```
 
 **Fetch your Y.js documents (recommended)**
@@ -646,7 +658,7 @@ const data = {
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   socketId: string,
 };
@@ -675,7 +687,7 @@ const data = {
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
+  requestHeaders: Headers,
   requestParameters: URLSearchParams,
   socketId: string,
 };
@@ -740,26 +752,31 @@ The easiest way to implement this functionality is by extending the extension `e
 fetch() and store() methods, as we did that in `extension-sqlite`. You can implement the `onStoreDocument` yourself
 with the hook directly, just make sure to apply / encode the states of the yDoc as we did in `extension-database`.
 
+Since v4, `onStoreDocument` is triggered on any document change — not just WebSocket-originated ones. The payload has been restructured because the hook can now be triggered by sources that are not tied to a specific connection (e.g. direct connections, Redis replication). If the hook throws, the document stays in memory and is retried to avoid data loss, and `Server.destroy()` flushes any pending debounced stores on shutdown.
+
+If you want to opt out of store hooks for a specific local mutation, set `skipStoreHooks` on the `LocalTransactionOrigin` when opening a direct connection. Extensions can also throw `SkipFurtherHooksError` (from `@hocuspocus/common`) to signal that persistence is handled and remaining hooks should be skipped.
+
 **Hook payload**
 
 The `data` passed to the `onStoreDocument` hook has the following attributes:
 
 ```js
-import { IncomingHttpHeaders } from "http";
-import { URLSearchParams } from "url";
 import { Doc } from "yjs";
+import type { TransactionOrigin } from "@hocuspocus/server";
 
 const data = {
   clientsCount: number,
-  context: any,
   document: Doc,
   documentName: string,
   instance: Hocuspocus,
-  requestHeaders: IncomingHttpHeaders,
-  requestParameters: URLSearchParams,
-  socketId: string,
+  // Context of the last connection that triggered the hook (was `context` in v3)
+  lastContext: any,
+  // Structured origin of the last transaction (was `transactionOrigin` in v3)
+  lastTransactionOrigin: TransactionOrigin,
 };
 ```
+
+In v3 this payload also contained `context`, `requestHeaders`, `requestParameters`, `socketId`, and `transactionOrigin`. In v4 those were removed or renamed — access connection-specific data through `lastContext` if needed.
 
 ### onUpgrade
 

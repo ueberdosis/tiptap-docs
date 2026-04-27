@@ -1,0 +1,204 @@
+---
+title: Insert content
+meta:
+  title: Insert content | Tiptap Server AI Toolkit
+  description: Build a server-side workflow that replaces the current selection with AI-generated content.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a workflow that replaces the current selection with AI-generated content on the server.
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-insert-content-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+Before starting, set up authentication by following the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization).
+
+## When to use this workflow
+
+Implement the insert content workflow with the Server AI Toolkit if you are sure that the document will not change during the AI request. Otherwise, the AI might insert content in the wrong places of the document.
+
+In interactive editing scenarios, like a collaborative document with multiple users, use the [insert content workflow](/content-ai/capabilities/ai-toolkit/workflows/insert-content) of the client-side AI Toolkit.
+
+We're working on a new version of this Server AI Toolkit workflow that is resilient to changes in the document made by other users during the request to the AI model.
+
+## 1. Read the current selection from the AI Server
+
+The insert-content workflow starts by reading the selected content from a collaborative document.
+Call:
+
+- `POST /v3/ai/toolkit/read/read-selection`
+
+```ts
+import { getAuthHeaders } from '@/lib/server-ai-toolkit/get-auth-headers'
+
+const readResponse = await fetch(`${apiBaseUrl}/toolkit/read/read-selection`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    range,
+    sessionId,
+    format: 'shorthand',
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const readResult = await readResponse.json()
+
+if (readResult.output.isEmpty) {
+  throw new Error('No selection available for insert-content workflow')
+}
+```
+
+## 2. Get the workflow definition and build the prompt
+
+Fetch the workflow definition and the schema awareness prompt, then combine them in the system
+prompt. The workflow definition comes from:
+
+- `POST /v3/ai/toolkit/workflows/insert-content`
+
+```ts
+const workflowResponse = await fetch(`${apiBaseUrl}/toolkit/workflows/insert-content`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    format: 'shorthand',
+  }),
+})
+
+const workflow = await workflowResponse.json()
+
+const schemaResponse = await fetch(`${apiBaseUrl}/toolkit/schema-awareness-prompt`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+  }),
+})
+
+const { prompt: schemaAwarenessPrompt } = await schemaResponse.json()
+
+const result = streamText({
+  model,
+  system: `${workflow.systemPrompt}\n\n${schemaAwarenessPrompt}`,
+  prompt: JSON.stringify({
+    task,
+    replace: readResult.output.content,
+    context: readResult.output.prompt,
+  }),
+  output: Output.object({ schema: z.fromJSONSchema(workflow.outputSchema) }),
+})
+
+const workflowOutput = await result.output
+```
+
+Using `format: 'shorthand'` keeps the model output compact while still validating it with a
+structured-output schema.
+
+## 3. Execute the workflow and get the inserted range
+
+Pass the generated shorthand string to the execute endpoint. The response includes the new range of
+the inserted content. Call:
+
+- `POST /v3/ai/toolkit/execute-workflow/insert-content`
+
+```ts
+const executeResponse = await fetch(`${apiBaseUrl}/toolkit/execute-workflow/insert-content`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    format: 'shorthand',
+    input: workflowOutput.content,
+    range,
+    sessionId: readResult.sessionId,
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const executeResult = await executeResponse.json()
+```
+
+<Callout title="Reuse the same session across read and execute" variant="info">
+  The selection read step returns a `sessionId`. Send that same `sessionId` with the execute request
+  so the server can reject stale edits when the selected content changed after the AI read it.
+</Callout>
+
+## 4. Restore the selection on the client
+
+After the collaborative document updates, reselect the inserted content so the user can keep
+working with the new text.
+
+```tsx
+const result: {
+  sessionId: string
+  range: { from: number; to: number } | null
+} = await response.json()
+
+if (result.range) {
+  editor.commands.focus()
+  editor.commands.setTextSelection(result.range)
+}
+```
+
+## Tracked changes
+
+Integrate this workflow with the [Tracked Changes](/tracked-changes/getting-started/overview) extension to show a review UI after the AI edits the document, and allow users to accept
+and reject changes.
+
+In the request to `POST /v3/ai/toolkit/execute-workflow/insert-content`, configure the `reviewOptions` parameter:
+
+```ts
+reviewOptions: {
+  mode: 'trackedChanges',
+  trackedChangesOptions: {
+    userId: 'ai-assistant',
+  },
+  // Set `useDiffUtility: false` to show a suggestion
+  // that spans the entire inserted content.
+  useDiffUtility: false
+}
+```
+
+See the [AI Toolkit demos](https://github.com/ueberdosis/ai-toolkit-demos) for examples on how to integrate Server AI Toolkit workflows with Tracked Changes.
+
+## End result
+
+The finished demo replaces the current selection and keeps the new content selected:
+
+<CodeDemo
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-insert-content-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Review the [Server AI Toolkit REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api)
+- See the [REST API request details](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#execute-the-insert-content-workflow)
+
+```
+
+```

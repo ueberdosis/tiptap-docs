@@ -50,22 +50,36 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Review changes',
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
-                },
-                {
-                  title: 'Justified changes',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/justified-changes',
+                  children: [
+                    {
+                      title: 'Tracked changes',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
+                    },
+                    {
+                      title: 'Tracked changes with comments',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes-with-comments',
+                    },
+                    {
+                      title: 'Suggestions',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions',
+                    },
+                    {
+                      title: 'Suggestions with comments',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions-with-comments',
+                    },
+                    {
+                      title: 'Style suggestions',
+                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
+                    },
+                  ],
                 },
                 {
                   title: 'Streaming',
                   href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
                 },
                 {
-                  title: 'Add comments',
+                  title: 'Comments',
                   href: '/content-ai/capabilities/ai-toolkit/agents/comments',
-                },
-                {
-                  title: 'Tracked changes',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Multi-document',
@@ -150,14 +164,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/concepts',
                 },
                 {
-                  title: 'Suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/suggestions',
-                },
-                {
-                  title: 'Style suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
-                },
-                {
                   title: 'AI engineering',
                   href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
                 },
@@ -234,8 +240,8 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/api-reference/review-options',
                 },
                 {
-                  title: 'Display suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
+                  title: 'Suggestions',
+                  href: '/content-ai/capabilities/ai-toolkit/api-reference/suggestions',
                 },
                 {
                   title: 'Diff utility',
@@ -310,6 +316,14 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/comments',
                 },
                 {
+                  title: 'Selection awareness',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/selection-awareness',
+                },
+                {
+                  title: 'Streaming',
+                  href: '/content-ai/capabilities/server-ai-toolkit/agents/streaming',
+                },
+                {
                   title: 'Tool definitions',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
                 },
@@ -318,6 +332,24 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Workflows',
               href: '/content-ai/capabilities/server-ai-toolkit/workflows',
+              children: [
+                {
+                  title: 'Insert content',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/insert-content',
+                },
+                {
+                  title: 'Proofreader',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/proofreader',
+                },
+                {
+                  title: 'Tiptap Edit',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/tiptap-edit',
+                },
+                {
+                  title: 'Comments',
+                  href: '/content-ai/capabilities/server-ai-toolkit/workflows/comments',
+                },
+              ],
             },
             {
               title: 'API reference',

@@ -1,0 +1,209 @@
+---
+title: PagesTableKit — tables for the Pages extension
+tags:
+  - type: start
+  - type: experiment
+  - type: version
+    label: v0.2.0
+meta:
+    title: PagesTableKit | Tiptap Pages
+    description: Table extensions tailored for the Pages pagination extension. Works for any Pages setup; pairs with DOCX import for faithful Word-document rendering. Experimental feature — API may change.
+    category: Pages
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Callout variant="warning" title="Experimental feature">
+  PagesTableKit is built specifically for the Pages extension. APIs and
+  rendering behaviour may change without notice. Pin exact package versions if
+  you depend on it. Read the **What won't work** section before adopting it.
+</Callout>
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    Authenticate to Tiptap's private npm registry by following the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+## Which setup applies to me?
+
+<Callout title="Two audiences, one extension" variant="info">
+  PagesTableKit is useful in two distinct scenarios. Pick the one that matches
+  your workflow — the rest of this page is organised around the split.
+</Callout>
+
+- **Pages-only workflow** — you are building a paginated editor (print-ready layouts, letter-style documents, reports) and you need tables that paginate correctly. You are **not** importing DOCX files.
+- **Pages + DOCX import workflow** — you are importing `.docx` files and rendering them in a paginated editor. You need tables that paginate **and** faithfully reflect the authored DOCX formatting (declared widths, row heights, indentation).
+
+The installation is the same. The setup and expected behaviour differ; each section below flags which scenario it applies to.
+
+<CodeDemo isPro path="/Extensions/ImportDocxCssStylesPages" />
+
+## Install
+
+```bash
+npm i @tiptap-pro/extension-pages-tablekit@^0.2.0
+```
+
+## How to set it up
+
+PagesTableKit ships a single `TableKit` extension that bundles the Table, TableRow, TableCell, and TableHeader extensions. Register it once instead of wiring up the four extensions individually.
+
+### Scenario A: Pages-only (no DOCX import)
+
+You only need Pages + PagesTableKit. Register `TableKit` alongside whatever editor kit you already use.
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Pages } from '@tiptap-pro/extension-pages'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    TableKit,
+    Pages.configure({ /* page format, margins, etc. */ }),
+  ],
+})
+```
+
+### Scenario B: Pages + DOCX import
+
+Pair PagesTableKit with [ConvertKit](/conversion/import/docx/convertkit) (the DOCX-aware editor kit) and the [ImportDocx extension](/conversion/import/docx/editor-import). Disable ConvertKit's own table stack so PagesTableKit's `TableKit` can take over:
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { Import as ImportDocx } from '@tiptap-pro/extension-import-docx'
+import { Pages } from '@tiptap-pro/extension-pages'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+const editor = new Editor({
+  extensions: [
+    ConvertKit.configure({ table: false }), // disable ConvertKit's table stack
+    TableKit,
+    ImportDocx.configure({ /* appId, token, … */ }),
+    Pages.configure({ /* page format, margins, etc. */ }),
+  ],
+})
+```
+
+## What works
+
+### Universal behaviour (both scenarios)
+
+- **Pagination-safe table rendering.** Tables sit inside the page content area and never horizontally overflow it.
+- **Column proportions preserved.** When every cell carries a `colwidth`, columns shrink proportionally to fit the page — a 10 % / 40 % / 50 % column split renders as 10 / 40 / 50 at any page width.
+- **Row height behaviour.**
+  - `heightRule: "exact"` — the row renders at the declared height and clips overflowing content.
+  - `heightRule: "atLeast"` (or unset) — the row grows vertically when content or narrower columns would otherwise force clipping.
+- **Live updates.** Edits that add, remove, or reorder cells re-lay the row out immediately.
+
+### DOCX-specific behaviour (Scenario B)
+
+These extras activate automatically when your document content was produced by the DOCX importer. You don't configure them separately — if the converter emitted the attribute, PagesTableKit honours it.
+
+- **Declared DOCX widths respected.** A DOCX table authored wider than the page shrinks proportionally into the content area instead of overflowing.
+- **DOCX row heights.** `w:trHeight` with `w:hRule="exact"` clips; `w:hRule="atLeast"` (or missing) grows.
+- **Narrow spacer columns preserved.** DOCX spacer columns (1–15 px) don't get inflated to a visible width.
+- **Negative DOCX indents.** Negative `w:tblInd` values (which Word renders into the paper gutter) are preserved in `attrs.indent` but clamped to 0 visually so tables don't push past the page edge.
+- **Cell background, vertical alignment, per-side borders.** Flow through from the DOCX import without extra work.
+
+## What won't work
+
+<Callout variant="warning" title="These are intentional limits">
+These are not bugs. They are explicit, documented boundaries of the feature. If your workflow depends on any of the items below, this feature is not the right tool.
+</Callout>
+
+### Universal limits (both scenarios)
+
+- **Editors without the Pages extension.** PagesTableKit is designed for Pages' paginated layout — it relies on Pages to constrain rows within the page. In a standard editor rows won't render correctly and over-wide tables will overflow horizontally. Use a regular table extension instead.
+- **Hand-authored rows with mixed `colwidth` / no `colwidth`.** The proportional-shrink behaviour kicks in when **every** cell carries a column width. In rows where some cells do and some don't, columns may render with different proportions than you'd expect.
+- **Column resize handles.** Drag-to-resize from `@tiptap/extension-table` is supported, but the final rendered widths may be proportional rather than the exact pixel values you dragged to — especially when every cell already carries a column width.
+
+### DOCX-specific limits (Scenario B)
+
+- **Floating tables.** DOCX `w:tblpPr` (tables positioned relative to an anchor with text wrap) is not converted by the importer — floats render as regular stacked tables.
+- **Pixel-perfect parity with Microsoft Word's table layout.** Word uses a proprietary layout algorithm that blends fixed and proportional sizing with content measurement. Expect small differences on tables authored with Word's "AutoFit to contents" setting.
+
+## Known issues
+
+### Rows must fit on a single page
+
+When a table row does not fit on the current page, Pages moves the **entire row** to the next page as an atomic unit. This differs from Microsoft Word, which visually splits a tall row across pages — PagesTableKit does not currently support mid-row page splits.
+
+If a row is taller than the page content area, moving it to the next page doesn't help: it won't fit there either, and the editor will keep trying to move it forward indefinitely. The result is an infinite pagination loop and a broken editor.
+
+**How to avoid it.** Keep row heights below the page content area. Be especially careful with:
+
+- `heightRule: "atLeast"` rows whose content can grow unbounded.
+- DOCX imports that carry very tall exact-height rows authored for larger paper than your target page format.
+- Nested tables inside cells, which can force the outer row taller than the page.
+
+Mid-row page splitting is on the roadmap. ETA: TBD.
+
+## What to expect
+
+### Universal (both scenarios)
+
+- Tables sit inside the page content area; exact-height rows clip, `atLeast` rows grow.
+- Updates land on every transaction — adding or removing cells re-lays the row immediately.
+- Very large tables (thousands of rows) may have a noticeable layout cost on edits. If you hit this, consider paginating large tables manually or splitting them across multiple documents.
+
+### DOCX-specific (Scenario B)
+
+- DOCX tables retain their declared widths, row heights, indentation, background colours, and per-side borders on import.
+- Over-wide DOCX tables (common in templates drawn full-width in Word) visually shrink to fit the page instead of overflowing.
+- You do not need to post-process imported DOCX JSON before rendering — the extensions read the attributes the importer produces.
+
+## What not to expect
+
+### Universal (both scenarios)
+
+- **A replacement for Pages.** PagesTableKit only handles tables. Pagination, page containers, headers, and footers are Pages' responsibility.
+- **Column-width mutation from your own DOM code.** Column widths flow from the ProseMirror document. Change them via `@tiptap/extension-table`'s commands (or your own transactions), not by writing directly to `dom.style`.
+
+### DOCX-specific (Scenario B)
+
+- **Round-trip identity.** Importing then exporting a DOCX through the Convert pipeline is not guaranteed to be byte-identical. Unsupported DOCX features (floats, certain table styles) are dropped on import.
+
+## Configuration reference
+
+PagesTableKit exports a single `TableKit` extension that bundles Table, TableRow, TableCell, and TableHeader.
+
+```ts
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+// Use defaults
+TableKit,
+```
+
+Each bundled extension can be configured (or disabled with `false`) through `TableKit.configure()`:
+
+```ts
+TableKit.configure({
+  table:       { cellMinWidth: 1 }, // Table options from @tiptap/extension-table
+  tableRow:    { /* TableRow options */ },
+  tableCell:   { /* TableCell options */ },
+  tableHeader: false, // disable the header extension entirely
+})
+```
+
+There are no configuration options unique to PagesTableKit — each key forwards to the underlying extension's standard options.
+
+## Related
+
+- [Pages overview](/pages/getting-started/overview) — the pagination extension PagesTableKit requires.
+- [Pages with tables](/pages/guides/table-with-pages) — general guide for authoring tables inside Pages.
+- [ConvertKit](/conversion/import/docx/convertkit) — DOCX-aware editor kit; use it for Scenario B.
+- [Editor extension (import DOCX)](/conversion/import/docx/editor-import) — how the `ImportDocx` extension pulls Word content into your editor.
+- [CSS injection (import)](/conversion/import/docx/css-injection) — extract the DOCX style catalog as CSS for consistent typography across paginated content.

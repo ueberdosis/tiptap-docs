@@ -1,0 +1,178 @@
+---
+title: Tiptap Edit
+meta:
+  title: Tiptap Edit | Tiptap Server AI Toolkit
+  description: Build a general-purpose server-side editing workflow for Tiptap documents.
+  category: Content AI
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+Build a general-purpose editing workflow that reads a document, generates edit operations, and
+applies them on the server.
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/server-edit-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+<Callout title="Use this workflow when the AI should rewrite existing content" variant="info">
+  The Tiptap Edit workflow is the most flexible Server AI Toolkit workflow. Use it for tasks like
+  rewriting paragraphs, inserting new blocks near a target node, or transforming an entire document.
+</Callout>
+
+<Callout title="Reuse the same session across read and execute" variant="info">
+  The read step returns a `sessionId`. Send that same `sessionId` with the execute request so the
+  server can reject stale edits when the document changed after the AI read it.
+</Callout>
+
+Before starting, set up authentication by following the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization).
+
+## 1. Read the document from the AI Server
+
+Read the part of the document you want the model to work on. Call:
+
+- `POST /v3/ai/toolkit/read/read-document`
+
+```ts
+import { getAuthHeaders } from '@/lib/server-ai-toolkit/get-auth-headers'
+
+const readResponse = await fetch(`${apiBaseUrl}/toolkit/read/read-document`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    sessionId,
+    format: 'shorthand',
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const readResult = await readResponse.json()
+```
+
+## 2. Generate edit operations
+
+Get the workflow definition from the AI Server and ask the model for structured edit operations.
+
+```ts
+const workflowResponse = await fetch(`${apiBaseUrl}/toolkit/workflows/edit`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    format: 'shorthand',
+  }),
+})
+
+const workflow = await workflowResponse.json()
+
+const schemaResponse = await fetch(`${apiBaseUrl}/toolkit/schema-awareness-prompt`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+  }),
+})
+
+const { prompt: schemaAwarenessPrompt } = await schemaResponse.json()
+
+const result = streamText({
+  model,
+  system: `${workflow.systemPrompt}\n\n${schemaAwarenessPrompt}`,
+  prompt: JSON.stringify({
+    content: readResult.output.content,
+    task,
+  }),
+  output: Output.object({ schema: z.fromJSONSchema(workflow.outputSchema) }),
+})
+
+const output = await result.output
+```
+
+## 3. Execute the edit workflow
+
+Send the generated operations back to the Server AI Toolkit. When you use a Tiptap Cloud document,
+the server updates the collaborative document automatically. Call:
+
+- `POST /v3/ai/toolkit/execute-workflow/tiptap-edit`
+
+```ts
+const executeResponse = await fetch(`${apiBaseUrl}/toolkit/execute-workflow/tiptap-edit`, {
+  method: 'POST',
+  headers: getAuthHeaders(),
+  body: JSON.stringify({
+    schemaAwarenessData,
+    format: 'shorthand',
+    input: output,
+    sessionId: readResult.sessionId,
+    reviewOptions: {
+      mode: 'disabled',
+    },
+    experimental_documentOptions: {
+      documentId,
+      userId: 'ai-assistant',
+    },
+  }),
+})
+
+const executeResult = await executeResponse.json()
+```
+
+## 4. Trigger the workflow from the editor UI
+
+The client should keep the latest `sessionId` and send it with the next request.
+
+```tsx
+const response = await fetch('/api/server-edit-workflow', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    documentId,
+    schemaAwarenessData: getSchemaAwarenessData(editor),
+    task,
+    sessionId,
+  }),
+})
+
+const result: { sessionId: string } = await response.json()
+setSessionId(result.sessionId)
+```
+
+## Tracked changes
+
+Integrate this workflow with the [Tracked Changes](/tracked-changes/getting-started/overview) extension to show a review UI after the AI edits the document, and allow users to accept
+and reject changes.
+
+In the request to `POST /v3/ai/toolkit/execute-workflow/tiptap-edit`, configure the `reviewOptions` parameter:
+
+```ts
+reviewOptions: {
+  mode: 'trackedChanges',
+  trackedChangesOptions: {
+    userId: 'ai-assistant',
+  },
+}
+```
+
+See the [AI Toolkit demos](https://github.com/ueberdosis/ai-toolkit-demos) for examples on how to integrate Server AI Toolkit workflows with Tracked Changes.
+
+## End result
+
+The finished demo rewrites the collaborative document entirely on the server:
+
+<CodeDemo path="" isScrollable src="https://ai-toolkit-demos.vercel.app/server-edit-workflow" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Review the [Server AI Toolkit REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api)
+- See the [REST API request details](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#execute-the-tiptap-edit-workflow)
