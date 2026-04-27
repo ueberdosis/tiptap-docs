@@ -15,6 +15,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/getting-started/overview',
         },
         {
+          title: 'Install',
+          href: '/conversion/getting-started/install',
+        },
+        {
           title: 'Live demo',
           href: '/conversion/getting-started/demo',
         },
