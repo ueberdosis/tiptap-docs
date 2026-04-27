@@ -28,8 +28,8 @@ In Word, headings are paragraphs with a heading style applied (Heading 1 through
 | | Import | Editor (with ConvertKit) | Export |
 | --- | --- | --- | --- |
 | Heading levels 1 to 6 | Supported | Supported | Supported |
-| Title and Subtitle styles | Mapped to level 1 and 2 | Supported | Exported as level 1 and 2 |
-| Heading levels 7 to 9 | Supported | Not rendered (custom extension required) | Not supported |
+| Title and Subtitle styles | Imported as paragraphs (with inherited font and spacing from the style chain) | Render as paragraphs that visually resemble headings | Exported as paragraphs |
+| Heading levels 7 to 9 | Heading nodes produced with `level: 7`, `8`, or `9` in JSON | Render as `<h1>` because the standard Heading extension's `levels` option only allows 1–6; the level is preserved in the JSON attrs but the tag is coerced. Configure `Heading.configure({ levels: [1,2,3,4,5,6,7,8,9] })` (or override ConvertKit's `heading` slot) to render the actual tags. | Exported as `<h1>` Word-side unless your editor schema accepts higher levels |
 | Custom heading styles | Resolved to closest standard level | Style name lost | Generic heading style applied |
 | Text alignment | Supported | Supported (TextAlign) | Supported |
 | Inline formatting | Supported | Supported | Supported |
@@ -41,9 +41,9 @@ In Word, headings are paragraphs with a heading style applied (Heading 1 through
 
 Import headings using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both produce identical heading output.
 
-The conversion service detects Word heading styles (`Heading1` through `Heading9`, plus `Title` and `Subtitle`) and produces a `heading` node. Custom heading styles (e.g., "Company Heading" based on Heading 2) are resolved by walking the `basedOn` style chain. The resolved level is preserved, but the custom style name is discarded.
+The conversion service detects Word heading styles whose canonical name matches `Heading 1` through `Heading 9` (case-insensitive, with or without the space) and produces a `heading` node with the corresponding level. The custom style name is discarded; only the resolved level is preserved.
 
-**Title** maps to level 1. **Subtitle** maps to level 2. These styles are common in corporate Word templates, so heading levels in the editor may differ from what users expect if their documents use Title/Subtitle instead of Heading 1/Heading 2.
+**Title and Subtitle do not map to headings.** The importer's heading detection only matches the `Heading N` pattern, so paragraphs styled `Title` or `Subtitle` in Word are imported as `paragraph` nodes. The font, size, and spacing from those styles flow through the `basedOn` chain as run-level marks (`textStyle.fontSize`, `textStyle.fontFamily`, etc.) and as paragraph-level attributes, which is why the imported result *looks* like a heading even though it isn't a heading node. The original style name is not preserved on the output, so the developer cannot tell from the JSON alone which paragraphs were `Title` versus `Normal`. If `<h1>`/`<h2>` semantics matter for Title/Subtitle in your application, the workaround today is to pre-process the DOCX file (e.g. with a docx editor) and rename those styles to `Heading 1` and `Heading 2` before import.
 
 <CodeDemo isPro path="/Extensions/ContentTypeHeadingsImport?hideSource=true" />
 
@@ -68,16 +68,22 @@ The conversion service outputs heading nodes in this structure:
 }
 ```
 
-<Callout variant="warning" title="Heading levels 7–9">
-  Word supports heading levels 1–9, and the import converter recognizes all nine levels. However, Tiptap's default Heading extension only supports levels 1–6. Heading nodes with levels 7–9 will be produced on import but require a custom extension to render in the editor. Without one, the schema will drop them to paragraphs when the document loads.
+<Callout variant="warning" title="Heading levels 7–9 render as h1">
+  Word supports heading levels 1 to 9, and the import converter recognises all nine. The `Heading` extension's default `levels` option is `[1,2,3,4,5,6]`, and its `renderHTML` falls back to `levels[0]` (= `1`) when the node's level is outside the allowed list. Imported levels 7, 8, and 9 therefore render as `<h1>` in the editor by default. The level value is preserved in the node's JSON `attrs.level`, so the data is not lost; only the rendered tag is coerced. To render the actual `<h7>`–`<h9>` tags (or any tag mapping you want), pass the full range to `Heading.configure`:
+
+```ts
+ConvertKit.configure({
+  heading: { levels: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+})
+```
 </Callout>
 
 ### What's preserved
 
-- Heading level (1–6)
+- Heading level (1 to 9 in the JSON; levels 7 to 9 render as `<h1>` unless you extend the `levels` option)
 - Inline formatting within the heading (bold, italic, color, and font as marks on child text nodes)
 - Text alignment (as `textAlign` attribute)
-- Paragraph spacing before/after (as `marginTop`/`marginBottom` attributes)
+- Paragraph spacing before/after (as `spacingBefore` and `spacingAfter` attributes; rendered as `margin-top` / `margin-bottom` by ConvertKit's custom Heading)
 
 ### What's lost
 
