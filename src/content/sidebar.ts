@@ -57,6 +57,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/getting-started/overview',
           title: 'Pages',
         },
+        {
+          href: '/authentication',
+          title: 'Authentication',
+          tags: ['New'],
+        },
       ],
     },
     {

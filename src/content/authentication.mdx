@@ -1,0 +1,317 @@
+---
+title: Authentication
+meta:
+  title: Authentication | Tiptap Docs
+  description: Authenticate Tiptap services (AI, Convert, Documents) with JWTs. Reference for claims, signing keys, permissions, and security best practices.
+  category: Authentication
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="Available on request" variant="info">
+  This unified authentication model is currently rolling out and only enabled for selected environments. If you'd like early access, [email humans@tiptap.dev](mailto:humans@tiptap.dev). Until your environment is migrated, continue using the existing per-service authentication for [Collaboration](/collaboration/getting-started/authenticate), [Conversion](/conversion/getting-started/install), and [Content AI](/content-ai/capabilities/generation/install).
+</Callout>
+
+Tiptap services use JWTs (JSON Web Tokens) for authentication and authorization. You generate and sign tokens on your server, then pass them to Tiptap services. Each token identifies your environment, names the services it can access, and the actions it's authorized to perform on your resources.
+
+## How it works
+
+1. You create an asymmetric secret key pair in your Tiptap dashboard.
+2. Your server signs a JWT using the private key.
+3. Your client passes the JWT when connecting to a Tiptap service (AI, Convert, Documents).
+4. Tiptap verifies the token's signature with the public key and checks your subscription.
+
+## Why a new auth model?
+
+The new model replaces per-service tokens with a single, unified JWT that carries everything a request needs to know. Which services it can reach, what it's allowed to do, and on which resources. The result is a smaller integration surface, stronger defaults, and finer-grained control.
+
+- **One token, many services.** A single JWT authorizes any combination of AI, Convert, and Documents through the `aud` claim.
+- **Cross-service workflows.** The AI service can act on your documents under the same token. No service-to-service plumbing.
+- **Permissions inside the token.** Declare exactly what's allowed via `action`, `resource`, and optional constraints, instead of relying on coarse service-level scopes.
+- **Zero-downtime key rotation.** Run multiple active key pairs per environment and retire old keys without a switchover window.
+
+## Claims reference
+
+Every JWT must include these registered claims:
+
+| Claim | Type | Required | Description |
+|-------|------|----------|-------------|
+| `iss` | `string` | Yes | Your environment hash ID (from the Tiptap dashboard) |
+| `aud` | `string \| string[]` | Yes | Which services this token can access: `"AI"`, `"Convert"`, `"Documents"` |
+| `iat` | `number` | No | Issued-at timestamp (epoch seconds) |
+| `exp` | `number` | Yes | Expiration timestamp (epoch seconds) |
+| `sub` | `string` | No | User identifier (for audit trails and tracing) |
+| `permissions` | `Permission[]` | No | What this token is allowed to do. Omitting grants no specific actions. |
+
+## Signing the token
+
+### Asymmetric key pair (ES256) — default
+
+When you create a secret in the dashboard, you receive an ECDSA private key (P-256). You sign tokens with your private key. Tiptap only stores the public key and uses it to verify tokens. Your private key never leaves your server.
+
+```typescript
+import { SignJWT, importPKCS8 } from 'jose'
+
+const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY, 'ES256')
+
+const jwt = await new SignJWT({
+  permissions: [
+    { action: 'Documents:Read', resource: '*' },
+  ],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer('your-environment-hash-id')
+  .setAudience(['Documents'])
+  .setIssuedAt()
+  .setExpirationTime('30m')
+  .sign(privateKey)
+```
+
+### Other languages
+
+The JWT is a standard [RFC 7519](https://datatracker.ietf.org/doc/html/rfc7519) token. Any JWT library that supports ES256 can sign tokens. The payload structure is the same regardless of language.
+
+**Python** (PyJWT, requires `pyjwt[crypto]` for ES256):
+
+```python
+import jwt, time
+
+with open("private_key.pem", "rb") as f:
+    private_key = f.read()
+
+payload = {
+    "iss": "your-environment-hash-id",
+    "aud": ["AI", "Documents"],
+    "iat": int(time.time()),
+    "exp": int(time.time()) + 1800,
+    "permissions": [
+        {"action": "Documents:Read", "resource": "*"}
+    ]
+}
+
+token = jwt.encode(payload, private_key, algorithm="ES256")
+```
+
+**PHP** (firebase/php-jwt):
+
+```php
+use Firebase\JWT\JWT;
+
+$privateKey = file_get_contents('private_key.pem');
+
+$payload = [
+    'iss' => 'your-environment-hash-id',
+    'aud' => ['AI', 'Documents'],
+    'iat' => time(),
+    'exp' => time() + 1800,
+    'permissions' => [
+        ['action' => 'Documents:Read', 'resource' => '*'],
+    ],
+];
+
+$token = JWT::encode($payload, $privateKey, 'ES256');
+```
+
+## Permissions
+
+Permissions define what a token is allowed to do. While they are optional, a token without permissions authenticates the request but grants no specific actions.
+
+Each permission has an **action** and a **resource** (both required), plus optional **constraints**:
+
+```json
+{
+  "permissions": [
+    {
+      "action": "Documents:Read",
+      "resource": "*",
+      "constraints": { "prefix": "team1_" }
+    }
+  ]
+}
+```
+
+### Actions
+
+Actions follow the format `Service:Operation`. Each Tiptap service defines its own actions:
+
+| Service | Actions |
+|---------|---------|
+| Documents | `Documents:Read`, `Documents:Write`, `Documents:Comment` |
+| Documents REST API | `Documents:Api:All` grants full access to the Document Server's REST API.|
+| Convert | `Convert:Docx`, `Convert:Doc`, `Convert:Odt`, `Convert:Epub`, `Convert:Pdf`, `Convert:Markdown`, `Convert:Fonts` |
+| AI | _No per-action permissions are enforced yet. Include `"AI"` in `aud` to allow access; `permissions` entries for AI are not required._ |
+
+`Documents:Write` implies `Documents:Read` and `Documents:Comment` — granting write access automatically grants the other two, so you don't need to list them separately.
+
+`Documents:Api:All` grants full access to the Document Server's REST API. It's separate from the other `Documents:*` actions, which authorize document operations over the collaboration connection.
+
+`Convert:*` actions are scoped by file format. A token only needs the actions for the formats it converts (e.g. a token that only exports PDF needs `Convert:Pdf`).
+
+Actions are case-insensitive — `"Documents:Read"` and `"documents:read"` are equivalent. Resources and constraint values (`prefix`, `suffix`, `in`) remain case-sensitive because they can reference externally meaningful identifiers. Pick a consistent casing for your own code.
+
+### Resources
+
+The `resource` field is **required** on every permission. It controls which resources the permission applies to:
+
+| Value | Meaning | Example |
+|-------|---------|---------|
+| `"*"` | **Wildcard** — matches everything | `{ "action": "Documents:Read", "resource": "*" }` |
+| `"*"` + constraints | **Filtered wildcard** — matches resources that pass the constraints | `{ "action": "Documents:Read", "resource": "*", "constraints": { "prefix": "team_" } }` |
+| `"doc_42"` | **Specific** — matches only this exact resource | `{ "action": "Documents:Write", "resource": "doc_42" }` |
+
+Key rules:
+
+- Use `"*"` for wildcard access. A wildcard without constraints matches **everything**.
+- A specific resource matches only that exact resource.
+
+### Constraints
+
+Constraints add fine-grained filtering on top of resource matching. They're useful when you want to allow access to a category of resources rather than listing each one.
+
+```json
+{
+  "action": "Documents:Read",
+  "resource": "*",
+  "constraints": { "prefix": "team1_" }
+}
+```
+
+This grants read access to any document whose name starts with `"team1_"`.
+
+**Available constraint fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prefix` | `string` | Resource name must start with this value |
+| `suffix` | `string` | Resource name must end with this value |
+| `in` | `string[]` | Resource name must be one of these exact values |
+
+**Combining fields within a single constraint** uses AND logic (all must pass):
+
+```json
+{ "prefix": "team1_", "suffix": "_published" }
+```
+
+Matches `"team1_report_published"` but not `"team1_report_draft"`.
+
+**An array of constraints** uses OR logic (any one passing is enough):
+
+```json
+[
+  { "prefix": "team1_" },
+  { "prefix": "team2_" }
+]
+```
+
+Matches `"team1_doc"` or `"team2_doc"`.
+
+**Rules:**
+
+- The `constraints` field can't be empty. Each constraint must declare at least one of `prefix`, `suffix`, or `in`, and an array of constraints must contain at least one entry. Omit the field entirely for "no filtering".
+- `in` cannot be combined with `prefix` or `suffix` in the same constraint object. Use separate constraints in an array instead.
+- `prefix` and `suffix` must be non-empty strings.
+- `in` must be a non-empty array of strings.
+
+## Examples
+
+### Full access to all services
+
+```json
+{
+  "iss": "env_abc123",
+  "aud": ["AI", "Convert", "Documents"],
+  "iat": 1722344565,
+  "exp": 1722344865,
+  "permissions": [
+    { "action": "Documents:Write", "resource": "*" },
+    { "action": "Convert:Docx", "resource": "*" },
+    { "action": "Convert:Doc", "resource": "*" },
+    { "action": "Convert:Odt", "resource": "*" },
+    { "action": "Convert:Epub", "resource": "*" },
+    { "action": "Convert:Pdf", "resource": "*" },
+    { "action": "Convert:Markdown", "resource": "*" }
+    { "action": "Convert:Fonts", "resource": "*" }
+  ]
+}
+```
+
+`Documents:Write` covers read and comment by implication, so only one Documents entry is needed. AI doesn't take action entries — having `"AI"` in `aud` is enough.
+
+### Read-only access to specific documents
+
+```json
+{
+  "permissions": [
+    {
+      "action": "Documents:Read",
+      "resource": "*",
+      "constraints": {
+        "in": ["document_a", "document_b"]
+      }
+    }
+  ]
+}
+```
+
+### AI access only
+
+AI does not enforce per-action permissions yet. Including `"AI"` in `aud` is enough to authorize the request:
+
+```json
+{
+  "aud": ["AI"]
+}
+```
+
+### Document conversion
+
+Grant only the formats the token needs to import or export:
+
+```json
+{
+  "aud": ["Convert"],
+  "permissions": [
+    { "action": "Convert:Docx", "resource": "*" },
+    { "action": "Convert:Pdf", "resource": "*" }
+  ]
+}
+```
+
+### Scoped by document prefix
+
+Allow reading and commenting on documents that belong to a specific team:
+
+```json
+{
+  "permissions": [
+    {
+      "action": "Documents:Read",
+      "resource": "*",
+      "constraints": { "prefix": "team-sales_" }
+    },
+    {
+      "action": "Documents:Comment",
+      "resource": "*",
+      "constraints": { "prefix": "team-sales_" }
+    }
+  ]
+}
+```
+
+### Write access to a single document
+
+```json
+{
+  "permissions": [
+    { "action": "Documents:Write", "resource": "meeting-notes-2024" }
+  ]
+}
+```
+
+## Security best practices
+
+- **Keep tokens short-lived.** Set `exp` to 30 minutes or less. Generate a fresh token for each session or connection.
+- **Use the least privilege.** Only include the permissions and audiences the token actually needs. A token used only for Convert exports shouldn't include `"Documents"` or `"AI"` in its audience.
+- **Never expose your private key client-side.** Token generation must happen on your server. Send the signed JWT to your client, never the signing key.
+- **Rotate keys periodically.** Create a new key pair, update your server to sign with the new key, then retire the old one. Tiptap supports multiple active key pairs per environment to allow zero-downtime rotation.
+- **Set `sub` for auditability.** Including a user identifier in `sub` helps trace actions back to specific users in logs and audit trails.
