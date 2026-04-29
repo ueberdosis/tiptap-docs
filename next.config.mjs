@@ -136,17 +136,17 @@ const nextConfig = {
       },
       {
         source: '/conversion/import-export/docx/custom-node-conversion',
-        destination: '/conversion/import/docx/custom-node-conversion',
+        destination: '/conversion/import/docx/custom-node-mapping',
         permanent: true,
       },
       {
         source: '/conversion/import-export/docx/custom-page-layout',
-        destination: '/conversion/export/docx/custom-page-layout',
+        destination: '/conversion/export/docx/page-layout',
         permanent: true,
       },
       {
         source: '/conversion/import-export/docx/preserve-images',
-        destination: '/conversion/import/docx/preserve-images',
+        destination: '/conversion/import/docx/image-handling',
         permanent: true,
       },
       {
@@ -262,6 +262,140 @@ const nextConfig = {
       {
         source: '/ui-components/components/node-button',
         destination: '/ui-components/components/blockquote-button',
+        permanent: true,
+      },
+      // Conversion docs restructure: renamed pages (live origin paths → new paths)
+      // Import: renamed files
+      {
+        source: '/conversion/import/docx/editor-import',
+        destination: '/conversion/import/docx/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/docx/custom-node-conversion',
+        destination: '/conversion/import/docx/custom-node-mapping',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/docx/custom-mark-conversion',
+        destination: '/conversion/import/docx/custom-mark-mapping',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/docx/preserve-images',
+        destination: '/conversion/import/docx/image-handling',
+        permanent: true,
+      },
+      {
+        source: '/conversion/import/docx/convert-kit',
+        destination: '/conversion/import/docx/convertkit',
+        permanent: true,
+      },
+      // Export: renamed files (editor-export → editor-extension)
+      {
+        source: '/conversion/export/docx/editor-export',
+        destination: '/conversion/export/docx/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/editor-export',
+        destination: '/conversion/export/pdf/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/editor-export',
+        destination: '/conversion/export/odt/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/editor-export',
+        destination: '/conversion/export/epub/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/editor-export',
+        destination: '/conversion/export/doc/editor-extension',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/markdown/editor-export',
+        destination: '/conversion/export/markdown/editor-extension',
+        permanent: true,
+      },
+      // Export: renamed deep guide files
+      {
+        source: '/conversion/export/docx/custom-node-conversion',
+        destination: '/conversion/export/docx/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/docx/export-styles',
+        destination: '/conversion/export/docx/styles',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/docx/custom-page-layout',
+        destination: '/conversion/export/docx/page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/custom-node-conversion',
+        destination: '/conversion/export/pdf/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/export-styles',
+        destination: '/conversion/export/pdf/styles',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/pdf/custom-page-layout',
+        destination: '/conversion/export/pdf/page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/custom-node-conversion',
+        destination: '/conversion/export/odt/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/export-styles',
+        destination: '/conversion/export/odt/styles',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/odt/custom-page-layout',
+        destination: '/conversion/export/odt/page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/custom-node-conversion',
+        destination: '/conversion/export/epub/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/export-styles',
+        destination: '/conversion/export/epub/styles',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/epub/custom-page-layout',
+        destination: '/conversion/export/epub/page-layout',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/custom-node-conversion',
+        destination: '/conversion/export/doc/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/export-styles',
+        destination: '/conversion/export/doc/styles',
+        permanent: true,
+      },
+      {
+        source: '/conversion/export/doc/custom-page-layout',
+        destination: '/conversion/export/doc/page-layout',
         permanent: true,
       },
       // The redirects below are temporary and should be moved to the reverse proxy

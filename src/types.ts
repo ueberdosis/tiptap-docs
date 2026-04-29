@@ -5,6 +5,7 @@ export type SidebarLink = {
   tags?: string[]
   beta?: boolean
   external?: boolean
+  disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
   /**
    * Whether to show the link as active. If undefined, the link will be active

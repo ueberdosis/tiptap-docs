@@ -1,0 +1,141 @@
+---
+title: Tables
+tags:
+  - type: beta
+meta:
+  title: Tables | Tiptap Conversion
+  description: How tables, merged cells, header rows, column widths, and cell styling convert between DOCX and Tiptap.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Tables convert between DOCX and Tiptap using the `table`, `tableRow`, `tableCell`, and `tableHeader` node types. Basic structure, colspan, and column widths round-trip cleanly. Header rows import correctly but are not preserved on export. Cell-level styling is lossy on export.
+
+## What you need
+
+The right table extension depends on whether you also use the Pages extension and whether you want DOCX-specific cell formatting (backgrounds, borders, vertical alignment, row height).
+
+- **Recommended (DOCX-aware, no pagination):** [`ConvertKit`](/conversion/import/docx/convertkit). Its bundled `ConvertTableKit` provides `Table`, `TableRow`, `TableCell`, `TableHeader` with DOCX attributes (`width`, `indent`, `height`, `heightRule`, `background`, `verticalAlign`, per-side borders) preconfigured.
+- **DOCX-aware with pagination:** [`@tiptap-pro/extension-pages-tablekit`](/pages/guides/pages-tablekit). Its table extensions internally extend ConvertKit's, so the same DOCX cell attributes (background, vertical alignment, per-side borders, height, height rule) flow through, this time rendered via CSS Grid so tables can split across page breaks. Use this stack instead of (not in addition to) ConvertKit's table overrides; see the [PagesTableKit guide](/pages/guides/pages-tablekit) "Scenario B" for the composition.
+- **Minimum (no DOCX cell formatting):** [`@tiptap/extension-table`](/editor/extensions/nodes/table) (open source TableKit, not in StarterKit). Renders the basic table structure; cell backgrounds, borders, vertical alignment, and row height are stripped on schema validation.
+
+All three setups register the same node names (`table`, `tableRow`, `tableCell`, `tableHeader`), so the import JSON shape is the same. The difference is which attributes survive the editor schema. Do not install more than one table stack at a time.
+
+## Support overview
+
+The editor column below assumes ConvertKit (or PagesTableKit, which inherits ConvertKit's table overrides). With the minimum setup, every row marked "Supported" for cell- and row-level attributes drops to "Attributes dropped by schema."
+
+<Callout title="Attributes in context.content but not rendering?" variant="info">
+  If you inspect `context.content` after import and see `background`, `borderTopWidth`, `height`, `heightRule`, etc. on cells and rows, but the editor renders a plain table without those styles, you are almost certainly using `@tiptap/extension-table` directly. Switch to [ConvertKit](/conversion/import/docx/convertkit) (or PagesTableKit if you also use the Pages extension); only their table extensions declare these attributes in the schema.
+</Callout>
+
+| Feature | Import | Editor (with ConvertKit) | Export | Notes |
+| --- | --- | --- | --- | --- |
+| Basic tables | Supported | Supported | Supported | Fixed layout in DOCX output |
+| Header rows | Detected only when source DOCX has explicit `<w:tblHeader/>` markup | Renders as `tableHeader` nodes | Not preserved | Word users who only visually format the first row (bold, shaded) without applying the "Repeat as header row" property get no `tableHeader` nodes on import |
+| Colspan | Supported | Supported | Supported | Full round-trip |
+| Rowspan | Supported | Supported | Supported | A pre-scan across all rows builds a complete rowspan map before processing cells |
+| Column widths | Supported | Supported | Supported | Stored as `colwidth` array in pixels, converted to twips on export |
+| Cell backgrounds | Supported | Supported | Not preserved per cell | `background` captured on import, not read on export. A single global colour can be set via `tableCellOverrides.shading` |
+| Cell borders | Supported | Supported (per-side `borderTop/Bottom/Left/Right` × `Width/Style/Color`) | Not preserved | Border attrs captured on import, not read on export |
+| Cell vertical alignment | Supported | Supported | Not preserved | `verticalAlign` captured on import (`top`, `middle`, `bottom`), not read on export |
+| Row height | Supported | Supported (`exact` clips via `.cell-content` wrapper; `atLeast` grows) | Not preserved | `height` and `heightRule` captured on import, not read on export |
+| Global table styling | N/A | N/A | Supported | Via `tableOverrides` and `tableCellOverrides` |
+
+## Import
+
+Import tables using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both produce identical output.
+
+The conversion service reads DOCX tables and produces `table`, `tableRow`, and `tableCell` or `tableHeader` nodes. Column widths are stored in the `colwidth` attribute as an array of pixel values. Cell backgrounds, borders, and vertical alignment are captured as cell attributes. Row height and height rule are captured as row attributes.
+
+A row is emitted as `tableHeader` only when the source DOCX explicitly carries `<w:tblHeader/>` inside the row's `<w:trPr>`. This is the markup Word writes when the user enables "Repeat as header row at the top of each page" on a table. Documents whose first row is only visually formatted as a header (bold, shaded, larger font) without that property arrive as plain `tableCell` rows. To mark the first row as a header from the application side, walk the imported JSON in your `onImport` callback before `setEditorContent()` and convert each cell's `type` from `tableCell` to `tableHeader`.
+
+Merged cells using colspan convert reliably. Rowspan is also fully supported. The converter performs a pre-scan across all rows to build a complete rowspan map before processing cells, correctly resolving Word's `vMerge` "continue" markers.
+
+If your editor schema does not include table nodes, imported table content will be dropped. See the [invalid schema guide](/guides/invalid-schema) for handling strategies.
+
+## Editor rendering
+
+ConvertKit's `ConvertTableKit` is the recommended renderer for DOCX-imported tables: it extends the base table stack with the DOCX-specific cell and row attributes (backgrounds, borders, vertical alignment, height, height rule) and configures `cellMinWidth: 1` so DOCX spacer columns (1–15 px narrow columns used for layout) do not get inflated into visible gaps. See [the ConvertKit page](/conversion/import/docx/convertkit) for the full attribute set.
+
+Install the setup that matches your needs:
+
+```bash
+# Recommended: ConvertKit (DOCX-aware, no pagination)
+npm install @tiptap-pro/extension-convert-kit
+
+# With pagination via the Pages extension
+npm install @tiptap-pro/extension-pages-tablekit @tiptap-pro/extension-convert-kit
+
+# Minimum: structure only, no DOCX cell formatting
+npm install @tiptap/extension-table
+```
+
+```ts
+// Recommended (ConvertKit's bundled ConvertTableKit, no separate import needed)
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+new Editor({ extensions: [ConvertKit] })
+```
+
+```ts
+// With pagination: disable ConvertKit's table stack so PagesTableKit can take over
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+new Editor({
+  extensions: [
+    ConvertKit.configure({ table: false }),
+    TableKit,
+  ],
+})
+```
+
+```ts
+// Minimum (basic structure; cell- and row-level DOCX attributes dropped)
+import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
+
+new Editor({
+  extensions: [StarterKit, TableKit],
+})
+```
+
+Tables render as HTML `<table>`, `<tr>`, `<td>` (or `<td><div class="cell-content">` with ConvertKit), and `<th>` elements. Column resizing is supported when `resizable: true` is set on the Table extension. The `colwidth` attribute from import controls initial column widths.
+
+## Export
+
+Export tables using the [editor extension](/conversion/export/docx/editor-extension) or the [REST API](/conversion/export/docx/rest-api). The extension supports [`tableOverrides` and `tableCellOverrides`](/conversion/export/docx/styles#element-overrides) for global table styling defaults. The REST API does not accept these overrides.
+
+The exporter produces DOCX tables with fixed layout. It reads the `colwidth` attribute and converts pixel values to twips. If no `colwidth` is set, columns are distributed evenly across the available page width.
+
+Header rows are not preserved. The exporter creates all rows identically with `new TableRow({ children: cells })` and does not set `tableHeader: true` on the DOCX row based on the `tableHeader` node type. Header-row semantics are lost in the output. Merged cells (colspan and rowspan) export correctly.
+
+<Callout title="Cell-level styling is not exported" variant="warning">
+  Cell backgrounds (`background`) and per-cell borders are not read during export. All cells get default single-line borders. If you need custom table styling in the output, use [`tableOverrides` and `tableCellOverrides`](/conversion/export/docx/styles#element-overrides) on the editor extension for global defaults. These overrides are not available via the REST API.
+</Callout>
+
+### Override system
+
+The export extension accepts two options for global table styling:
+
+```ts
+ExportDocx.configure({
+  tableOverrides: {
+    borders: {
+      top: { style: 'single', size: 4, color: '000000' },
+      bottom: { style: 'single', size: 4, color: '000000' },
+      left: { style: 'single', size: 4, color: '000000' },
+      right: { style: 'single', size: 4, color: '000000' },
+      insideHorizontal: { style: 'single', size: 4, color: '000000' },
+      insideVertical: { style: 'single', size: 4, color: '000000' },
+    },
+  },
+  tableCellOverrides: {
+    shading: { fill: 'F5F5F5' },
+  },
+})
+```
+
+These overrides apply globally to all tables in the exported document. Per-cell styling is not supported on export.

@@ -1,0 +1,149 @@
+---
+title: Headings
+tags:
+  - type: beta
+meta:
+  title: Headings | Tiptap Conversion
+  description: How headings (levels 1 to 9) are handled across the DOCX conversion pipeline, including import, editor rendering, and export.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+In Word, headings are paragraphs with a heading style applied (Heading 1 through Heading 9). Tiptap represents them as `heading` nodes with a `level` attribute.
+
+## What you need
+
+- **Extensions:** [`ConvertKit`](/conversion/import/docx/convertkit). Its custom Heading mirrors the custom Paragraph: spacing, indentation, line height, font size, and contextual spacing render as inline CSS. `TextAlign` is bundled and preconfigured for `['paragraph', 'heading']`.
+- **Configuration:** None required.
+
+<Callout title="Heading levels round-trip; visual styling needs ConvertKit or CSS injection" variant="hint">
+  Heading levels (1 to 6) and alignment round-trip in any setup. Per-heading attributes (spacing, indent, line height, font size on the heading mark) render via ConvertKit's custom Heading. The named-style typography from Word's style catalog (e.g. "Heading 1 is Aptos Light 16pt blue") is a separate concern: the editor renders headings with your CSS, not Word's theme. To bring the catalog through as scoped CSS, use the experimental [CSS injection](/conversion/import/docx/css-injection) feature.
+</Callout>
+
+## Support overview
+
+| | Import | Editor (with ConvertKit) | Export |
+| --- | --- | --- | --- |
+| Heading levels 1 to 6 | Supported | Supported | Supported |
+| Title and Subtitle styles | Imported as paragraphs (with inherited font and spacing from the style chain) | Render as paragraphs that visually resemble headings | Exported as paragraphs |
+| Heading levels 7 to 9 | Heading nodes produced with `level: 7`, `8`, or `9` in JSON | Render as `<h1>` because the standard Heading extension's `levels` option only allows 1–6; the level is preserved in the JSON attrs but the tag is coerced. Configure `Heading.configure({ levels: [1,2,3,4,5,6,7,8,9] })` (or override ConvertKit's `heading` slot) to render the actual tags. | Exported as `<h1>` Word-side unless your editor schema accepts higher levels |
+| Custom heading styles | Resolved to closest standard level | Style name lost | Generic heading style applied |
+| Text alignment | Supported | Supported (TextAlign) | Supported |
+| Inline formatting | Supported | Supported | Supported |
+| Heading numbering | Converted to indent attr | Indent rendered (`padding-left`); numbering glyphs not generated | Not preserved |
+| Per-heading spacing/indent/line-height/font-size | Converted to attrs | Supported | Export defaults applied |
+| Named-style typography (theme) | Catalog available via [CSS injection](/conversion/import/docx/css-injection) | Renders via injected CSS | Export defaults applied |
+
+## Import
+
+Import headings using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both produce identical heading output.
+
+The conversion service detects Word heading styles whose canonical name matches `Heading 1` through `Heading 9` (case-insensitive, with or without the space) and produces a `heading` node with the corresponding level. The custom style name is discarded; only the resolved level is preserved.
+
+**Title and Subtitle do not map to headings.** The importer's heading detection only matches the `Heading N` pattern, so paragraphs styled `Title` or `Subtitle` in Word are imported as `paragraph` nodes. The font, size, and spacing from those styles flow through the `basedOn` chain as run-level marks (`textStyle.fontSize`, `textStyle.fontFamily`, etc.) and as paragraph-level attributes, which is why the imported result *looks* like a heading even though it isn't a heading node. The original style name is not preserved on the output, so the developer cannot tell from the JSON alone which paragraphs were `Title` versus `Normal`. If `<h1>`/`<h2>` semantics matter for Title/Subtitle in your application, the workaround today is to pre-process the DOCX file (e.g. with a docx editor) and rename those styles to `Heading 1` and `Heading 2` before import.
+
+The conversion service outputs heading nodes in this structure:
+
+```json
+{
+  "type": "heading",
+  "attrs": {
+    "level": 2,
+    "textAlign": "center"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "My Heading",
+      "marks": [
+        { "type": "bold", "attrs": {} }
+      ]
+    }
+  ]
+}
+```
+
+<Callout variant="warning" title="Heading levels 7–9 render as h1">
+  Word supports heading levels 1 to 9, and the import converter recognises all nine. The `Heading` extension's default `levels` option is `[1,2,3,4,5,6]`, and its `renderHTML` falls back to `levels[0]` (= `1`) when the node's level is outside the allowed list. Imported levels 7, 8, and 9 therefore render as `<h1>` in the editor by default. The level value is preserved in the node's JSON `attrs.level`, so the data is not lost; only the rendered tag is coerced. To render the actual `<h7>`–`<h9>` tags (or any tag mapping you want), pass the full range to `Heading.configure`:
+
+```ts
+ConvertKit.configure({
+  heading: { levels: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+})
+```
+</Callout>
+
+### What's preserved
+
+- Heading level (1 to 9 in the JSON; levels 7 to 9 render as `<h1>` unless you extend the `levels` option)
+- Inline formatting within the heading (bold, italic, color, and font as marks on child text nodes)
+- Text alignment (as `textAlign` attribute)
+- Paragraph spacing before/after (as `spacingBefore` and `spacingAfter` attributes; rendered as `margin-top` / `margin-bottom` by ConvertKit's custom Heading)
+
+### What's lost
+
+The standard `Heading` extension's schema only defines `level`. With ConvertKit installed, the custom Heading additionally renders `spacingBefore`, `spacingAfter`, `lineHeight`, `fontSize`, `indent`, `firstLineIndent`, and `contextualSpacing`. Without ConvertKit, those attributes are stripped on `setEditorContent()`.
+
+A few things stay lost regardless of the editor setup:
+
+- **Per-heading borders and background.** Not extracted by the importer.
+- **Word's named-style typography.** Heading 1 in your editor looks like your CSS defines `<h1>`, not like Word's "Heading 1" theme style. To bring the catalog through, use [CSS injection](/conversion/import/docx/css-injection).
+- **Heading numbering glyphs.** Word numbering (e.g. "1.2.3") produces an `indent` attribute on the heading. ConvertKit renders the indent, but the numbered prefix itself is not generated by either the importer or the editor.
+
+See the [invalid schema guide](/guides/invalid-schema) for handling content that does not match your schema, and the [Styling converted content](/conversion/getting-started/guides/styling-converted-content) guide for how to extend extensions when you need attributes ConvertKit does not cover.
+
+## Editor rendering
+
+The [`Heading`](/editor/extensions/nodes/heading) extension is registered by [`ConvertKit`](/conversion/import/docx/convertkit) and renders heading nodes as `<h1>` through `<h6>` HTML tags based on the `level` attribute. ConvertKit substitutes a custom Heading that surfaces the DOCX-aware attributes (spacing, indent, line height, font size, contextual spacing).
+
+### Text alignment is bundled
+
+ConvertKit also registers `TextAlign` and preconfigures it for `['paragraph', 'heading']`, so the `textAlign` attribute from imported DOCX headings renders automatically. If you disable the bundled `textAlign` slot, the attribute stays in the JSON but isn't applied — see the [invalid schema guide](/guides/invalid-schema).
+
+### Visual differences from Word
+
+The editor renders headings with your CSS styles, not Word's theme styles. A Heading 2 in Word (typically Aptos Light, 13pt, blue) will look different in the editor unless you style `h2` to match. Structure is preserved. Visual appearance is yours to control through your editor's CSS. See the [Styling converted content](/conversion/getting-started/guides/styling-converted-content) guide for how to manage this.
+
+## Export
+
+Export headings using the [editor extension](/conversion/export/docx/editor-extension) or the [REST API](/conversion/export/docx/rest-api). The extension supports [`paragraphOverrides` and `textRunOverrides`](/conversion/export/docx/styles#element-overrides) for fine-grained control over heading paragraph and text run defaults. The REST API does not accept element overrides. To customize heading styles via the REST API, use [`styleOverrides`](/conversion/export/docx/styles) to redefine the heading document styles.
+
+The export converter takes a `heading` node and produces a DOCX paragraph with the corresponding heading style. Text alignment (`left`, `center`, `right`, `justify`) is exported correctly.
+
+**Level mapping:** `level: 1` → Word Heading 1, `level: 2` → Word Heading 2, through level 6.
+
+### Customizing exported heading styles
+
+The export applies opinionated default styles to each heading level: Aptos Light font, blue color (#2E74B5), and level-specific sizes. If you are exporting documents for a corporate template or brand, these defaults will likely not match your requirements. Customize them via `styleOverrides`:
+
+```ts
+ExportDocx.configure({
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Heading1',
+        name: 'Heading 1',
+        run: {
+          font: 'Arial',
+          size: 32,        // half-points (32 = 16pt)
+          bold: true,
+          color: '000000',
+        },
+        paragraph: {
+          spacing: {
+            before: 240,   // twips (240 = 12pt)
+            after: 120,    // twips (120 = 6pt)
+          },
+        },
+      },
+    ],
+  },
+})
+```
+
+### What round-trips
+
+A Heading 2, center-aligned, with bold and colored text inside will survive a full import → edit → export cycle. The heading level, alignment, and inline formatting are all preserved.
+
+What changes: the exported heading will use the export's default (or overridden) styles rather than the original DOCX's theme styles. Font, size, spacing, and color are determined by the export configuration, not carried over from the original document.

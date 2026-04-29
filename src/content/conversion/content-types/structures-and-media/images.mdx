@@ -1,0 +1,100 @@
+---
+title: Images
+tags:
+  - type: beta
+meta:
+  title: Images | Tiptap Conversion
+  description: How images are handled when importing from DOCX, rendering in the editor, and exporting back to DOCX.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Images in DOCX documents are extracted during import, rendered in the editor, and re-embedded on export. The Image extension is not in StarterKit and must be installed separately.
+
+## What you need
+
+- **Extensions (recommended):** [`ConvertKit`](/conversion/import/docx/convertkit). Its custom Image declares `cropTop`, `cropBottom`, `cropLeft`, `cropRight` on top of the base Image extension, so DOCX crop metadata survives schema validation.
+- **Extensions (minimum):** `@tiptap/extension-image` (not in StarterKit). The base extension renders `src`, `alt`, `title`, `width`, `height`. DOCX crop attributes are dropped on schema validation in this setup.
+- **Configuration:** An image upload endpoint configured via `imageUploadConfig` on the import extension or REST API request, regardless of which extension setup you use.
+
+<Callout title="imageUploadConfig is required for import" variant="warning">
+  When importing a DOCX, images are extracted as binary blobs from the file. Without an `imageUploadConfig`, the resulting `src` values will not be resolvable and images will appear broken. You must provide an upload endpoint so the converter can POST each image and replace internal references with real URLs.
+</Callout>
+
+## Support overview
+
+| Feature | Import | Editor | Export | Notes |
+| --- | --- | --- | --- | --- |
+| Inline images | Supported | Supported | Supported | Requires imageUploadConfig on import |
+| Floating/wrapped images | Partial | Not supported | Not supported | Anchor images are converted but wrap type is not tracked. All images become inline. Background/watermark images (`behindDoc`) are skipped. |
+| Image dimensions | Supported | Supported | Supported | Width and height are extracted from EMU values and passed as pixel attributes on the image node. Export reads width/height attrs. |
+| Alt text | Supported | Supported | Supported | `descr` and `title` from `wp:docPr` are extracted on import. Alt from editor node maps to DOCX alt text on export. |
+| Formats (PNG, JPEG, GIF, BMP, SVG) | Supported | Supported | Supported | |
+| EMF/WMF | Supported (import) | Depends on browser | Not supported (export) | Windows vector formats may not round-trip |
+| Image cropping | Supported | Attributes preserved by ConvertKit; visual crop requires CSS | Not supported | `cropTop`, `cropBottom`, `cropLeft`, `cropRight` extracted as attributes (percentage values) |
+| Image resizing | N/A | Supported | Supported | Resized dimensions export correctly |
+
+## Import
+
+Import images using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both accept `imageUploadConfig` and produce identical output. The conversion service handles image uploads on both paths.
+
+When a DOCX is imported, each embedded image is extracted from the zip archive as a blob. If you provide an `imageUploadConfig`, the converter POSTs each blob to your upload endpoint and replaces the internal reference with the URL your server returns.
+
+```ts
+ImportDocx.configure({
+  appId: 'your-app-id',
+  token: 'your-jwt',
+  imageUploadConfig: {
+    url: 'https://your-api.example.com/upload',
+  },
+})
+```
+
+Without this configuration, imported images will have unresolvable `src` values.
+
+If the source image has cropping applied in Word, the crop values are extracted as `cropTop`, `cropBottom`, `cropLeft`, and `cropRight` attributes (percentage values from 0 to 100). [ConvertKit](/conversion/import/docx/convertkit)'s custom Image accepts these attributes and emits them as `data-crop-top`, `data-crop-bottom`, `data-crop-left`, `data-crop-right` on the rendered `<img>` element. The package does not ship CSS to translate the data attributes into a visual crop. To produce the actual crop, add CSS that reads the attributes (e.g. `clip-path` or a wrapper with `overflow: hidden` plus negative `object-position`). Without ConvertKit, the values are dropped on schema validation. Crop values are not preserved on export.
+
+<Callout title="Floating images are not fully supported" variant="info">
+  DOCX documents often contain images with text wrapping (square, tight, behind text). Anchor images are converted during import, but wrap type is not tracked. All images are inserted as inline nodes regardless of their original positioning. Background or watermark images (`behindDoc`) are skipped entirely.
+</Callout>
+
+## Editor rendering
+
+The [`Image`](/editor/extensions/nodes/image) extension adds an `image` node with `src`, `alt`, `title`, `width`, and `height` attributes. It renders as a standard `<img>` tag. It is not included in StarterKit.
+
+```bash
+npm install @tiptap/extension-image
+```
+
+```ts
+import Image from '@tiptap/extension-image'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    Image.configure({ inline: true }),
+  ],
+})
+```
+
+To enable drag-to-resize handles, pass the `resize` option:
+
+```ts
+Image.configure({
+  inline: true,
+  resize: { enabled: true },
+})
+```
+
+Without the Image extension, imported image nodes are not recognized by the schema. See the [invalid schema guide](/guides/invalid-schema) for handling strategies.
+
+## Export
+
+Export images using the [editor extension](/conversion/export/docx/editor-extension) or the [REST API](/conversion/export/docx/rest-api). The extension supports [`imageOverrides`](/conversion/export/docx/styles#element-overrides) for customizing image defaults in the output. The REST API does not accept image overrides.
+
+On export, each image node's `src` URL is fetched and the binary data is embedded into the DOCX. Supported export formats: PNG, JPG, JPEG, GIF, BMP, and SVG.
+
+If the node has `width` and `height` attributes (in pixels), those values are converted to points (1px = 0.75pt). If no dimensions are set, the exporter detects intrinsic size automatically. If detection fails, images default to 800x400 pixels.
+
+The `alt` attribute on the image node is mapped to the DOCX image's alt text fields.

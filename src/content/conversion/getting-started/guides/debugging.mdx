@@ -1,0 +1,161 @@
+---
+title: Debugging & inspecting conversion output
+tags:
+  - type: beta
+meta:
+  title: Debugging Conversion Output | Tiptap Conversion
+  description: How to use verbose mode, inspect intermediate JSON, and diagnose why imported content isn't rendering in your editor.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+This guide covers the tools and patterns we use ourselves when something is off — failed imports, content that didn't render the way you expected, HTTP errors from the Conversion service, or a paginated editor that suddenly stops responding. It's organised by what you'd actually search for when stuck.
+
+## Verbose import logs
+
+The DOCX import extension exposes a `verbose` option that controls how much diagnostic information the conversion service returns alongside the converted content. The value is a bitmask: combine levels by adding their values together.
+
+| Value | Level   | What you get                                     |
+| ----- | ------- | ------------------------------------------------ |
+| `1`   | `info`  | Informational messages                           |
+| `2`   | `warn`  | Warnings (e.g. images that couldn't be uploaded) |
+| `4`   | `error` | Errors                                           |
+| `7`   | all     | `info` + `warn` + `error`                        |
+
+```ts
+ImportDocx.configure({
+  appId: 'YOUR_APP_ID',
+  token: 'YOUR_JWT',
+  verbose: 7, // info + warn + error
+})
+```
+
+When `verbose` is set, the response shape gains a `logs` field next to `content`:
+
+```json
+{
+  "content": {
+    /* Tiptap JSON */
+  },
+  "logs": {
+    "info": [],
+    "warn": [
+      {
+        "message": "Image file not found in media files",
+        "fileName": "image1.gif",
+        "availableMediaFiles": []
+      }
+    ],
+    "error": [
+      {
+        "message": "Image upload failed: General error",
+        "fileName": "image1.gif",
+        "url": "https://your-image-upload-endpoint.com",
+        "error": "Unable to connect. Is the computer able to access the url?",
+        "context": "uploadImage general error"
+      }
+    ]
+  }
+}
+```
+
+These logs surface in the `onImport` callback's `context` along with the content. Print them while debugging; turn `verbose` off in production unless you're actively investigating.
+
+## Inspecting the converted content before insertion
+
+The fastest way to understand what the converter actually produced is to log `context.content` from the `onImport` callback:
+
+```ts
+editor
+  .chain()
+  .import({
+    file,
+    onImport(context) {
+      console.log('Imported content:', JSON.stringify(context.content, null, 2))
+      context.setEditorContent()
+    },
+  })
+  .run()
+```
+
+Every node in `context.content` includes its type and attributes. If a feature renders unexpectedly, look at the corresponding node here first — it tells you whether the converter dropped the feature, mapped it to a different node, or passed through an attribute your editor schema doesn't render.
+
+## Confirming your editor's extensions
+
+When imported content doesn't render, the most common cause is an extension missing from your editor's schema. Read the registered extensions at runtime:
+
+```ts
+console.log(editor.extensionManager.extensions.map((e) => e.name))
+```
+
+If you're using `ConvertKit`, you should see paragraph, heading, image, table extensions, and the standard marks. If something is missing, check that you actually registered ConvertKit and didn't accidentally pass `false` for the slot you needed in `ConvertKit.configure({…})`.
+
+## Common HTTP responses
+
+Conversion requests that go to the service return one of a small set of responses. Each has a clear cause and a clear action.
+
+| Status | What it means                                                                                                                        | What to do                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401`  | Missing or invalid JWT.                                                                                                              | Regenerate the token server-side. Confirm the `appId` matches the token's app.                                                                       |
+| `403`  | The operation isn't permitted for your app. Most often: a format your plan doesn't include, or `customFonts` against the cloud plan. | Check the [pricing page](https://tiptap.dev/pricing) for plan format coverage. Custom fonts in PDF require an Enterprise plan or on-prem deployment. |
+| `5xx`  | Transient server-side error.                                                                                                         | Retry with exponential backoff. Open a support ticket if it persists.                                                                                |
+
+Frame your error handling around these three; you don't need granular case-by-case logic.
+
+## The Pages infinite-loop scenario
+
+This is the **first thing to check** when a Pages editor stops responding. The editor goes unresponsive, scrolling stops working, CPU spikes, and a console warning from Pages appears repeatedly.
+
+**Cause.** A non-splittable block (table row, figure, positioned container, most BFC elements) is taller than the page. Pages cannot place it anywhere — it can't fit on the current page, and it won't fit on the next one either — so the layout keeps moving it forward and never stabilises.
+
+**Fix on the content side, not in extension config:**
+
+1. Cap heights with `max-height: var(--page-max-height)` on the offending block.
+2. Split the tall content into smaller adjacent blocks (long table → several smaller tables; tall figure → smaller figures).
+3. For DOCX-imported tables, switch `heightRule: "atLeast"` to `"exact"` where the row's content is bounded.
+4. Pick a larger page format if your content was authored on bigger paper than your target.
+
+See the [Limitations page](/pages/core-concepts/limitations#oversized-non-splittable-blocks-cause-an-infinite-layout-loop) for the deep-dive, and [PagesTableKit Known issues](/pages/guides/pages-tablekit#known-issues) for the table-specific treatment.
+
+<Callout title="Treat the warning as a signal" variant="warning">
+  Production code that imports user-supplied DOCX should handle the Pages warning explicitly: reject
+  the document and tell the user, or programmatically split tall rows before insertion. Don't rely
+  on the warning alone to keep the editor usable.
+</Callout>
+
+## Confirming Pages auto-applied imported headers and footers
+
+When you import a DOCX into an editor that has the Pages extension registered, the header and footer content from the Word document is applied automatically. To confirm this happened, read the published storage:
+
+```ts
+const { pages } = editor.storage
+console.log({
+  default: pages.headerHTML,
+  firstPage: pages.headerFirstPageHTML,
+  oddPages: pages.headerOddHTML,
+  evenPages: pages.headerEvenHTML,
+})
+```
+
+The corresponding `footer*HTML` properties exist for footers. Each is `null` until either the importer fills it or the user opens the inline editor and edits content.
+
+If the values are `null` after a DOCX import that you know contained headers and footers, two likely causes:
+
+- **Pages extension isn't registered.** ImportDocx auto-applies only if Pages is present.
+- **The DOCX didn't actually carry headers and footers** — Word can store templates and not commit them. Open the `verbose` output (above) to see what the converter extracted.
+
+## Schema mismatch warnings
+
+When the imported content uses a node type your editor doesn't render, ProseMirror warns about an unknown node and falls back to dropping or rewriting it. Two paths forward:
+
+1. **Add the missing extension.** ConvertKit covers most cases; if you've disabled a slot or are running a custom kit, add the extension back.
+2. **Map the unsupported node to one you do support.** ImportDocx accepts `prosemirrorNodes` and `prosemirrorMarks` options for rewriting node types during import. See [Custom node mapping](/conversion/import/docx/custom-node-mapping) and [Custom mark mapping](/conversion/import/docx/custom-mark-mapping).
+
+For nodes that have no equivalent in your schema (e.g. footnote references), see the [custom extensions guide](/conversion/getting-started/guides/custom-extensions).
+
+## Next steps
+
+- [End-to-end walkthrough](/conversion/getting-started/guides/end-to-end-walkthrough) — start-to-finish DOCX round-trip
+- [Custom extensions](/conversion/getting-started/guides/custom-extensions) — render imported attributes that aren't covered by ConvertKit
+- [Feature support matrix](/conversion/getting-started/feature-support-matrix) — what round-trips and what doesn't, per feature

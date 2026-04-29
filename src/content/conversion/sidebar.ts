@@ -8,15 +8,23 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/conversion/getting-started',
-      title: 'get started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
           href: '/conversion/getting-started/overview',
         },
         {
-          title: 'Authenticate',
+          title: 'Install',
           href: '/conversion/getting-started/install',
+        },
+        {
+          title: 'Live demo',
+          href: '/conversion/getting-started/demo',
+        },
+        {
+          title: 'Supported features',
+          href: '/conversion/getting-started/feature-support-matrix',
         },
       ],
     },
@@ -24,54 +32,56 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/import',
       title: 'Import',
-      tags: ['Start'],
       children: [
         {
           title: 'DOCX',
-          href: '/conversion/import/docx/editor-import',
-          beta: true,
+          href: '/conversion/import/docx/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/import/docx/editor-import',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/import/docx/custom-node-conversion',
-            },
-            {
-              title: 'Convert custom marks',
-              href: '/conversion/import/docx/custom-mark-conversion',
-            },
-            {
-              title: 'Preserve images',
-              href: '/conversion/import/docx/preserve-images',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/import/docx/page-breaks',
-              tags: ['New'],
+              href: '/conversion/import/docx/editor-extension',
             },
             {
               title: 'ConvertKit',
               href: '/conversion/import/docx/convertkit',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'CSS injection',
               href: '/conversion/import/docx/css-injection',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'REST API',
               href: '/conversion/import/docx/rest-api',
+            },
+            {
+              title: 'Customize',
+              href: '/conversion/import/docx/custom-node-mapping',
+              children: [
+                {
+                  title: 'Node mapping',
+                  href: '/conversion/import/docx/custom-node-mapping',
+                },
+                {
+                  title: 'Mark mapping',
+                  href: '/conversion/import/docx/custom-mark-mapping',
+                },
+                {
+                  title: 'Image handling',
+                  href: '/conversion/import/docx/image-handling',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/import/docx/page-breaks',
+                },
+              ],
             },
           ],
         },
         {
           title: 'Markdown',
           href: '/conversion/import/markdown/rest-api',
-          beta: true,
           children: [
             {
               title: 'REST API',
@@ -85,78 +95,59 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/export',
       title: 'Export',
-      tags: ['Start'],
       children: [
         {
           title: 'DOCX',
-          href: '/conversion/export/docx/editor-export',
-          beta: true,
+          href: '/conversion/export/docx/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/docx/editor-export',
-            },
-            {
-              title: 'Headers & Footers',
-              href: '/conversion/export/docx/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/export/docx/page-breaks',
-              tags: ['New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/export/docx/custom-page-layout',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/export/docx/custom-node-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/export/docx/export-styles',
+              href: '/conversion/export/docx/editor-extension',
             },
             {
               title: 'CSS to DOCX',
               href: '/conversion/export/docx/css-to-docx',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'REST API',
               href: '/conversion/export/docx/rest-api',
             },
+            {
+              title: 'Customize',
+              href: '/conversion/export/docx/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/docx/custom-nodes',
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/docx/styles',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/docx/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/docx/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/docx/page-layout',
+                },
+              ],
+            },
           ],
         },
         {
           title: 'PDF',
-          href: '/conversion/export/pdf/editor-export',
-          beta: true,
+          href: '/conversion/export/pdf/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/pdf/editor-export',
-            },
-            {
-              title: 'Headers & Footers',
-              href: '/conversion/export/pdf/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/export/pdf/page-breaks',
-              tags: ['New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/export/pdf/custom-page-layout',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/export/pdf/custom-node-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/export/pdf/export-styles',
+              href: '/conversion/export/pdf/editor-extension',
             },
             {
               title: 'REST API',
@@ -166,33 +157,11 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'ODT',
-          href: '/conversion/export/odt/editor-export',
-          beta: true,
+          href: '/conversion/export/odt/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/odt/editor-export',
-            },
-            {
-              title: 'Headers & Footers',
-              href: '/conversion/export/odt/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/export/odt/page-breaks',
-              tags: ['New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/export/odt/custom-page-layout',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/export/odt/custom-node-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/export/odt/export-styles',
+              href: '/conversion/export/odt/editor-extension',
             },
             {
               title: 'REST API',
@@ -202,33 +171,11 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'EPUB',
-          href: '/conversion/export/epub/editor-export',
-          beta: true,
+          href: '/conversion/export/epub/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/epub/editor-export',
-            },
-            {
-              title: 'Headers & Footers',
-              href: '/conversion/export/epub/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/export/epub/page-breaks',
-              tags: ['New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/export/epub/custom-page-layout',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/export/epub/custom-node-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/export/epub/export-styles',
+              href: '/conversion/export/epub/editor-extension',
             },
             {
               title: 'REST API',
@@ -238,33 +185,11 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'DOC',
-          href: '/conversion/export/doc/editor-export',
-          beta: true,
+          href: '/conversion/export/doc/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/doc/editor-export',
-            },
-            {
-              title: 'Headers & Footers',
-              href: '/conversion/export/doc/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/export/doc/page-breaks',
-              tags: ['New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/export/doc/custom-page-layout',
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/export/doc/custom-node-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/export/doc/export-styles',
+              href: '/conversion/export/doc/editor-extension',
             },
             {
               title: 'REST API',
@@ -274,12 +199,11 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Markdown',
-          href: '/conversion/export/markdown/editor-export',
-          beta: true,
+          href: '/conversion/export/markdown/editor-extension',
           children: [
             {
               title: 'Editor extension',
-              href: '/conversion/export/markdown/editor-export',
+              href: '/conversion/export/markdown/editor-extension',
             },
             {
               title: 'REST API',
@@ -291,33 +215,149 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/legacy',
-      title: 'Legacy Import/Export',
+      href: '/conversion/content-types/overview',
+      title: 'Content reference',
       children: [
         {
-          title: 'DOCX',
-          href: '/conversion/legacy/overview',
-          tags: ['Deprecated'],
+          title: 'Overview',
+          href: '/conversion/content-types/overview',
         },
         {
-          title: 'ODT',
-          href: '/conversion/legacy/odt/editor-extensions',
-          tags: ['Deprecated'],
+          title: 'Text and formatting',
+          href: '/conversion/content-types/text-and-formatting/paragraphs',
           children: [
             {
-              title: 'Editor extensions',
-              href: '/conversion/legacy/odt/editor-extensions',
+              title: 'Paragraphs',
+              href: '/conversion/content-types/text-and-formatting/paragraphs',
             },
             {
-              title: 'REST API',
-              href: '/conversion/legacy/odt/rest-api',
+              title: 'Headings',
+              href: '/conversion/content-types/text-and-formatting/headings',
+            },
+            {
+              title: 'Text alignment',
+              href: '/conversion/content-types/text-and-formatting/text-alignment',
+            },
+            {
+              title: 'Bold, italic, underline, strike',
+              href: '/conversion/content-types/text-and-formatting/bold-italic-underline-strike',
+            },
+            {
+              title: 'Subscript and superscript',
+              href: '/conversion/content-types/text-and-formatting/subscript-superscript',
+            },
+            {
+              title: 'Text color and highlight',
+              href: '/conversion/content-types/text-and-formatting/text-color-highlight',
+            },
+            {
+              title: 'Font family and size',
+              href: '/conversion/content-types/text-and-formatting/font-family-size',
+            },
+            {
+              title: 'Lists',
+              href: '/conversion/content-types/text-and-formatting/lists',
+            },
+            {
+              title: 'Tabs',
+              href: '/conversion/content-types/text-and-formatting/tabs',
             },
           ],
         },
         {
-          title: 'Markdown',
+          title: 'Structures and media',
+          href: '/conversion/content-types/structures-and-media/tables',
+          children: [
+            {
+              title: 'Tables',
+              href: '/conversion/content-types/structures-and-media/tables',
+            },
+            {
+              title: 'Images',
+              href: '/conversion/content-types/structures-and-media/images',
+            },
+            {
+              title: 'Hyperlinks and bookmarks',
+              href: '/conversion/content-types/structures-and-media/hyperlinks-bookmarks',
+            },
+            {
+              title: 'Block elements',
+              href: '/conversion/content-types/structures-and-media/block-elements',
+            },
+            {
+              title: 'Math and equations',
+              href: '/conversion/content-types/structures-and-media/math-equations',
+            },
+            {
+              title: 'Footnotes and endnotes',
+              href: '/conversion/content-types/structures-and-media/footnotes-endnotes',
+            },
+            {
+              title: 'Word styles',
+              href: '/conversion/content-types/structures-and-media/word-styles',
+            },
+          ],
+        },
+        {
+          title: 'Page layout',
+          href: '/conversion/content-types/page-layout/headers-footers',
+          children: [
+            {
+              title: 'Headers and footers',
+              href: '/conversion/content-types/page-layout/headers-footers',
+            },
+            {
+              title: 'Page breaks',
+              href: '/conversion/content-types/page-layout/page-breaks',
+            },
+            {
+              title: 'Page structure',
+              href: '/conversion/content-types/page-layout/page-structure',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/getting-started/guides',
+      title: 'Guides',
+      children: [
+        {
+          title: 'End-to-end walkthrough',
+          href: '/conversion/getting-started/guides/end-to-end-walkthrough',
+        },
+        {
+          title: 'Styling converted content',
+          href: '/conversion/getting-started/guides/styling-converted-content',
+        },
+        {
+          title: 'Custom extensions',
+          href: '/conversion/getting-started/guides/custom-extensions',
+        },
+        {
+          title: 'Debugging',
+          href: '/conversion/getting-started/guides/debugging',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/legacy/overview',
+      title: 'Legacy',
+      tags: ['Deprecated'],
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/legacy/overview',
+        },
+        {
+          title: 'Migration guide',
+          href: '/conversion/legacy/migration-guide',
+        },
+        {
+          title: 'Markdown (legacy)',
           href: '/conversion/legacy/markdown/editor-extensions',
-          tags: ['Deprecated'],
           children: [
             {
               title: 'Editor extensions',
@@ -326,6 +366,20 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'REST API',
               href: '/conversion/legacy/markdown/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'ODT (legacy)',
+          href: '/conversion/legacy/odt/editor-extensions',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/odt/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/odt/rest-api',
             },
           ],
         },
