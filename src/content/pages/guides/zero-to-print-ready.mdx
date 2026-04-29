@@ -13,44 +13,45 @@ sidebars:
 import { Callout } from '@/components/ui/Callout'
 import { CodeDemo } from '@/components/CodeDemo'
 
-This guide will walk you through setting up a Tiptap editor from scratch, adding the Pages extension for pagination and print-like layout, and enabling DOCX export and import for a professional, print-ready workflow.
+This guide walks through setting up a Tiptap editor from scratch with the Pages extension for paginated, print-like layout, plus DOCX export and import for a professional, print-ready workflow.
 
 <CodeDemo isPro path="/Extensions/PagesImportExportDocx" />
 
 ---
 
-## 1. Install Tiptap and core dependencies
+## 1. Install the Pages stack
 
-First, install the core Tiptap packages:
-
-```bash
-npm install @tiptap/core @tiptap/starter-kit
-```
-
-## 2. Add the Pages extension
-
-Install the Pages extension from the Tiptap Pro registry:
+Install the three Pro packages that always go together when you build with Pages:
 
 ```bash
-npm install @tiptap-pro/extension-pages
+npm install @tiptap-pro/extension-convert-kit \
+            @tiptap-pro/extension-pages-tablekit \
+            @tiptap-pro/extension-pages
 ```
 
-> **Hint:** Make sure you have access to the Tiptap Pro registry. See the [Pro Extensions guide](/guides/pro-extensions) for setup.
+<Callout title="Why these three packages" variant="info">
+  `@tiptap-pro/extension-convert-kit` provides the editor's node and mark schema (paragraphs,
+  headings, lists, images, marks). `@tiptap-pro/extension-pages-tablekit` provides pagination-safe
+  tables — required, because ConvertKit's bundled tables are not designed to paginate.
+  `@tiptap-pro/extension-pages` provides the page layout itself. Make sure you've authenticated to
+  the Tiptap private npm registry first; see the [Pro Extensions guide](/guides/pro-extensions) for
+  setup.
+</Callout>
 
-## 3. Set up your editor with Pages
+## 2. Set up your editor with Pages
 
-```js
+```ts
 import { Editor } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
 import { Pages } from '@tiptap-pro/extension-pages'
 
 const editor = new Editor({
   extensions: [
-    StarterKit,
+    ConvertKit.configure({ table: false }),
+    TableKit,
     Pages.configure({
       pageFormat: 'A4',
-      headerHeight: 60,
-      footerHeight: 60,
       pageGap: 40,
       header: 'My Project',
       footer: 'Page {page} of {total}',
@@ -61,11 +62,12 @@ const editor = new Editor({
 ```
 
 <Callout title="Best practice" variant="info">
-  Use the Pages extension early in your setup to ensure your document structure and layout are
-  consistent from the start.
+  Add Pages early in your setup so that document structure and layout are consistent from the start.
+  You can change the page format, headers, and footers later via commands; it's harder to retrofit
+  Pages onto a document that was already authored without pagination in mind.
 </Callout>
 
-## 4. Add DOCX export capability
+## 3. Add DOCX export capability
 
 Install the DOCX export extension:
 
@@ -75,12 +77,13 @@ npm install @tiptap-pro/extension-export-docx
 
 Add it to your editor:
 
-```js
+```ts
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 
 const editor = new Editor({
   extensions: [
-    StarterKit,
+    ConvertKit.configure({ table: false }),
+    TableKit,
     Pages.configure({
       /* ... */
     }),
@@ -89,96 +92,95 @@ const editor = new Editor({
 })
 ```
 
-### 4a. Configure DOCX export (optional, but recommended)
+### 3a. Configure DOCX export
 
-You can configure the DOCX export extension to control how the export works, handle the result, and even override styles.
+The DOCX export extension runs entirely in the browser — no JWT, no App ID, no server call. You configure it with an `onCompleteExport` callback that receives the result:
 
-```js
+```ts
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 
-const editor = new Editor({
-  extensions: [
-    StarterKit,
-    Pages.configure({
-      /* ... */
-    }),
-    ExportDocx.configure({
-      // This callback is required! It receives the exported file (Blob, string, etc.)
-      onCompleteExport: (result) => {
-        // For example, trigger a download in the browser:
-        const blob = new Blob([result], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'document.docx'
-        a.click()
-        URL.revokeObjectURL(url)
-      },
-      // Optional: choose the export type ('blob', 'string', etc.)
-      exportType: 'blob',
-      // Optional: override DOCX styles
-      styleOverrides: {
-        // See DOCX export docs for full style options
-      },
-      // Optional: add custom node converters if you use custom Tiptap nodes
-      customNodes: [],
-    }),
-  ],
+ExportDocx.configure({
+  // Required. The exported file is delivered through this callback.
+  onCompleteExport: (result) => {
+    const blob = new Blob([result], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'document.docx'
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+  // Optional: 'blob' (default), 'buffer', 'string', etc.
+  exportType: 'blob',
+  // Optional: override paragraph, heading, table styles, etc.
+  styleOverrides: {},
+  // Optional: define DOCX serialisation for any custom Tiptap nodes you've added.
+  customNodes: [],
 })
 ```
 
-<Callout title="Tip">
-  The <code>onCompleteExport</code> callback is required. This is where you handle the exported file
-  (e.g., download, upload, etc.).
+<Callout title="Required" variant="warning">
+  `onCompleteExport` is required. The export does not return its result; it hands the result to your
+  callback for you to download, upload, or process.
 </Callout>
 
-## 5. Export your document
+## 4. Export your document
 
-You can now export your paginated, print-ready document to DOCX:
+Trigger an export from the editor's command chain:
 
-```js
+```ts
 editor.commands.exportDocx()
 ```
 
-<Callout title="Hint">
-  The DOCX export extension works seamlessly with Pages. You must be aware that this is not a
-  perfect 1:1 map from our Pages extension to a Microsoft Word DOCX file since the rendering engines
-  are completely different.
+<Callout title="Round-trip is not byte-identical" variant="info">
+  DOCX export is faithful but not lossless. A few features (subscript/superscript marks, paragraph
+  line-height, floating tables) round-trip imperfectly. See the [feature support
+  matrix](/conversion/getting-started/feature-support-matrix) for the full list.
 </Callout>
 
-## 6. Import DOCX files into your editor
+## 5. Import DOCX files into your editor
 
-You can also import DOCX files directly into your paginated editor using the ImportDocx extension. This lets users load Word documents and continue editing with full pagination support.
+Add the import extension so users can load Word documents into the paginated editor:
 
-```js
+```bash
+npm install @tiptap-pro/extension-import-docx
+```
+
+```ts
 import { ImportDocx } from '@tiptap-pro/extension-import-docx'
 
 const editor = new Editor({
   extensions: [
-    // ... other extensions ...
+    ConvertKit.configure({ table: false }),
+    TableKit,
+    Pages.configure({
+      /* ... */
+    }),
+    ExportDocx.configure({
+      /* ... */
+    }),
     ImportDocx.configure({
-      appId: 'your-app-id', // Your Convert App ID
-      token: 'your-jwt', // Your authentication token
-      // Optional: endpoint and image upload URL for custom setups
-      // endpoint: 'https://your-api-endpoint',
-      // imageUploadConfig: { url: 'https://your-upload-endpoint' },
+      appId: 'YOUR_APP_ID', // Your Convert App ID
+      token: 'YOUR_JWT', // A JWT generated by your server
+      // Optional: where the import service should upload images extracted from the document
+      // imageUploadConfig: { url: 'https://your-server.com/upload-image' },
     }),
   ],
 })
 ```
 
-To trigger an import, use:
+To trigger an import, pass a `File` from an `<input type="file" />`:
 
-```js
+```ts
 editor
   .chain()
   .importDocx({
-    file, // a File object from an <input type="file" />
+    file,
     onImport(context) {
       if (context.error) {
-        // handle error
+        // Handle the failure (toast, log, retry, etc.)
         return
       }
       context.setEditorContent(context.content)
@@ -187,19 +189,23 @@ editor
   .run()
 ```
 
-<Callout title="Tip">
-  You need a valid <code>appId</code> and <code>token</code> to use the ImportDocx extension. See
-  the [Pro Extensions guide](/guides/pro-extensions) for setup.
+When the imported document carries headers and footers, the Pages extension picks them up automatically — they appear at the top and bottom of each rendered page without further wiring.
+
+<Callout title="Where to get your App ID and JWT" variant="hint">
+  See the [Conversion install guide](/conversion/getting-started/install) for credential setup. JWTs
+  must be generated server-side; never embed your secret key in the browser.
 </Callout>
 
 ---
 
 ## Next steps
 
-- Explore more [Pages options](/pages/core-concepts/options) to fine-tune your layout.
-- Add [tables](/pages/core-concepts/limitations#tables) using the Table extension included in the Pages extension for best compatibility.
-- Combine with other Tiptap Pro extensions for a fully featured editor.
+- [Pages options](/pages/core-concepts/options) — every option Pages exposes
+- [Page header and footer](/pages/core-concepts/page-header-footer) — different first page, odd/even pages, programmatic editor open/close
+- [PagesTableKit](/pages/guides/pages-tablekit) — pagination-safe tables in detail, including the most important known limitation
+- [Limitations](/pages/core-concepts/limitations) — non-splittable content, what Pages does not do, and how to work around each case
 
 <Callout title="Need help?">
-  Check the rest of the documentation or reach out to our support for more advanced workflows!
+  Reach out to support if you hit something unexpected, or check the rest of the documentation for
+  advanced workflows.
 </Callout>

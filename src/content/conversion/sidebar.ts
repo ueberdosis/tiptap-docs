@@ -44,12 +44,12 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'ConvertKit',
               href: '/conversion/import/docx/convertkit',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'CSS injection',
               href: '/conversion/import/docx/css-injection',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'REST API',
@@ -107,7 +107,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'CSS to DOCX',
               href: '/conversion/export/docx/css-to-docx',
-              tags: ['Experimental'],
+              tags: ['Beta'],
             },
             {
               title: 'REST API',
@@ -324,8 +324,64 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Guides',
       children: [
         {
+          title: 'End-to-end walkthrough',
+          href: '/conversion/getting-started/guides/end-to-end-walkthrough',
+        },
+        {
           title: 'Styling converted content',
           href: '/conversion/getting-started/guides/styling-converted-content',
+        },
+        {
+          title: 'Custom extensions',
+          href: '/conversion/getting-started/guides/custom-extensions',
+        },
+        {
+          title: 'Debugging',
+          href: '/conversion/getting-started/guides/debugging',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/legacy/overview',
+      title: 'Legacy',
+      tags: ['Deprecated'],
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/legacy/overview',
+        },
+        {
+          title: 'Migration guide',
+          href: '/conversion/legacy/migration-guide',
+        },
+        {
+          title: 'Markdown (legacy)',
+          href: '/conversion/legacy/markdown/editor-extensions',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/markdown/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/markdown/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'ODT (legacy)',
+          href: '/conversion/legacy/odt/editor-extensions',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/odt/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/odt/rest-api',
+            },
+          ],
         },
       ],
     },

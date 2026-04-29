@@ -1,11 +1,215 @@
 ---
-title: "End-to-end walkthrough: import, edit, export"
+title: 'End-to-end walkthrough: import, edit, export'
 tags:
   - type: beta
 meta:
   title: End-to-End Walkthrough | Tiptap Conversion
-  description: A step-by-step tutorial walking through the complete DOCX round-trip workflow from import through editing to export.
+  description: A step-by-step walkthrough of the complete DOCX round-trip — import, edit in Tiptap, export back to DOCX, and (optionally) render in a paginated editor.
   category: Conversion
 ---
 
-{/* Placeholder; content to be added */}
+import { Callout } from '@/components/ui/Callout'
+
+This guide walks you from an empty project to a working DOCX import and export, end to end. We'll set up the editor with ConvertKit, wire up a file input that sends DOCX uploads through the Conversion service, and round-trip the document back out to DOCX. Step 6 shows how to layer the [Pages extension](/pages/getting-started/overview) on top if you want a paginated editor.
+
+## Prerequisites
+
+- A Tiptap account with a [Pro plan or trial](https://cloud.tiptap.dev/v2?trial=true).
+- Access to [Tiptap's private npm registry](/guides/pro-extensions).
+- Your **App ID** and **secret key** from the [Convert settings page](https://cloud.tiptap.dev/v2/cloud/convert).
+
+## 1. Install the Conversion stack
+
+```bash
+npm install @tiptap-pro/extension-convert-kit \
+            @tiptap-pro/extension-import-docx \
+            @tiptap-pro/extension-export-docx
+```
+
+<Callout title="Why ConvertKit, always" variant="info">
+  ConvertKit is the canonical editor kit for Conversion. It registers the DOCX-aware schema —
+  paragraph spacing, image crop, table cell formatting — that the import service produces and the
+  export service consumes. Don't substitute `StarterKit`; you'll lose those attributes on
+  round-trip.
+</Callout>
+
+## 2. Set up the editor with ConvertKit
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    ConvertKit,
+    ImportDocx.configure({
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT', // generate this server-side
+    }),
+    ExportDocx.configure({
+      onCompleteExport: (result) => {
+        // Step 5 fills this in
+      },
+    }),
+  ],
+})
+```
+
+<Callout title="Generating the JWT" variant="warning">
+  Always generate JWTs on your server. Never embed the secret key in browser code. See the
+  [Conversion install guide](/conversion/getting-started/install) for details on token shape.
+</Callout>
+
+## 3. Wire up DOCX import
+
+Add a file input to the page and pass the selected file to the editor's `import` command:
+
+```html
+<input type="file" id="docx-input" accept=".docx" />
+```
+
+```ts
+const input = document.querySelector<HTMLInputElement>('#docx-input')!
+
+input.addEventListener('change', () => {
+  const file = input.files?.[0]
+  if (!file) return
+
+  editor.chain().focus().importDocx({ file }).run()
+})
+```
+
+That's the full path. The conversion service receives the DOCX, returns Tiptap JSON, and the editor renders it using ConvertKit's schema.
+
+## 4. Handle the import result yourself
+
+The default import replaces the editor content. To validate, transform, or surface errors, pass an `onImport` callback:
+
+```ts
+editor
+  .chain()
+  .focus()
+  .importDocx({
+    file,
+    onImport(context) {
+      if (context.error) {
+        console.error('Import failed:', context.error)
+        return
+      }
+
+      // Inspect or transform `context.content` here. To use it as-is, call setEditorContent().
+      // To replace with your own transformation, use editor.commands.setContent().
+      context.setEditorContent()
+    },
+  })
+  .run()
+```
+
+The `content` object is plain Tiptap JSON. Logging it is the fastest way to see what the converter actually produced — useful when a feature renders unexpectedly.
+
+## 5. Configure DOCX export
+
+Fill in the `onCompleteExport` callback with a download trigger:
+
+```ts
+ExportDocx.configure({
+  onCompleteExport: (result) => {
+    const blob = new Blob([result], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'document.docx'
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+  exportType: 'blob', // default; explicit here for clarity
+})
+```
+
+Trigger an export from a button:
+
+```ts
+document.querySelector('#export')!.addEventListener('click', () => {
+  editor.commands.exportDocx()
+})
+```
+
+DOCX export is **client-side**: no JWT, no App ID, no API call. The conversion happens in the extension itself.
+
+<Callout title="Round-trip is not byte-identical" variant="info">
+  A few features (subscript/superscript marks, paragraph line-height, floating tables) round-trip
+  imperfectly today. See the [feature support
+  matrix](/conversion/getting-started/feature-support-matrix) for the full list. Don't rely on a
+  DOCX → edit → DOCX cycle producing the original file byte-for-byte.
+</Callout>
+
+## 6. (Optional) Add Pages for paginated rendering
+
+If you want the editor to look like a real document — page boundaries, headers and footers, page format — add the [Pages extension](/pages/getting-started/overview) and PagesTableKit on top of the same setup:
+
+```bash
+npm install @tiptap-pro/extension-pages-tablekit @tiptap-pro/extension-pages
+```
+
+```ts
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { TableKit }   from '@tiptap-pro/extension-pages-tablekit'
+import { Pages }      from '@tiptap-pro/extension-pages'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  extensions: [
+    ConvertKit.configure({ table: false }), // disable ConvertKit's tables
+    TableKit,                                // pagination-safe tables instead
+    Pages.configure({
+      pageFormat: 'A4',
+      header: 'My document',
+      footer: 'Page {page} of {total}',
+    }),
+    ImportDocx.configure({ appId: 'YOUR_APP_ID', token: 'YOUR_JWT' }),
+    ExportDocx.configure({ onCompleteExport: /* ... */ }),
+  ],
+})
+```
+
+The diff from Step 2:
+
+- Disable ConvertKit's tables (`{ table: false }`); ConvertKit's bundled tables are not pagination-safe.
+- Add `TableKit` from `extension-pages-tablekit`.
+- Add `Pages.configure({...})`.
+
+Imported documents now render with their headers, footers, and page formats applied. The export path is unchanged — `editor.commands.exportDocx()` still works, and the exported DOCX preserves headers and footers from the Pages overlay.
+
+<Callout title="Important Pages limit" variant="warning">
+  Read the [Pages
+  limitations](/pages/core-concepts/limitations#oversized-non-splittable-blocks-cause-an-infinite-layout-loop)
+  page before shipping. Tables and other non-splittable blocks taller than the page can put the
+  layout into an infinite loop.
+</Callout>
+
+## What to expect
+
+- **Imports always go through the service.** Even a small DOCX hits the Conversion service to be parsed. The service requires `appId` and a JWT.
+- **Exports are local.** DOCX export runs in the browser; no auth, no network call.
+- **Round-trip drift is real.** Plan for the features in the matrix that don't round-trip (subscript marks, line-height) — either avoid those features in your editor schema or accept the drift.
+
+## What not to expect
+
+- **OCR or scanned-PDF processing.** Conversion handles structured documents, not bitmap-of-a-page input.
+- **Real-time collaboration in this setup.** Pair with the Tiptap Collaboration product if you need multi-user editing — see [Adding collaboration to Pages](/pages/guides/collaboration-with-pages) when combining with Pages.
+- **Asynchronous job control.** The service responds synchronously to each request. Plan timeouts on your side for very large documents.
+
+## Next steps
+
+- [ConvertKit reference](/conversion/import/docx/convertkit) — the schema you registered
+- [Import DOCX](/conversion/import/docx/editor-extension) — full API of the import extension
+- [Export DOCX](/conversion/export/docx/editor-extension) — full API of the export extension
+- [Feature support matrix](/conversion/getting-started/feature-support-matrix) — what round-trips and what doesn't
+- [Pages overview](/pages/getting-started/overview) — paginated editor layout
+- [Debugging](/conversion/getting-started/guides/debugging) — diagnose failed imports, schema mismatches, and HTTP errors

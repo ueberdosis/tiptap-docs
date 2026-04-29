@@ -1,0 +1,257 @@
+---
+title: Migrating from the legacy import/export extensions
+tags:
+  - type: deprecated
+meta:
+  title: Migration guide | Tiptap Conversion Legacy
+  description: Step-by-step migration from the legacy `extension-import` / `extension-export` packages and the /v1/ REST endpoints to the format-specific Conversion extensions.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+This guide walks through migrating from the legacy `@tiptap-pro/extension-import` and `@tiptap-pro/extension-export` packages (and the `/v1/` REST endpoints they used) to the current format-specific Conversion extensions and `/v2/` endpoints. The legacy packages still work for existing integrations, but receive no new features and will be removed; new work should target the current API.
+
+## Why migrate
+
+- **The default endpoint no longer exists.** The legacy packages default `endpoint` to `/v1/convert`, which the Conversion service no longer hosts. Existing integrations either pass an explicit `endpoint` override or migrate.
+- **Format-specific extensions, format-specific options.** The current API splits per format (`extension-import-docx`, `extension-export-docx`, `-pdf`, `-odt`, `-epub`, `-doc`, `-markdown`). Each one exposes the options that actually apply to that format — no more inert `format` switches.
+- **Better DOCX fidelity.** The current DOCX path preserves attributes (paragraph spacing, image crops, table cell properties) that the legacy extensions dropped. Pair with [ConvertKit](/conversion/import/docx/convertkit) to render those attributes in the editor.
+- **Continued development.** The legacy packages receive no new features. Bug fixes and new format support land on the current API.
+
+## Editor-kit migration: StarterKit → ConvertKit
+
+Most legacy setups paired `extension-import` / `extension-export` with `StarterKit`. The current recommendation is `ConvertKit` from `@tiptap-pro/extension-convert-kit` — for any Conversion workflow, regardless of format.
+
+```bash
+npm install @tiptap-pro/extension-convert-kit
+```
+
+```ts
+// Before
+import StarterKit from '@tiptap/starter-kit'
+
+new Editor({
+  extensions: [StarterKit /* + legacy import/export */],
+})
+
+// After
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+new Editor({
+  extensions: [ConvertKit /* + format-specific extensions */],
+})
+```
+
+ConvertKit is a separate package install — it is not bundled with the import or export extensions. See the [ConvertKit reference](/conversion/import/docx/convertkit) for what it registers.
+
+If you're also adopting the [Pages extension](/pages/getting-started/overview), the post-migration setup adds `TableKit` from `@tiptap-pro/extension-pages-tablekit` and disables ConvertKit's tables (which are not pagination-safe):
+
+```ts
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+import { Pages } from '@tiptap-pro/extension-pages'
+
+new Editor({
+  extensions: [
+    ConvertKit.configure({ table: false }),
+    TableKit,
+    Pages.configure({
+      /* ... */
+    }),
+    /* + format-specific import/export extensions */
+  ],
+})
+```
+
+## Import: `extension-import` → `extension-import-docx`
+
+The legacy `extension-import` package handled multiple input formats with one extension. The current API has a dedicated package per format. For DOCX, that's `@tiptap-pro/extension-import-docx`.
+
+```bash
+npm uninstall @tiptap-pro/extension-import
+npm install   @tiptap-pro/extension-import-docx
+```
+
+### Code diff
+
+```ts
+// Before — legacy
+import { Import } from '@tiptap-pro/extension-import'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    Import.configure({
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT',
+      imageUploadCallbackUrl: 'https://your-server.com/upload-image',
+      experimentalDocxImport: true,
+    }),
+  ],
+})
+
+editor.chain().focus().import({ file }).run()
+```
+
+```ts
+// After — current
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const editor = new Editor({
+  extensions: [
+    ConvertKit,
+    ImportDocx.configure({
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT',
+      imageUploadConfig: {
+        url: 'https://your-server.com/upload-image',
+        // method, headers, queryParams all optional
+      },
+    }),
+  ],
+})
+
+editor.chain().focus().importDocx({ file }).run()
+```
+
+### Option mapping
+
+| Legacy option            | Current option          | Notes                                                                                                                                                                                           |
+| ------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `appId`                  | `appId`                 | Same.                                                                                                                                                                                           |
+| `token`                  | `token`                 | Same.                                                                                                                                                                                           |
+| `imageUploadCallbackUrl` | `imageUploadConfig.url` | The full structured config also accepts `method`, `headers`, `queryParams`. The legacy string-only option is deprecated; if both are set, the new config wins and a console warning is emitted. |
+| `experimentalDocxImport` | (removed)               | DOCX import is no longer experimental in the current package.                                                                                                                                   |
+| `endpoint` (custom)      | `endpoint` (custom)     | Default is `https://api.tiptap.dev/v2/convert` (no manual override needed).                                                                                                                     |
+
+### Behavioural changes
+
+- The command is still `import({ file, onImport? })`. The callback signature is the same.
+- The response now includes header/footer fields (`header`, `footer`, `headerFirstPage`, `footerFirstPage`, `headerOdd`, `footerOdd`, `headerEven`, `footerEven`) when the source DOCX carries them. If the [Pages extension](/pages/getting-started/overview) is registered, those are auto-applied; otherwise you can apply them manually in `onImport`.
+- Footnote and endnote data is not surfaced in the editor extension's callback. To access it, use the [REST API](/conversion/import/docx/rest-api).
+
+### What does not have a 1:1 replacement
+
+The legacy `extension-import` accepted ODT and RTF inputs as well as DOCX and Markdown. The current format-specific extensions cover **DOCX** (`extension-import-docx`) and **Markdown** ([REST API](/conversion/import/markdown/rest-api)). ODT and RTF import are not yet on the current API. If you depend on either, keep the legacy package and pass an explicit `endpoint` override pointing at the legacy `/v1/` host while we work on adding them.
+
+## Export: `extension-export` → format-specific extensions
+
+The legacy `extension-export` took a `format` argument (`docx`, `odt`, `md`, `gfm`) and routed to the appropriate converter. The current API has one extension per format:
+
+| Legacy `format` | Current extension                                                                       |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `docx`          | [`@tiptap-pro/extension-export-docx`](/conversion/export/docx/editor-extension)         |
+| `odt`           | [`@tiptap-pro/extension-export-odt`](/conversion/export/odt/editor-extension)           |
+| `md` / `gfm`    | [`@tiptap-pro/extension-export-markdown`](/conversion/export/markdown/editor-extension) |
+
+Two new formats — PDF, EPUB, and DOC — also have their own extensions:
+
+- [`@tiptap-pro/extension-export-pdf`](/conversion/export/pdf/editor-extension)
+- [`@tiptap-pro/extension-export-epub`](/conversion/export/epub/editor-extension)
+- [`@tiptap-pro/extension-export-doc`](/conversion/export/doc/editor-extension)
+
+```bash
+# Pick the formats you need; each is an independent install
+npm uninstall @tiptap-pro/extension-export
+npm install   @tiptap-pro/extension-export-docx \
+              @tiptap-pro/extension-export-pdf
+```
+
+### Code diff (DOCX example)
+
+```ts
+// Before — legacy
+import { Export } from '@tiptap-pro/extension-export'
+
+new Editor({
+  extensions: [
+    StarterKit,
+    Export.configure({
+      appId: 'YOUR_APP_ID',
+      token: 'YOUR_JWT',
+    }),
+  ],
+})
+
+editor.chain().export({ format: 'docx' }).run()
+```
+
+```ts
+// After — current (DOCX)
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+new Editor({
+  extensions: [
+    ConvertKit,
+    ExportDocx.configure({
+      onCompleteExport: (result) => {
+        // result is a Blob by default; download / upload / process
+      },
+    }),
+  ],
+})
+
+editor.commands.exportDocx()
+```
+
+DOCX export is now **client-side** — no JWT or App ID needed. PDF, ODT, EPUB, and DOC exports go through the Conversion service and require the same `appId` + `token` you used for legacy exports.
+
+### Option mapping
+
+| Legacy option       | Current option                                                 | Notes                                                                                          |
+| ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `appId`             | `appId` (PDF, ODT, EPUB, DOC); not needed for DOCX or Markdown | DOCX export and Markdown export run client-side.                                               |
+| `token`             | `token` (PDF, ODT, EPUB, DOC); not needed for DOCX or Markdown | Same.                                                                                          |
+| `format` argument   | (removed)                                                      | The format is the extension you registered.                                                    |
+| `onExport` callback | `onCompleteExport`                                             | Signature is `(result: Blob \| Buffer \| Stream \| string) => void` depending on `exportType`. |
+
+### Headers / footers, page layout, custom nodes
+
+These are first-class options on the current export extensions; on the legacy export, they were implicit or unsupported.
+
+- **Headers and footers.** See the format-specific page (e.g. [Export DOCX](/conversion/export/docx/editor-extension), [Export PDF](/conversion/export/pdf/editor-extension)).
+- **Page layout** (`pageSize`, `pageMargins`). Available on PDF, DOC, ODT, EPUB exports.
+- **Custom nodes.** [`extension-export-docx`](/conversion/export/docx/custom-nodes) accepts `customNodes` definitions; the other binary formats inherit them through the same extension.
+- **Element-level overrides** (`paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableCellOverrides`, `imageOverrides`). DOCX export only.
+
+## REST API: `/v1/` → `/v2/`
+
+The `/v1/` endpoints (`/v1/import`, `/v1/import-docx`, `/v1/export`) are no longer hosted. The current REST API uses `/v2/` and is split per format:
+
+| Legacy endpoint        | Current endpoint                                                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/import`      | `POST /v2/import/docx` ([reference](/conversion/import/docx/rest-api)) or `POST /v2/import/markdown` ([reference](/conversion/import/markdown/rest-api)) |
+| `POST /v1/import-docx` | `POST /v2/import/docx` ([reference](/conversion/import/docx/rest-api))                                                                                   |
+| `POST /v1/export`      | `POST /v2/export/docx`, `POST /v2/export/pdf`, `POST /v2/export/odt`, `POST /v2/export/epub`, `POST /v2/export/doc`, `POST /v2/export/markdown`          |
+
+All `/v2/` endpoints accept the same `Authorization: Bearer <jwt>` and `X-App-Id` headers as the legacy endpoints. Request bodies are slightly different per format — see the linked references for shapes.
+
+<Callout title="If you can't migrate yet" variant="hint">
+  Keep the legacy package installed and pass an explicit endpoint override pointing at the current
+  host: <code>endpoint: 'https://api.tiptap.dev/v2/convert'</code>. The legacy package's request
+  shape is a subset of <code>/v2/</code>'s, but you'll lose access to features that only exist on
+  the current extensions (header/footer auto-application, custom node mapping, format-specific
+  options).
+</Callout>
+
+## Migration checklist
+
+1. Install `@tiptap-pro/extension-convert-kit` and replace `StarterKit` with `ConvertKit` in your editor's extensions array.
+2. Replace `@tiptap-pro/extension-import` with `@tiptap-pro/extension-import-docx` (and migrate `imageUploadCallbackUrl` to `imageUploadConfig`).
+3. Replace `@tiptap-pro/extension-export` with the format-specific export extensions you need.
+4. Update command names: `import({ file })` is unchanged; `export({ format: 'docx' })` becomes `exportDocx()`.
+5. Move your export result handling from the `onExport` callback to `onCompleteExport`.
+6. If you use the REST API directly, update endpoint URLs from `/v1/...` to `/v2/...`.
+7. (Optional) Add the [Pages extension](/pages/getting-started/overview) if you want a paginated editor; this requires the Rule-2 setup (ConvertKit + TableKit + Pages).
+8. Run through the [end-to-end walkthrough](/conversion/getting-started/guides/end-to-end-walkthrough) to validate the new setup works end-to-end.
+
+## Related
+
+- [Conversion overview](/conversion/getting-started/overview) — the current product
+- [Install](/conversion/getting-started/install) — credentials and registry setup
+- [ConvertKit](/conversion/import/docx/convertkit) — the schema you'll register on the editor
+- [End-to-end walkthrough](/conversion/getting-started/guides/end-to-end-walkthrough) — full DOCX round-trip with the new API
+- [Legacy overview](/conversion/legacy/overview) — what the legacy packages still do today, for reference
