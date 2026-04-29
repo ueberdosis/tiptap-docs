@@ -8,4 +8,169 @@ meta:
   category: Conversion
 ---
 
-{/* Placeholder; content to be added */}
+import { Callout } from '@/components/ui/Callout'
+
+ConvertKit covers the schema for most DOCX content. When the converter produces a node or attribute that ConvertKit doesn't render — a custom mark, a niche attribute, or a domain-specific block — you wire it up yourself with standard Tiptap `extend()` patterns. This guide shows two worked examples: extending an existing extension to surface a dropped attribute, and adding a custom node and routing imported content into it.
+
+## The mental model
+
+The Conversion service extracts everything it can from the source document and emits Tiptap JSON with the corresponding nodes, marks, and attributes. ConvertKit registers extensions that render most of those, but not all of them. When something is missing, you have three levers:
+
+1. **Extend an existing extension** to render an attribute that the converter produced and ConvertKit didn't.
+2. **Add a custom node or mark** to your schema, and tell the importer to map a DOCX construct to it.
+3. **Tell the exporter how to serialize** your custom node back to DOCX, so the round-trip works.
+
+You'll typically use 1 for missing inline attributes and 2 + 3 together for new block-level constructs.
+
+## Worked example 1: rendering imported letter-spacing
+
+The converter extracts character spacing as a `textStyle` mark with a `letterSpacing` attribute. ConvertKit registers `TextStyle` (via its bundled `TextStyleKit`) but does not declare `letterSpacing` as one of its attributes — so the value lives in the JSON but never reaches the rendered DOM.
+
+Extend `TextStyle` to declare the attribute and emit it as inline CSS:
+
+```ts
+import { Extension } from '@tiptap/core'
+import { TextStyle } from '@tiptap/extension-text-style'
+
+const TextStyleWithLetterSpacing = TextStyle.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      letterSpacing: {
+        default: null,
+        parseHTML: (element) => element.style.letterSpacing || null,
+        renderHTML: (attributes) => {
+          if (!attributes.letterSpacing) return {}
+          return { style: `letter-spacing: ${attributes.letterSpacing}` }
+        },
+      },
+    }
+  },
+})
+```
+
+Disable ConvertKit's stock `textStyleKit` slot and register the extended one:
+
+```ts
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+const editor = new Editor({
+  extensions: [
+    ConvertKit.configure({ textStyleKit: false }),
+    TextStyleWithLetterSpacing,
+    // ... your other extensions
+  ],
+})
+```
+
+Imported documents that carried letter-spacing will now render with the spacing applied. The same pattern works for any attribute the converter extracts but ConvertKit's defaults don't surface — see the rest of the [feature support matrix](/conversion/getting-started/feature-support-matrix).
+
+<Callout title="When to extend instead of replace" variant="info">
+  Extending the existing extension preserves the rest of its behaviour and lets you spread
+  <code>...this.parent?.()</code> attributes. Replacing it entirely (with your own Mark from
+  scratch) means re-implementing the parsing rules ConvertKit relies on for round-trip — usually not
+  worth it.
+</Callout>
+
+## Worked example 2: a custom callout block
+
+Suppose your editor has a `callout` node — a styled block with an icon and a colour — and you want imported DOCX blockquotes to map to it instead of to the default `blockquote`. Three steps: define the custom node, map the import to it, and define the export back to DOCX.
+
+### Define the node
+
+```ts
+import { Node, mergeAttributes } from '@tiptap/core'
+
+const Callout = Node.create({
+  name: 'callout',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+
+  addAttributes() {
+    return {
+      tone: { default: 'info' },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'aside[data-callout]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['aside', mergeAttributes(HTMLAttributes, { 'data-callout': '' }), 0]
+  },
+})
+```
+
+### Map DOCX blockquotes to the callout on import
+
+`ImportDocx` accepts a `prosemirrorNodes` map that rewrites incoming node types during import. Tell it to send blockquotes to your `callout` node:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  appId: 'YOUR_APP_ID',
+  token: 'YOUR_JWT',
+  prosemirrorNodes: {
+    blockquote: 'callout',
+  },
+})
+```
+
+Imported DOCX blockquotes now arrive in the editor as `callout` nodes, with whatever inline content they carried preserved.
+
+### Serialize the callout back to DOCX on export
+
+For exports to round-trip, `ExportDocx` needs to know how to write your custom node out. Pass a `customNodes` entry whose `type` matches the Tiptap node name and whose `render(node)` function returns one (or many) `docx` library objects:
+
+```ts
+import { Paragraph, TextRun } from 'docx'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'callout', // matches the Tiptap node name
+      render: (node) => {
+        // Flatten the callout's text content for a minimal example.
+        // For richer callouts, walk node.content and emit multiple Paragraphs
+        // (return a Paragraph[]) or whichever shape makes sense for your design.
+        const text = (node.content ?? [])
+          .flatMap((child) => child.content ?? [])
+          .map((leaf) => leaf.text ?? '')
+          .join('')
+
+        return new Paragraph({
+          children: [new TextRun({ text, bold: true })],
+        })
+      },
+    },
+  ],
+  onCompleteExport: (result) => {
+    /* ... */
+  },
+})
+```
+
+The `render` function is invoked with the Tiptap node and must return one of: `Paragraph`, `Paragraph[]`, `Table`, `TextRun`, `ExternalHyperlink`, or `null` (returning `null` drops the node from the export). See [Custom node export](/conversion/export/docx/custom-nodes) for the full API and more elaborate examples.
+
+## What to expect
+
+- Custom mark/node work is your responsibility once you go beyond ConvertKit. We provide the hooks; the rendering and serialisation logic are application-specific.
+- ConvertKit's bundled extensions can be replaced individually by passing `false` to the corresponding slot in `ConvertKit.configure({…})`.
+- For round-trip fidelity, the import mapping and export serialisation should be symmetric. If you map blockquote → callout on import, define how callout writes back to DOCX on export.
+
+## What not to expect
+
+- A schema migration tool. There's no automatic way to upgrade existing stored content from the old node type to your new custom node — that's a one-off transformation you write.
+- Conversion-side attribute extraction beyond what the converter already does. If the source DOCX carries a feature the converter doesn't parse (e.g. multi-column section properties, certain SmartArt graphics), no amount of editor-side extension will reveal it.
+
+## Next steps
+
+- [Custom node mapping](/conversion/import/docx/custom-node-mapping) — full reference for `prosemirrorNodes`
+- [Custom mark mapping](/conversion/import/docx/custom-mark-mapping) — full reference for `prosemirrorMarks`
+- [Custom node export](/conversion/export/docx/custom-nodes) — full reference for `customNodes` on the export side
+- [Styling converted content](/conversion/getting-started/guides/styling-converted-content) — patterns for layering CSS on imported content
+- [Debugging](/conversion/getting-started/guides/debugging) — diagnose schema mismatches and verbose import logs
