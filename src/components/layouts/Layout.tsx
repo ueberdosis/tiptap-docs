@@ -13,6 +13,7 @@ import { MobileNavigationButton } from '../MobileNavigationButton'
 import { DocsSidebar } from '../SidebarRenderer'
 import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
 import { SidebarTableOfContent } from '../SidebarTableOfContent'
+import { ThemeToggle } from '../ThemeToggle'
 import { VersionSwitch } from '../VersionSwitch'
 import styles from './Layout.module.css'
 import Link from '@/components/Link'
@@ -44,7 +45,7 @@ export const LayoutCTABar = () => {
       target={target}
       className={cn(
         styles.notificationBar,
-        'flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white group',
+        'flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-inverse-foreground group',
       )}
     >
       <span className="leading-none">{CTA_BAR.text}</span>
@@ -57,7 +58,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
   ({ config, ...rest }, ref) => {
     return (
       <header ref={ref} {...rest} className="container sticky top-0 w-full py-1.5 z-50">
-        <div className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
+        <div className="bg-header text-header-foreground h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
           <div className="flex items-center gap-2">
             <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
               <TiptapLogo />
@@ -66,7 +67,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               </span>
             </Link>
             <VersionSwitch />
-            <span className="hidden select-none lg:block text-black/15">/</span>
+            <span className="hidden select-none lg:block text-foreground/15">/</span>
             <nav className="hidden lg:flex items-center gap-[0.5px]">
               <ProductDropdown />
               <NavLink href="/guides">Guides</NavLink>
@@ -78,6 +79,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             </nav>
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            <ThemeToggle />
             <div className="hidden xl:block">
               <SearchButton />
             </div>
@@ -100,7 +102,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             </div>
           </div>
         </div>
-        <div className="block lg:hidden py-1.5 bg-white px-[1.125rem] shadow-slim rounded-bl-pilled rounded-br-pilled border-t border-neutral-200">
+        <div className="block lg:hidden py-1.5 bg-header text-header-foreground px-[1.125rem] shadow-slim rounded-bl-pilled rounded-br-pilled border-t border-border">
           <div className="flex items-center h-8 py-1">
             <div className="flex items-center gap-2 mr-auto">
               <MobileNavigationButton config={config} />
@@ -201,9 +203,10 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         )}
         ref={ref}
       >
+        <ThemeToggle mobile />
         <div className="pt-6 pb-16 sm:pb-24 sm:pt-8 lg:pb-32 lg:pt-10">{children}</div>
 
-        <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
+        <footer className="border-t border-border-strong pt-8 pb-[3.125rem]">
           <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
             <div className="z-10 flex flex-col items-start flex-none">
               <PageEditFooter />

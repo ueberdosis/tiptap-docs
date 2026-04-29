@@ -88,7 +88,7 @@ function IncidentCard({ incident }: { incident: IncidentData }) {
         {/* Header with title and severity */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-black leading-[140%]">{incident.title}</h3>
+            <h3 className="font-semibold text-foreground leading-[140%]">{incident.title}</h3>
           </div>
           <div className="flex-shrink-0">
             <Tag
@@ -102,10 +102,10 @@ function IncidentCard({ incident }: { incident: IncidentData }) {
         </div>
 
         {/* Description */}
-        <div className="leading-[140%] text-grayAlpha-600">{incident.meta.description}</div>
+        <div className="leading-[140%] text-foreground-muted">{incident.meta.description}</div>
 
         {/* Meta information row */}
-        <div className="mt-3 flex items-center flex-wrap gap-1 text-sm text-grayAlpha-600">
+        <div className="mt-3 flex items-center flex-wrap gap-1 text-sm text-foreground-muted">
           <span>
             {capitalizeFirstLetter(incident.incident.status)} {incident.incident.date}
           </span>

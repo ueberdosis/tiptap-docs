@@ -45,19 +45,15 @@ export const LinkItem = ({
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
 
-  const [isOpen, setIsOpen] = useState(isActive || isActiveParent || hasActiveChild)
+  const [isOpen, setIsOpen] = useState(false)
+  const shouldStayOpen = (isActive || isActiveParent || hasActiveChild) && link.href !== ''
+  const isExpanded = shouldStayOpen || isOpen
 
   const toggleOpen = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsOpen((prev) => !prev)
   }, [])
-
-  useEffect(() => {
-    if ((isActive || isActiveParent) && link.href !== '') {
-      setIsOpen(true)
-    }
-  }, [isActive, isActiveParent, link.href])
 
   // Scroll active item into view when sidebar is fully rendered
   useEffect(() => {
@@ -68,7 +64,7 @@ export const LinkItem = ({
 
   const toggleButtonClassName = cn(
     'p-0.5 rounded',
-    !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
+    !isExpanded ? 'hover:bg-sidebar-hover' : 'bg-sidebar-hover',
   )
 
   return (
@@ -88,11 +84,11 @@ export const LinkItem = ({
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
             {link.beta && (
-              <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+              <sup className="inline-block ml-1 text-[10px] text-foreground-muted">BETA</sup>
             )}
           </span>
           <span className="flex gap-1 items-center">
-            {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
+            {link.external && <ExternalLinkIcon className="size-3.5 text-foreground-subtle" />}
             {link.tags ? (
               <span className="flex items-center gap-0.5">
                 {link.tags.map((tag) => (
@@ -102,12 +98,12 @@ export const LinkItem = ({
                 ))}
               </span>
             ) : null}
-            {link.children ? (
-              <button className={toggleButtonClassName} onClick={toggleOpen}>
-                {isOpen ? (
-                  <ChevronDownIcon className="size-4 text-grayAlpha-500" />
+                {link.children ? (
+                  <button className={toggleButtonClassName} onClick={toggleOpen}>
+                {isExpanded ? (
+                  <ChevronDownIcon className="size-4 text-foreground-subtle" />
                 ) : (
-                  <ChevronRightIcon className="size-4 text-grayAlpha-500" />
+                  <ChevronRightIcon className="size-4 text-foreground-subtle" />
                 )}
               </button>
             ) : null}
@@ -117,8 +113,8 @@ export const LinkItem = ({
       {link.children ? (
         <div
           className={cn(
-            'pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300',
-            isOpen ? 'block' : 'hidden',
+            'pl-2 my-2 space-y-1 ml-2 border-l border-border-strong',
+            isExpanded ? 'block' : 'hidden',
           )}
         >
           {link.children.map((child, i) => (

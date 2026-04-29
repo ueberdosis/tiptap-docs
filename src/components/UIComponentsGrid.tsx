@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { createElement } from 'react'
 import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import { UIComponentMetaWithUrl } from '@/types'
@@ -18,13 +18,13 @@ function UIComponentCard({ comp }: { comp: UIComponentMetaWithUrl }) {
     <Card isClickable asChild>
       <Link href={comp.url} key={comp.path}>
         <div className="flex items-center justify-between gap-2 mb-5">
-          {!!Icon ? <Icon className="w-3.5 h-3.5" /> : null}
+          {!!Icon ? createElement(Icon, { className: 'w-3.5 h-3.5' }) : null}
           <div className="ml-auto flex items-center gap-1">
             {comp.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
         </div>
-        <div className="font-semibold text-black leading-[140%]">{comp.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{comp.description}</div>
+        <div className="font-semibold text-foreground leading-[140%]">{comp.name}</div>
+        <div className="mt-2 leading-[140%] text-foreground-muted">{comp.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {comp.isOpen ? <Tag>Open Source</Tag> : null}
         </div>

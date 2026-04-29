@@ -29,8 +29,8 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
   }
 
   const linkClassName = cn(
-    'p-2.5 bg-white border border-grayAlpha-200 shadow-cardLight block rounded-lg',
-    active ? 'bg-neutral-100' : 'hover:bg-neutral-50',
+    'p-2.5 bg-card text-card-foreground border border-border shadow-cardLight block rounded-lg',
+    active ? 'bg-interactive-active' : 'hover:bg-surface-muted',
   )
 
   return (
@@ -42,9 +42,9 @@ const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => 
           <span className="flex items-center gap-0.5 flex-wrap mt-1 font-medium">
             {parents.map(([key, value], i) => (
               <Fragment key={key}>
-                <span className="block text-xs text-grayAlpha-500">{value}</span>
+                <span className="block text-xs text-foreground-subtle">{value}</span>
                 {i < parents.length - 1 ? (
-                  <span className="block text-xs text-grayAlpha-400">/</span>
+                  <span className="block text-xs text-foreground-subtle">/</span>
                 ) : null}
               </Fragment>
             ))}
@@ -151,7 +151,7 @@ const SearchContent = () => {
           submit: 'hidden',
           loadingIcon: 'hidden',
           input:
-            'w-full appearance-none rounded shadow-cardLight border border-grayAlpha-200 p-2 text-sm outline-none hover:border-grayAlpha-300 focus:border-grayAlpha-400',
+            'w-full appearance-none rounded shadow-cardLight border border-border p-2 text-sm outline-none hover:border-border-strong focus:border-ring',
         }}
       />
       {query && rankedHits.length > 0 ? <div className="h-4"></div> : null}
@@ -167,7 +167,7 @@ const SearchContent = () => {
           : null}
         {query && rankedHits.length === 0 ? (
           <div className="flex items-center justify-center p-2 mt-2">
-            <span className="text-grayAlpha-400">
+            <span className="text-foreground-subtle">
               No results found for <strong>{query}</strong>
             </span>
           </div>
@@ -185,9 +185,9 @@ export const Search = () => {
     <Dialog.Root open={searchOpen} onOpenChange={setSearchOpen}>
       <Dialog.Trigger asChild></Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay backdrop-blur" />
         <div className="fixed inset-0 z-50 flex items-start justify-center p-5 pointer-events-none">
-          <Dialog.Content className="flex flex-col bg-warmGray rounded-lg p-2 pointer-events-auto w-full max-w-124 max-h-[90%] shadow-xl">
+          <Dialog.Content className="flex flex-col bg-surface text-surface-foreground rounded-lg p-2 pointer-events-auto w-full max-w-124 max-h-[90%] shadow-xl">
             {searchOpen ? (
               <SearchWrapper>
                 <SearchContent />

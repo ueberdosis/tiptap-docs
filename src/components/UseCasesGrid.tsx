@@ -221,11 +221,11 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
     <Card isClickable asChild>
       <Link href={useCase.href}>
         <div className="flex items-center justify-between gap-4 mb-4">
-          <Icon className="size-4 text-neutral-600" />
+          <Icon className="size-4 text-foreground-muted" />
           <div></div>
         </div>
-        <div className="font-semibold text-black leading-[140%]">{useCase.title}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{useCase.description}</div>
+        <div className="font-semibold text-foreground leading-[140%]">{useCase.title}</div>
+        <div className="mt-2 leading-[140%] text-foreground-muted">{useCase.description}</div>
       </Link>
     </Card>
   )

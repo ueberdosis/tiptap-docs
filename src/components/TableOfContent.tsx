@@ -14,8 +14,8 @@ function TocItem({
 }) {
   const itemClass = cn(
     'block text-sm leading-[130%] px-2.5 py-2 rounded-lg bg-transparent transition-colors',
-    !isActive ? 'hover:bg-grayAlpha-50' : '',
-    isActive ? 'text-purple-500' : '',
+    !isActive ? 'hover:bg-surface-muted' : '',
+    isActive ? 'text-selection-accent' : '',
   )
 
   return (

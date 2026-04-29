@@ -52,7 +52,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         style={{ minHeight: 90 }}
       >
         <div className="flex flex-row items-center gap-x-3 w-full">
-          <h3 className="font-medium text-gray-800 m-0 flex items-center">
+          <h3 className="font-medium text-foreground m-0 flex items-center">
             Was this page helpful?
           </h3>
           <div className="flex gap-0">
@@ -60,7 +60,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               aria-label="Yes"
               variant={state === 'yes' ? 'secondary' : 'tertiary'}
               size="small"
-              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'yes' ? 'bg-gray-200 border border-gray-400' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
+              className={`rounded-lg hover:bg-interactive-hover transition-colors ${state === 'yes' ? 'bg-interactive-hover border border-ring' : ''} ${state === 'submitted' && lastFeedbackWasYes ? '' : ''}`}
               onClick={() => setState(state === 'yes' ? 'initial' : 'yes')}
               disabled={submitting}
             >
@@ -70,7 +70,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
               aria-label="No"
               variant={state === 'no' ? 'secondary' : 'tertiary'}
               size="small"
-              className={`rounded-lg hover:bg-grayAlpha-200 transition-colors ${state === 'no' ? 'bg-gray-200 border border-gray-400' : ''}`}
+              className={`rounded-lg hover:bg-interactive-hover transition-colors ${state === 'no' ? 'bg-interactive-hover border border-ring' : ''}`}
               onClick={() => setState(state === 'no' ? 'initial' : 'no')}
               disabled={submitting}
             >
@@ -80,7 +80,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
         </div>
 
         {state === 'submitted' && !lastFeedbackWasYes && (
-          <span className="inline-block text-xs text-gray-800 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
+          <span className="inline-block text-xs text-foreground bg-surface-muted border border-border rounded px-2 py-1 mt-1">
             Thank you for your feedback!
           </span>
         )}
@@ -94,7 +94,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
           >
             <textarea
               rows={3}
-              className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
+              className="border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none w-full max-w-2xl"
               placeholder="What made this content helpful? (optional)"
               value={yesText}
               onChange={(e) => setYesText(e.target.value)}
@@ -130,7 +130,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
                     value={option}
                     checked={noOption === option}
                     onChange={() => setNoOption(option)}
-                    className="accent-gray-800"
+                    className="accent-foreground"
                     aria-label={option}
                   />
                   {option}
@@ -140,7 +140,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
             {noOption && (
               <textarea
                 rows={3}
-                className="border border-gray-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none w-full max-w-2xl"
+                className="border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none w-full max-w-2xl"
                 placeholder="Can you provide more details? (optional)"
                 value={noText}
                 onChange={(e) => setNoText(e.target.value)}

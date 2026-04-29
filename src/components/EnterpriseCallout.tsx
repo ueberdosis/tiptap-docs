@@ -113,12 +113,17 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
           ref={ref}
           className={cn(
             'p-6 rounded-xl border max-w-[42rem]',
-            inverted ? 'bg-grayAlpha-900 border-grayAlpha-700' : 'bg-white border-grayAlpha-200',
+            inverted ? 'bg-inverse border-inverse-border' : 'bg-card border-border',
             className,
           )}
           {...rest}
         >
-          <h3 className={cn('text-lg font-semibold mb-3', inverted ? 'text-white' : '')}>
+          <h3
+            className={cn(
+              'text-lg font-semibold mb-3',
+              inverted ? 'text-inverse-foreground' : 'text-foreground',
+            )}
+          >
             {title}
           </h3>
 
@@ -127,7 +132,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
               <p
                 className={cn(
                   'text-sm mb-3',
-                  inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+                  inverted ? 'text-inverse-foreground/80' : 'text-foreground-muted',
                 )}
               >
                 {description.split('\n\n')[0]}
@@ -136,7 +141,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                 <p
                   className={cn(
                     'text-sm mb-3',
-                    inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+                    inverted ? 'text-inverse-foreground/80' : 'text-foreground-muted',
                   )}
                 >
                   {description.split('\n\n')[1]}
@@ -147,7 +152,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                 <p
                   className={cn(
                     'text-xs mt-4',
-                    inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600',
+                    inverted ? 'text-inverse-foreground/65' : 'text-foreground-muted',
                   )}
                 >
                   {waitlistText}{' '}
@@ -157,8 +162,8 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                     className={cn(
                       'font-medium underline whitespace-nowrap',
                       inverted
-                        ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
-                        : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                        ? 'text-accent hover:text-accent/80'
+                        : 'text-info-foreground hover:text-info',
                     )}
                   >
                     waitlist
@@ -174,7 +179,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
                   target="_blank"
                   className={cn(
                     'inline-flex items-center justify-center gap-2',
-                    inverted ? '!text-black hover:!text-black' : '',
+                    inverted ? '!text-foreground hover:!text-foreground' : '',
                   )}
                 >
                   {buttonText}
@@ -185,7 +190,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
               <p
                 className={cn(
                   'text-xs text-center',
-                  inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-500',
+                  inverted ? 'text-inverse-foreground/65' : 'text-foreground-subtle',
                 )}
               >
                 Trusted by Axios, PostHog, Beehiiv, GitLab and more.
@@ -201,16 +206,23 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         ref={ref}
         className={cn(
           'p-5 rounded-xl border',
-          inverted ? 'bg-grayAlpha-900 border-grayAlpha-700' : 'bg-white border-grayAlpha-200',
+          inverted ? 'bg-inverse border-inverse-border' : 'bg-card border-border',
           className,
         )}
         {...rest}
       >
-        <h3 className={cn('text-lg font-semibold mb-3', inverted ? 'text-white' : '')}>{title}</h3>
+        <h3
+          className={cn(
+            'text-lg font-semibold mb-3',
+            inverted ? 'text-inverse-foreground' : 'text-foreground',
+          )}
+        >
+          {title}
+        </h3>
         <p
           className={cn(
             'text-sm mb-4 whitespace-pre-line',
-            inverted ? 'text-grayAlpha-300' : 'text-grayAlpha-700',
+            inverted ? 'text-inverse-foreground/80' : 'text-foreground-muted',
           )}
         >
           {description}
@@ -222,7 +234,7 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
             target="_blank"
             className={cn(
               'inline-flex items-center justify-center gap-2',
-              inverted ? '!text-black hover:!text-black' : '',
+              inverted ? '!text-foreground hover:!text-foreground' : '',
             )}
           >
             {buttonText}
@@ -232,16 +244,19 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
 
         {displayWaitlist && (
           <div className="text-left mb-2">
-            <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-600')}>
+            <p
+              className={cn(
+                'text-xs',
+                inverted ? 'text-inverse-foreground/65' : 'text-foreground-muted',
+              )}
+            >
               {waitlistText}{' '}
               <Link
                 href={CONTACT_URL}
                 target="_blank"
                 className={cn(
                   'font-medium underline whitespace-nowrap',
-                  inverted
-                    ? 'text-purpleAlpha-400 hover:text-purpleAlpha-300'
-                    : 'text-purpleAlpha-600 hover:text-purpleAlpha-700',
+                  inverted ? 'text-accent hover:text-accent/80' : 'text-info-foreground hover:text-info',
                 )}
               >
                 waitlist
@@ -253,11 +268,16 @@ export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutPro
         <div
           className={cn(
             'border-t my-2',
-            inverted ? 'border-grayAlpha-700' : 'border-grayAlpha-100',
+            inverted ? 'border-inverse-border' : 'border-border',
           )}
         />
 
-        <p className={cn('text-xs', inverted ? 'text-grayAlpha-400' : 'text-grayAlpha-500')}>
+        <p
+          className={cn(
+            'text-xs',
+            inverted ? 'text-inverse-foreground/65' : 'text-foreground-subtle',
+          )}
+        >
           Trusted by Axios, PostHog, Beehiiv, GitLab and more.
         </p>
       </div>

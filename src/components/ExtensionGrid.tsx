@@ -129,8 +129,8 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: Sea
             {ext.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
         </div>
-        <div className="font-semibold text-black leading-[140%]">{ext.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
+        <div className="font-semibold text-foreground leading-[140%]">{ext.name}</div>
+        <div className="mt-2 leading-[140%] text-foreground-muted">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {/* Always show all tags regardless of filter */}
           {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
@@ -245,8 +245,8 @@ export const ExtensionGrid = ({
   return (
     <div className="grid gap-8">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-8">
-        <label className="flex flex-1 items-center p-2 gap-2 justify-center bg-white max-w-[36rem] rounded-lg border border-neutral-300 focus-within:border-neutral-700">
-          <SearchIcon className="w-4 h-4 text-neutral-500" />
+        <label className="flex flex-1 items-center p-2 gap-2 justify-center bg-input max-w-[36rem] rounded-lg border border-border-strong focus-within:border-ring">
+          <SearchIcon className="w-4 h-4 text-foreground-subtle" />
           <input
             type="text"
             className="w-full outline-none"
@@ -255,7 +255,7 @@ export const ExtensionGrid = ({
             onChange={handleInput}
           />
           {query ? (
-            <button className="p-1 hover:bg-neutral-100" onClick={clear}>
+            <button className="p-1 hover:bg-interactive-active" onClick={clear}>
               <CloseIcon />
             </button>
           ) : null}
@@ -290,7 +290,7 @@ export const ExtensionGrid = ({
       </div>
       <div className="grid gap-20 first:mt-0 last:mb-0">
         {noExtensions ? (
-          <div className="text-neutral-700">
+          <div className="text-foreground-muted">
             No extensions found for{' '}
             {query ? <span className="font-semibold">&quot;{query}&quot;</span> : 'your filters.'}
           </div>

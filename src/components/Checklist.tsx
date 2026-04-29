@@ -35,17 +35,17 @@ export function CheckboxItem({ children, defaultChecked = false }: CheckboxItemP
       >
         <div className="flex-shrink-0 flex items-center justify-center mr-2">
           <div className="relative w-4 h-4">
-            <Square className="w-4 h-4 text-gray-600" strokeWidth={1.5} />
+            <Square className="w-4 h-4 text-foreground-muted" strokeWidth={1.5} />
             {isChecked && (
               <Check
-                className="w-3 h-3 text-gray-900 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 fade-in"
+                className="w-3 h-3 text-foreground absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 fade-in"
                 strokeWidth={2.5}
               />
             )}
           </div>
         </div>
         <div
-          className={`text-base leading-tight ${isChecked ? 'line-through text-grayAlpha-500' : 'text-grayAlpha-800'}`}
+          className={`text-base leading-tight ${isChecked ? 'line-through text-foreground-subtle' : 'text-foreground'}`}
         >
           {children}
         </div>

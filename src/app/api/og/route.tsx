@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         </div>
         <div tw="flex flex-col mt-auto">
           {category ? (
-            <div tw="text-[50px] leading-[100%] font-semibold mb-4 text-purple-500">{category}</div>
+            <div tw="text-[50px] leading-[100%] font-semibold mb-4 text-[#8b33ff]">{category}</div>
           ) : null}
           <div
             tw="text-[90px] leading-[106%] font-bold"
