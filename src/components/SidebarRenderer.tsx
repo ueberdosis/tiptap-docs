@@ -108,8 +108,8 @@ export const LinkItem = ({
           >
             <span className="flex-grow flex items-baseline">
               <span>{link.title}</span>
-              {link.beta && (
-                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">BETA</sup>
+              {link.releaseTag && (
+                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">{link.releaseTag.toUpperCase()}</sup>
               )}
             </span>
             <span className="flex gap-1 items-center">
