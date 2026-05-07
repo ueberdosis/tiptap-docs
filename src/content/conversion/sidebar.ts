@@ -122,6 +122,11 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/conversion/export/docx/custom-nodes',
                 },
                 {
+                  title: 'Custom nodes DSL',
+                  href: '/conversion/export/docx/custom-nodes-dsl',
+                  tags: ['Beta'],
+                },
+                {
                   title: 'Styles',
                   href: '/conversion/export/docx/styles',
                 },
