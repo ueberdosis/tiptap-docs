@@ -1,0 +1,803 @@
+---
+title: Custom-nodes DSL builder (TypeScript)
+tags:
+  - type: start
+  - type: beta
+  - type: version
+    label: v0.18.0
+meta:
+  title: DSL builder for DOCX custom nodes | Tiptap Conversion
+  description: A typed, fluent TypeScript API for authoring the DOCX custom-nodes DSL. Compile-time containment safety, autocomplete on every prop, and the same wire format the REST API consumes.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Callout variant="hint" title="Beta feature">
+  The builder is part of the same `customNodeDsl` feature surface as the [JSON
+  DSL](/conversion/export/docx/custom-nodes-dsl). Both ship under `dslVersion: "1.0"` and produce
+  identical wire-format output. Pin exact package versions if you depend on this feature.
+</Callout>
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    Authenticate to Tiptap's private npm registry by following the [setup
+    guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+The DSL builder is the **TypeScript-ergonomic** way to author the [custom-nodes DSL](/conversion/export/docx/custom-nodes-dsl). It is a small, fluent, immutable API that compiles to the **same JSON** the wire format expects — every chained method returns a fresh builder, and `.toJSON()` on any chain produces the literal payload the DSL compiler accepts.
+
+You get:
+
+- **Autocomplete on every element prop.** `paragraph({ … })` suggests `style`, `alignment`, `spacing`, `border`, `shading`, … — exactly the field set the DSL compiler validates. No more guessing prop names from the docs.
+- **Compile-time containment safety.** `paragraph().children(childrenBlock())` is a TypeScript error: paragraphs only accept inline children. `table().rows(paragraph())` is also an error: `Table.rows` requires `TableRow` builders. The errors fire at edit time, not at runtime.
+- **Required-prop checking.** `externalHyperlink({})` is a TypeScript error: the `link` prop is required by the wire format and the builder type enforces that.
+- **Wire-format compatibility.** The output is identical to hand-written JSON. The same payload works inside the editor, in a Node.js server, or as a `customNodeDsl` field in the [Conversion REST API](/conversion/export/docx/rest-api).
+
+<CodeDemo isPro path="/Extensions/ExportDocxCustomNodeDslBuilder" />
+
+---
+
+## Install and import
+
+The builder ships under a subpath import inside the same package as the rest of the DOCX export pipeline:
+
+```bash
+npm i @tiptap-pro/extension-export-docx@^0.18.0
+```
+
+```ts
+// Main entry — the runtime exporter and the configurable extension.
+import { ExportDocx, exportDocx } from '@tiptap-pro/extension-export-docx'
+
+// Builder subpath — tree-shakeable. Customers who never touch the DSL
+// don't pay for it.
+import {
+  docxNode,
+  paragraph,
+  textRun,
+  externalHyperlink,
+  table,
+  tableRow,
+  tableCell,
+  pageBreak,
+  childrenInline,
+  childrenBlock,
+  childrenTableRow,
+  childrenTableCell,
+  iff,
+  switch_,
+  fragment,
+  textOp,
+  ref,
+  template,
+  op,
+  unit,
+  switchValue,
+  marks,
+} from '@tiptap-pro/extension-export-docx/dsl'
+```
+
+The subpath alias works in **Vite, Next.js, Webpack 5+, esbuild, Rollup, and every modern bundler**. Older toolchains may need an explicit `exports`-field-aware resolver.
+
+---
+
+## When to use the builder
+
+| You are…                                                                   | Use…                                                                                                   |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Authoring DOCX rules in TypeScript with autocomplete and refactor support. | **Builder.**                                                                                           |
+| Sending the DSL as a JSON body to `POST /v2/convert/export/docx`.          | [JSON DSL](/conversion/export/docx/custom-nodes-dsl) — pass `customNodeDsl` straight from a JSON file. |
+| Inside the editor extension, want full JavaScript (closures, IO, etc.).    | The function-based [custom-nodes API](/conversion/export/docx/custom-nodes).                           |
+| Loading rules dynamically from a config service.                           | JSON DSL (deserialise the config and pass it through).                                                 |
+
+The builder produces JSON, so you can mix the two: build at design time, persist `.toJSON()` to disk, ship the JSON to a server. Or read JSON at runtime and pass it straight to `exportDocx`. There is no lock-in either direction.
+
+---
+
+## Quick start
+
+A 12-line `hintbox` rule that renders as a styled DOCX paragraph:
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { childrenInline, docxNode, paragraph } from '@tiptap-pro/extension-export-docx/dsl'
+
+ExportDocx.configure({
+  customNodeDsl: {
+    dslVersion: '1.0',
+    nodes: [
+      docxNode('hintbox')
+        .block()
+        .emit(
+          paragraph({ style: 'Hintbox' }) //
+            .children(childrenInline({ marks: 'default' })),
+        )
+        .toJSON(),
+    ],
+  },
+})
+```
+
+This is the same payload as the [JSON DSL quick-start example](/conversion/export/docx/custom-nodes-dsl#a-first-example) — identical bytes go on the wire, only the authoring layer differs.
+
+---
+
+## The top-level builder: `docxNode`
+
+`docxNode(type)` starts a rule for one ProseMirror node type. The chain ends in **exactly one** of `emit(...)`, `emitNothing()`, or `drop()` — calling `toJSON()` before picking a strategy throws.
+
+```ts
+docxNode('hintbox') // ┐
+  .block() //          │  optional — declare nodeKind explicitly
+  .emit(paragraph()) //│  what to render in place of the PM node
+  .toJSON() //         ┘  the literal CustomNodeRule JSON
+```
+
+| Method           | Effect                                                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `.block()`       | Mark the rule as block-level (for the validator's containment checks).                                            |
+| `.inline()`      | Mark the rule as inline-level.                                                                                    |
+| `.auto()`        | Let the validator infer kind from the emit shape (the default).                                                   |
+| `.emit(node)`    | Render the matching PM node as `node`. Accepts a single render-node builder, a literal `RenderNode`, or an array. |
+| `.emitNothing()` | `emit: null` — emit nothing for this PM node, but still walk its descendants.                                     |
+| `.drop()`        | `render: null` — drop the matching PM node and **all its descendants**.                                           |
+| `.toJSON()`      | Materialise the chain as the wire-format `CustomNodeRule` JSON.                                                   |
+
+Each method returns a **fresh builder**, so partial chains can be reused without aliasing surprises:
+
+```ts
+const base = docxNode('mention').inline()
+const withColor = base.emit(textRun({ color: '4472C4' }))
+const dropped = base.drop()
+// `base` is unchanged.
+```
+
+---
+
+## Element factories
+
+One factory per element in the v1 catalog. Each returns a chainable builder whose `.toJSON()` produces the wire-format [`ElementNode`](/conversion/export/docx/custom-nodes-dsl#elementnode).
+
+### `paragraph(props?)`
+
+Block element accepting inline children.
+
+```ts
+paragraph({
+  style: 'Hintbox',
+  alignment: 'center',
+  spacing: { before: 240, after: 240, line: 240, lineRule: 'auto' },
+  border: {
+    top: { style: 'single', size: 4, color: 'B8D8FF', space: 5 },
+    bottom: { style: 'single', size: 4, color: 'B8D8FF', space: 5 },
+    left: { style: 'single', size: 4, color: 'B8D8FF', space: 5 },
+    right: { style: 'single', size: 4, color: 'B8D8FF', space: 5 },
+  },
+  shading: { type: 'clear', fill: 'E6F3FF' },
+}).children(childrenInline({ marks: 'default' }))
+```
+
+| Method                     | Use                                                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `.children(spec)`          | Set the inline children (`ChildrenInlineBuilder`, a single render-node builder, or an array). Block children fail at compile time. |
+| `.inheritOverrides(value)` | When `false`, skip the global `paragraphOverrides` bundle for this paragraph. Default `true`.                                      |
+| `.toJSON()`                | Wire-format `ElementNode`.                                                                                                         |
+
+Spec mirror: [Paragraph element prop schema](/conversion/export/docx/custom-nodes-dsl#paragraph).
+
+The `border` and `shading` props let custom nodes carry decorative chrome (boxes, callouts, hintboxes) inline on the DSL element, with no named `styleOverrides` style required. See [Express decoration inline](#express-decoration-inline) below.
+
+### `textRun(props?)`
+
+Inline leaf — no `children`. Use `applyMarks` to inherit the rule's PM-node marks.
+
+```ts
+textRun({
+  text: template('@{node.attrs.label}'),
+  color: '4472C4',
+  size: 24, // half-points
+  highlight: 'cyan',
+  style: 'Hyperlink', // round-trip identity marker
+}).applyMarks('node')
+```
+
+| Method                     | Use                                                                                                                                                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.applyMarks(policy)`      | `'node'` (inherit the rule's PM-node marks) or a `marks('node')...` builder for fine-grained control. `'default'` and `'none'` are deliberately rejected here — see [Mark policies](#mark-policies). |
+| `.inheritOverrides(value)` | When `false`, skip `textRunOverrides` for this run. Default `true`.                                                                                                                                  |
+| `.toJSON()`                | Wire-format `ElementNode`.                                                                                                                                                                           |
+
+Spec mirror: [TextRun element prop schema](/conversion/export/docx/custom-nodes-dsl#textrun).
+
+### `externalHyperlink(props)`
+
+Inline element wrapping one or more `TextRun` children. The `link` prop is **required** at the type level — `externalHyperlink({})` is a TypeScript error.
+
+```ts
+externalHyperlink({ link: ref('node.attrs.href') }).children([
+  textRun({ text: ref('node.attrs.label'), style: 'Hyperlink' }) //
+    .applyMarks('node'),
+])
+```
+
+The link value is also runtime-validated to start with `http`, `https`, `mailto`, or `tel` (capped at 2048 characters). Other protocols reject at compile time with `DOCX_DSL_INVALID_PROP`.
+
+### `table(props?)` / `tableRow(props?)` / `tableCell(props?)`
+
+`table()` accepts `TableRow` builders via `.rows(...)` (or the equivalent `.children([row, row, ...])`). `tableRow()` accepts `TableCell` builders via `.children([cell, cell, ...])`. `tableCell()` accepts block content (paragraphs, nested tables) or `childrenBlock()`.
+
+```ts
+table({
+  width: { size: 100, type: 'pct' },
+  borders: {
+    top: { style: 'single', size: 4, color: 'B8D8FF' },
+    bottom: { style: 'single', size: 4, color: 'B8D8FF' },
+    left: { style: 'single', size: 4, color: 'B8D8FF' },
+    right: { style: 'single', size: 4, color: 'B8D8FF' },
+  },
+}).rows(
+  tableRow().children([
+    tableCell({
+      shading: { type: 'clear', fill: 'FFF1CC' },
+      verticalAlign: 'top',
+    }).children([paragraph().children(childrenInline({ marks: 'default' }))]),
+  ]),
+)
+```
+
+The wire format maps `Table` children to docx's `rows` constructor argument internally — you don't write `rows: ...` yourself.
+
+### `pageBreak()`
+
+Leaf factory — emits a block-level paragraph containing a docx page-break run. For an inline page break inside a paragraph, use `textRun({ break: 1 })` instead.
+
+```ts
+docxNode('explicitPageBreak').block().emit(pageBreak()).toJSON()
+```
+
+---
+
+## Children helpers
+
+Inside an element's `.children(...)` you can either pass:
+
+- An **explicit array of render-node builders** (`[paragraph(), table(), ...]`).
+- A **`childrenX()` delegation** that asks the runtime to walk the PM node's `content` array and dispatch each child through the standard converter.
+
+| Helper                  | Goes inside                                                      | Wire form                                                            |
+| ----------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `childrenInline(opts?)` | `paragraph().children(...)`, `externalHyperlink().children(...)` | `{ "$children": { "as": "inline", "marks"?: ... } }`                 |
+| `childrenBlock(opts?)`  | `tableCell().children(...)`                                      | `{ "$children": { "as": "block", "wrapInlineInParagraph"?: bool } }` |
+| `childrenTableRow()`    | `table().children(...)` (synonym for `.rows(...)`)               | `{ "$children": { "as": "table-row" } }`                             |
+| `childrenTableCell()`   | `tableRow().children(...)`                                       | `{ "$children": { "as": "table-cell" } }`                            |
+
+```ts
+// Inline mark policy — runs the standard mark pipeline on every text child.
+paragraph({ style: 'Body' }).children(childrenInline({ marks: 'default' }))
+
+// Block delegation with inline-wrap — buffers loose inline children into
+// default paragraphs so the table cell is always block-only.
+tableCell().children(childrenBlock({ wrapInlineInParagraph: true }))
+```
+
+`childrenInline()` accepts a `marks` option that takes a `MarkPolicy` (`'default'`, `'none'`, `'node'`) or a `marks(...)` builder chain — see [Mark policies](#mark-policies).
+
+---
+
+## Render-tree primitives
+
+Beyond elements, four render-tree shapes let you compose dynamic output.
+
+### `iff({ test, then, else? })`
+
+Structural conditional. `else` defaults to `null` (emit nothing).
+
+```ts
+iff({
+  test: ref('node.attrs.featured'),
+  then: paragraph({ style: 'Featured' }).children(childrenInline({ marks: 'default' })),
+  else: paragraph().children(childrenInline({ marks: 'default' })),
+})
+```
+
+`test` is coerced to boolean using v1 truthiness rules — `false`, `null`, `undefined`, `0`, `""` are falsy, everything else truthy.
+
+### `switch_({ on, cases, default? })`
+
+Multi-way conditional. Lookup is exact-match against the `cases` keys. `on` must resolve to a string at runtime.
+
+```ts
+switch_({
+  on: ref('node.attrs.variant'),
+  cases: {
+    warning: paragraph({ style: 'CalloutWarning' }),
+    info: paragraph({ style: 'CalloutInfo' }),
+  },
+  default: paragraph({ style: 'Callout' }),
+})
+```
+
+The trailing underscore is because `switch` is a reserved word in JavaScript. There is also a **value-form** `switchValue(...)` for picking prop values — see [Value expressions](#value-expressions) below.
+
+### `fragment(...children)`
+
+Emit several sibling render nodes. A bare array passed to an element's `.children([...])` does the same job; `fragment` is for when fragmentation is the whole emit.
+
+```ts
+docxNode('keyValue')
+  .block()
+  .emit(
+    fragment(
+      paragraph({ style: 'Key' }).children([textRun({ text: ref('node.attrs.key') })]),
+      paragraph({ style: 'Value' }).children(childrenInline({ marks: 'default' })),
+    ),
+  )
+  .toJSON()
+```
+
+### `textOp(value, opts?)`
+
+Convenience for emitting a single text run from a value expression. Equivalent in v1 to `{ element: 'TextRun', props: { text: value } }` with the mark policy applied — but shorter to write.
+
+```ts
+textOp(template('@{node.attrs.label}'))
+textOp(ref('node.attrs.title'), { default: '(untitled)', marks: 'none' })
+```
+
+---
+
+## Value expressions
+
+Anywhere a prop value (or `$text`, `$if.test`, `$switch.on`, `$op.args`) is accepted, you can pass a literal **or** one of these typed expressions.
+
+### `ref(path, opts?)`
+
+Read a value from the source PM node. Allowed paths: `node`, `node.type`, `node.attrs`, `node.attrs.<key>`, `node.text`, `node.textContent`. Other paths reject with [`DOCX_DSL_INVALID_REF`](/conversion/export/docx/custom-nodes-dsl#error-codes).
+
+```ts
+ref('node.attrs.color')
+ref('node.attrs.color', { default: '4472C4', transform: 'hexNoHash' })
+ref('node.textContent')
+```
+
+The `transform` option accepts a single `TransformName` or an array. See the [transform table](/conversion/export/docx/custom-nodes-dsl#transforms) on the JSON DSL reference page.
+
+### `template(s)`
+
+String interpolation — always returns a string. Substitutions use `{path}` (same path grammar as `ref`); `{{` and `}}` escape literal braces.
+
+```ts
+template('@{node.attrs.label}') //        →  '@alice'
+template('size: {node.attrs.size}px') //  →  'size: 24px'
+template('{{escaped}} braces') //          →  '{escaped} braces'
+```
+
+The resolved length is capped at `maxTemplateLength` (default 2 000). Exceeding it rejects with `DOCX_DSL_RESOURCE_LIMIT` at runtime.
+
+### `op(name, ...args)`
+
+Typed compute. Closed list of operations with strict arities — see the [op arity table](/conversion/export/docx/custom-nodes-dsl#op---typed-compute).
+
+```ts
+op('mul', ref('node.attrs.size'), 2)
+op('coalesce', ref('node.attrs.color'), ref('node.attrs.fallbackColor'), '000000')
+op('and', ref('node.attrs.visible'), op('not', ref('node.attrs.hidden')))
+```
+
+There is no `concat` — use `template(...)` for strings. There is no implicit numeric coercion — `op('add', '3', 1)` rejects.
+
+### `unit(name, value)`
+
+Bridge to a closed-list unit / coercion helper backed by the same functions the converter uses internally. The result type matches the helper's signature.
+
+```ts
+unit('pixelsToHalfPoints', 16) //                          →  24 (half-points)
+unit('pointsToTwips', 12) //                               →  240 (twips)
+unit('normalizeColor', ref('node.attrs.backgroundColor')) //→  '4F46E5'
+```
+
+Full list: [unit dispatch table](/conversion/export/docx/custom-nodes-dsl#unit---unit--coercion-helper).
+
+### `switchValue({ on, cases, default? })`
+
+Value-form `$switch` — picks a prop value (not a render node) by string match.
+
+```ts
+paragraph({
+  style: switchValue({
+    on: ref('node.attrs.variant'),
+    cases: { warning: 'CalloutWarning', info: 'CalloutInfo' },
+    default: 'Callout',
+  }),
+})
+```
+
+The validator chooses the value form vs. the render-tree form by surrounding context: `switchValue` is only valid inside a prop value, while `switch_` is only valid in a `RenderNode` slot.
+
+---
+
+## Mark policies
+
+The `marks(mode)` builder constructs a chainable [`MarkPolicy`](/conversion/export/docx/custom-nodes-dsl#marks-system) object. Useful when you need fine-grained control beyond the string shorthands.
+
+```ts
+import { childrenInline, marks } from '@tiptap-pro/extension-export-docx/dsl'
+
+childrenInline({
+  marks: marks('default') //
+    .disable('bold', 'italic')
+    .overrides({
+      underline: { props: { color: 'EA580C' } },
+      highlight: { replace: true, props: { color: 'FFE066' } },
+    }),
+})
+```
+
+| Method                                           | Use                                                                                                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `marks(mode)`                                    | Start a builder. `mode` is `'default'` (use the standard pipeline against the child's own marks) or `'node'` (use the rule's PM-node marks). |
+| `.disable(...marks)`                             | Skip these marks entirely. Their standard mappings don't run and any matching `overrides` entry is ignored.                                  |
+| `.overrides({ markType: { props?, replace? } })` | Per-mark adjustments. `replace: true` suppresses the standard mapping for that mark; `props` is merged on top.                               |
+| `.toJSON()`                                      | Materialise as the wire-format `MarkPolicyObject`. Container helpers call this for you.                                                      |
+
+### `applyMarks` is a narrower surface
+
+`textRun().applyMarks(...)` and `externalHyperlink().applyMarks(...)` accept **only** `'node'` or a `marks('node')...` builder — the wire format rejects `'default'` and `'none'` here because they only make sense for child marks.
+
+The builder enforces that at runtime: passing `marks('default')` to `applyMarks` throws with a helpful message instead of producing a payload that would later fail the DSL compiler.
+
+```ts
+textRun().applyMarks('node') //                       ✓
+textRun().applyMarks(marks('node').disable('code')) // ✓
+textRun().applyMarks(marks('default')) //              ✗ throws at build time
+```
+
+---
+
+## Type-system guarantees
+
+The builder's TypeScript surface enforces every containment rule the runtime would have caught — but at edit time. These are all compile errors:
+
+```ts
+// Paragraphs accept inline children only.
+paragraph().children(childrenBlock())
+//                  ^^^^^^^^^^^^^^^^
+// Type 'ChildrenBlockBuilder' is not assignable to type 'ParagraphChildSpec'.
+
+// Table.rows requires TableRow builders.
+table().rows(paragraph())
+//           ^^^^^^^^^^^
+// Type 'ParagraphBuilder' is not assignable to type 'TableRowBuilder'.
+
+// TableRow children must be TableCell builders.
+tableRow().children([tableRow()])
+//                   ^^^^^^^^^^
+// Type 'TableRowBuilder' is not assignable to type 'TableCellBuilder'.
+
+// TableCell children are block-level; inline-children delegation is rejected.
+tableCell().children(childrenInline())
+//                   ^^^^^^^^^^^^^^^^
+
+// TextRun is a leaf — no children.
+textRun({ text: 'hi' }).children
+//                       ^^^^^^^^
+// Property 'children' does not exist on type 'TextRunBuilder'.
+
+// externalHyperlink.link is required.
+externalHyperlink({})
+//                ^^
+// Property 'link' is missing in type '{}' but required in type 'ExternalHyperlinkProps'.
+
+// applyMarks rejects 'default' / 'none'.
+textRun().applyMarks('default')
+//                   ^^^^^^^^^
+// Argument of type '"default"' is not assignable to parameter of type 'ApplyMarksPolicy | MarkPolicyBuilder'.
+```
+
+These mirror the runtime's [`DOCX_DSL_INVALID_CONTEXT`](/conversion/export/docx/custom-nodes-dsl#error-codes) rules — same constraints, surfaced earlier.
+
+---
+
+## Express decoration inline
+
+A common pattern with `styleOverrides` was: declare a named `Hintbox` paragraph style with border and shading, then reference it from a DSL rule via `style: 'Hintbox'`. The `paragraph()` builder now exposes `border` and `shading` props directly, so the decoration can ride inline on the element — no `styleOverrides` block needed.
+
+The named-style label still has a job: **round-trip identity**. The DOCX writer emits `<w:pStyle w:val="Hintbox"/>` whether or not `Hintbox` is declared in `styles.xml`. The import side reads that pStyle to reconstruct the matching custom node.
+
+```ts
+docxNode('hintbox')
+  .block()
+  .emit(
+    paragraph({
+      // Round-trip identity marker.
+      style: 'Hintbox',
+      // Decoration travels here — no styleOverrides required.
+      spacing: { before: 240, after: 240 },
+      border: {
+        top: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        bottom: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        left: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        right: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+      },
+      // `clear` shading lets `fill` show through as the background.
+      // `solid` would render a 100% foreground (default `auto` → black)
+      // and hide the fill entirely. See the OOXML pitfall below.
+      shading: { type: 'clear', fill: 'E6F3FF' },
+    }).children(childrenInline({ marks: 'default' })),
+  )
+  .toJSON()
+```
+
+This pairs naturally with [`cssStyles.extractFromDocument`](/conversion/export/docx/css-to-docx) — let CSS handle headings, body fonts, lists, and other generic selectors; let the DSL handle anything tied to a custom node type.
+
+<Callout variant="warning" title="OOXML pitfall — `solid` shading paints a foreground">
+  In OOXML, `<w:shd>` with `w:val="solid"` paints the **foreground** at 100% coverage. The
+  `fill` attribute is the *background* (sits behind the foreground). When `color` is
+  unset, the foreground defaults to `auto`, which Word renders as **black** — completely
+  hiding the `fill`. For a paragraph background tint use **`type: 'clear'`** (empty pattern,
+  `fill` shows through). The same trap exists in the JSON DSL — it's an OOXML semantics
+  thing, not a builder bug.
+</Callout>
+
+---
+
+## Worked examples
+
+The same five examples that appear on the [JSON DSL reference page](/conversion/export/docx/custom-nodes-dsl#putting-it-together--worked-examples), authored here through the builder.
+
+### Hintbox — block paragraph with inline decoration
+
+```ts
+docxNode('hintbox')
+  .block()
+  .emit(
+    paragraph({
+      style: 'Hintbox',
+      spacing: { before: 240, after: 240 },
+      border: {
+        top: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        bottom: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        left: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+        right: { style: 'single', size: 1, color: 'B8D8FF', space: 5 },
+      },
+      shading: { type: 'clear', fill: 'E6F3FF' },
+    }).children(childrenInline({ marks: 'default' })),
+  )
+  .toJSON()
+```
+
+### Mention — inline TextRun with templated text and inherited marks
+
+```ts
+docxNode('mention')
+  .inline()
+  .emit(
+    textRun({
+      text: template('@{node.attrs.label}'),
+      color: ref('node.attrs.color', { default: '4472C4', transform: 'hexNoHash' }),
+    }).applyMarks('node'),
+  )
+  .toJSON()
+```
+
+A bold mention renders as `new TextRun({ text: '@alice', color: '4472C4', bold: true })`.
+
+### Callout — single-cell table with attribute-driven shading and switched style
+
+```ts
+docxNode('calloutBox')
+  .block()
+  .emit(
+    table({
+      width: { size: 100, type: 'pct' },
+      borders: {
+        top: { style: 'single', size: 4, color: 'B8D8FF' },
+        bottom: { style: 'single', size: 4, color: 'B8D8FF' },
+        left: { style: 'single', size: 4, color: 'B8D8FF' },
+        right: { style: 'single', size: 4, color: 'B8D8FF' },
+      },
+    }).rows(
+      tableRow().children([
+        tableCell({
+          shading: {
+            type: 'clear',
+            fill: unit('normalizeColor', ref('node.attrs.backgroundColor', { default: 'E6F3FF' })),
+          },
+          margins: {
+            top: unit('pointsToTwips', 8),
+            bottom: unit('pointsToTwips', 8),
+            left: unit('pointsToTwips', 10),
+            right: unit('pointsToTwips', 10),
+          },
+        }).children([
+          paragraph({
+            style: switchValue({
+              on: ref('node.attrs.variant'),
+              cases: { warning: 'CalloutWarning', info: 'CalloutInfo' },
+              default: 'Callout',
+            }),
+          }).children(childrenInline({ marks: 'default' })),
+        ]),
+      ]),
+    ),
+  )
+  .toJSON()
+```
+
+### Code block — paragraph that suppresses conflicting child marks
+
+```ts
+docxNode('codeBlock')
+  .block()
+  .emit(
+    paragraph({ style: 'Code' }).children(
+      childrenInline({ marks: marks('default').disable('bold', 'italic') }),
+    ),
+  )
+  .toJSON()
+```
+
+### Custom link — inline ExternalHyperlink wrapping a TextRun
+
+```ts
+docxNode('customLink')
+  .inline()
+  .emit(
+    externalHyperlink({ link: ref('node.attrs.href') }).children([
+      textRun({ text: ref('node.attrs.label'), style: 'Hyperlink' }) //
+        .applyMarks('node'),
+    ]),
+  )
+  .toJSON()
+```
+
+---
+
+## Side-by-side: builder vs hand-written JSON
+
+The builder produces wire-equivalent JSON. Here's the same hintbox rule both ways:
+
+**Builder**
+
+```ts
+docxNode('hintbox')
+  .block()
+  .emit(
+    paragraph({ style: 'Hintbox' }) //
+      .children(childrenInline({ marks: 'default' })),
+  )
+  .toJSON()
+```
+
+**JSON**
+
+```jsonc
+{
+  "type": "hintbox",
+  "nodeKind": "block",
+  "render": {
+    "emit": {
+      "element": "Paragraph",
+      "props": { "style": "Hintbox" },
+      "children": { "$children": { "as": "inline", "marks": "default" } },
+    },
+  },
+}
+```
+
+`builder.toJSON()` and the hand-written object are deep-equal — verified by the package's own parity tests. Pick whichever fits your authoring environment; the wire format is the same.
+
+---
+
+## Composition with `cssStyles`
+
+The builder pairs well with [`cssStyles`](/conversion/export/docx/css-to-docx) for a clean separation of concerns:
+
+- **CSS** describes generic-selector styling — headings, paragraphs, lists, blockquotes — that already lives in the editor's stylesheet.
+- **The DSL** describes custom-node rendering — anything that needs a Tiptap node type and can't be expressed by a generic CSS selector.
+
+```ts
+ExportDocx.configure({
+  cssStyles: {
+    extractFromDocument: true, // pulls .tiptap rules from the live stylesheets
+    baseFontSize: 16,
+  },
+  customNodeDsl: {
+    dslVersion: '1.0',
+    nodes: [
+      docxNode('hintbox')
+        .block()
+        .emit(
+          paragraph({
+            style: 'Hintbox', // round-trip identity
+            border: { top: { style: 'single', size: 1, color: 'B8D8FF', space: 5 } /* ... */ },
+            shading: { type: 'clear', fill: 'E6F3FF' },
+          }).children(childrenInline({ marks: 'default' })),
+        )
+        .toJSON(),
+    ],
+  },
+})
+```
+
+You can drop the `styleOverrides` block entirely with this approach. The bundled `ExportDocxCustomNodeDslBuilder` demo uses exactly this pattern.
+
+---
+
+## Conflict policy and runtime errors
+
+The builder is a thin authoring layer — every runtime constraint described on the [JSON DSL reference page](/conversion/export/docx/custom-nodes-dsl#errors) applies identically:
+
+- Function-based [`customNodes`](/conversion/export/docx/custom-nodes) win when the same `type` appears in both APIs (warning logged once per export call per conflicting type).
+- DSL errors return the [structured envelope](/conversion/export/docx/custom-nodes-dsl#error-responses-rest) with `code` + `dslPath` + (for runtime errors) `nodePath` + `nodeType`.
+- [Resource caps](/conversion/export/docx/custom-nodes-dsl#resource-limits) are enforced at compile and runtime — tunable on `exportDocx` via `customNodeDslLimits` and on the REST surface via `DOCX_DSL_MAX_*` env vars.
+
+The builder adds **one** runtime check of its own: passing a `marks('default')` builder to `applyMarks` throws a clear error rather than emitting a payload that would later fail with `DOCX_DSL_INVALID_SHAPE`. Everything else flows straight through to the standard DSL compiler.
+
+---
+
+## TypeScript reference
+
+Every builder, helper, and prop-shape interface is exported from `@tiptap-pro/extension-export-docx/dsl` for direct re-use:
+
+```ts
+import type {
+  // Top-level rule
+  CustomNodeRuleBuilder,
+
+  // Element builders
+  ParagraphBuilder,
+  TextRunBuilder,
+  ExternalHyperlinkBuilder,
+  TableBuilder,
+  TableRowBuilder,
+  TableCellBuilder,
+
+  // Children helpers
+  ChildrenInlineBuilder,
+  ChildrenBlockBuilder,
+  ChildrenTableRowBuilder,
+  ChildrenTableCellBuilder,
+
+  // Render-node abstraction
+  RenderNodeBuilder,
+
+  // Mark-policy chain
+  MarkPolicyBuilder,
+
+  // Per-element prop interfaces
+  ParagraphProps,
+  TextRunProps,
+  ExternalHyperlinkProps,
+  TableProps,
+  TableRowProps,
+  TableCellProps,
+
+  // Shared shape
+  BorderSide,
+  Prop,
+} from '@tiptap-pro/extension-export-docx/dsl'
+```
+
+`Prop<T>` is the helper that lets every leaf accept either the literal value (`number`, `string`, etc.) or a `ValueExpr` (`ref(...)`, `template(...)`, `op(...)`, etc.).
+
+---
+
+## Related
+
+- [Custom-nodes DSL (JSON reference)](/conversion/export/docx/custom-nodes-dsl) — full normative description of the wire format. The builder is sugar over this; consult the reference for runtime semantics, error codes, and resource limits.
+- [Function-based custom nodes](/conversion/export/docx/custom-nodes) — the JavaScript-callback variant for in-browser customisation only.
+- [CSS to DOCX](/conversion/export/docx/css-to-docx) — pairs naturally with the builder for a generic-vs-custom split.
+- [Style overrides](/conversion/export/docx/styles) — manual named-style declarations. Still useful for character / paragraph styles a customer wants to expose to Word's style picker; not needed just to decorate a custom node anymore.
+- [DOCX REST API](/conversion/export/docx/rest-api) — same `customNodeDsl` payload, sent over HTTP.
