@@ -55,7 +55,8 @@ ARG GIT_COMMIT_REF_NAME
 ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 ENV GIT_COMMIT_REF_NAME=$GIT_COMMIT_REF_NAME
 
-RUN pnpm run build
+RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
+  pnpm run build
 
 # 2.5 ;) Dev runner
 FROM base AS dev_runner
