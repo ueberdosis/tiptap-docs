@@ -8,21 +8,6 @@ meta:
 
 import { CodeDemo } from '@/components/CodeDemo'
 import { Callout } from '@/components/ui/Callout'
-import { Requirements, RequirementItem } from '@/components/Requirements'
-
-<Requirements>
-  <RequirementItem label="1. Get access">
-    Access the Server AI Toolkit by purchasing the paid Server AI Toolkit add-on.{' '}
-    <a href="https://tiptap.dev/contact-sales?form=server-ai-toolkit">Contact our team</a>.
-  </RequirementItem>
-  <RequirementItem label="2. Access the private registry">
-    The Server AI Toolkit package is published in Tiptap's private npm registry. Authenticate to
-    Tiptap's private npm registry by following the [setup guide](/guides/pro-extensions).
-  </RequirementItem>
-  <RequirementItem label="3. Install the package">
-    Install the package from the private registry using npm or your preferred package manager.
-  </RequirementItem>
-</Requirements>
 
 Build a simple AI agent chatbot that can read and edit Tiptap documents.
 
@@ -49,11 +34,6 @@ Create a [Next.js](https://nextjs.org/) project:
 npx create-next-app@latest server-ai-agent-chatbot
 ```
 
-<Callout title="Pro packages" variant="hint">
-  The Server AI Toolkit and Collaboration are pro packages. Before installation, you'll need to set
-  up [access to Tiptap's private NPM registry](/guides/pro-extensions).
-</Callout>
-
 Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
 
 ```bash
@@ -63,7 +43,7 @@ npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @t
 Install the Server AI Toolkit package:
 
 ```bash
-npm install @tiptap-pro/server-ai-toolkit
+npm install @tiptap/server-ai-toolkit
 ```
 
 Install TypeScript types for jsonwebtoken:
@@ -99,7 +79,7 @@ Create several helper functions to support your endpoint and interact with the S
 
 #### Get tool definitions
 
-This function fetches the available tool definitions from the Server AI Toolkit API.
+This function fetches the prompt and available tool definitions from the Server AI Toolkit API.
 
 ```ts
 // lib/server-ai-toolkit/get-tool-definitions.ts
@@ -109,20 +89,21 @@ import { getAuthHeaders } from './get-auth-headers'
 /**
  * Gets tool definitions from the Server AI Toolkit API
  */
-export async function getToolDefinitions(schemaAwarenessData: unknown): Promise<
-  {
+export async function getToolDefinitions(editorContext: unknown): Promise<{
+  prompt: string
+  tools: {
     name: string
     description: string
     inputSchema: z.core.JSONSchema.JSONSchema
   }[]
-> {
+}> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
-  const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
+  const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/get-tools`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
-      schemaAwarenessData,
+      editorContext,
     }),
   })
 
@@ -131,39 +112,7 @@ export async function getToolDefinitions(schemaAwarenessData: unknown): Promise<
   }
   const responseData = await response.json()
 
-  return responseData.tools
-}
-```
-
-#### Get schema awareness prompt
-
-_Schema awareness_ is the Server AI Toolkit's capability to give your LLM understanding of your document structure. With this function, you generate
-that awareness as a formatted string that you'll include in your prompt to describe your document to the model.
-
-```ts
-// lib/server-ai-toolkit/get-schema-awareness-prompt.ts
-import { getAuthHeaders } from './get-auth-headers'
-
-/**
- * Gets the schema awareness prompt from the Server AI Toolkit API
- */
-export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Promise<string> {
-  const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
-
-  const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/schema-awareness-prompt`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-      schemaAwarenessData,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch schema awareness prompt: ${response.statusText}`)
-  }
-
-  const result: { prompt: string } = await response.json()
-  return result.prompt
+  return responseData
 }
 ```
 
@@ -174,7 +123,7 @@ export async function getSchemaAwarenessPrompt(schemaAwarenessData: unknown): Pr
 
 #### Execute tool
 
-This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and schema awareness data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
 
 ```ts
 // lib/server-ai-toolkit/execute-tool.ts
@@ -187,9 +136,8 @@ export async function executeTool(
   toolName: string,
   input: unknown,
   documentId: string,
-  schemaAwarenessData: unknown,
-  options: { sessionId?: string } = {},
-): Promise<{ output: unknown; docChanged: boolean; sessionId: string }> {
+  editorContext: unknown,
+): Promise<{ output: unknown; toolResult: unknown; docChanged: boolean; document: object | null }> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
   const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
@@ -198,9 +146,8 @@ export async function executeTool(
     body: JSON.stringify({
       toolName,
       input,
-      sessionId: options.sessionId,
       experimental_documentOptions: { documentId },
-      schemaAwarenessData,
+      editorContext,
     }),
   })
 
@@ -212,14 +159,6 @@ export async function executeTool(
 }
 ```
 
-<Callout title="Persist the session across chat turns" variant="info">
-  Store the latest `sessionId` in the conversation history and reuse it on later tool calls. This
-  lets the server reject stale edits instead of overwriting newer user changes.
-</Callout>
-
-Use a small helper such as [`lib/server-ai-toolkit/session-id.ts`](https://github.com/ueberdosis/ai-toolkit-demos/blob/main/src/lib/server-ai-toolkit/session-id.ts)
-to read the latest `sessionId` from the conversation history.
-
 Now create the main API route:
 
 ```ts
@@ -228,30 +167,21 @@ import { openai } from '@ai-sdk/openai'
 import { createAgentUIStreamResponse, ToolLoopAgent, tool } from 'ai'
 import z from 'zod'
 import { executeTool } from '@/lib/server-ai-toolkit/execute-tool'
-import { getSchemaAwarenessPrompt } from '@/lib/server-ai-toolkit/get-schema-awareness-prompt'
 import { getToolDefinitions } from '@/lib/server-ai-toolkit/get-tool-definitions'
-import {
-  getSessionIdFromConversationHistory,
-  type ServerAiToolkitMessage,
-} from '@/lib/server-ai-toolkit/session-id'
 
 export async function POST(req: Request) {
   const {
     messages,
-    schemaAwarenessData,
+    editorContext,
     documentId,
   }: {
-    messages: ServerAiToolkitMessage[]
-    schemaAwarenessData: unknown
+    messages: unknown[]
+    editorContext: unknown
     documentId: string
   } = await req.json()
-  let sessionId = getSessionIdFromConversationHistory(messages)
 
-  // Get tool definitions from the Server AI Toolkit API
-  const toolDefinitions = await getToolDefinitions(schemaAwarenessData)
-
-  // Get schema awareness prompt from the Server AI Toolkit API
-  const schemaAwarenessPrompt = await getSchemaAwarenessPrompt(schemaAwarenessData)
+  // Get prompt and tool definitions from the Server AI Toolkit API
+  const { prompt, tools: toolDefinitions } = await getToolDefinitions(editorContext)
 
   // Convert API tool definitions to AI SDK tool format
   const tools = Object.fromEntries(
@@ -262,10 +192,7 @@ export async function POST(req: Request) {
         inputSchema: z.fromJSONSchema(toolDef.inputSchema),
         execute: async (input) => {
           try {
-            const result = await executeTool(toolDef.name, input, documentId, schemaAwarenessData, {
-              sessionId,
-            })
-            sessionId = result.sessionId
+            const result = await executeTool(toolDef.name, input, documentId, editorContext)
             return result.output
           } catch (error) {
             console.error(`Failed to execute tool ${toolDef.name}:`, error)
@@ -286,14 +213,12 @@ Before calling any tools, summarize you're going to do (in a sentence or less), 
 Rule: In your responses, do not provide any details of the tool calls.
 Rule: In your responses, do not provide any details of the HTML content of the document.
 
-${schemaAwarenessPrompt}`,
+${prompt}`,
     tools,
   })
 
   return createAgentUIStreamResponse({
     agent,
-    messageMetadata: ({ part }) =>
-      part.type === 'finish' && sessionId ? { sessionId } : undefined,
     uiMessages: messages,
   })
 }
@@ -348,7 +273,7 @@ import { Collaboration } from '@tiptap/extension-collaboration'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TiptapCollabProvider } from '@tiptap-pro/provider'
-import { ServerAiToolkit, getSchemaAwarenessData } from '@tiptap-pro/server-ai-toolkit'
+import { ServerAiToolkit, getEditorContext } from '@tiptap/server-ai-toolkit'
 import { DefaultChatTransport } from 'ai'
 import { useEffect, useRef, useState } from 'react'
 import { v4 as uuid } from 'uuid'
@@ -401,7 +326,7 @@ export default function Page() {
     }
   }, [documentId, doc, editor])
 
-  const schemaAwarenessData = editor ? getSchemaAwarenessData(editor) : null
+  const editorContext = editor ? getEditorContext(editor) : null
 
   const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({
@@ -433,7 +358,7 @@ export default function Page() {
         onSubmit={(e) => {
           e.preventDefault()
           if (input.trim()) {
-            sendMessage({ text: input }, { body: { schemaAwarenessData } })
+            sendMessage({ text: input }, { body: { editorContext } })
             setInput('')
           }
         }}

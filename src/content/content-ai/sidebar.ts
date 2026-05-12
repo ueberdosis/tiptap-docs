@@ -29,7 +29,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'AI Toolkit',
           href: '/content-ai/capabilities/ai-toolkit',
           tags: ['Add-on'],
-          releaseTag: "beta",
+          releaseTag: 'beta',
           children: [
             {
               title: 'Overview',
@@ -289,7 +289,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Server AI Toolkit',
           href: '/content-ai/capabilities/server-ai-toolkit',
           tags: ['Add-on'],
-          releaseTag: "alpha",
+          releaseTag: 'alpha',
           children: [
             {
               title: 'Overview',
@@ -356,7 +356,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [
                 {
-                  title: 'Schema awareness',
+                  title: 'Editor context',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
                 },
                 {
@@ -385,13 +385,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Changelog',
-              href: '/content-ai/capabilities/server-ai-toolkit/changelog',
-              children: [
-                {
-                  title: 'Server AI Toolkit',
-                  href: '/content-ai/capabilities/server-ai-toolkit/changelog/server-ai-toolkit',
-                },
-              ],
+              href: '/resources/changelog/server-ai-toolkit',
             },
           ],
         },
