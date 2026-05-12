@@ -357,7 +357,7 @@ export const sidebarConfig: SidebarConfig = {
               children: [
                 {
                   title: 'Editor context',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
                 },
                 {
                   title: 'Review options',
