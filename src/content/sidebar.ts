@@ -18,6 +18,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/resources/whats-new',
           title: "What's new in 3.0",
         },
+        {
+          href: '/authentication',
+          title: 'Authentication',
+          tags: ['New'],
+        },
       ],
     },
     {
