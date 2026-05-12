@@ -603,14 +603,12 @@ const nextConfig = {
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/agents/tracked-changes',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
         permanent: true,
       },
       {
         source: '/content-ai/capabilities/ai-toolkit/advanced-guides/style-suggestions',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
+        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
         permanent: true,
       },
       {
@@ -678,6 +676,11 @@ const nextConfig = {
       {
         source: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
         destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/api-reference/schema-awareness',
+        destination: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
         permanent: true,
       },
       {
