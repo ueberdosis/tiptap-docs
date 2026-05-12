@@ -229,6 +229,19 @@ function stripLeadingH1(markdown: string): string {
 }
 
 /**
+ * Remove short commit hashes from changelog bullet items.
+ */
+function stripCommitHashes(markdown: string): string {
+  return markdown
+    .replace(/^(\s*-\s+)[0-9a-fA-F]{1,7}:\s+/gm, '$1')
+    .replace(/^(\s*-\s+Updated dependencies) \[[0-9a-fA-F]{1,7}\]/gm, '$1')
+}
+
+function normalizeChangelogContent(markdown: string): string {
+  return stripCommitHashes(stripLeadingH1(markdown))
+}
+
+/**
  * Process items with a sliding-window concurrency limit.
  * Starts a new task as soon as any slot frees up, keeping all slots busy.
  */
@@ -295,7 +308,10 @@ async function discoverAndFetchPackages(
           if (cachedResult) {
             console.log(`${prefix} Reused ${packageName}`)
             return {
-              result: cachedResult,
+              result: {
+                ...cachedResult,
+                content: normalizeChangelogContent(cachedResult.content),
+              },
               cacheEntry: {
                 slug,
                 packageName,
@@ -318,7 +334,7 @@ async function discoverAndFetchPackages(
           result: {
             packageName,
             slug,
-            content: stripLeadingH1(content),
+            content: normalizeChangelogContent(content),
           } as ChangelogResult,
           cacheEntry: version
             ? ({
