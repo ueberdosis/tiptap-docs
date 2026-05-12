@@ -33,6 +33,13 @@ const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
 const CONCURRENCY_LIMIT = 5
 const OUTPUT_DIR = path.join(process.cwd(), 'src/content/resources/changelog/_data')
 const CACHE_PATH = path.join(OUTPUT_DIR, 'cache.json')
+const OMITTED_PACKAGE_NAMES = new Set([
+  '@tiptap-pro/extension-ai-advanced',
+  '@tiptap-pro/extension-annotation',
+  '@tiptap-pro/extension-iframely',
+  '@tiptap-pro/extension-document-colors',
+  '@tiptap-pro/server-ai-toolkit',
+])
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
@@ -256,6 +263,13 @@ async function discoverAndFetchPackages(
       `Found ${dirNames.length} directories in ${config.owner}/${config.repo}/${packageDir}`,
     )
     for (const dirName of dirNames) {
+      const packageName = `${config.packageScope}/${dirName}`
+
+      if (OMITTED_PACKAGE_NAMES.has(packageName)) {
+        console.log(`Skipped ${packageName} (omitted from changelog generation)`)
+        continue
+      }
+
       allDirNames.push({ dirName, packageDir })
     }
   }
