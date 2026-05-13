@@ -1,0 +1,199 @@
+---
+title: Using NodeViews with Tracked Changes
+tags:
+  - type: addon
+meta:
+  title: NodeView Support | Tiptap Tracked Changes Docs
+  description: Learn how to properly integrate NodeViews with Tracked Changes to enable suggestion tracking for custom components.
+  category: Tracked Changes
+---
+
+NodeViews allow you to render custom components for specific node types in your editor. When using NodeViews with Tracked Changes, you need to ensure that suggestion metadata is properly passed to your component's DOM elements.
+
+## What are NodeViews?
+
+NodeViews are custom React, Vue, or vanilla JavaScript components that replace the default rendering of specific node types. They're commonly used for:
+
+- Images and media
+- Tables
+- Custom blocks or cards
+- Embeds and interactive content
+- Any node type that requires custom rendering logic
+
+## Why NodeViews Need Special Handling
+
+When Tracked Changes is enabled, the extension adds metadata to track modifications. For text content, this happens automatically through marks. However, for NodeViews, the suggestion metadata must be explicitly passed to your component.
+
+Without proper handling, suggestion attributes won't reach your component's DOM, meaning:
+- Suggestions won't be visually highlighted
+- Suggestion queries may not find your NodeView changes
+- The suggestion tracking will be incomplete
+
+## The Problem: Missing Suggestion Attributes
+
+By default, when your NodeView receives HTMLAttributes, it contains suggestion metadata mixed with other attributes:
+
+```js
+// HTMLAttributes prop received by your NodeView
+{
+  'data-suggestion-id': 'suggestion-123',
+  'data-suggestion-type': 'delete',
+  'data-suggestion-user-id': 'user-456',
+  'data-suggestion-created-at': '2024-01-30T12:34:56Z',
+  // ... other non-suggestion attributes
+}
+```
+
+If you don't spread these attributes onto your actual DOM elements, the suggestion tracking system can't find them.
+
+**Incorrect (won't track suggestions):**
+
+```jsx
+function ImageNodeView({ node, HTMLAttributes }) {
+  return (
+    <img src={node.attrs.src} alt={node.attrs.alt} />
+  )
+  // Problem: HTMLAttributes not spread — suggestions lost
+}
+```
+
+## The Solution: getSuggestionHTMLAttributes()
+
+The `getSuggestionHTMLAttributes()` utility filters HTMLAttributes to extract only suggestion-related attributes (`data-suggestion*`). This lets you spread them safely onto your component:
+
+```js
+import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
+
+function ImageNodeView({ node, HTMLAttributes }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
+  
+  return (
+    <img 
+      src={node.attrs.src} 
+      alt={node.attrs.alt}
+      {...suggestionAttrs}
+    />
+  )
+  // Now: suggestion attributes are on the DOM element
+}
+```
+
+## Implementation Examples
+
+### Simple Image NodeView
+
+For a custom image component:
+
+```jsx
+import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
+
+function ImageNodeView({ node, HTMLAttributes }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
+  
+  return (
+    <figure {...suggestionAttrs}>
+      <img 
+        src={node.attrs.src} 
+        alt={node.attrs.alt}
+        className="editor-image"
+      />
+      {node.attrs.caption && <figcaption>{node.attrs.caption}</figcaption>}
+    </figure>
+  )
+}
+```
+
+### Custom Block NodeView
+
+For a more complex custom block:
+
+```jsx
+import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
+
+function CustomBlockNodeView({ node, HTMLAttributes }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
+  
+  return (
+    <div 
+      {...suggestionAttrs}
+      className="custom-block"
+      style={{
+        backgroundColor: node.attrs.bgColor,
+        padding: '16px',
+      }}
+    >
+      <h3>{node.attrs.title}</h3>
+      <p>{node.attrs.description}</p>
+    </div>
+  )
+}
+```
+
+### Table Cell with NodeView
+
+For table cells or similar nested structures:
+
+```jsx
+import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
+
+function TableCellNodeView({ node, HTMLAttributes }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
+  
+  return (
+    <td {...suggestionAttrs}>
+      {node.content}
+    </td>
+  )
+}
+```
+
+## Best Practices
+
+**Always filter suggestion attributes.** Even if you only have suggestion attributes now, using `getSuggestionHTMLAttributes()` makes your code more maintainable and explicit about your intent.
+
+**Spread onto the root element.** Place suggestion attributes on the outermost DOM element of your NodeView so the entire component is tracked as a unit.
+
+**Don't spread non-suggestion attributes to DOM.** If your HTMLAttributes contain other metadata that shouldn't be on DOM elements (like internal React/Vue keys), use the utility to avoid pollution:
+
+```jsx
+function MyNodeView({ node, HTMLAttributes }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
+  const { someInternalProp, ...restAttrs } = HTMLAttributes
+  
+  return (
+    <div {...suggestionAttrs}>
+      {/* Handle other attributes selectively */}
+    </div>
+  )
+}
+```
+
+**Test your implementation.** After implementing a NodeView, verify that:
+- The component renders correctly with and without suggestions
+- Suggestions visually highlight (with your CSS)
+- Accepting/rejecting suggestions works as expected
+- [Suggestion queries](/tracked-changes/api-reference/utilities) find your NodeView changes
+
+## Querying NodeView Suggestions
+
+Once properly integrated, you can query suggestions on NodeViews just like text suggestions:
+
+```js
+import { findSuggestions, getSuggestionAtSelection } from '@tiptap-pro/extension-tracked-changes'
+
+// Find all suggestions (including those on NodeViews)
+const all = findSuggestions(editor)
+
+// Find suggestions at the current selection
+const current = getSuggestionAtSelection(editor)
+
+// Accept/reject suggestions on NodeViews
+editor.commands.acceptSuggestion({ id: 'suggestion-123' })
+editor.commands.rejectSuggestion({ id: 'suggestion-123' })
+```
+
+## See Also
+
+- [getSuggestionHTMLAttributes() API reference](/tracked-changes/api-reference/utilities#getsuggestionsthtmlattributes)
+- [Utilities](/tracked-changes/api-reference/utilities)
+- [Commands](/tracked-changes/api-reference/commands)

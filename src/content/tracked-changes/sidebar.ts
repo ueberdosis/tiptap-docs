@@ -52,6 +52,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Tracked Changes with Comments',
           href: '/tracked-changes/guides/comments-integration',
         },
+        {
+          title: 'Using NodeViews',
+          href: '/tracked-changes/guides/nodeview-support',
+        },
       ],
     },
     {
