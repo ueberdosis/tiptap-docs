@@ -451,8 +451,33 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/content-ai/capabilities/ai-toolkit/changelog',
-        destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
+        destination: '/resources/changelog/pro-ai-toolkit',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
+        destination: '/resources/changelog/pro-ai-toolkit-ai-sdk',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-anthropic',
+        destination: '/resources/changelog/pro-ai-toolkit-anthropic',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
+        destination: '/resources/changelog/pro-ai-toolkit-langchain',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
+        destination: '/resources/changelog/pro-ai-toolkit-openai',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
+        destination: '/resources/changelog/pro-ai-toolkit-tool-definitions',
         permanent: true,
       },
       {
