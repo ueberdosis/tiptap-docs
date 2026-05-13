@@ -256,32 +256,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Changelog',
               href: '/content-ai/capabilities/ai-toolkit/changelog',
-              children: [
-                {
-                  title: 'AI Toolkit',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
-                },
-                {
-                  title: 'AI SDK tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-ai-sdk',
-                },
-                {
-                  title: 'LangChain.js tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-langchain',
-                },
-                {
-                  title: 'OpenAI tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-openai',
-                },
-                {
-                  title: 'Anthropic tools',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-anthropic',
-                },
-                {
-                  title: 'Tool definitions',
-                  href: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit-tool-definitions',
-                },
-              ],
             },
           ],
         },
