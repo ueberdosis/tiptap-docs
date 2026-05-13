@@ -31,50 +31,38 @@ Without proper handling, suggestion attributes won't reach your component's DOM,
 
 ## The Problem: Missing Suggestion Attributes
 
-By default, when your NodeView receives HTMLAttributes, it contains suggestion metadata mixed with other attributes:
-
-```js
-// HTMLAttributes prop received by your NodeView
-{
-  'data-suggestion-id': 'suggestion-123',
-  'data-suggestion-type': 'delete',
-  'data-suggestion-user-id': 'user-456',
-  'data-suggestion-created-at': '2024-01-30T12:34:56Z',
-  // ... other non-suggestion attributes
-}
-```
-
-If you don't spread these attributes onto your actual DOM elements, the suggestion tracking system can't find them.
+Tracked Changes stores suggestion metadata directly on the node's attributes (`node.attrs`). Your NodeView needs to map those attrs to `data-suggestion-*` DOM attributes so the tracking system can find them.
 
 **Incorrect (won't track suggestions):**
 
 ```jsx
-function ImageNodeView({ node, HTMLAttributes }) {
+function ImageNodeView({ node }) {
   return (
     <img src={node.attrs.src} alt={node.attrs.alt} />
   )
-  // Problem: HTMLAttributes not spread — suggestions lost
+  // Problem: suggestion attrs from node.attrs not on the DOM — suggestions lost
 }
 ```
 
 ## The Solution: getSuggestionHTMLAttributes()
 
-The `getSuggestionHTMLAttributes()` utility filters HTMLAttributes to extract only suggestion-related attributes (`data-suggestion*`). This lets you spread them safely onto your component:
+The `getSuggestionHTMLAttributes()` utility reads suggestion data directly from the live ProseMirror `node` and returns the corresponding `data-suggestion-*` DOM attributes, safe to spread onto your component.
 
-```js
+Pass `node`, not `HTMLAttributes`. The `HTMLAttributes` NodeView prop is computed once at NodeView creation and never updated, so it will be stale whenever suggestion state changes. The `node` prop always reflects the current state.
+
+```jsx
 import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
 
-function ImageNodeView({ node, HTMLAttributes }) {
-  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
-  
+function ImageNodeView({ node }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(node)
+
   return (
-    <img 
-      src={node.attrs.src} 
+    <img
+      src={node.attrs.src}
       alt={node.attrs.alt}
       {...suggestionAttrs}
     />
   )
-  // Now: suggestion attributes are on the DOM element
 }
 ```
 
@@ -82,18 +70,16 @@ function ImageNodeView({ node, HTMLAttributes }) {
 
 ### Simple Image NodeView
 
-For a custom image component:
-
 ```jsx
 import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
 
-function ImageNodeView({ node, HTMLAttributes }) {
-  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
-  
+function ImageNodeView({ node }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(node)
+
   return (
     <figure {...suggestionAttrs}>
-      <img 
-        src={node.attrs.src} 
+      <img
+        src={node.attrs.src}
         alt={node.attrs.alt}
         className="editor-image"
       />
@@ -105,16 +91,14 @@ function ImageNodeView({ node, HTMLAttributes }) {
 
 ### Custom Block NodeView
 
-For a more complex custom block:
-
 ```jsx
 import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
 
-function CustomBlockNodeView({ node, HTMLAttributes }) {
-  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
-  
+function CustomBlockNodeView({ node }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(node)
+
   return (
-    <div 
+    <div
       {...suggestionAttrs}
       className="custom-block"
       style={{
@@ -131,14 +115,12 @@ function CustomBlockNodeView({ node, HTMLAttributes }) {
 
 ### Table Cell with NodeView
 
-For table cells or similar nested structures:
-
 ```jsx
 import { getSuggestionHTMLAttributes } from '@tiptap-pro/extension-tracked-changes'
 
-function TableCellNodeView({ node, HTMLAttributes }) {
-  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
-  
+function TableCellNodeView({ node }) {
+  const suggestionAttrs = getSuggestionHTMLAttributes(node)
+
   return (
     <td {...suggestionAttrs}>
       {node.content}
@@ -149,24 +131,11 @@ function TableCellNodeView({ node, HTMLAttributes }) {
 
 ## Best Practices
 
-**Always filter suggestion attributes.** Even if you only have suggestion attributes now, using `getSuggestionHTMLAttributes()` makes your code more maintainable and explicit about your intent.
+**Always use `getSuggestionHTMLAttributes(node)`.** Deriving the attributes from the node directly ensures they stay in sync as suggestion state changes — e.g. when a suggestion is accepted, rejected, or a remote update arrives via collaboration.
 
 **Spread onto the root element.** Place suggestion attributes on the outermost DOM element of your NodeView so the entire component is tracked as a unit.
 
-**Don't spread non-suggestion attributes to DOM.** If your HTMLAttributes contain other metadata that shouldn't be on DOM elements (like internal React/Vue keys), use the utility to avoid pollution:
-
-```jsx
-function MyNodeView({ node, HTMLAttributes }) {
-  const suggestionAttrs = getSuggestionHTMLAttributes(HTMLAttributes)
-  const { someInternalProp, ...restAttrs } = HTMLAttributes
-  
-  return (
-    <div {...suggestionAttrs}>
-      {/* Handle other attributes selectively */}
-    </div>
-  )
-}
-```
+**Do not pass `HTMLAttributes` to the utility.** The `HTMLAttributes` NodeView prop is a snapshot computed when the NodeView is first created. It is not updated on subsequent renders, so using it would produce stale `data-suggestion-*` attributes after any state change.
 
 **Test your implementation.** After implementing a NodeView, verify that:
 - The component renders correctly with and without suggestions
