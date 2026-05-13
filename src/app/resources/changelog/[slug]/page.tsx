@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props) {
   const data = getChangelogData(slug)
   if (!data) return {}
 
-  const title = `${data.packageName} Changelog`
+  const title = `${data.packageName} changelog`
   const description = `Changelog for ${data.packageName}`
   const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
 
@@ -50,7 +50,7 @@ export default async function ChangelogPage({ params }: Props) {
   const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
   const sidebar = await importSidebarConfigFromMarkdownPath(['resources'])
 
-  const title = `${data.packageName} Changelog`
+  const title = `${data.packageName} changelog`
   const description = `Changelog for ${data.packageName}`
   const schemaDate = '1970-01-01T00:00:00.000Z'
 
