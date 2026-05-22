@@ -709,6 +709,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
+        destination: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/server-ai-toolkit',
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
