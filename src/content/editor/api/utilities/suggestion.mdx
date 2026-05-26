@@ -15,6 +15,8 @@ tags:
     label: Downloads
 ---
 
+import { CodeDemo } from '@/components/CodeDemo'
+
 This utility helps with all kinds of suggestions in the editor. Have a look at the [`Mention`](/editor/extensions/nodes/mention) or [`Emoji`](/editor/extensions/nodes/emoji) node to see it in action.
 
 ## Settings
@@ -310,6 +312,143 @@ source](https://github.com/ueberdosis/tiptap/blob/main/packages/suggestion/src/f
 for more detail.
 
 Default: `findSuggestionMatch(config: Trigger): SuggestionMatch`
+
+## Async behavior
+
+When your `items()` function returns a `Promise`, the suggestion plugin handles the async lifecycle automatically:
+
+1. **Initial state:** The popup opens and `loading` is `true`. If `initialItems` was provided, those items are shown immediately.
+2. **Fetching:** The `items()` function is called with an `AbortSignal`. If the user keeps typing, the previous request's signal is aborted and a new one starts after the `debounce` delay.
+3. **Resolution:** Once the promise resolves, the returned items replace the current items and `loading` becomes `false`. The `onUpdate` callback is triggered with the new `SuggestionProps`.
+4. **Empty state:** If no `items()` function is provided or it returns an empty array, the popup shows an empty state. The `loading` property remains `false` unless a fetch is in progress.
+5. **Dismissal:** When the popup closes (e.g., user presses Escape), any in-flight request is aborted automatically.
+
+Here's a complete example:
+
+```js
+Suggestion({
+  minQueryLength: 2,
+  debounce: 300,
+  initialItems: ['Lea Thompson', 'Cyndi Lauper'],
+  items: async ({ query, signal }) => {
+    // Simulate an API call — this will be aborted if the query changes
+    const response = await fetch(`/api/users?q=${query}`, { signal })
+    const data = await response.json()
+    return data.slice(0, 5)
+  },
+  render: () => {
+    let component
+
+    return {
+      onStart(props) {
+        component = new ReactRenderer(MyList, {
+          props,
+          editor: props.editor,
+        })
+        document.body.appendChild(component.element)
+      },
+      onUpdate(props) {
+        // `props.loading` is true while fetching, false otherwise
+        // `props.items` contains the resolved data (or initialItems before resolution)
+        component.updateProps(props)
+      },
+      onExit() {
+        component.element.remove()
+        component.destroy()
+      },
+    }
+  },
+})
+```
+
+## Positioning
+
+The suggestion utility integrates with [Floating UI](https://floating-ui.com/) for flexible popup positioning. You can control placement and behavior directly through the suggestion options.
+
+### Basic positioning
+
+Use the top-level `placement`, `offset`, and `flip` options for common use cases:
+
+```js
+Suggestion({
+  placement: 'top-start',
+  offset: { mainAxis: 8 },
+  flip: true,
+})
+```
+
+### Advanced positioning with floatingUi
+
+For advanced scenarios (custom middleware, fixed positioning), use the `floatingUi` option:
+
+```js
+import { flip, shift, size } from '@floating-ui/dom'
+
+Suggestion({
+  floatingUi: {
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    middleware: [
+      flip({ padding: 16 }),
+      shift({ padding: 16 }),
+      size({
+        apply({ availableWidth, availableHeight, elements }) {
+          Object.assign(elements.floating.style, {
+            maxWidth: `${availableWidth}px`,
+            maxHeight: `${availableHeight}px`,
+          })
+        },
+      }),
+    ],
+  },
+})
+```
+
+### Consuming floatingUi in render callbacks
+
+The resolved `floatingUi` config (with defaults applied) is passed to every render callback via `SuggestionProps.floatingUi`. Use it when computing your popup's position:
+
+```js
+import { ReactRenderer } from '@tiptap/react'
+
+Suggestion({
+  floatingUi: {
+    strategy: 'fixed',
+    middleware: [flip({ padding: 8 }), shift({ padding: 8 })],
+  },
+  render: () => {
+    let component
+
+    return {
+      onStart(props) {
+        component = new ReactRenderer(DropdownList, { props, editor: props.editor })
+
+        // Use props.floatingUi to compute the popup position
+        Object.assign(component.element.style, {
+          position: props.floatingUi.strategy,
+          left: '0px',
+          top: '0px',
+          visibility: 'hidden',
+        })
+        document.body.appendChild(component.element)
+
+        // Reposition with the resolved floatingUi config
+        reposition(props.editor, component.element, props.floatingUi)
+      },
+      onUpdate(props) {
+        component.updateProps(props)
+        reposition(props.editor, component.element, props.floatingUi)
+      },
+      onExit() {
+        component.element.remove()
+        component.destroy()
+      },
+    }
+  },
+})
+```
+
+<CodeDemo path="/Examples/SuggestionPositioning" />
 
 ## Exiting open suggestions
 
