@@ -21,7 +21,8 @@ import { Requirements, RequirementItem } from '@/components/Requirements'
     or your preferred package manager.
   </RequirementItem>
   <RequirementItem label="3. Authenticate to the service">
-    Configure your Content AI credentials to access the Server AI Toolkit service.
+    Generate a JWT with the <code>AI:Toolkit</code> permission to access the Server AI Toolkit
+    service.
   </RequirementItem>
 </Requirements>
 
@@ -55,19 +56,13 @@ npx create-next-app@latest server-ai-agent-chatbot
 Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
 
 ```bash
-npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jsonwebtoken
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jose
 ```
 
 Install the Server AI Toolkit package:
 
 ```bash
 npm install @tiptap/server-ai-toolkit
-```
-
-Install TypeScript types for jsonwebtoken:
-
-```bash
-npm install --save-dev @types/jsonwebtoken
 ```
 
 ## API endpoint
@@ -82,12 +77,14 @@ Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to cal
   guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization).
 </Callout>
 
-You also need an OpenAI API key and, if using Tiptap Cloud collaboration, a `TIPTAP_CLOUD_SECRET` for the Document Server. Add these to your `.env` file alongside the variables from the [authorization
+You also need an OpenAI API key and, if using Tiptap Cloud collaboration, a Document Server ID for
+the collaboration provider. Add these to your `.env` file alongside the variables from the
+[authorization
 guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization):
 
 ```sh
 # .env (in addition to the Server AI Toolkit variables)
-TIPTAP_CLOUD_SECRET=your-tiptap-cloud-document-server-secret
+TIPTAP_DOCUMENT_SERVER_ID=your-document-server-id
 OPENAI_API_KEY=your-openai-key # The AI SDK will pick this up automatically
 ```
 
@@ -119,7 +116,7 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
 
   const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify({
       editorContext,
     }),
@@ -141,7 +138,7 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
 
 #### Execute tool
 
-This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document when the JWT includes `Documents:Write` permission for that document.
 
 ```ts
 // lib/server-ai-toolkit/execute-tool.ts
@@ -160,7 +157,7 @@ export async function executeTool(
 
   const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders({ documentId }),
     body: JSON.stringify({
       toolName,
       input,
@@ -252,31 +249,40 @@ First, create a server function to generate a JWT for Tiptap Cloud collaboration
 // app/actions.ts
 'use server'
 
-import jwt from 'jsonwebtoken'
+import { SignJWT, importPKCS8 } from 'jose'
 
-const TIPTAP_CLOUD_SECRET = process.env.TIPTAP_CLOUD_SECRET
-const TIPTAP_CLOUD_DOCUMENT_SERVER_ID = process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID
+const TIPTAP_DOCUMENT_SERVER_ID = process.env.TIPTAP_DOCUMENT_SERVER_ID
 
 export async function getCollabConfig(
   userId: string,
   documentName: string,
 ): Promise<{ token: string; appId: string }> {
-  if (!TIPTAP_CLOUD_SECRET) {
-    throw new Error('TIPTAP_CLOUD_SECRET environment variable is not set')
+  if (!process.env.TIPTAP_PRIVATE_KEY) {
+    throw new Error('TIPTAP_PRIVATE_KEY environment variable is not set')
   }
 
-  if (!TIPTAP_CLOUD_DOCUMENT_SERVER_ID) {
-    throw new Error('TIPTAP_CLOUD_DOCUMENT_SERVER_ID environment variable is not set')
+  if (!process.env.TIPTAP_ENVIRONMENT_ID) {
+    throw new Error('TIPTAP_ENVIRONMENT_ID environment variable is not set')
   }
 
-  const payload = {
+  if (!TIPTAP_DOCUMENT_SERVER_ID) {
+    throw new Error('TIPTAP_DOCUMENT_SERVER_ID environment variable is not set')
+  }
+
+  const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY, 'ES256')
+
+  const token = await new SignJWT({
+    permissions: [{ action: 'Documents:Write', resource: documentName }],
     sub: userId,
-    allowedDocumentNames: [documentName],
-  }
+  })
+    .setProtectedHeader({ alg: 'ES256' })
+    .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID)
+    .setAudience(['Documents'])
+    .setIssuedAt()
+    .setExpirationTime('30m')
+    .sign(privateKey)
 
-  const token = jwt.sign(payload, TIPTAP_CLOUD_SECRET, { expiresIn: '1h' })
-
-  return { token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID }
+  return { token, appId: TIPTAP_DOCUMENT_SERVER_ID }
 }
 ```
 

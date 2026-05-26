@@ -34,34 +34,52 @@ The Server AI Toolkit provides REST API endpoints for AI agent tools.
 All requests must include:
 
 - `Authorization: Bearer <JWT>`
-- `X-App-Id: <APP_ID>`
 
-Generate the JWT server-side with your AI secret. Get your App ID and secret key on the [Server AI
-Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
+Generate the JWT server-side with your ES256 private key from the Tiptap dashboard. The token must
+include the `AI:Toolkit` permission and set `aud` to `["AI"]`.
 
 ```ts
-import jwt from 'jsonwebtoken'
+import { SignJWT, importPKCS8 } from 'jose'
 
-const JWT_TOKEN = jwt.sign(
-  {
-    experimental_document_server_id: 'your-document-server-id',
-    experimental_document_server_management_api_secret:
-      'your-document-server-management-api-secret',
-  },
-  'your-ai-secret-key',
-  { expiresIn: '1h' },
-)
+const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
+
+const JWT_TOKEN = await new SignJWT({
+  permissions: [{ action: 'AI:Toolkit', resource: '*' }],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
+  .setAudience(['AI'])
+  .setIssuedAt()
+  .setExpirationTime('30m')
+  .sign(privateKey)
 ```
 
-See the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) for more information.
+See the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization)
+and the [Authentication reference](/authentication) for more information.
 
-### Document Server credentials
+### Tiptap Cloud documents
 
-Include these JWT claims when you want the Server AI Toolkit to fetch and save Tiptap Cloud
-documents automatically:
+When you want the Server AI Toolkit to fetch and save Tiptap Cloud documents automatically via
+`experimental_documentOptions`, include `Documents:Write` in the JWT permissions and add
+`"Documents"` to the `aud` claim:
 
-- `experimental_document_server_id`
-- `experimental_document_server_management_api_secret`
+```ts
+const JWT_TOKEN = await new SignJWT({
+  permissions: [
+    { action: 'AI:Toolkit', resource: '*' },
+    { action: 'Documents:Write', resource: 'your-document-id' },
+  ],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
+  .setAudience(['AI', 'Documents'])
+  .setIssuedAt()
+  .setExpirationTime('30m')
+  .sign(privateKey)
+```
+
+`Documents:Write` implies read and comment access, so you do not need separate `Documents:Read` or
+`Documents:Comment` permissions for toolkit workflows.
 
 ## Base URL
 
@@ -235,7 +253,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/workflows/edit' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "format": "shorthand"
   }'
@@ -276,7 +293,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/read-document' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "format": "shorthand",
@@ -330,7 +346,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/read-selection' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "range": { "from": 10, "to": 42 },
@@ -370,7 +385,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/threads' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "format": "shorthand",
@@ -414,7 +428,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/insert-content' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "input": "This is the replacement content.",
@@ -463,7 +476,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/tiptap-edit' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "input": {
@@ -517,7 +529,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/proofreader' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "input": {
@@ -565,7 +576,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "editorContext": { /* editor context data */ },
     "input": {
@@ -597,9 +607,9 @@ curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
 
 The API uses standard HTTP error codes:
 
-- `400 Bad Request`: Invalid body, invalid format, missing document source, or missing Document
-  Server credentials
-- `401 Unauthorized`: Missing or invalid JWT or App ID
+- `400 Bad Request`: Invalid body, invalid format, missing document source, or missing
+  `Documents:Write` permission for Tiptap Cloud document access
+- `401 Unauthorized`: Missing or invalid JWT
 - `404 Not Found`: Unknown endpoint or tool
 - `422 Unprocessable Entity`: Validation failed
 - `429 Too Many Requests`: Duplicate request or rate-limit protection

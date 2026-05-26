@@ -21,7 +21,8 @@ import Link from '@/components/Link'
     or your preferred package manager.
   </RequirementItem>
   <RequirementItem label="3. Authenticate to the service">
-    Configure your Content AI credentials to access the Server AI Toolkit service.
+    Generate a JWT with the <code>AI:Toolkit</code> permission to access the Server AI Toolkit
+    service.
   </RequirementItem>
 </Requirements>
 
@@ -70,12 +71,25 @@ For more details, see the [Editor context API reference](/content-ai/capabilitie
 
 ## Set up authorization
 
-The Server AI Toolkit is a cloud or on-premises service. Authenticate to access its REST API.
+The Server AI Toolkit is a cloud or on-premises service. Authenticate to access its REST API with a
+[unified JWT](/authentication).
 
-1. **Get your App ID and secret key** on the [Tiptap Cloud AI settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
-2. **Get your Document Server credentials** (ID and management API secret) on the [Document Server settings](https://cloud.tiptap.dev/v2/configuration/document-server) page. These are included as JWT claims so the Server AI Toolkit can automatically fetch and save your Tiptap Cloud documents.
-3. **Generate a JWT** using a library like `jsonwebtoken`. In production, always create JWTs **server-side** to keep your secret safe.
-4. **Use the JWT** in your API requests. Pass it in the `Authorization` header as a Bearer token and the App ID in `X-App-Id`.
+1. **Create an asymmetric key pair** in your Tiptap dashboard and copy your environment hash ID and
+   private key.
+2. **Generate a JWT** using a library like [`jose`](https://github.com/panva/jose). In production,
+   always create JWTs **server-side** to keep your private key safe.
+3. **Include the `AI:Toolkit` permission** in the token's `permissions` array and set `aud` to
+   `["AI"]`.
+4. **Use the JWT** in your API requests. Pass it in the `Authorization` header as a Bearer token.
+
+See the [Authentication reference](/authentication) for the full claims reference, permission
+model, and security best practices.
+
+Install the JWT signing library:
+
+```bash
+npm install jose
+```
 
 ### Environment variables
 
@@ -84,40 +98,51 @@ Configure the following environment variables:
 ```sh
 # .env
 TIPTAP_CLOUD_AI_API_URL=https://api.tiptap.dev
-TIPTAP_CLOUD_AI_SECRET=your-secret-key
-TIPTAP_CLOUD_AI_APP_ID=your-app-id
-TIPTAP_CLOUD_DOCUMENT_SERVER_ID=your-tiptap-cloud-document-server-id
-TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET=your-tiptap-cloud-document-management-api-secret
+TIPTAP_ENVIRONMENT_ID=your-environment-hash-id
+TIPTAP_PRIVATE_KEY=your-private-key-pem
 ```
 
 - **TIPTAP_CLOUD_AI_API_URL**: The base URL for the Server AI Toolkit API.
-- **TIPTAP_CLOUD_AI_SECRET**: Your "Content AI Secret" from the [Content AI settings](https://cloud.tiptap.dev/v2/cloud/ai) page. Used to sign the JWT.
-- **TIPTAP_CLOUD_AI_APP_ID**: Your "Content AI App ID" from the [Content AI settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
-- **TIPTAP_CLOUD_DOCUMENT_SERVER_ID**: Your Tiptap Cloud Document Server ID from the [Document Server settings](https://cloud.tiptap.dev/v2/configuration/document-server) page. Included as the `experimental_document_server_id` JWT claim so the Server AI Toolkit can fetch and save documents automatically.
-- **TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET**: Your Document Server management API secret. Included as the `experimental_document_server_management_api_secret` JWT claim for document access.
+- **TIPTAP_ENVIRONMENT_ID**: Your environment hash ID from the Tiptap dashboard. Used as the `iss`
+  claim when signing JWTs.
+- **TIPTAP_PRIVATE_KEY**: Your ES256 private key (PKCS#8 PEM) from the Tiptap dashboard. Used to
+  sign JWTs server-side.
 
 ### Create a JWT token
 
-This function generates a JWT from `TIPTAP_CLOUD_AI_SECRET` for authenticating with the Server AI Toolkit API. It includes Document Server credentials so the Server AI Toolkit can automatically fetch and save your Tiptap Cloud documents.
+This function generates a JWT for authenticating with the Server AI Toolkit API. Pass a
+`documentId` when the Server AI Toolkit should fetch and save Tiptap Cloud documents automatically
+via `experimental_documentOptions`.
 
 ```ts
 // lib/server-ai-toolkit/create-jwt-token.ts
-import jwt from 'jsonwebtoken'
+import { SignJWT, importPKCS8 } from 'jose'
+
+type CreateJwtTokenOptions = {
+  documentId?: string
+}
 
 /**
- * Generates a JWT from TIPTAP_CLOUD_AI_SECRET for authenticating with the Server AI Toolkit API
+ * Generates a JWT for authenticating with the Server AI Toolkit API
  */
-export function createJwtToken(): string {
-  return jwt.sign(
-    {
-      // Document Server credentials for automatic document fetching/saving
-      experimental_document_server_id: process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID,
-      experimental_document_server_management_api_secret:
-        process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_MANAGEMENT_API_SECRET,
-    },
-    process.env.TIPTAP_CLOUD_AI_SECRET,
-    { expiresIn: '1h' },
-  )
+export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promise<string> {
+  const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
+
+  const permissions: { action: string; resource: string }[] = [
+    { action: 'AI:Toolkit', resource: '*' },
+  ]
+
+  if (options.documentId) {
+    permissions.push({ action: 'Documents:Write', resource: options.documentId })
+  }
+
+  return new SignJWT({ permissions })
+    .setProtectedHeader({ alg: 'ES256' })
+    .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
+    .setAudience(options.documentId ? ['AI', 'Documents'] : ['AI'])
+    .setIssuedAt()
+    .setExpirationTime('30m')
+    .sign(privateKey)
 }
 ```
 
@@ -129,23 +154,34 @@ This function returns the authentication headers required for all Server AI Tool
 // lib/server-ai-toolkit/get-auth-headers.ts
 import { createJwtToken } from './create-jwt-token'
 
+type GetAuthHeadersOptions = {
+  documentId?: string
+}
+
 /**
  * Returns the authentication headers for the Server AI Toolkit API
  */
-export function getAuthHeaders(): Record<string, string> {
+export async function getAuthHeaders(
+  options: GetAuthHeadersOptions = {},
+): Promise<Record<string, string>> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${createJwtToken()}`,
-    'X-App-Id': process.env.TIPTAP_CLOUD_AI_APP_ID,
+    Authorization: `Bearer ${await createJwtToken(options)}`,
   }
 }
 ```
 
 <Callout title="Alternative: provide documents directly" variant="info">
-  If you manage documents in your own storage instead of Tiptap Cloud, you can omit the
-  `experimental_document_server_id` and `experimental_document_server_management_api_secret` JWT
-  claims and pass documents directly via the `document` field in API requests. See the [REST API
+  If you manage documents in your own storage instead of Tiptap Cloud, omit the `documentId` option
+  and pass documents directly via the `document` field in API requests. The token only needs the
+  `AI:Toolkit` permission. See the [REST API
   reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
+</Callout>
+
+<Callout title="Tiptap Cloud documents" variant="info">
+  When using `experimental_documentOptions`, include `Documents:Write` in the JWT permissions so the
+  Server AI Toolkit can fetch and save documents on your behalf. Pass the target document ID to
+  `getAuthHeaders({ documentId })`.
 </Callout>
 
 ## Call API endpoints
@@ -159,7 +195,7 @@ const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.de
 
 const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
   method: 'POST',
-  headers: getAuthHeaders(),
+  headers: await getAuthHeaders(),
   body: JSON.stringify({
     editorContext,
   }),
