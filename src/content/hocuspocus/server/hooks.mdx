@@ -34,6 +34,7 @@ By way of illustration, if a user isn’t allowed to connect: Just throw an erro
 | Hook                       | Description                               | Link                                                  |
 | -------------------------- |-------------------------------------------|-------------------------------------------------------|
 | `beforeHandleMessage`      | Before handling a message                 | [Read more](/hocuspocus/server/hooks#before-handle-message)      |
+| `beforeHandleAwareness`    | Before applying an inbound awareness update | [Read more](/hocuspocus/server/hooks#before-handle-awareness)  |
 | `onConnect`                | When a connection is established          | [Read more](/hocuspocus/server/hooks#on-connect)                 |
 | `connected`                | After a connection has been establied     | [Read more](/hocuspocus/server/hooks#connected)                  |
 | `onAuthenticate`           | When authentication is required           | [Read more](/hocuspocus/server/hooks#on-authenticate)            |
@@ -278,6 +279,86 @@ provider.sendToken();
 // Server requests token from provider
 const connection = document.connections.values().next().value?.connection;
 connection.requestToken();
+```
+
+### beforeHandleAwareness
+
+The `beforeHandleAwareness` hooks are called after the server has decoded an inbound awareness message and before it is applied to the document's awareness state. Unlike `onAwarenessUpdate`, which observes awareness changes after they have been applied, `beforeHandleAwareness` lets you inspect and rewrite the update before it lands in the document's awareness or is broadcast to peers.
+
+The hook receives the decoded per-client `states` as a mutable `Map` keyed by Yjs `clientId`. Mutate the map and the contained state objects in place to:
+
+- Change fields on a state object (e.g. stamp a verified `user` over a client-supplied value).
+- `states.delete(clientId)` to drop a peer from the broadcast.
+- `states.set(clientId, ...)` to add or replace a synthetic state.
+
+The encoded update sent to peers reflects whatever the map looks like after every hook in the chain has run. Throw to reject the entire update — nothing is applied and nothing is broadcast.
+
+Multiple extensions chain naturally: each extension sees the map as mutated by the previous ones and can mutate it further. Extensions run before the configuration-level hook.
+
+**Hook payload**
+
+The `data` passed to the `beforeHandleAwareness` hook has the following attributes:
+
+```js
+import { Awareness } from 'y-protocols/awareness'
+import type { Connection, TransactionOrigin } from '@hocuspocus/server'
+
+const data = {
+  awareness: Awareness,
+  clientsCount: number,
+  // Connection context populated by `onAuthenticate`. `undefined` when the
+  // update did not originate from a client connection (e.g. server-internal
+  // writes via DirectConnection).
+  context: any | undefined,
+  document: Document,
+  documentName: string,
+  instance: Hocuspocus,
+  requestHeaders: Headers,
+  requestParameters: URLSearchParams,
+  socketId: string,
+  // Per-client awareness states decoded from the inbound update, keyed by
+  // Yjs clientId. Mutate this map in place to rewrite the update.
+  states: Map<number, Record<string, any>>,
+  // The TransactionOrigin that will be passed to applyAwarenessUpdate.
+  // Use isTransactionOrigin() to discriminate sources.
+  transactionOrigin: TransactionOrigin,
+  // Convenience shortcut: `origin.connection` when transactionOrigin is a
+  // ConnectionTransactionOrigin, otherwise undefined.
+  connection?: Connection,
+}
+```
+
+**Example: stamp a server-verified field over the client value**
+
+```js
+import { Server } from '@hocuspocus/server'
+
+const server = new Server({
+  async beforeHandleAwareness({ states, context }) {
+    for (const state of states.values()) {
+      // Overwrite whatever the client claimed with what the server knows.
+      state.user = context?.user ?? null
+    }
+  },
+})
+
+server.listen()
+```
+
+**Example: reject the update entirely**
+
+```js
+import { Server } from '@hocuspocus/server'
+
+const server = new Server({
+  async beforeHandleAwareness({ context }) {
+    if (context?.readOnly) {
+      throw new Error('Awareness updates not allowed for read-only sessions')
+    }
+  },
+})
+
+server.listen()
 ```
 
 ### onAwarenessUpdate

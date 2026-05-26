@@ -293,10 +293,6 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'Streaming',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/streaming',
                 },
-                {
-                  title: 'Tool definitions',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
-                },
               ],
             },
             {
@@ -308,16 +304,20 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [
                 {
+                  title: 'REST API',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
+                },
+                {
+                  title: 'Tools',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
+                },
+                {
                   title: 'Editor context',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
                 },
                 {
                   title: 'Review options',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
-                },
-                {
-                  title: 'REST API',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
                 },
               ],
             },
