@@ -33,28 +33,31 @@ The feature is opt-in. Consumers who don't supply `numberingFormats` see no beha
 
 <CodeDemo isPro path="/Extensions/ExportDocxOrderedListNumbering" />
 
-## What the package provides — and what's on you
+## What's provided
 
-| Provided by the package | Provided by you |
-| --- | --- |
-| `numberingFormats?: NumberingFormatDefinition[]` option on `ExportDocx`, `exportDocx()`, and `ConvertConfig` | A small Tiptap extension that writes the `numberingFormat` string attribute onto the outermost `<ol>` of each multilevel list |
-| `NumberingFormatDefinition` and `NumberingLevelDefinition` types | CSS that styles the marker for the editor preview |
-| `LevelFormat`, `IRunOptions`, `PositiveUniversalMeasure` re-exported from `docx` | Optional UI for picking / customizing formats |
+| Export                                                   | Package                             | Purpose                                                                                                                                                                    |
+| -------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExportDocx({ numberingFormats })`                       | `@tiptap-pro/extension-export-docx` | Pass the registry to the exporter so the `.docx` carries the matching definitions.                                                                                         |
+| `generateNumberingFormatCss(formats)`                    | `@tiptap-pro/extension-export-docx` | Pure function that returns CSS text for the editor preview — same registry, same visual result.                                                                            |
+| `NumberingFormatDefinition`, `NumberingLevelDefinition`  | `@tiptap-pro/extension-export-docx` | The data shape your registry follows.                                                                                                                                      |
+| `LevelFormat`, `IRunOptions`, `PositiveUniversalMeasure` | `@tiptap-pro/extension-export-docx` | Re-exported from `docx` so you don't add a second dependency.                                                                                                              |
+| `OrderedListNumbering`                                   | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and exposes the `setOrderedListNumberingFormat(id)` command. Enforces outermost-only on paste. |
 
-The editor-side glue is short and project-specific — write it once to fit your existing list extension and design system. The demo above is a complete reference implementation; copy it as a starting point.
+A picker UI for end users isn't part of these packages — that's an application concern and depends on your component library.
 
 ## Quick start
 
 ```ts
 import { Editor } from '@tiptap/core'
-import { StarterKit } from '@tiptap/starter-kit'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
 import {
   ExportDocx,
+  generateNumberingFormatCss,
   LevelFormat,
   type NumberingFormatDefinition,
 } from '@tiptap-pro/extension-export-docx'
 
-// 1. Define the formats your app supports.
+// 1. Define your registry — one source of truth, used three times below.
 const MY_FORMATS: NumberingFormatDefinition[] = [
   {
     id: 'decimal-paren',
@@ -74,10 +77,17 @@ const MY_FORMATS: NumberingFormatDefinition[] = [
   },
 ]
 
-// 2. Pass them to ExportDocx.
+// 2. Inject editor-preview CSS once at boot.
+const style = document.createElement('style')
+style.textContent = generateNumberingFormatCss(MY_FORMATS)
+document.head.appendChild(style)
+
+// 3. Register the schema attribute + register ExportDocx with the same registry.
 const editor = new Editor({
   extensions: [
-    StarterKit,
+    ConvertKit.configure({
+      orderedListNumbering: { formats: MY_FORMATS },
+    }),
     ExportDocx.configure({
       numberingFormats: MY_FORMATS,
       onCompleteExport: (blob) => {
@@ -86,116 +96,41 @@ const editor = new Editor({
     }),
   ],
 })
-```
 
-At this point the export side is ready. To make a list use a format, set `numberingFormat: 'decimal-paren'` (or any id from your registry) as an attribute on the outermost `<ol>` of the list. The next section shows the consumer-side extension that does that.
-
-## Consumer-side extension — write your own
-
-This ~25-line Tiptap extension adds the `numberingFormat` attribute to your existing `orderedList` node (whether it comes from `StarterKit`, `@tiptap/extension-list`, or your own list extension). It enforces "outermost only" so the attribute on a nested `<ol>` (e.g. from pasted HTML) is stripped to match the DOCX convention.
-
-```ts
-import { Extension } from '@tiptap/core'
-
-function findOutermostOrderedList($from) {
-  for (let depth = 1; depth <= $from.depth; depth += 1) {
-    if ($from.node(depth).type.name === 'orderedList') {
-      return { node: $from.node(depth), pos: $from.before(depth) }
-    }
-  }
-  return null
-}
-
-export const OrderedListNumbering = Extension.create({
-  name: 'orderedListNumbering',
-  addGlobalAttributes() {
-    return [
-      {
-        types: ['orderedList'],
-        attributes: {
-          numberingFormat: {
-            default: null,
-            parseHTML: (el) => {
-              if (el.parentElement?.closest('ol')) return null
-              return el.getAttribute('data-numbering-format')
-            },
-            renderHTML: (attrs) =>
-              attrs.numberingFormat
-                ? { 'data-numbering-format': String(attrs.numberingFormat) }
-                : {},
-          },
-        },
-      },
-    ]
-  },
-  addCommands() {
-    return {
-      setOrderedListNumberingFormat:
-        (id) =>
-        ({ state, tr, dispatch }) => {
-          const outer = findOutermostOrderedList(state.selection.$from)
-          if (!outer) return false
-          if (dispatch) {
-            tr.setNodeMarkup(outer.pos, undefined, {
-              ...outer.node.attrs,
-              numberingFormat: id,
-            })
-          }
-          return true
-        },
-    }
-  },
-})
-```
-
-Register it alongside `ExportDocx`:
-
-```ts
-const editor = new Editor({
-  extensions: [
-    StarterKit,
-    OrderedListNumbering,
-    ExportDocx.configure({ numberingFormats: MY_FORMATS, onCompleteExport: ... }),
-  ],
-})
-
+// 4. Apply a format to the list at the current selection.
 editor.chain().focus().toggleOrderedList().setOrderedListNumberingFormat('outline').run()
 ```
 
-## Consumer-side CSS — write your own
+## Using `OrderedListNumbering` directly
 
-The exporter only cares about the attribute being on the right `<ol>`. The editor preview is yours to style. For each format, target `ol[data-numbering-format="<id>"]` and the nested levels via descendant `ol` combinators. A 2-column grid layout matches Word's hanging-indent model best:
+`OrderedListNumbering` is registered by default when you use [`@tiptap-pro/extension-convert-kit`](/conversion/import/docx/convertkit). If you are not using the full `ConvertKit` bundle, you can register the extension directly:
 
-```css
-ol[data-numbering-format='decimal-paren'] {
-  list-style: none;
-  counter-reset: my-decimal-paren-0;
-  padding-left: 0;
-  margin-left: 24px; /* numberIndent: textIndent − hanging; 1 twip = 1/15 CSS px */
-}
-ol[data-numbering-format='decimal-paren'] > li {
-  display: grid;
-  grid-template-columns: minmax(24px, max-content) 1fr; /* col1 = hanging */
-  column-gap: 0;
-  align-items: baseline;
-  counter-increment: my-decimal-paren-0;
-}
-ol[data-numbering-format='decimal-paren'] > li > * {
-  grid-column: 2; /* body content + nested lists in col2 */
-}
-ol[data-numbering-format='decimal-paren'] > li::marker {
-  content: none;
-}
-ol[data-numbering-format='decimal-paren'] > li::before {
-  content: counter(my-decimal-paren-0, decimal) ')';
-  text-align: left;
-  white-space: nowrap;
-}
+```ts
+import { StarterKit } from '@tiptap/starter-kit'
+import { OrderedListNumbering } from '@tiptap-pro/extension-convert-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    OrderedListNumbering.configure({ formats: MY_FORMATS }),
+    ExportDocx.configure({ numberingFormats: MY_FORMATS, onCompleteExport: ... }),
+  ],
+})
 ```
 
-Repeat for nested depths via `ol[...] ol` selectors, advancing the counter name (`my-decimal-paren-1`, `my-decimal-paren-2`) and the marker text (e.g. `lower-alpha`, `lower-roman`).
+When you use `ConvertKit`, pass `orderedListNumbering: false` to disable it.
 
-For dynamic registries (e.g. a customize-format dialog where the user adds their own definitions at runtime), it's worth writing a small generator that walks `NumberingFormatDefinition[]` and produces this CSS. The demo above ships such a generator (`numbering-format-css.js`) — vanilla JS with no dependencies. Copy it as a starting point and call `generateNumberingFormatCSS(formats)` at boot.
+## Applying a format
+
+The `setOrderedListNumberingFormat(id)` command sets the `numberingFormat` attribute on the outermost ordered list ancestor of the current selection. Pass `null` to clear it (the list then exports as plain `1. 2. 3.`).
+
+```ts
+editor.chain().focus().setOrderedListNumberingFormat('decimal-paren').run()
+editor.chain().focus().setOrderedListNumberingFormat(null).run()
+```
+
+The command returns `false` when the selection isn't inside an ordered list.
 
 ## `NumberingFormatDefinition`
 
@@ -206,9 +141,9 @@ interface NumberingFormatDefinition {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `id` | `string` | Unique within your `numberingFormats[]`. Serialized into the orderedList's `numberingFormat` attribute. |
+| Field    | Type                         | Description                                                                                                                            |
+| -------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | `string`                     | Unique within your `numberingFormats[]`. Serialized into the orderedList's `numberingFormat` attribute.                                |
 | `levels` | `NumberingLevelDefinition[]` | One entry per nesting depth. Must be non-empty. When a list nests deeper than the array, depth `N` reuses `levels[N % levels.length]`. |
 
 ## `NumberingLevelDefinition`
@@ -225,15 +160,15 @@ interface NumberingLevelDefinition {
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `baseStyle` | (required) | Any docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value (`DECIMAL`, `DECIMAL_ZERO`, `UPPER_LETTER`, `LOWER_LETTER`, `UPPER_ROMAN`, `LOWER_ROMAN`, `NONE`, etc.). |
-| `textTemplate` | (required) | Marker text using Word's `<w:lvlText>` grammar — see below. |
-| `startAt` | `1` | Initial counter value. |
-| `alignment` | `'left'` | Marker text alignment within the number area. |
-| `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or `PositiveUniversalMeasure` string (`'0.63cm'`, `'0.25in'`, `'18pt'`). |
-| `textIndent` | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`. |
-| `markerFont` | — | Marker-only run formatting. Survives DOCX export; editor preview is yours to wire. |
+| Field          | Default                  | Description                                                                                                                                                                             |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseStyle`    | (required)               | Any docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value (`DECIMAL`, `DECIMAL_ZERO`, `UPPER_LETTER`, `LOWER_LETTER`, `UPPER_ROMAN`, `LOWER_ROMAN`, `NONE`, etc.). |
+| `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar — see below.                                                                                                                             |
+| `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                  |
+| `alignment`    | `'left'`                 | Marker text alignment within the number area.                                                                                                                                           |
+| `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or `PositiveUniversalMeasure` string (`'0.63cm'`, `'0.25in'`, `'18pt'`).                                                      |
+| `textIndent`   | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`.                                                                                                  |
+| `markerFont`   | —                        | Marker-only run formatting. Survives DOCX export and is reflected by `generateNumberingFormatCss` in the editor preview.                                                                |
 
 ## The `textTemplate` grammar
 
@@ -243,43 +178,59 @@ interface NumberingLevelDefinition {
 
 To make each level display its own counter, use ascending `%N` per level. To make a level include parent counters (legal-style outlines), chain them: `'%1.%2.'` at level 1 renders `'1.1.'`.
 
-| Template at level N | Rendered example |
-| --- | --- |
-| `'%1.'` at level 0 | `1.` |
-| `'%2.'` at level 1 | `1.` (the level-1 counter) |
-| `'%1.%2.'` at level 1 | `1.1.` |
-| `'%1.%2.%3.'` at level 2 | `1.1.1.` |
-| `'Article %1'` at level 0 | `Article 1` |
-| `'§ %1 —'` at level 0 | `§ 1 —` |
-| `'(%3)'` at level 2 | `(1)` |
+| Template at level N       | Rendered example           |
+| ------------------------- | -------------------------- |
+| `'%1.'` at level 0        | `1.`                       |
+| `'%2.'` at level 1        | `1.` (the level-1 counter) |
+| `'%1.%2.'` at level 1     | `1.1.`                     |
+| `'%1.%2.%3.'` at level 2  | `1.1.1.`                   |
+| `'Article %1'` at level 0 | `Article 1`                |
+| `'§ %1 —'` at level 0     | `§ 1 —`                    |
+| `'(%3)'` at level 2       | `(1)`                      |
 
 ## Schema convention — outermost only
 
-The `numberingFormat` attribute belongs on the **outermost** `<ol>` only. One definition declares all nesting levels for the entire multilevel list. Your consumer-side extension should enforce this on parse and on command application — see the example above.
+The `numberingFormat` attribute belongs on the **outermost** `<ol>` only. One definition declares all nesting levels for the entire multilevel list. `OrderedListNumbering` enforces this on parse — pasted HTML with `data-numbering-format` on a nested `<ol>` has the attribute stripped.
 
 All nesting levels under one outermost `<ol>` share a single counter scope, and sub-levels restart when the parent advances, exactly as Word does.
 
 ## Cycling rule
 
-`levels.length` defines the cycle period. When a list nests deeper than `levels.length - 1`, depth `N` reuses `levels[N % levels.length]` for both DOCX export and your editor preview. Supply nine levels to cover Word's full nesting depth without cycling; supply fewer when the deeper levels can naturally repeat the shallower entries.
+`levels.length` defines the cycle period. When a list nests deeper than `levels.length - 1`, depth `N` reuses `levels[N % levels.length]` for both DOCX export and the editor preview CSS. Supply nine levels to cover Word's full nesting depth without cycling; supply fewer when the deeper levels can naturally repeat the shallower entries.
 
 ## Defaults match Word's standard
 
-When `numberIndent` / `textIndent` are omitted, the exporter emits Word's standard multilevel-list defaults:
+When `numberIndent` / `textIndent` are omitted, the exporter and the CSS helper both emit Word's standard multilevel-list defaults:
 
-| Depth | `textIndent` | `numberIndent` | Hanging |
-| --- | --- | --- | --- |
-| 0 | `720` (0.50″) | `360` (0.25″) | `360` |
-| 1 | `1140` (0.79″) | `780` (0.54″) | `360` |
-| 2 | `1440` (1.00″) | `1080` (0.75″) | `360` |
-| 3 | `1740` (1.21″) | `1380` (0.96″) | `360` |
-| 4 | `2040` (1.42″) | `1680` (1.17″) | `360` |
-| 5 | `2340` (1.63″) | `1980` (1.38″) | `360` |
-| 6 | `2640` (1.83″) | `2280` (1.58″) | `360` |
-| 7 | `2940` (2.04″) | `2580` (1.79″) | `360` |
-| 8 | `3240` (2.25″) | `2880` (2.00″) | `360` |
+| Depth | `textIndent`   | `numberIndent` | Hanging |
+| ----- | -------------- | -------------- | ------- |
+| 0     | `720` (0.50″)  | `360` (0.25″)  | `360`   |
+| 1     | `1140` (0.79″) | `780` (0.54″)  | `360`   |
+| 2     | `1440` (1.00″) | `1080` (0.75″) | `360`   |
+| 3     | `1740` (1.21″) | `1380` (0.96″) | `360`   |
+| 4     | `2040` (1.42″) | `1680` (1.17″) | `360`   |
+| 5     | `2340` (1.63″) | `1980` (1.38″) | `360`   |
+| 6     | `2640` (1.83″) | `2280` (1.58″) | `360`   |
+| 7     | `2940` (2.04″) | `2580` (1.79″) | `360`   |
+| 8     | `3240` (2.25″) | `2880` (2.00″) | `360`   |
 
-Use these same values in your editor preview CSS so the layout matches the exported `.docx` exactly.
+## `generateNumberingFormatCss(formats, options?)`
+
+Returns the CSS text — you choose how to inject it (a `<style>` tag, a CSS-in-JS layer, a stylesheet served by your build pipeline, etc.). The function is pure and dependency-free, safe to call at boot or whenever your registry changes.
+
+```ts
+generateNumberingFormatCss(formats, {
+  scope: '.tiptap.ProseMirror', // default
+  maxDepth: 9, // default
+})
+```
+
+| Option     | Default                 | Description                                                                                                                                                  |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scope`    | `'.tiptap.ProseMirror'` | CSS selector prefix scoping every emitted rule. Pass an empty string for unscoped output (handy if you inject inside Shadow DOM or a CSS layer of your own). |
+| `maxDepth` | `9`                     | Maximum nesting depth to emit rules for. Lower values produce smaller stylesheets.                                                                           |
+
+The generated CSS treats each `<li>` as a 2-column grid (marker in col 1 via `::before`, body in col 2) and computes `margin-left` per depth so the marker and body land at the exact absolute positions Word renders. If you need to override anything for theming (dark mode, RTL, font scaling), wrap the output in your own selector or scope and rely on cascade.
 
 ## Resolution rules
 
@@ -291,14 +242,14 @@ Use these same values in your editor preview CSS so the layout matches the expor
 
 Word features the exporter intentionally does not model:
 
-| Feature | Workaround / scope |
-| --- | --- |
-| Forcing parent-counter refs to render as arabic regardless of base style (Word's "legal numbering" override) | Define a separate format with all-`DECIMAL` levels for the same visual output. |
-| Per-level counter-restart customization | Word's default behavior (sub-levels restart when the parent advances) is always used. |
-| Marker-text suffix (tab / space / nothing between marker and body) | Always `tab` (Word's default). |
-| Continuing numbering across separate lists | Each list starts at its `startAt` independently. |
-| Per-item marker overrides | Use a separate list to start at a different counter value. |
-| DOCX → editor import | Handled separately by `@tiptap-pro/extension-import-docx`. |
+| Feature                                                                                                      | Workaround / scope                                                                    |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Forcing parent-counter refs to render as arabic regardless of base style (Word's "legal numbering" override) | Define a separate format with all-`DECIMAL` levels for the same visual output.        |
+| Per-level counter-restart customization                                                                      | Word's default behavior (sub-levels restart when the parent advances) is always used. |
+| Marker-text suffix (tab / space / nothing between marker and body)                                           | Always `tab` (Word's default).                                                        |
+| Continuing numbering across separate lists                                                                   | Each list starts at its `startAt` independently.                                      |
+| Per-item marker overrides                                                                                    | Use a separate list to start at a different counter value.                            |
+| DOCX → editor import                                                                                         | Handled separately by `@tiptap-pro/extension-import-docx`.                            |
 
 ## See also
 
