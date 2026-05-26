@@ -35,13 +35,13 @@ The feature is opt-in. Consumers who don't supply `numberingFormats` see no beha
 
 ## What's provided
 
-| Export                                                   | Package                             | Purpose                                                                                                                                                                    |
-| -------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ExportDocx({ numberingFormats })`                       | `@tiptap-pro/extension-export-docx` | Pass the registry to the exporter so the `.docx` carries the matching definitions.                                                                                         |
-| `generateNumberingFormatCss(formats)`                    | `@tiptap-pro/extension-export-docx` | Pure function that returns CSS text for the editor preview — same registry, same visual result.                                                                            |
-| `NumberingFormatDefinition`, `NumberingLevelDefinition`  | `@tiptap-pro/extension-export-docx` | The data shape your registry follows.                                                                                                                                      |
-| `LevelFormat`, `IRunOptions`, `PositiveUniversalMeasure` | `@tiptap-pro/extension-export-docx` | Re-exported from `docx` so you don't add a second dependency.                                                                                                              |
-| `OrderedListNumbering`                                   | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and exposes the `setOrderedListNumberingFormat(id)` command. Enforces outermost-only on paste. |
+| Export                                                                          | Package                             | Purpose                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OrderedListNumbering`                                                          | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and exposes the `setOrderedListNumberingFormat(id)` command. Bundled with `ConvertKit` (opt in via `orderedListNumbering: true`) and exported for standalone use. Enforces outermost-only on paste. |
+| `generateNumberingFormatCss(formats, options?)`                                 | `@tiptap-pro/extension-convert-kit` | Pure, dependency-free function that returns CSS text for the editor preview — same registry, same visual result.                                                                                                                                                              |
+| `NumberingFormatDefinition`, `NumberingLevelDefinition`, `NumberingMarkerFont`  | `@tiptap-pro/extension-convert-kit` | The data shape your registry follows. Structurally compatible with `ExportDocx`'s `numberingFormats` config.                                                                                                                                                                  |
+| `ExportDocx({ numberingFormats })`                                              | `@tiptap-pro/extension-export-docx` | Pass the registry to the exporter so the `.docx` carries the matching definitions.                                                                                                                                                                                            |
+| `LevelFormat`, `IRunOptions`, `PositiveUniversalMeasure`                        | `@tiptap-pro/extension-export-docx` | Re-exported from `docx` so you don't add a second dependency.                                                                                                                                                                                                                 |
 
 A picker UI for end users isn't part of these packages — that's an application concern and depends on your component library.
 
@@ -49,13 +49,12 @@ A picker UI for end users isn't part of these packages — that's an application
 
 ```ts
 import { Editor } from '@tiptap/core'
-import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
 import {
-  ExportDocx,
+  ConvertKit,
   generateNumberingFormatCss,
-  LevelFormat,
   type NumberingFormatDefinition,
-} from '@tiptap-pro/extension-export-docx'
+} from '@tiptap-pro/extension-convert-kit'
+import { ExportDocx, LevelFormat } from '@tiptap-pro/extension-export-docx'
 
 // 1. Define your registry — one source of truth, used three times below.
 const MY_FORMATS: NumberingFormatDefinition[] = [
@@ -82,11 +81,13 @@ const style = document.createElement('style')
 style.textContent = generateNumberingFormatCss(MY_FORMATS)
 document.head.appendChild(style)
 
-// 3. Register the schema attribute + register ExportDocx with the same registry.
+// 3. Opt in to the schema attribute via ConvertKit, and register ExportDocx with the registry.
 const editor = new Editor({
   extensions: [
     ConvertKit.configure({
-      orderedListNumbering: { formats: MY_FORMATS },
+      // Off by default in ConvertKit so consumers without custom numbering
+      // keep a clean orderedList schema. Set to `true` to opt in.
+      orderedListNumbering: true,
     }),
     ExportDocx.configure({
       numberingFormats: MY_FORMATS,
@@ -103,7 +104,13 @@ editor.chain().focus().toggleOrderedList().setOrderedListNumberingFormat('outlin
 
 ## Using `OrderedListNumbering` directly
 
-`OrderedListNumbering` is registered by default when you use [`@tiptap-pro/extension-convert-kit`](/conversion/import/docx/convertkit). If you are not using the full `ConvertKit` bundle, you can register the extension directly:
+`OrderedListNumbering` is bundled with [`@tiptap-pro/extension-convert-kit`](/conversion/import/docx/convertkit) but **off by default** to keep the `orderedList` schema clean for consumers that don't use custom numbering. Opt in with `true`:
+
+```ts
+ConvertKit.configure({ orderedListNumbering: true })
+```
+
+If you are not using the full `ConvertKit` bundle, you can register the extension directly — it takes no options:
 
 ```ts
 import { StarterKit } from '@tiptap/starter-kit'
@@ -113,13 +120,11 @@ import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 const editor = new Editor({
   extensions: [
     StarterKit,
-    OrderedListNumbering.configure({ formats: MY_FORMATS }),
+    OrderedListNumbering,
     ExportDocx.configure({ numberingFormats: MY_FORMATS, onCompleteExport: ... }),
   ],
 })
 ```
-
-When you use `ConvertKit`, pass `orderedListNumbering: false` to disable it.
 
 ## Applying a format
 
@@ -150,25 +155,51 @@ interface NumberingFormatDefinition {
 
 ```ts
 interface NumberingLevelDefinition {
-  baseStyle: LevelFormat
+  baseStyle: NumberingBaseStyle
   textTemplate: string
   startAt?: number
   alignment?: 'left' | 'center' | 'right'
-  numberIndent?: number | PositiveUniversalMeasure
-  textIndent?: number | PositiveUniversalMeasure
-  markerFont?: Omit<IRunOptions, 'text' | 'children'>
+  numberIndent?: number | string
+  textIndent?: number | string
+  markerFont?: NumberingMarkerFont
 }
 ```
 
-| Field          | Default                  | Description                                                                                                                                                                             |
-| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseStyle`    | (required)               | Any docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value (`DECIMAL`, `DECIMAL_ZERO`, `UPPER_LETTER`, `LOWER_LETTER`, `UPPER_ROMAN`, `LOWER_ROMAN`, `NONE`, etc.). |
-| `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar — see below.                                                                                                                             |
-| `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                  |
-| `alignment`    | `'left'`                 | Marker text alignment within the number area.                                                                                                                                           |
-| `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or `PositiveUniversalMeasure` string (`'0.63cm'`, `'0.25in'`, `'18pt'`).                                                      |
+ConvertKit's types use plain string literals so the package does not pull in `docx`. The fields are structurally compatible with `ExportDocx`'s stricter (`docx`-typed) version, so passing `LevelFormat.DECIMAL` from `@tiptap-pro/extension-export-docx` works the same as passing the string `'decimal'`.
+
+| Field          | Default                  | Description                                                                                                                                                                                                                                                              |
+| -------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `baseStyle`    | (required)               | One of `'decimal'`, `'decimalZero'`, `'upperLetter'`, `'lowerLetter'`, `'upperRoman'`, `'lowerRoman'`, `'none'`. Equivalent to the matching docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value — any other string falls back to `decimal` in CSS. |
+| `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar — see below.                                                                                                                                                                                                              |
+| `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                                                                                                   |
+| `alignment`    | `'left'`                 | Marker text alignment within the number area.                                                                                                                                                                                                                            |
+| `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or a docx-style measure string (`'0.63cm'`, `'0.25in'`, `'18pt'`).                                                                                                                                             |
 | `textIndent`   | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`.                                                                                                  |
-| `markerFont`   | —                        | Marker-only run formatting. Survives DOCX export and is reflected by `generateNumberingFormatCss` in the editor preview.                                                                |
+| `markerFont`   | —                        | Marker-only run formatting (see {@link NumberingMarkerFont} below). Survives DOCX export and is reflected by `generateNumberingFormatCss` in the editor preview.                        |
+
+## `NumberingMarkerFont`
+
+```ts
+interface NumberingMarkerFont {
+  font?: string | { name: string }
+  size?: number
+  bold?: boolean
+  italics?: boolean
+  color?: string
+  underline?: unknown
+}
+```
+
+| Field      | Description                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| `font`     | Font family name, or a docx-style `{ name }` object.                                         |
+| `size`     | docx half-points (so `28` = 14pt).                                                           |
+| `bold`     | Set `true` to render the marker bold.                                                        |
+| `italics`  | Set `true` to render the marker italic.                                                      |
+| `color`    | Hex color, with or without leading `#`.                                                      |
+| `underline`| Any truthy value applies `text-decoration: underline` in the preview.                        |
+
+Mirrors the subset of docx [`IRunOptions`](https://docx.js.org/api/interfaces/IRunOptions.html) that `generateNumberingFormatCss` understands. Additional fields you pass through to `ExportDocx` are ignored by the preview but still survive into the `.docx`.
 
 ## The `textTemplate` grammar
 
