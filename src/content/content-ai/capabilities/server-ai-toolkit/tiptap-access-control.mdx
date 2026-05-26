@@ -1,7 +1,7 @@
 ---
-title: Tiptap Access Control
+title: Tiptap Access Control (preview)
 meta:
-  title: Tiptap Access Control | Server AI Toolkit
+  title: Tiptap Access Control (preview) | Server AI Toolkit
   description: Set up Server AI Toolkit with the new Tiptap Access Control authentication system using ES256 JWTs and explicit permissions.
   category: Content AI
 ---
@@ -9,7 +9,11 @@ meta:
 import { Callout } from '@/components/ui/Callout'
 
 <Callout title="Not generally available" variant="warning">
-  The Tiptap Access Control authentication format is in preview and is not enabled by default. To request access for your environment, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until it's enabled, keep using the App ID + secret flow described in the [Install guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) — it continues to work unchanged.
+  The Tiptap Access Control authentication format is in preview and is not enabled by default. To
+  request access, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until it's enabled, keep
+  using the App ID + secret flow described in the [Install
+  guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) — it continues to
+  work unchanged.
 </Callout>
 
 Tiptap Access Control is a new authentication format that replaces the `X-App-Id` + per-service secret with a single signed JWT carrying explicit permissions. The two formats live side by side: the service routes a request to the new path only when the JWT's audience claim is `"AI"`, so existing integrations keep working without changes.
@@ -22,11 +26,9 @@ Tiptap Access Control is a new authentication format that replaces the `X-App-Id
 
 ## Permissions
 
-Each Server AI Toolkit operation has its own action, so handing out a token scoped to exactly the operations a feature needs never silently widens later when a new capability is added:
-
-| Action | Grants |
-| ------ | ------ |
-| `AI:Toolkit` | All Server AI Toolkit endpoints (tools, workflows, execute-tool) |
+| Action            | Grants                                                                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI:Toolkit`      | All Server AI Toolkit endpoints (tools, workflows, execute-tool)                                                                                                           |
 | `Documents:Write` | Read, write, and comment access to Tiptap Cloud documents. Required when using `experimental_documentOptions` so the AI server can fetch and save documents automatically. |
 
 `Documents:Write` implies read and comment access, so you do not need separate `Documents:Read` or `Documents:Comment` permissions for toolkit workflows.
@@ -40,9 +42,7 @@ A token for toolkit-only access without document server integration:
   "iss": "env_abc123",
   "aud": ["AI"],
   "exp": 1777033105,
-  "permissions": [
-    { "action": "AI:Toolkit", "resource": "*" }
-  ]
+  "permissions": [{ "action": "AI:Toolkit", "resource": "*" }]
 }
 ```
 
@@ -71,7 +71,7 @@ When the token is missing a required permission, the service responds `403 Forbi
 }
 ```
 
-If the environment's subscription doesn't include the Server AI Toolkit at all, the response is `403` with `code: feature_not_available`. Upstream cloud errors are mapped through cleanly: `429 rate_limited`, `503 service_unavailable`, and `401 token_expired` / `signature_invalid` so your client can distinguish a bad token from a temporary cloud problem.
+If the environment's subscription doesn't include the Server AI Toolkit at all, the response is `403` with `code: feature_not_available`.
 
 ## Set up authorization with Tiptap Access Control
 
@@ -132,31 +132,6 @@ export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promi
 }
 ```
 
-### Get authentication headers
-
-This function returns the authentication headers required for all Server AI Toolkit API requests.
-
-```ts
-// lib/server-ai-toolkit/get-auth-headers.ts
-import { createJwtToken } from './create-jwt-token'
-
-type GetAuthHeadersOptions = {
-  documentId?: string
-}
-
-/**
- * Returns the authentication headers for the Server AI Toolkit API
- */
-export async function getAuthHeaders(
-  options: GetAuthHeadersOptions = {},
-): Promise<Record<string, string>> {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${await createJwtToken(options)}`,
-  }
-}
-```
-
 <Callout title="Alternative: provide documents directly" variant="info">
   If you manage documents in your own storage instead of Tiptap Cloud, omit the `documentId` option
   and pass documents directly via the `document` field in API requests. The token only needs the
@@ -165,16 +140,19 @@ export async function getAuthHeaders(
 
 ## Call API endpoints
 
-Once authenticated, call the Server AI Toolkit API endpoints using the `getAuthHeaders` function:
+Once authenticated, call the Server AI Toolkit API endpoints. Generate the JWT inline and set the `Authorization` header directly:
 
 ```ts
-import { getAuthHeaders } from './lib/server-ai-toolkit/get-auth-headers'
+import { createJwtToken } from './lib/server-ai-toolkit/create-jwt-token'
 
 const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
 const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
   method: 'POST',
-  headers: await getAuthHeaders(),
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${await createJwtToken()}`,
+  },
   body: JSON.stringify({
     editorContext,
   }),
@@ -186,18 +164,25 @@ const tools = await response.json()
 When using Tiptap Cloud documents, pass the document ID to include `Documents:Write` permission:
 
 ```ts
+const documentId = 'my-document-id'
+
 const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
   method: 'POST',
-  headers: await getAuthHeaders({ documentId: 'my-document-id' }),
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${await createJwtToken({ documentId })}`,
+  },
   body: JSON.stringify({
     toolName: 'tiptapEdit',
     input: toolCallInput,
     editorContext,
     experimental_documentOptions: {
-      documentId: 'my-document-id',
+      documentId,
     },
   }),
 })
 ```
 
 For complete API documentation, see the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
+
+See the [Authentication guide](/authentication) for more information about Tiptap Access Control.
