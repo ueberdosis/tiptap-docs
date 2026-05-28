@@ -4,8 +4,30 @@ import { NextRequest, NextResponse } from 'next/server'
  * AI crawlers / agents that should receive raw markdown instead of HTML.
  * Matched case-insensitively against the User-Agent header.
  */
-const AI_USER_AGENTS =
-  /GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|Claude-User|CCBot|PerplexityBot|Perplexity-User|Google-Extended|cohere-ai|Bytespider|Amazonbot|Applebot-Extended|Meta-ExternalAgent|FacebookBot|DuckAssistBot|YouBot|Diffbot/i
+const AI_USER_AGENTS = [
+  'GPTBot',
+  'ChatGPT-User',
+  'OAI-SearchBot',
+  'ClaudeBot',
+  'Claude-Web',
+  'anthropic-ai',
+  'Claude-User',
+  'CCBot',
+  'PerplexityBot',
+  'Perplexity-User',
+  'Google-Extended',
+  'cohere-ai',
+  'Bytespider',
+  'Amazonbot',
+  'Applebot-Extended',
+  'Meta-ExternalAgent',
+  'FacebookBot',
+  'DuckAssistBot',
+  'YouBot',
+  'Diffbot',
+]
+
+const AI_USER_AGENTS_PATTERN = new RegExp(AI_USER_AGENTS.join('|'), 'i')
 
 /** Accept header values that explicitly request markdown. */
 const MARKDOWN_ACCEPT = /text\/markdown|application\/markdown|text\/x-markdown/i
@@ -27,7 +49,7 @@ export function proxy(request: NextRequest) {
   const accept = request.headers.get('accept') ?? ''
 
   const wantsMarkdown =
-    endsWithMd || AI_USER_AGENTS.test(userAgent) || MARKDOWN_ACCEPT.test(accept)
+    endsWithMd || AI_USER_AGENTS_PATTERN.test(userAgent) || MARKDOWN_ACCEPT.test(accept)
 
   if (!wantsMarkdown) {
     return NextResponse.next()
