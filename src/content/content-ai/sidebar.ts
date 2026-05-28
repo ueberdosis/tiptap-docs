@@ -52,7 +52,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
                   children: [
                     {
-                      title: 'Use with Tracked Changes',
+                      title: 'With Tracked Changes',
                       href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
                     },
                     {
@@ -286,7 +286,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
-                  title: 'Use with Tracked Changes',
+                  title: 'With Tracked Changes',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
                 },
                 {
