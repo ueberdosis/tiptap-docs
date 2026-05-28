@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: Props) {
     category: pageMdx.frontmatter?.meta?.category,
     ogTitle: pageMdx.frontmatter?.title ?? '',
     canonicalUrl,
+    markdownUrl: `${canonicalUrl}.md`,
   })
 }
 
