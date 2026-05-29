@@ -1,4 +1,4 @@
-import { execFile } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -67,6 +67,45 @@ async function mapPool<T, R>(
   return results
 }
 
+function isShallowRepo(): boolean {
+  return (
+    execFileSync('git', ['rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim() ===
+    'true'
+  )
+}
+
+/**
+ * CI providers (Vercel, GitHub Actions, …) clone shallow, which collapses every
+ * file's history to the deploy commit — so `git log` reports the same date for
+ * all of them. Fetch full history first so per-file dates are real.
+ *
+ * Returns whether we ended up with usable (non-shallow) history. When it's still
+ * shallow, the caller omits dates rather than emit a misleading uniform one.
+ */
+function ensureFullGitHistory(): boolean {
+  try {
+    if (!isShallowRepo()) return true
+  } catch {
+    console.warn('Warning: could not determine git clone depth; assuming complete.')
+    return true
+  }
+
+  console.log('Shallow clone detected; fetching full history (git fetch --unshallow)…')
+  try {
+    execFileSync('git', ['fetch', '--unshallow', '--quiet'], { stdio: 'inherit' })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`Warning: git fetch --unshallow failed (${message}).`)
+  }
+
+  // Re-check: if still shallow, every per-file date would be the deploy date.
+  try {
+    return !isShallowRepo()
+  } catch {
+    return false
+  }
+}
+
 /** Every `.mdx` under src/content, keyed relative to it with forward slashes. */
 function listContentFiles(dir: string, base = CONTENT_DIR): string[] {
   const out: string[] = []
@@ -82,6 +121,16 @@ function listContentFiles(dir: string, base = CONTENT_DIR): string[] {
 async function main() {
   const files = listContentFiles(CONTENT_DIR).sort()
   const total = files.length
+
+  if (!ensureFullGitHistory()) {
+    fs.writeFileSync(OUTPUT_PATH, `${JSON.stringify({}, null, 2)}\n`)
+    console.warn(
+      `Wrote ${OUTPUT_PATH} with 0 dates: git history is shallow and could not be ` +
+        'unshallowed, so last_updated is omitted rather than set to the deploy date for every page.',
+    )
+    return
+  }
+
   console.log(`Found ${total} content file(s) under ${CONTENT_REL} (concurrency ${CONCURRENCY})`)
 
   const dates = await mapPool(files, CONCURRENCY, async (key, index) => {
