@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveContentPath } from '@/server/markdown/resolveContentPath'
 import { fileToMarkdown } from '@/server/markdown/fileToMarkdown'
+import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 
 // Needs the Node runtime for filesystem access to src/content.
 export const runtime = 'nodejs'
@@ -34,6 +35,10 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   try {
     const markdown = await fileToMarkdown(resolved.filePath)
+    // Canonical points at the human HTML page on the stable production domain
+    // (matches the page's own <link rel="canonical">), not the request origin
+    // which would be the deployment URL.
+    const canonical = createCanonicalUrl(resolved.routePath ? resolved.routePath.split('/') : [])
     return new NextResponse(markdown, {
       status: 200,
       headers: {
@@ -41,8 +46,10 @@ export async function GET(request: NextRequest, { params }: Params) {
         // Same URL serves HTML or Markdown depending on the Accept header.
         Vary: 'Accept',
         'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
-        // Point crawlers at the canonical human page.
-        Link: `<${new URL(`/${resolved.routePath}`, request.nextUrl.origin)}>; rel="canonical"`,
+        // Point crawlers at the canonical human page …
+        Link: `<${canonical}>; rel="canonical"`,
+        // … and keep the markdown duplicate out of search indexes.
+        'X-Robots-Tag': 'noindex',
       },
     })
   } catch (error) {
