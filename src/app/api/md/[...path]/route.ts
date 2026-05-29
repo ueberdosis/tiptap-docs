@@ -38,8 +38,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       status: 200,
       headers: {
         'Content-Type': 'text/markdown; charset=utf-8',
-        // Same URL serves HTML or Markdown depending on request headers.
-        Vary: 'User-Agent, Accept',
+        // Same URL serves HTML or Markdown depending on the Accept header.
+        Vary: 'Accept',
         'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
         // Point crawlers at the canonical human page.
         Link: `<${new URL(`/${resolved.routePath}`, request.nextUrl.origin)}>; rel="canonical"`,
