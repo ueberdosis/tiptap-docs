@@ -10,7 +10,10 @@ const nextConfig = {
   // and the page route). Node File Trace can't detect these dynamic reads, so
   // include the whole content tree in the standalone output explicitly.
   outputFileTracingIncludes: {
-    '/api/md/[...path]': ['./src/content/**/*.mdx'],
+    '/api/md/[...path]': [
+      './src/content/**/*.mdx',
+      './src/server/markdown/contentDates.generated.json',
+    ],
     '/llms.txt': ['./src/content/**/*.mdx'],
     '/[...markdownPath]': ['./src/content/**/*.mdx'],
   },

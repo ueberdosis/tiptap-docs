@@ -34,11 +34,11 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const markdown = await fileToMarkdown(resolved.filePath)
     // Canonical points at the human HTML page on the stable production domain
     // (matches the page's own <link rel="canonical">), not the request origin
     // which would be the deployment URL.
     const canonical = createCanonicalUrl(resolved.routePath ? resolved.routePath.split('/') : [])
+    const markdown = await fileToMarkdown(resolved.filePath, canonical)
     return new NextResponse(markdown, {
       status: 200,
       headers: {
