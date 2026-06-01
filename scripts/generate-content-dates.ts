@@ -1,24 +1,12 @@
-import { execFile, execFileSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import * as fs from 'fs'
-import * as os from 'os'
 import * as path from 'path'
-import { promisify } from 'util'
-
-const execFileAsync = promisify(execFile)
-
-/**
- * Git calls are spawn-bound (mostly waiting on subprocess I/O), so oversubscribe
- * the CPUs a bit. Scale to the host and clamp to a sane range.
- */
-const CPU_COUNT =
-  typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length
-const CONCURRENCY = Math.max(4, Math.min(32, CPU_COUNT * 2))
 
 /**
  * Build-time generator: maps every `src/content/**\/*.mdx` file to the date of
- * its most recent git commit (YYYY-MM-DD). The markdown endpoint reads this
- * manifest at request time to emit a `last_updated` frontmatter field, since
- * the deployed standalone bundle ships no `.git` to query live.
+ * its most recent change on the deployed branch (YYYY-MM-DD). The markdown
+ * endpoint reads this manifest at request time to emit a `last_updated`
+ * frontmatter field, since the deployed standalone bundle ships no `.git`.
  *
  * Keys are paths relative to `src/content` (forward slashes), e.g.
  * `editor/extensions/nodes/code-block.mdx`.
@@ -28,44 +16,9 @@ const CONTENT_REL = 'src/content'
 const CONTENT_DIR = path.join(process.cwd(), CONTENT_REL)
 const OUTPUT_PATH = path.join(process.cwd(), 'src/server/markdown/contentDates.generated.json')
 
-/**
- * Committer date (YYYY-MM-DD) of the last commit to touch a file, or null.
- *
- * Per-file `git log -1` is authoritative: it follows git's history
- * simplification, so it correctly reports merge commits that landed a change —
- * which a bulk `--name-only` pass silently drops (merges list no files).
- */
-async function gitDateForFile(key: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      'git',
-      ['log', '-1', '--format=%cs', '--', `${CONTENT_REL}/${key}`],
-      { encoding: 'utf8' },
-    )
-    return stdout.trim() || null
-  } catch {
-    return null
-  }
-}
-
-/** Map `fn` over `items` with at most `limit` in flight at once. */
-async function mapPool<T, R>(
-  items: T[],
-  limit: number,
-  // eslint-disable-next-line no-unused-vars
-  fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length)
-  let next = 0
-  async function worker() {
-    while (next < items.length) {
-      const i = next++
-      results[i] = await fn(items[i], i)
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
-}
+// Prefixes each commit's date line in the `git log` output. A NUL can't be used
+// (it would truncate the format argv); no content path starts with this token.
+const COMMIT_MARKER = '@@COMMIT@@'
 
 function isShallowRepo(): boolean {
   return (
@@ -98,12 +51,64 @@ function ensureFullGitHistory(): boolean {
     console.warn(`Warning: git fetch --unshallow failed (${message}).`)
   }
 
-  // Re-check: if still shallow, every per-file date would be the deploy date.
+  // Re-check: if still shallow, every date would be the deploy date.
   try {
     return !isShallowRepo()
   } catch {
     return false
   }
+}
+
+/**
+ * Last-change date per content file, from a single `git log` pass.
+ *
+ * - `--first-parent`: walk only the deployed mainline, so a change is dated when
+ *   it *landed* (via merge), consistently — not by whichever side-branch commit
+ *   git's default history simplification happens to pick.
+ * - `--diff-merges=first-parent`: make merge commits list the files they brought
+ *   in (a plain `--name-only` shows nothing for merges, dropping their changes).
+ * - newest-first output → the first time we see a path is its latest change.
+ */
+function collectContentDates(): Record<string, string> {
+  const dates: Record<string, string> = {}
+
+  let output: string
+  try {
+    output = execFileSync(
+      'git',
+      [
+        'log',
+        '--first-parent',
+        '--diff-merges=first-parent',
+        `--format=${COMMIT_MARKER}%cs`,
+        '--name-only',
+        '--',
+        CONTENT_REL,
+      ],
+      { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 },
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`Warning: git log failed (${message}); content dates will be omitted.`)
+    return dates
+  }
+
+  let currentDate: string | null = null
+  for (const line of output.split('\n')) {
+    if (line.startsWith(COMMIT_MARKER)) {
+      currentDate = line.slice(COMMIT_MARKER.length).trim() || null
+      continue
+    }
+    if (!currentDate) continue
+
+    const repoPath = line.trim()
+    if (!repoPath.startsWith(`${CONTENT_REL}/`) || !repoPath.endsWith('.mdx')) continue
+
+    const key = repoPath.slice(`${CONTENT_REL}/`.length)
+    if (!(key in dates)) dates[key] = currentDate
+  }
+
+  return dates
 }
 
 /** Every `.mdx` under src/content, keyed relative to it with forward slashes. */
@@ -118,7 +123,7 @@ function listContentFiles(dir: string, base = CONTENT_DIR): string[] {
   return out
 }
 
-async function main() {
+function main() {
   const files = listContentFiles(CONTENT_DIR).sort()
   const total = files.length
 
@@ -131,24 +136,21 @@ async function main() {
     return
   }
 
-  console.log(`Found ${total} content file(s) under ${CONTENT_REL} (concurrency ${CONCURRENCY})`)
-
-  const dates = await mapPool(files, CONCURRENCY, async (key, index) => {
-    const prefix = `[${index + 1}/${total}]`
-    const date = await gitDateForFile(key)
-    if (date) {
-      console.log(`${prefix} Dated ${key} → ${date}`)
-    } else {
-      console.warn(`${prefix} No git date for ${key} (last_updated omitted)`)
-    }
-    return date
-  })
+  console.log(`Found ${total} content file(s) under ${CONTENT_REL}; reading git history…`)
+  const gitDates = collectContentDates()
 
   const manifest: Record<string, string> = {}
   let missing = 0
-  files.forEach((key, i) => {
-    if (dates[i]) manifest[key] = dates[i] as string
-    else missing++
+  files.forEach((key, index) => {
+    const date = gitDates[key]
+    const prefix = `[${index + 1}/${total}]`
+    if (date) {
+      manifest[key] = date
+      console.log(`${prefix} Dated ${key} → ${date}`)
+    } else {
+      missing++
+      console.warn(`${prefix} No git date for ${key} (last_updated omitted)`)
+    }
   })
 
   fs.writeFileSync(OUTPUT_PATH, `${JSON.stringify(manifest, null, 2)}\n`)
@@ -159,7 +161,9 @@ async function main() {
   )
 }
 
-main().catch((error) => {
+try {
+  main()
+} catch (error) {
   console.error('Failed to generate content dates:', error)
   process.exit(1)
-})
+}
