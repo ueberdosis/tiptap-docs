@@ -29,7 +29,11 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (resolved.type === 'not-found') {
     return new NextResponse(`# Not found\n\nNo documentation page exists at \`/${routePath}\`.\n`, {
       status: 404,
-      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        // Body reflects the request path; stop browsers MIME-sniffing it to HTML.
+        'X-Content-Type-Options': 'nosniff',
+      },
     })
   }
 
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       status: 200,
       headers: {
         'Content-Type': 'text/markdown; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
         // Same URL serves HTML or Markdown depending on the Accept header.
         Vary: 'Accept',
         'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
@@ -56,7 +61,10 @@ export async function GET(request: NextRequest, { params }: Params) {
     console.error(`Failed to render markdown for /${routePath}:`, error)
     return new NextResponse('# Error\n\nFailed to render this page as markdown.\n', {
       status: 500,
-      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+      },
     })
   }
 }
