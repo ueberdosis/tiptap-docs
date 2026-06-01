@@ -525,6 +525,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Schema',
         },
         {
+          href: '/editor/core-concepts/decorations',
+          title: 'Decorations',
+        },
+        {
           href: '/editor/core-concepts/keyboard-shortcuts',
           title: 'Keyboard shortcuts',
         },
@@ -917,6 +921,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/node-positions',
           title: 'Node Positions',
+        },
+        {
+          href: '/editor/api/decorations',
+          title: 'Decorations',
         },
         {
           title: 'Resizable Node views',

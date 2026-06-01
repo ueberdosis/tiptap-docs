@@ -1,0 +1,289 @@
+---
+title: Decorations API
+meta:
+  title: Decorations API | Tiptap Editor Docs
+  description: API reference for Tiptap's Decorations API — the addDecorations hook, the decoration factory, updateDecorations, and the framework widget renderers. Learn more in the docs!
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Decorations are view-only markers attached to positions or ranges in the document. They are declared by extensions and never modify or serialize the document. For concepts, examples, and guidance on when to use decorations, read the [Decorations guide](/editor/core-concepts/decorations). This page is the API reference.
+
+## `addDecorations`
+
+A lifecycle hook on every extension (including nodes and marks). It returns a `DecorationSpec` describing the decorations the extension contributes, or `null` for none. All declarations from all extensions are aggregated into a single ProseMirror plugin by Tiptap's internal decoration manager.
+
+`addDecorations()` is bound to `this` (`{ name, options, storage, editor, type, parent }`) like other extension hooks.
+
+```ts
+import { decoration, Extension } from '@tiptap/core'
+
+const MyExtension = Extension.create({
+  name: 'myExtension',
+
+  addDecorations() {
+    return {
+      create: ({ editor, state, view }) => [decoration.inline(1, 5, { class: 'highlight' })],
+    }
+  },
+})
+```
+
+### `DecorationSpec`
+
+`DecorationSpec` is a discriminated union of two shapes that share a base. The base defines `create` and the optional `shouldUpdate`; the union adds the incremental opt-in.
+
+| Property            | Type                                                                                                                | Description                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create`            | `(props: { editor; state; view }) => DecorationDescriptor[]`                                                        | **Required.** Builds the full set of this extension's decorations from the current state. Used for the initial build and for forced `updateDecorations()`.                |
+| `shouldUpdate`      | `(props: { editor; tr; oldState; newState }) => boolean`                                                            | Optional. Gate recomputation for performance. Return `false` to keep existing decorations mapped through the transaction instead of rebuilding. Defaults to `tr.docChanged`. |
+| `incrementalCreate` | `boolean`                                                                                                           | Optional. Set to `true` to opt into incremental recomputation. Requires `createInRange`.                                                                                  |
+| `createInRange`     | `(props: { editor; state; view; from; to }) => DecorationDescriptor[]`                                              | Required when `incrementalCreate` is `true`. Builds only the decorations within the block-aligned `[from, to]` range.                                                     |
+
+```ts
+interface BaseDecorationSpec {
+  // Build the FULL set of this extension's decorations from the current state.
+  // Used for the initial build and for forced updateDecorations().
+  create: (props: { editor: Editor; state: EditorState; view: EditorView }) => DecorationDescriptor[]
+
+  // Gate recomputation for performance. Return false to keep existing decorations
+  // mapped through the transaction instead of rebuilding them.
+  // Defaults to recomputing whenever the document changed (tr.docChanged).
+  shouldUpdate?: (props: {
+    editor: Editor
+    tr: Transaction
+    oldState: EditorState
+    newState: EditorState
+  }) => boolean
+}
+
+// Default: every doc change rebuilds the whole set with create(). Always correct.
+interface NonIncrementalDecorationSpec extends BaseDecorationSpec {
+  incrementalCreate?: false
+  createInRange?: never
+}
+
+// Opt into incremental recomputation.
+interface IncrementalDecorationSpec extends BaseDecorationSpec {
+  incrementalCreate: true
+  createInRange: (props: {
+    editor: Editor
+    state: EditorState
+    view: EditorView
+    from: number
+    to: number
+  }) => DecorationDescriptor[]
+}
+
+type DecorationSpec = NonIncrementalDecorationSpec | IncrementalDecorationSpec
+```
+
+<Callout title="TypeScript enforces the incremental pairing" variant="info">
+  Setting `incrementalCreate: true` **requires** `createInRange`, and providing `createInRange` **without**
+  `incrementalCreate: true` is a type error.
+</Callout>
+
+See [Performance](/editor/core-concepts/decorations#performance) in the guide for when `shouldUpdate` and `incrementalCreate` are appropriate, including the correctness caveats for incremental mode.
+
+## `decoration`
+
+Import: `import { decoration } from '@tiptap/core'`. These functions build framework-agnostic **descriptors** (plain objects), not ProseMirror decorations directly. Return them from `create` and `createInRange`.
+
+All three return a `DecorationDescriptor` (a member of the `DecorationDescriptor` union).
+
+| Method               | Returns                        | Description                                                            |
+| -------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `decoration.node`    | `NodeDecorationDescriptor`     | Adds attributes to a single node's DOM wrapper.                        |
+| `decoration.inline`  | `InlineDecorationDescriptor`   | Wraps a range of inline content in a styled span.                     |
+| `decoration.widget`  | `WidgetDecorationDescriptor`   | Inserts a widget (a DOM node) at a single position. `key` is required. |
+
+### `decoration.node`
+
+```ts
+decoration.node(
+  from: number,
+  to: number,
+  attrs?: DecorationAttrs,
+  spec?: Record<string, any>,
+)
+```
+
+**Arguments**
+
+- `from` – start position of the node.
+- `to` – end position of the node.
+- `attrs` – optional. `DecorationAttrs`: `class`, `style`, `nodeName`, and any other HTML attribute.
+- `spec` – optional ProseMirror decoration spec.
+
+```ts
+decoration.node(pos, pos + node.nodeSize, { class: 'is-heading' })
+```
+
+### `decoration.inline`
+
+```ts
+decoration.inline(
+  from: number,
+  to: number,
+  attrs?: DecorationAttrs,
+  spec?: Record<string, any>,
+)
+```
+
+**Arguments**
+
+- `from` – start of the inline range.
+- `to` – end of the inline range.
+- `attrs` – optional. `DecorationAttrs`: `class`, `style`, `nodeName`, and any other HTML attribute.
+- `spec` – optional ProseMirror decoration spec.
+
+```ts
+decoration.inline(matchFrom, matchTo, { class: 'is-match' })
+```
+
+### `decoration.widget`
+
+```ts
+decoration.widget(
+  pos: number,
+  render: (view: EditorView, getPos: () => number | undefined) => HTMLElement,
+  options: {
+    key: string
+    side?: number
+    marks?: readonly Mark[]
+    stopEvent?: (e: Event) => boolean
+    [k: string]: any
+  },
+)
+```
+
+**Arguments**
+
+- `pos` – the position to render the widget at.
+- `render` – a callback that receives the `view` and a `getPos` accessor and returns an `HTMLElement`.
+- `options.key` – **required.** A stable, position-independent, globally unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys).
+- `options.side` – optional. Which side of the position the widget biases to (see ProseMirror's [`Decoration.widget`](https://prosemirror.net/docs/ref/#view.Decoration%5Ewidget)).
+- `options.marks` – optional. Marks applied to the widget.
+- `options.stopEvent` – optional. Return `true` to stop ProseMirror from handling an event originating in the widget.
+
+```ts
+decoration.widget(
+  matchFrom,
+  () => {
+    const el = document.createElement('span')
+    el.textContent = '★'
+    return el
+  },
+  // a position-based key is fine here because this widget is stateless — see Widget keys
+  { key: `marker-${matchFrom}`, side: -1 },
+)
+```
+
+<Callout title="Widget keys must be stable and unique" variant="warning">
+  ProseMirror reuses a widget's DOM across redraws only when the key matches the previous render, and keys must
+  be globally unique. Duplicate or position-derived keys cause flicker, lost state, or crashes. See
+  [Widget keys](/editor/core-concepts/decorations#widget-keys) for the full rules.
+</Callout>
+
+## `updateDecorations`
+
+A command that forces a recompute. It bypasses `shouldUpdate` and always triggers a **full** `create` — even for incremental extensions. Use it when something *outside* the document changed and your decorations depend on it (a search term, a filter, a toggled setting).
+
+```ts
+editor.commands.updateDecorations() // recompute ALL extensions' decorations
+editor.commands.updateDecorations('myExtension') // recompute only the named extension
+```
+
+**Arguments**
+
+- `extensionName` – optional. The name of a single extension to recompute. Omit it to recompute every extension's decorations.
+
+See the [runtime parameters via storage](/editor/core-concepts/decorations#runtime-parameters-via-storage) pattern for the common use case.
+
+## `ReactWidgetRenderer`
+
+Import: `import { ReactWidgetRenderer } from '@tiptap/react'`. Returns a `WidgetDecorationDescriptor` you return from `create`/`createInRange`. It reuses Tiptap's `ReactRenderer` portal infrastructure, so the component lives in the editor's React tree (context and hooks work as usual). Your component additionally receives `editor` and `getPos` as props.
+
+```ts
+ReactWidgetRenderer<P>(
+  component: ComponentType<P & { editor: Editor; getPos: () => number | undefined }>,
+  options: {
+    editor: Editor
+    pos: number
+    key: string
+    props?: P
+    as?: string
+    className?: string
+    side?: number
+    marks?: readonly Mark[]
+  },
+): WidgetDecorationDescriptor
+```
+
+| Option      | Type                            | Description                                                          |
+| ----------- | ------------------------------- | -------------------------------------------------------------------- |
+| `editor`    | `Editor`                        | The editor instance.                                                 |
+| `pos`       | `number`                        | The document position to render at.                                  |
+| `key`       | `string`                        | Stable, unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys). |
+| `props`     | `P`                             | Props for your component.                                            |
+| `as`        | `string`                        | Wrapper tag, defaults to `'span'`.                                   |
+| `className` | `string`                        | Class applied to the wrapper element.                               |
+| `side`      | `number`                        | ProseMirror widget side bias.                                       |
+| `marks`     | `readonly Mark[]`               | Marks applied to the widget.                                        |
+
+<Callout title="Props and renderer caching" variant="info">
+  Fresh `props` are pushed each time `create`/`createInRange` re-runs (ProseMirror skips `toDOM` when it
+  reuses the DOM, so props can't ride along there). The renderer for a key is cached and reused so component
+  state survives across edits. The cache is swept when the editor is destroyed.
+</Callout>
+
+See the [React widget example](/editor/core-concepts/decorations#react--reactwidgetrenderer) in the guide.
+
+## `VueWidgetRenderer`
+
+Import: `import { VueWidgetRenderer } from '@tiptap/vue-3'` (or `'@tiptap/vue-2'`). Same idea as the React renderer; it reuses Tiptap's `VueRenderer`, so the component shares the editor's app context (`provide`/`inject` work). The component receives `editor` and `getPos` in addition to your `props`.
+
+```ts
+VueWidgetRenderer(
+  component: Component,
+  options: {
+    editor: Editor
+    pos: number
+    key: string
+    props?: Record<string, any>
+    side?: number
+    marks?: readonly Mark[]
+  },
+): WidgetDecorationDescriptor
+```
+
+| Option   | Type                       | Description                                                          |
+| -------- | -------------------------- | -------------------------------------------------------------------- |
+| `editor` | `Editor`                   | The editor instance.                                                 |
+| `pos`    | `number`                   | The document position to render at.                                  |
+| `key`    | `string`                   | Stable, unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys). |
+| `props`  | `Record<string, any>`      | Props for your component.                                            |
+| `side`   | `number`                   | ProseMirror widget side bias.                                       |
+| `marks`  | `readonly Mark[]`          | Marks applied to the widget.                                        |
+
+<Callout title="Vue-specific requirements" variant="warning">
+  The component **must render a single root element**. The `editor` is passed raw (with `markRaw`) on purpose
+  — do not wrap it in reactivity.
+</Callout>
+
+See the [Vue widget example](/editor/core-concepts/decorations#vue--vuewidgetrenderer) in the guide.
+
+## `liveWidgetKeys`
+
+Import: `import { liveWidgetKeys } from '@tiptap/core'`.
+
+```ts
+liveWidgetKeys(editor: Editor): ReadonlySet<string>
+```
+
+Returns the keys of all widget decorations currently live. The framework widget renderers use it internally to decide whether a widget being torn down is genuinely gone or just being reassigned to a new position (so they don't destroy a renderer whose key is still live).
+
+<Callout title="Advanced use only" variant="hint">
+  Most users won't need `liveWidgetKeys`. It exists for advanced authors building custom widget renderers.
+</Callout>
