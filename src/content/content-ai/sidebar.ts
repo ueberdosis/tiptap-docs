@@ -52,7 +52,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
                   children: [
                     {
-                      title: 'Tracked changes',
+                      title: 'With Tracked Changes',
                       href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
                     },
                     {
@@ -274,6 +274,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/install',
             },
             {
+              title: 'Tiptap Access Control',
+              href: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
+            },
+            {
               title: 'Agents',
               href: '/content-ai/capabilities/server-ai-toolkit/agents',
               children: [
@@ -282,7 +286,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
-                  title: 'Tracked changes',
+                  title: 'With Tracked Changes',
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
                 },
                 {
