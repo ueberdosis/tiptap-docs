@@ -43,6 +43,17 @@ export async function GET(request: NextRequest, { params }: Params) {
     // which would be the deployment URL.
     const canonical = createCanonicalUrl(resolved.routePath ? resolved.routePath.split('/') : [])
     const markdown = await fileToMarkdown(resolved.filePath, canonical)
+
+    // When reached via `Accept: text/markdown` (proxy signal), this response is
+    // cached under the bare HTML URL's key. Next strips `Vary: Accept` from the
+    // HTML page response (a known framework bug), so a Vary-ignoring shared
+    // cache could otherwise hand this markdown to a browser. Keep it out of
+    // shared caches; the standalone `.md` URL is its own key and stays cacheable.
+    const negotiated = request.headers.get('x-markdown-negotiated') === '1'
+    const cacheControl = negotiated
+      ? 'private, no-store'
+      : 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400'
+
     return new NextResponse(markdown, {
       status: 200,
       headers: {
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         'X-Content-Type-Options': 'nosniff',
         // Same URL serves HTML or Markdown depending on the Accept header.
         Vary: 'Accept',
-        'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': cacheControl,
         // Point crawlers at the canonical human page …
         Link: `<${canonical}>; rel="canonical"`,
         // … and keep the markdown duplicate out of search indexes.
