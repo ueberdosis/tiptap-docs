@@ -38,8 +38,8 @@ const MyExtension = Extension.create({
 | ------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `create`            | `(props: { editor; state; view }) => DecorationDescriptor[]`                                                        | **Required.** Builds the full set of this extension's decorations from the current state. Used for the initial build and for forced `updateDecorations()`.                |
 | `shouldUpdate`      | `(props: { editor; tr; oldState; newState }) => boolean`                                                            | Optional. Gate recomputation for performance. Return `false` to keep existing decorations mapped through the transaction instead of rebuilding. Defaults to `tr.docChanged`. |
-| `incrementalCreate` | `boolean`                                                                                                           | Optional. Set to `true` to opt into incremental recomputation. Requires `createInRange`.                                                                                  |
-| `createInRange`     | `(props: { editor; state; view; from; to }) => DecorationDescriptor[]`                                              | Required when `incrementalCreate` is `true`. Builds only the decorations within the block-aligned `[from, to]` range.                                                     |
+| `incrementalCreate` | `boolean`                                                                                                           | Optional, **experimental**. Set to `true` to opt into incremental recomputation. Requires `createInRange`.                                                               |
+| `createInRange`     | `(props: { editor; state; view; from; to }) => DecorationDescriptor[]`                                              | Required when `incrementalCreate` is `true` (**experimental**). Must return **only** decorations whose anchor lies within `[from, to)` — `from` for inline/node, `pos` for widgets. See the contract below.            |
 
 ```ts
 interface BaseDecorationSpec {
@@ -64,9 +64,11 @@ interface NonIncrementalDecorationSpec extends BaseDecorationSpec {
   createInRange?: never
 }
 
-// Opt into incremental recomputation.
+// Opt into incremental recomputation (experimental).
 interface IncrementalDecorationSpec extends BaseDecorationSpec {
   incrementalCreate: true
+  // Must return ONLY decorations whose anchor lies within [from, to)
+  // (`from` for inline/node decorations, `pos` for widgets).
   createInRange: (props: {
     editor: Editor
     state: EditorState
@@ -82,6 +84,20 @@ type DecorationSpec = NonIncrementalDecorationSpec | IncrementalDecorationSpec
 <Callout title="TypeScript enforces the incremental pairing" variant="info">
   Setting `incrementalCreate: true` **requires** `createInRange`, and providing `createInRange` **without**
   `incrementalCreate: true` is a type error.
+</Callout>
+
+<Callout title="Experimental" variant="warning">
+  `incrementalCreate` / `createInRange` are **experimental**. Their semantics, the way changed ranges are
+  computed, and the naming may change in a minor release while the API stabilizes. The non-incremental
+  `create` / `shouldUpdate` API is stable.
+</Callout>
+
+<Callout title="createInRange contract" variant="warning">
+  `createInRange` must return **only** decorations whose anchor position lies within `[from, to)` — `from` for
+  inline and node decorations, `pos` for widget decorations. Decorations anchored before `from` or at/after
+  `to` are **not supported** in incremental mode: they belong to a neighbouring block that the manager did not
+  remove, so returning them leaks duplicate decorations that are never cleaned up. If you need such
+  decorations, use a full `create` instead.
 </Callout>
 
 See [Performance](/editor/core-concepts/decorations#performance) in the guide for when `shouldUpdate` and `incrementalCreate` are appropriate, including the correctness caveats for incremental mode.
@@ -162,7 +178,7 @@ decoration.widget(
 
 - `pos` – the position to render the widget at.
 - `render` – a callback that receives the `view` and a `getPos` accessor and returns an `HTMLElement`.
-- `options.key` – **required.** A stable, position-independent, globally unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys).
+- `options.key` – **required.** A stable, position-independent, globally unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys). Tiptap logs a development warning when it detects two widget decorations with the same key in a single build.
 - `options.side` – optional. Which side of the position the widget biases to (see ProseMirror's [`Decoration.widget`](https://prosemirror.net/docs/ref/#view.Decoration%5Ewidget)).
 - `options.marks` – optional. Marks applied to the widget.
 - `options.stopEvent` – optional. Return `true` to stop ProseMirror from handling an event originating in the widget.
