@@ -68,12 +68,13 @@ export async function GET() {
   const lines: string[] = [
     '# Tiptap Documentation',
     '',
-    '> Tiptap is the headless, framework-agnostic rich text editor and a suite of' +
-      ' content services — Collaboration, Comments, Content AI, and Conversion.',
+    '> Tiptap is the headless and extensible rich-text editor framework tailored to modern web and app development needs.',
     '',
     'Every page is available as Markdown: append `.md` to any documentation URL,' +
       ' or send an `Accept: text/markdown` header.',
     '',
+    'For a product overview and curated entry points, see https://tiptap.dev/llms.txt',
+    ''
   ]
 
   for (const [section, items] of [...bySection.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
