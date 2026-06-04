@@ -136,6 +136,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/conversion/export/docx/styles',
                 },
                 {
+                  title: 'Fonts',
+                  href: '/conversion/export/docx/fonts',
+                },
+                {
                   title: 'Ordered list numbering',
                   href: '/conversion/export/docx/ordered-list-numbering',
                 },
