@@ -36,7 +36,7 @@ The feature is opt-in. Consumers who don't supply `numberingFormats` see no beha
 
 | Export                                                                         | Package                             | Purpose                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OrderedListNumbering`                                                         | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and exposes the `setOrderedListNumberingFormat(id)` command, and tracks the active format at the selection via `editor.storage.orderedListNumbering`. Registered by `ConvertKit` (opt in via `orderedListNumbering: true`). Enforces outermost-only on paste. |
+| `OrderedListNumbering`                                                         | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and exposes the `setOrderedListNumberingFormat(id)` and `toggleOrderedListWithFormat(format?)` commands, and tracks the active format at the selection via `editor.storage.orderedListNumbering`. Registered by `ConvertKit` (opt in via `orderedListNumbering: true`, or an options object with `defaultFormat` / `formats`). Enforces outermost-only numbering on paste, JSON, collaborative sync, and programmatic edits. |
 | `generateNumberingFormatCss(formats, options?)`                                | `@tiptap-pro/extension-convert-kit` | Pure, dependency-free function that returns CSS text for the editor preview — same registry, same visual result.                                                                                                                                                                                                                          |
 | `NumberingFormatDefinition`, `NumberingLevelDefinition`, `NumberingMarkerFont` | `@tiptap-pro/extension-convert-kit` | The data shape your registry follows. Structurally compatible with `ExportDocx`'s `numberingFormats` config.                                                                                                                                                                                                                              |
 | `ExportDocx.configure({ numberingFormats })`                                   | `@tiptap-pro/extension-export-docx` | Pass the registry to the exporter so the `.docx` carries the matching definitions.                                                                                                                                                                                                                                                        |
@@ -48,14 +48,10 @@ A picker UI for end users isn't part of these packages — that's an application
 
 ```ts
 import { Editor } from '@tiptap/core'
-import {
-  ConvertKit,
-  generateNumberingFormatCss,
-  type NumberingFormatDefinition,
-} from '@tiptap-pro/extension-convert-kit'
+import { ConvertKit, type NumberingFormatDefinition } from '@tiptap-pro/extension-convert-kit'
 import { ExportDocx, LevelFormat } from '@tiptap-pro/extension-export-docx'
 
-// 1. Define your registry — one source of truth, used three times below.
+// 1. Define your registry — one source of truth, used on both sides below.
 const MY_FORMATS: NumberingFormatDefinition[] = [
   {
     id: 'decimal-paren',
@@ -75,18 +71,15 @@ const MY_FORMATS: NumberingFormatDefinition[] = [
   },
 ]
 
-// 2. Inject editor-preview CSS once at boot.
-const style = document.createElement('style')
-style.textContent = generateNumberingFormatCss(MY_FORMATS)
-document.head.appendChild(style)
-
-// 3. Opt in to the schema attribute via ConvertKit, and register ExportDocx with the registry.
+// 2. Opt in via ConvertKit. Passing `formats` generates the editor-preview CSS
+//    and injects it for you; register ExportDocx with the same registry so the
+//    .docx carries the matching definitions.
 const editor = new Editor({
   extensions: [
     ConvertKit.configure({
-      // Off by default in ConvertKit so consumers without custom numbering
-      // keep a clean orderedList schema. Set to `true` to opt in.
-      orderedListNumbering: true,
+      // Off by default so consumers without custom numbering keep a clean
+      // orderedList schema. Pass an options object (or `true`) to opt in.
+      orderedListNumbering: { formats: MY_FORMATS },
     }),
     ExportDocx.configure({
       numberingFormats: MY_FORMATS,
@@ -97,9 +90,12 @@ const editor = new Editor({
   ],
 })
 
-// 4. Apply a format to the list at the current selection.
-editor.chain().focus().toggleOrderedList().setOrderedListNumberingFormat('outline').run()
+// 3. Start a numbered list in the chosen format at the current selection
+//    (or, when already in a list, change its format with setOrderedListNumberingFormat).
+editor.chain().focus().toggleOrderedListWithFormat('outline').run()
 ```
+
+Prefer to manage the stylesheet yourself? Omit `formats` and inject the CSS from [`generateNumberingFormatCss`](#generatenumberingformatcssformats-options) instead — the two paths produce the same markers.
 
 ## Enabling ordered list numbering
 
@@ -108,6 +104,28 @@ editor.chain().focus().toggleOrderedList().setOrderedListNumberingFormat('outlin
 ```ts
 ConvertKit.configure({ orderedListNumbering: true })
 ```
+
+Pass an options object instead of `true` to configure two things:
+
+```ts
+ConvertKit.configure({
+  orderedListNumbering: {
+    // The format id new ordered lists start with. Defaults to `null` (plain `1. 2. 3.`).
+    defaultFormat: 'outline',
+    // The same definitions you pass to ExportDocx. When provided, the
+    // editor-preview CSS is generated from them and injected automatically,
+    // so on-screen markers match the export with no extra wiring.
+    formats: MY_FORMATS,
+  },
+})
+```
+
+| Option          | Default | Description                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `defaultFormat` | `null`  | The numbering format id applied to a newly created ordered list (the `numberingFormat` attribute default). Only the outermost list is formatted; nested lists stay clear.                                                                                                                                                                                |
+| `formats`       | `null`  | Numbering format definitions used to generate and inject the editor-preview CSS — the same array passed to `ExportDocx.configure({ numberingFormats })`. Editors configured with the same formats share one preview stylesheet, while editors with different formats get separate ones, so each always shows the correct markers; a shared stylesheet is removed only once the last editor using it is destroyed. |
+
+Passing `formats` here is the equivalent of calling [`generateNumberingFormatCss`](#generatenumberingformatcssformats-options) and injecting the result yourself — choose whichever fits your setup.
 
 ## Applying a format
 
@@ -119,6 +137,20 @@ editor.chain().focus().setOrderedListNumberingFormat(null).run()
 ```
 
 The command returns `false` when the selection isn't inside an ordered list.
+
+### Starting a new list in a format
+
+`setOrderedListNumberingFormat` only targets a list the selection is **already** inside. To start a numbered list in a chosen format from a non-list selection, use `toggleOrderedListWithFormat(format?)` — it creates the ordered list and applies the format in one call, which is the natural action for a "pick a format to start a numbered list" toolbar button:
+
+```ts
+// From a paragraph: create an ordered list and set its format.
+editor.chain().focus().toggleOrderedListWithFormat('outline').run()
+
+// Omit the format to start a list in the configured `defaultFormat`.
+editor.chain().focus().toggleOrderedListWithFormat().run()
+```
+
+When the selection is already inside an ordered list, the command toggles the list off, mirroring `toggleOrderedList`. Chaining `toggleOrderedList().setOrderedListNumberingFormat(format)` reaches the same end state; the single command is simply more convenient and also handles the toggle-off case.
 
 To reflect the active format in a toolbar, read it from the extension's storage — it stays in sync as the selection and document change:
 
@@ -159,7 +191,7 @@ ConvertKit's types use plain string literals so the package does not pull in `do
 
 | Field          | Default                  | Description                                                                                                                                                                                                                                                               |
 | -------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseStyle`    | (required)               | One of `'decimal'`, `'decimalZero'`, `'upperLetter'`, `'lowerLetter'`, `'upperRoman'`, `'lowerRoman'`, `'none'`. Equivalent to the matching docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value — any other string falls back to `decimal` in CSS. |
+| `baseStyle`    | (required)               | The counter glyph, equivalent to the matching docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value. The Latin/numeric styles (`'decimal'`, `'decimalZero'`, `'upperLetter'`, `'lowerLetter'`, `'upperRoman'`, `'lowerRoman'`, `'none'`) and many locale styles (e.g. `'hebrew1'`, `'thaiNumbers'`, `'hindiNumbers'`, `'japaneseCounting'`, `'koreanDigital'`, `'chineseCounting'`, `'ideographDigital'`) map to a matching CSS counter style so the preview renders their native glyph. Styles with no faithful CSS equivalent (e.g. `'chicago'`, `'ordinal'`, `'cardinalText'`) — and any unrecognized string — fall back to `decimal` **in the editor preview only**; the exported `.docx` always carries the exact `LevelFormat` you set. |
 | `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar — see below.                                                                                                                                                                                                               |
 | `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                                                                                                    |
 | `alignment`    | `'left'`                 | Marker text alignment within the number area.                                                                                                                                                                                                                             |
