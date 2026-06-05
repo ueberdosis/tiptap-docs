@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 
   if (resolved.type === 'not-found') {
-    return new NextResponse(`# Not found\n\nNo documentation page exists at \`/${routePath}\`.\n`, {
+    return new NextResponse(`# Not found`, {
       status: 404,
       headers: {
         'Content-Type': 'text/markdown; charset=utf-8',
