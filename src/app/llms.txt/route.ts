@@ -4,9 +4,9 @@ import glob from 'fast-glob'
 import frontMatter from 'front-matter'
 import { FULL_DOMAIN } from '@/utils/constants'
 
-// Reads the content directory at request time.
+// Reads the content directory once at build time; the output never varies per request.
 export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-static'
 
 type Frontmatter = {
   title?: string
