@@ -38,6 +38,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/core-concepts/page-header-footer',
         },
         {
+          title: 'Footnotes',
+          href: '/pages/core-concepts/footnotes',
+          tags: ['New'],
+        },
+        {
           title: 'Page gap & background',
           href: '/pages/core-concepts/page-gap',
         },
