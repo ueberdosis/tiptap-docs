@@ -57,6 +57,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/comments/integrate/rest-api',
         },
         {
+          title: 'Create threads via API',
+          href: '/comments/integrate/create-thread-via-api',
+        },
+        {
           title: 'Webhook',
           href: '/comments/integrate/webhook',
         },
