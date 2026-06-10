@@ -198,6 +198,8 @@ POST /v3/ai/toolkit/stream-tool
 
 Streams tool execution. The request shape matches `POST /v3/ai/toolkit/execute-tool`. The streaming response format is still being finalized.
 
+Because this endpoint works on the document over a live connection, it can return connection and concurrency errors that the REST endpoints don't. They arrive as an `error` event in the response stream — see [Streaming and session errors](#streaming-and-session-errors).
+
 ## Legacy workflow endpoints
 
 <Callout title="Workflow endpoints are deprecated" variant="warning">
@@ -589,6 +591,23 @@ curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
 
 ## Error handling
 
+REST endpoints return errors with this shape:
+
+```json
+{
+  "error": {
+    "message": "Human-readable description of what went wrong.",
+    "status": 502,
+    "code": "document_load_failed"
+  }
+}
+```
+
+- `message` (`string`): Human-readable description. Don't match on it — the wording can change.
+- `status` (`number`): The HTTP status code, also set on the response.
+- `code` (`string`): A stable identifier you can branch on. Validation failures use
+  `code: "validation_failed"` and add an `issues` array.
+
 The API uses standard HTTP error codes:
 
 - `400 Bad Request`: Invalid body, invalid format, missing document source, or missing Document
@@ -599,6 +618,65 @@ The API uses standard HTTP error codes:
 - `429 Too Many Requests`: Duplicate request or rate-limit protection
 - `500 Internal Server Error`: Unexpected server error
 - `502 Bad Gateway`: Failed to load or save the Tiptap Cloud document
+
+### Streaming and session errors
+
+[`POST /v3/ai/toolkit/stream-tool`](#stream-a-tool) works on a Tiptap Cloud document over a live
+connection: it joins the document in real time so the AI edits the latest content alongside other
+collaborators. Errors that happen while establishing or using that connection are delivered in-band
+as an `error` event in the response stream, not as an HTTP status:
+
+```json
+{ "type": "error", "code": "concurrent_edit_conflict", "status": 409, "message": "..." }
+```
+
+The `status` field mirrors the equivalent HTTP status. Possible `code` values:
+
+| `code`                        | `status` | When it happens                                                                                                                             | How to handle                                                                                                                                                  |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `concurrent_edit_conflict`    | 409      | The document changed (for example, a user edited it) while the tool was running, so the change couldn't be applied on top of stale content. | Re-run the request. The AI reads the latest content on the next attempt. Safe to retry automatically. See [Handle concurrent edits](#handle-concurrent-edits). |
+| `schema_mismatch`             | 409      | The editor schema in the request doesn't match the schema already in use for this document, or the stored document can't be parsed with it. | Send a consistent `editorContext` schema for the same document. Don't retry with the same schema.                                                              |
+| `websocket_auth_failed`       | 401      | Tiptap Cloud rejected the document credentials when opening the connection.                                                                 | Refresh the Document Server JWT claims, then retry. Don't retry with the same token.                                                                           |
+| `websocket_connection_failed` | 502      | The connection to Tiptap Cloud closed before the initial sync completed.                                                                    | Retry with backoff. Check connectivity and Tiptap Cloud status.                                                                                                |
+| `websocket_sync_timeout`      | 504      | The document didn't finish its initial sync within the time limit.                                                                          | Retry with backoff. Large documents and degraded connectivity make this more likely.                                                                           |
+| `session_limit_reached`       | 503      | The server is handling the maximum number of concurrent document sessions.                                                                  | Retry with backoff. Sessions are released as they go idle.                                                                                                     |
+| `session_creation_cancelled`  | 503      | The session was torn down before it finished connecting, usually during a server restart.                                                   | Retry.                                                                                                                                                         |
+
+<Callout title="Specific to Tiptap Cloud documents" variant="info">
+  These errors only occur on the live-connection path used by `stream-tool`. Requests that send an
+  inline `document` never open a connection, so they don't return session or WebSocket errors.
+</Callout>
+
+### Handle concurrent edits
+
+`concurrent_edit_conflict` is expected in collaborative documents. While the AI reads a document,
+calls the model, and writes its changes, a user can edit the same document in between. Rather than
+overwrite that edit, the toolkit rejects the write so no work is lost.
+
+Treat it as a safe, retriable signal: when you receive an `error` event with
+`code: "concurrent_edit_conflict"`, run the same tool call again. The toolkit re-reads the document,
+so the AI works from the user's latest changes. Cap the number of retries to avoid long loops on a
+document that's being edited heavily.
+
+```ts
+// `runStream` sends the start/delta/end messages and resolves to the stream's
+// final `error` event, or `null` when the stream completes successfully.
+async function streamToolWithRetry(body: unknown, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const error = await runStream(body)
+
+    if (!error) {
+      return // completed successfully
+    }
+    if (error.code !== 'concurrent_edit_conflict') {
+      throw new Error(`stream-tool failed: ${error.code}`)
+    }
+    // Document changed mid-flight — retry with the latest content.
+  }
+
+  throw new Error('Tool call kept conflicting with concurrent edits.')
+}
+```
 
 ## Related pages
 
