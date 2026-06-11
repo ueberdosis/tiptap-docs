@@ -18,6 +18,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Install',
           href: '/pages/getting-started/install',
         },
+        {
+          title: 'Live demo',
+          href: '/pages/getting-started/live-demo',
+          tags: ['New'],
+        },
       ],
     },
     {
