@@ -10,21 +10,21 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-Bullet lists and ordered lists convert between DOCX and Tiptap with nesting preserved. Numbering format and start values from DOCX are not preserved during import.
+Bullet lists and ordered lists convert between DOCX and Tiptap with nesting preserved. Ordered-list numbering — lettered (`a) b) c)`), Roman, multilevel outlines (`1.` → `1.1.`), locale styles, and custom start numbers — is reconstructed on import and can round-trip back to DOCX.
 
 ## What you need
 
 - **Extensions:** [`ConvertKit`](/conversion/import/docx/convertkit) — bundles `BulletList`, `OrderedList`, `ListItem`, and `ListKeymap`.
-- **Configuration:** None required. Nesting works out of the box at all pipeline stages.
+- **Configuration:** None required for plain lists. To render imported numbering formats in the editor, opt in to [`OrderedListNumbering`](/conversion/export/docx/ordered-list-numbering) via `ConvertKit.configure({ orderedListNumbering: true })`.
 
 ## Support overview
 
 | | Import | Editor | Export |
 | --- | --- | --- | --- |
 | Bullet lists | Supported | Supported (ConvertKit) | Supported |
-| Ordered lists | Supported | Supported (ConvertKit) | Partial |
-| Numbering format (a/A/i/I/1) | Read internally to classify ordered vs bullet, then discarded | The OrderedList extension's `type` attr accepts these values, but the importer does not set it | Not preserved |
-| Start number | Not extracted from `w:start` in DOCX numbering | The OrderedList extension's `start` attr is supported, but the importer does not set it | Not preserved |
+| Ordered lists | Supported | Supported (ConvertKit) | Supported |
+| Numbering format (lettered, Roman, multilevel, locale styles) | Reconstructed per list: a `numberingFormat` attribute on the outermost list plus a `numberingFormats` definition registry in the response; the baseline `type` attr (`a`/`A`/`i`/`I`) is also set where it applies | Rendered by `OrderedListNumbering` (opt-in via ConvertKit); without it, the `type` attribute gives the browser's native rendering | Exported when the definitions are passed to `ExportDocx` as [`numberingFormats`](/conversion/export/docx/ordered-list-numbering) |
+| Start number | Extracted from the DOCX numbering definition; sets the list's `start` attribute | Supported | Exported via the format definition's `startAt` |
 | Nested lists | Supported | Supported | Supported |
 | Task lists | Not supported | Supported (requires TaskList extension) | Not supported |
 
@@ -32,15 +32,15 @@ Bullet lists and ordered lists convert between DOCX and Tiptap with nesting pres
 
 Import lists using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both produce identical output.
 
-The conversion service groups all consecutive DOCX list paragraphs into list structures, regardless of their numbering ID. The indentation level (`ilvl`) controls nesting. The importer reads the `numFmt` value only to classify each paragraph as a bullet or ordered list item. Bullet-style numbering produces `bulletList` nodes. Decimal, letter, and roman numbering all produce `orderedList` nodes with no further differentiation: a list authored as `A, B, C` in Word and a list authored as `1, 2, 3` arrive at the editor as identical `orderedList` nodes with no attributes. The Tiptap OrderedList extension's `type` attribute (which would render `<ol type="a">`) is never populated from the import side. To preserve a custom numbering style end-to-end today, set the `type` attribute on the editor side after the content is loaded.
+Each numbered list keeps its numbering. The importer reconstructs the numbering format every list uses — lettered (`a) b)`), Roman, suffix styles (`1)` instead of `1.`), multilevel outlines (`1.` → `1.1.`), locale styles, and custom start values — and returns the definitions in the response's `numberingFormats` array. The outermost `orderedList` node references its definition through a `numberingFormat` attribute; nested levels of a multilevel list follow that single format and carry no attribute of their own. Where a format has an HTML equivalent, the importer also sets the baseline `type` (`a`/`A`/`i`/`I`) and `start` attributes so the list renders reasonably even without the numbering extension. Lists that use different numberings stay separate lists, so numbering restarts where Word restarts it.
 
-The `w:start` value from DOCX numbering definitions is not parsed, so start numbers are not imported.
+With the [`ImportDocx` editor extension](/conversion/import/docx/editor-extension#ordered-list-numbering), the returned definitions are registered with `OrderedListNumbering` automatically when the extension is installed, so imported lists show their true markers immediately. The same registry is available on the `onImport` context as `numberingFormats` — pass it to `ExportDocx` for a faithful round-trip.
 
 ## Editor rendering
 
 The [`BulletList`](/editor/extensions/nodes/bullet-list), [`OrderedList`](/editor/extensions/nodes/ordered-list), [`ListItem`](/editor/extensions/nodes/list-item), and `ListKeymap` extensions are registered by [`ConvertKit`](/conversion/import/docx/convertkit). No separate installation is needed.
 
-Lists render using standard HTML elements: `<ul>` for bullet lists, `<ol>` for ordered lists, and `<li>` for list items. If `start` and `type` attributes are set on an `orderedList` node, the editor renders them as HTML attributes (e.g., `<ol start="5" type="a">`), but the DOCX importer does not set these attributes.
+Lists render using standard HTML elements: `<ul>` for bullet lists, `<ol>` for ordered lists, and `<li>` for list items. The `start` and `type` attributes the importer sets render as HTML attributes (e.g., `<ol start="5" type="a">`). With `OrderedListNumbering` enabled, the full reconstructed markers — multilevel templates, suffix styles, locale numbering — render in the editor exactly as they will export.
 
 Nesting works through the `listItem` content model, which allows block content including other lists inside list items. Task lists require the separate [`TaskList`](/editor/extensions/nodes/task-list) and [`TaskItem`](/editor/extensions/nodes/task-item) extensions.
 
@@ -50,8 +50,12 @@ Export lists using the [editor extension](/conversion/export/docx/editor-extensi
 
 Bullet lists and ordered lists both export to DOCX with correct structure. Nesting is preserved by incrementing the DOCX indentation level recursively. Each ordered list instance receives a unique numbering ID so multiple lists in the same document number independently.
 
-<Callout title="Numbering format and start values are not exported" variant="warning">
-  The export converter does not read the `type` or `start` attributes from ordered list nodes. All ordered lists export as default decimal numbering (1, 2, 3) regardless of the format set in the editor. A list with `type: "a"` and `start: 5` in the editor will export as a standard 1, 2, 3 list in Word.
+<Callout title="Numbering formats export through the format registry, not HTML attributes" variant="warning">
+  The export converter does not read the `type` or `start` attributes from ordered list nodes.
+  Without further configuration, ordered lists export as default decimal numbering (1, 2, 3). To
+  export custom numbering, pass format definitions to `ExportDocx` via
+  [`numberingFormats`](/conversion/export/docx/ordered-list-numbering) — for imported documents,
+  reuse the `numberingFormats` registry the import returned.
 </Callout>
 
 ## Task lists
