@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import fm from 'front-matter'
+import { parseFrontmatter } from '@/utils/parseFrontmatter'
 import { IncidentData, PageFrontmatter } from '@/types'
 
 // Helper function to safely parse dates
@@ -24,7 +24,7 @@ export async function getIncidents(): Promise<IncidentData[]> {
       if (file.endsWith('.mdx')) {
         const filePath = path.join(incidentsDir, file)
         const fileContent = fs.readFileSync(filePath, 'utf8')
-        const { attributes } = fm<PageFrontmatter>(fileContent)
+        const { attributes } = parseFrontmatter<PageFrontmatter>(fileContent)
 
         const slug = file.replace('.mdx', '')
         const url = `/resources/incidents/${slug}`
