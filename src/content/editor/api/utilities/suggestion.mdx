@@ -16,6 +16,7 @@ tags:
 ---
 
 import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
 
 This utility helps with all kinds of suggestions in the editor. Have a look at the [`Mention`](/editor/extensions/nodes/mention) or [`Emoji`](/editor/extensions/nodes/emoji) node to see it in action.
 
@@ -80,7 +81,13 @@ Default: `null`
 
 ### allowSpaces
 
-Allows or disallows spaces in suggested items.
+Allows or disallows spaces in suggested items. Not compatible with `allowToIncludeChar` — if `allowToIncludeChar` is `true`, this option is disabled.
+
+Default: `false`
+
+### allowToIncludeChar
+
+Allows the trigger character itself to be included in the suggestion query. Not compatible with `allowSpaces`.
 
 Default: `false`
 
@@ -193,7 +200,7 @@ Suggestion({
 
 Offsets the suggestion popup from its anchor by the specified number of pixels on each axis. These values are forwarded to the Floating UI [`offset` middleware](https://floating-ui.com/docs/offset).
 
-Default: `{}`
+Default: `{ mainAxis: 4, crossAxis: 0 }`
 
 ```js
 Suggestion({
@@ -228,19 +235,18 @@ Suggestion({
 
 ### floatingUi
 
-Advanced Floating UI configuration for cases where the default options don't offer enough control. When provided, these options take precedence over the top-level `placement`, `offset`, and `flip` settings.
+Advanced Floating UI configuration for cases where the top-level options don't offer enough control. The plugin keeps ownership of the anchor and placement — set the side with the top-level [`placement`](#placement) option — while `floatingUi` lets you switch the positioning `strategy` and append extra `middleware`.
+
+Any middleware you pass is appended _after_ the `offset` and `flip` middleware the plugin builds from your top-level `offset` and `flip` options, so the two compose rather than replace each other.
 
 ```js
-import { flip, shift } from '@floating-ui/dom'
+import { shift, size } from '@floating-ui/dom'
 
 Suggestion({
+  placement: 'top-start',
   floatingUi: {
-    placement: 'top-start',
     strategy: 'fixed',
-    middleware: [
-      flip({ padding: 8 }),
-      shift({ padding: 8 }),
-    ],
+    middleware: [shift({ padding: 8 }), size()],
   },
 })
 ```
@@ -249,16 +255,18 @@ All properties are optional. The full type is:
 
 ```ts
 type SuggestionFloatingUiOptions = {
-  placement?: 'top' | 'top-start' | 'top-end'
-    | 'bottom' | 'bottom-start' | 'bottom-end'
-    | 'right' | 'right-start' | 'right-end'
-    | 'left' | 'left-start' | 'left-end'
   strategy?: 'absolute' | 'fixed'
   middleware?: Middleware[]
 }
 ```
 
 Default: `undefined`
+
+### dismissOnOutsideClick
+
+When `true`, a pointer interaction outside both the popup and the editor dismisses the active suggestion. This only applies when you render the popup with [managed positioning](#managed-positioning-with-propsmount) (`props.mount`), because the plugin needs to know which element is the popup to decide what counts as "outside".
+
+Default: `true`
 
 ### command
 
@@ -283,23 +291,33 @@ Default: `({ editor, query, signal }) => []`
 
 A render function for the autocomplete popup. Returns an object with lifecycle hooks (`onStart`, `onBeforeStart`, `onUpdate`, `onBeforeUpdate`, `onExit`, `onKeyDown`) that receive a `SuggestionProps` object.
 
-The `SuggestionProps` object passed to each hook includes the following additional properties:
+The `SuggestionProps` object passed to each hook includes the following properties in addition to the existing `editor`, `range`, `query`, `text`, `items`, `command`, `decorationNode`, and `clientRect`:
 
 ```ts
 {
-  // ... existing props (editor, range, query, text, items, command, decorationNode, clientRect) ...
+  /** Mounts your popup element and takes over positioning. The recommended,
+   *  default way to render a suggestion popup — see "Positioning" below.
+   *  Returns an `unmount` function to call in `onExit`. */
+  mount: (element: HTMLElement, options?: SuggestionMountOptions) => () => void
 
   /** True while an async items() call is in progress, false otherwise.
-   *  Only available when items() returns a Promise. */
+   *  Only relevant when items() returns a Promise. */
   loading: boolean
 
-  /** Resolved Floating UI configuration passed through from the options.
-   *  Always available when positioning options (like placement, floatingUi) are configured. */
+  /** The resolved positioning options, passed through from the suggestion
+   *  options so you can read them in your render callbacks. */
+  placement: SuggestionPlacement
+  offset: { mainAxis: number; crossAxis: number }
+  flip: boolean
+  container?: string | HTMLElement
+
+  /** Resolved Floating UI config, ready to hand to `computePosition()`.
+   *  This is the escape hatch for running your own positioning loop instead
+   *  of using `mount()`. */
   floatingUi: {
     placement: SuggestionPlacement
     strategy: 'absolute' | 'fixed'
     middleware: Middleware[]
-    offset: { mainAxis?: number; crossAxis?: number }
   }
 }
 ```
@@ -340,6 +358,7 @@ Suggestion({
   },
   render: () => {
     let component
+    let unmount
 
     return {
       onStart(props) {
@@ -347,7 +366,8 @@ Suggestion({
           props,
           editor: props.editor,
         })
-        document.body.appendChild(component.element)
+        // Let the plugin mount and position the popup for you.
+        unmount = props.mount(component.element)
       },
       onUpdate(props) {
         // `props.loading` is true while fetching, false otherwise
@@ -355,7 +375,7 @@ Suggestion({
         component.updateProps(props)
       },
       onExit() {
-        component.element.remove()
+        unmount?.()
         component.destroy()
       },
     }
@@ -365,33 +385,92 @@ Suggestion({
 
 ## Positioning
 
-The suggestion utility integrates with [Floating UI](https://floating-ui.com/) for flexible popup positioning. You can control placement and behavior directly through the suggestion options.
+The suggestion utility integrates with [Floating UI](https://floating-ui.com/) for popup positioning. There are two ways to position your popup:
 
-### Basic positioning
+- **Managed positioning with `props.mount`** — the recommended default. The plugin mounts the element, anchors it to the cursor, and keeps it positioned for you.
+- **Manual positioning** — the escape hatch. You mount the element yourself and run your own positioning loop using `props.floatingUi` and `props.clientRect`.
 
-Use the top-level `placement`, `offset`, and `flip` options for common use cases:
+### Managed positioning with `props.mount`
+
+Inside your `render` callbacks, call `props.mount(element)` with the popup element you rendered (for example, the `element` of a `ReactRenderer` or `VueRenderer`). The plugin then:
+
+- appends the element into the configured [`container`](#container) (default `document.body`),
+- anchors it to the suggestion's cursor rect using your [`placement`](#placement), [`offset`](#offset), [`flip`](#flip), and [`floatingUi`](#floatingui) options,
+- automatically repositions it on scroll, resize, and layout shifts via Floating UI's [`autoUpdate`](https://floating-ui.com/docs/autoUpdate) — no manual listeners required, and
+- dismisses it on outside clicks when [`dismissOnOutsideClick`](#dismissonoutsideclick) is enabled.
+
+`mount()` returns an `unmount` function. **You must call it in `onExit`** to tear down the auto-update loop and outside-click listener (and to remove the element, if the plugin added it). Forgetting this leaks listeners and leaves orphaned popups in the DOM.
+
+```js
+import { ReactRenderer } from '@tiptap/react'
+import DropdownList from './DropdownList.jsx'
+
+Suggestion({
+  placement: 'top-start',
+  offset: { mainAxis: 8 },
+  items: ({ query }) => fetchItems(query),
+  render: () => {
+    let component
+    let unmount = null
+
+    return {
+      onStart(props) {
+        component = new ReactRenderer(DropdownList, {
+          props,
+          editor: props.editor,
+        })
+
+        // The plugin mounts the element, positions it, and keeps it anchored.
+        unmount = props.mount(component.element)
+      },
+      onUpdate(props) {
+        component.updateProps(props)
+        // No reposition call needed — autoUpdate keeps it anchored.
+      },
+      onKeyDown(props) {
+        if (props.event.key === 'Escape') {
+          component.destroy()
+          return true
+        }
+        return component.ref?.onKeyDown(props)
+      },
+      onExit() {
+        unmount?.()
+        component.destroy()
+      },
+    }
+  },
+})
+```
+
+<Callout title="Note" variant="info">
+  If the element you pass is already attached to the DOM, the plugin will not move or remove it — it
+  only positions it. In that case you remain responsible for mounting and unmounting the element
+  yourself. Pass a detached element if you want the plugin to manage the DOM for you.
+</Callout>
+
+### Configuring placement, offset, and flip
+
+Use the top-level [`placement`](#placement), [`offset`](#offset), and [`flip`](#flip) options to control where the managed popup appears:
 
 ```js
 Suggestion({
   placement: 'top-start',
-  offset: { mainAxis: 8 },
+  offset: { mainAxis: 8, crossAxis: 0 },
   flip: true,
 })
 ```
 
-### Advanced positioning with floatingUi
-
-For advanced scenarios (custom middleware, fixed positioning), use the `floatingUi` option:
+For a positioning `strategy` change or custom middleware (for example `shift` or `size`), add the [`floatingUi`](#floatingui) option. Its `middleware` is appended after the plugin's own `offset` and `flip` middleware:
 
 ```js
-import { flip, shift, size } from '@floating-ui/dom'
+import { shift, size } from '@floating-ui/dom'
 
 Suggestion({
+  placement: 'bottom-end',
   floatingUi: {
-    placement: 'bottom-end',
     strategy: 'fixed',
     middleware: [
-      flip({ padding: 16 }),
       shift({ padding: 16 }),
       size({
         apply({ availableWidth, availableHeight, elements }) {
@@ -406,18 +485,78 @@ Suggestion({
 })
 ```
 
-### Consuming floatingUi in render callbacks
+### Customizing how the position is applied
 
-The resolved `floatingUi` config (with defaults applied) is passed to every render callback via `SuggestionProps.floatingUi`. Use it when computing your popup's position:
+By default, the managed popup's position is applied by writing `position`, `left`, and `top` to the element's style (and the element is hidden until the first measurement resolves, to avoid a flash at the wrong coordinates).
+
+If you need to apply the position differently — a CSS transform, an animation, or writing into a framework ref — pass an `onPosition` callback in the mount options. When you do, the plugin stops writing styles itself and hands you the computed coordinates instead:
 
 ```js
-import { flip, shift } from '@floating-ui/dom'
+onStart(props) {
+  component = new ReactRenderer(DropdownList, { props, editor: props.editor })
+
+  unmount = props.mount(component.element, {
+    onPosition({ x, y, placement, strategy }) {
+      Object.assign(component.element.style, {
+        position: strategy,
+        transform: `translate(${x}px, ${y}px)`,
+      })
+    },
+  })
+}
+```
+
+<Callout title="Note" variant="info">
+  When you provide `onPosition`, the plugin no longer hides the element before the first
+  measurement, so apply the initial position yourself to avoid a flash.
+</Callout>
+
+### Following animated or transformed anchors
+
+`autoUpdate` already reacts to scroll, resize, and layout shifts. For anchors that move continuously — inside a transformed or animated container, for instance — opt into frame-by-frame updates by forwarding [`autoUpdate` options](https://floating-ui.com/docs/autoUpdate#options):
+
+```js
+unmount = props.mount(component.element, {
+  autoUpdate: { animationFrame: true },
+})
+```
+
+### Mounting into a container
+
+To render the popup inside a specific stacking or scroll context — a modal or dialog, for example — set the [`container`](#container) option. The managed popup is appended there instead of `document.body`:
+
+```js
+Suggestion({
+  container: '#my-dialog',
+})
+```
+
+A string is treated as a CSS selector; you can also pass an `HTMLElement` directly. If the selector matches nothing (or is invalid), the plugin falls back to `document.body`.
+
+### Manual positioning (escape hatch)
+
+If you need full control over mounting and positioning, skip `props.mount` entirely. Mount the element yourself, then run your own Floating UI loop using the resolved `props.floatingUi` config together with `props.clientRect`. Because you own the DOM here, you are also responsible for repositioning on `onUpdate` and cleaning up in `onExit`:
+
+```js
+import { computePosition, shift } from '@floating-ui/dom'
 import { ReactRenderer } from '@tiptap/react'
+
+function reposition(props, element) {
+  const reference = { getBoundingClientRect: () => props.clientRect() }
+
+  computePosition(reference, element, props.floatingUi).then(({ x, y, strategy }) => {
+    Object.assign(element.style, {
+      position: strategy,
+      left: `${x}px`,
+      top: `${y}px`,
+    })
+  })
+}
 
 Suggestion({
   floatingUi: {
     strategy: 'fixed',
-    middleware: [flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [shift({ padding: 8 })],
   },
   render: () => {
     let component
@@ -426,21 +565,21 @@ Suggestion({
       onStart(props) {
         component = new ReactRenderer(DropdownList, { props, editor: props.editor })
 
-        // Use props.floatingUi to compute the popup position
-        Object.assign(component.element.style, {
-          position: props.floatingUi.strategy,
-          left: '0px',
-          top: '0px',
-          visibility: 'hidden',
-        })
-        document.body.appendChild(component.element)
+        if (!props.clientRect) {
+          return
+        }
 
-        // Reposition with the resolved floatingUi config
-        reposition(props.editor, component.element, props.floatingUi)
+        document.body.appendChild(component.element)
+        reposition(props, component.element)
       },
       onUpdate(props) {
         component.updateProps(props)
-        reposition(props.editor, component.element, props.floatingUi)
+
+        if (!props.clientRect) {
+          return
+        }
+
+        reposition(props, component.element)
       },
       onExit() {
         component.element.remove()
@@ -450,6 +589,12 @@ Suggestion({
   },
 })
 ```
+
+<Callout title="Note" variant="warning">
+  With manual positioning you only reposition on `onUpdate`, so the popup will not follow scroll,
+  resize, or layout shifts unless you wire up your own listeners (or Floating UI's `autoUpdate`).
+  `props.mount` handles all of that for you, which is why it is the recommended approach.
+</Callout>
 
 <CodeDemo path="/Examples/SuggestionPositioning" />
 
