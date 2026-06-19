@@ -23,47 +23,29 @@ Set up credentials and install the conversion extensions for your project.
 
 ## Authentication
 
-Most conversion extensions and REST API endpoints require a JWT for authentication. The DOCX export extension is the exception and works without credentials.
+Most conversion extensions and REST API endpoints require a signed JWT. The DOCX export extension is the exception and works without credentials.
 
-1. Go to the [Convert settings](https://cloud.tiptap.dev/v2/cloud/convert) page in your Tiptap Cloud account.
-2. Copy your **App ID** and **secret key**.
-3. Generate a JWT using any JWT tool (e.g., [JWT Builder](https://jwt.io)) for local testing. In production, always generate JWTs server-side to keep your secret safe.
+Set the `aud` claim to `"Convert"` and grant the format and direction actions the integration uses. To create a key pair and sign a token, see [Authentication](/authentication).
 
-You will pass the JWT and App ID when configuring extensions or making REST API calls. See the format-specific setup guides below for details.
+### Actions
 
-## Tiptap Access Control (preview)
+Each conversion direction has its own action, so a token scoped to exactly the operations a feature needs never silently widens when a new direction is added:
 
-<Callout title="Not generally available" variant="warning">
-  The Tiptap Access Control authentication format is in preview and is not enabled by default. To request access for your environment, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until it's enabled, keep using the App ID + JWT flow described above — it continues to work unchanged.
-</Callout>
-
-Tiptap Access Control is a new authentication format that replaces the `x-app-id` + per-request `convert/authenticate` round-trip with a single signed JWT carrying explicit permissions. The two formats live side by side: the service routes a request to the new path only when the JWT's audience claim is `"Convert"`, so existing integrations keep working without changes.
-
-### How to enable it
-
-1. Email [humans@tiptap.dev](mailto:humans@tiptap.dev) and ask to enable Tiptap Access Control for your Tiptap Cloud environment. We'll provision the signing key and confirm when your environment is ready.
-2. Generate JWTs with `aud: "Convert"`, your environment id as `iss`, and a `permissions` array listing the actions the token is allowed to perform (see below).
-3. Send the JWT in the `Authorization: Bearer <jwt>` header. The `x-app-id` header is **not** read on this path.
-
-### Per-format, per-direction permissions
-
-Each conversion direction has its own action, so handing out a token scoped to exactly the operations a feature needs never silently widens later when a new direction is added:
-
-| Action                    | Grants                                              |
-| ------------------------- | --------------------------------------------------- |
-| `Convert:Import:Docx`     | Import of DOCX                                      |
-| `Convert:Export:Docx`     | Export of DOCX                                      |
-| `Convert:Import:Markdown` | Import of Markdown                                  |
-| `Convert:Export:Markdown` | Export of Markdown                                  |
-| `Convert:Export:Doc`      | Export of legacy DOC                                |
-| `Convert:Export:Odt`      | Export of ODT                                       |
-| `Convert:Export:Epub`     | Export of EPUB                                      |
-| `Convert:Export:Pdf`      | Export of PDF                                       |
-| `Convert:Fonts`           | Managing the font cache (`/fonts/*`) – on-prem only |
+| Action | Grants |
+| --- | --- |
+| `Convert:Import:Docx` | Import of DOCX |
+| `Convert:Export:Docx` | Export of DOCX |
+| `Convert:Import:Markdown` | Import of Markdown |
+| `Convert:Export:Markdown` | Export of Markdown |
+| `Convert:Export:Doc` | Export of legacy DOC |
+| `Convert:Export:Odt` | Export of ODT |
+| `Convert:Export:Epub` | Export of EPUB |
+| `Convert:Export:Pdf` | Export of PDF |
+| `Convert:Fonts` | Managing the font cache (`/fonts/*`), on-prem only |
 
 Legacy routes without an explicit format (`POST /v2/import`, `POST /v2/export`) check `Convert:Import:Docx` and `Convert:Export:Docx` respectively.
 
-### Example token payload
+### Example token
 
 ```json
 {
@@ -73,12 +55,18 @@ Legacy routes without an explicit format (`POST /v2/import`, `POST /v2/export`) 
   "permissions": [
     { "action": "Convert:Import:Docx", "resource": "*" },
     { "action": "Convert:Export:Docx", "resource": "*" },
-    { "action": "Convert:Export:Pdf",  "resource": "*" }
+    { "action": "Convert:Export:Pdf", "resource": "*" }
   ]
 }
 ```
 
 A request to `POST /v2/export/pdf` with this token succeeds. `POST /v2/export/odt` is rejected with a `permission_denied` error naming the missing action.
+
+Send the token in the `Authorization: Bearer <jwt>` header for REST calls, or pass it through the `token` option on the editor extensions. You do not send an App ID.
+
+<Callout title="Importing comments" variant="hint">
+  Importing a document that contains comments writes them to the Document Server. Include `Documents:Write` alongside your `Convert:Import:*` action so the import can save them. See [cross-service actions](/authentication#cross-service-actions).
+</Callout>
 
 ### Error responses
 
@@ -92,6 +80,10 @@ When the token is missing a required permission, the service responds `403 Forbi
 ```
 
 If the environment's subscription doesn't include Convert at all, the response is `403` with `code: feature_not_available`. Upstream cloud errors are mapped through cleanly: `429 rate_limited`, `503 service_unavailable`, and `401 token_expired` / `signature_invalid` so your client can distinguish a bad token from a temporary cloud problem.
+
+<Callout title="Maintaining an existing integration?" variant="info">
+  The previous App ID and secret flow is documented under [Legacy authentication](/authentication/legacy) and keeps working.
+</Callout>
 
 ## Install packages
 

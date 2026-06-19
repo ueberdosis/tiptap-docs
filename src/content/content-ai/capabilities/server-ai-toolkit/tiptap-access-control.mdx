@@ -1,28 +1,16 @@
 ---
-title: Tiptap Access Control (preview)
+title: Authorization
 meta:
-  title: Tiptap Access Control (preview) | Server AI Toolkit
-  description: Set up Server AI Toolkit with the new Tiptap Access Control authentication system using ES256 JWTs and explicit permissions.
+  title: Authorization | Server AI Toolkit
+  description: Authenticate the Server AI Toolkit with a signed token carrying explicit permissions.
   category: Content AI
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-<Callout title="Not generally available" variant="warning">
-  The Tiptap Access Control authentication format is in preview and is not enabled by default. To
-  request access, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until it's enabled, keep
-  using the App ID + secret flow described in the [Install
-  guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) — it continues to
-  work unchanged.
-</Callout>
+Authenticate the Server AI Toolkit with a signed token carrying `aud: "AI"` and the `AI:Toolkit` permission. Send it in the `Authorization: Bearer <jwt>` header. No App ID is sent.
 
-Tiptap Access Control is a new authentication format that replaces the `X-App-Id` + per-service secret with a single signed JWT carrying explicit permissions. The two formats live side by side: the service routes a request to the new path only when the JWT's audience claim is `"AI"`, so existing integrations keep working without changes.
-
-## How to enable it
-
-1. Email [humans@tiptap.dev](mailto:humans@tiptap.dev) and ask to enable Tiptap Access Control for your Tiptap Cloud environment. We'll provision the signing key and confirm when your environment is ready.
-2. Generate JWTs with `aud: "AI"`, your environment id as `iss`, and a `permissions` array listing the actions the token is allowed to perform (see below).
-3. Send the JWT in the `Authorization: Bearer <jwt>` header. The `X-App-Id` header is **not** read on this path.
+See [Authentication](/authentication) for how to create a key pair and sign tokens, and the [Install guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) for a full setup walkthrough. The previous App ID and secret flow is documented under [Legacy authentication](/authentication/legacy).
 
 ## Permissions
 
@@ -72,98 +60,3 @@ When the token is missing a required permission, the service responds `403 Forbi
 ```
 
 If the environment's subscription doesn't include the Server AI Toolkit at all, the response is `403` with `code: feature_not_available`.
-
-## Set up authorization with Tiptap Access Control
-
-Install the JWT signing library:
-
-```bash
-npm install jose
-```
-
-### Environment variables
-
-Configure the following environment variables:
-
-```sh
-# .env
-TIPTAP_CLOUD_AI_API_URL=https://api.tiptap.dev
-TIPTAP_ENVIRONMENT_ID=your-environment-hash-id
-TIPTAP_PRIVATE_KEY=your-private-key-pem
-```
-
-- **TIPTAP_CLOUD_AI_API_URL**: The base URL for the Server AI Toolkit API.
-- **TIPTAP_ENVIRONMENT_ID**: Your environment hash ID from the Tiptap dashboard. Used as the `iss` claim when signing JWTs.
-- **TIPTAP_PRIVATE_KEY**: Your ES256 private key (PKCS#8 PEM) from the Tiptap dashboard. Used to sign JWTs server-side.
-
-### Create a JWT token
-
-This function generates a JWT for authenticating with the Server AI Toolkit API. Pass a `documentId` when the Server AI Toolkit should fetch and save Tiptap Cloud documents automatically via `experimental_documentOptions`.
-
-```ts
-// lib/server-ai-toolkit/create-jwt-token.ts
-import { SignJWT, importPKCS8 } from 'jose'
-
-type CreateJwtTokenOptions = {
-  documentId?: string
-}
-
-/**
- * Generates a JWT for authenticating with the Server AI Toolkit API
- */
-export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promise<string> {
-  const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
-
-  const permissions: { action: string; resource: string }[] = [
-    { action: 'AI:Toolkit', resource: '*' },
-  ]
-
-  if (options.documentId) {
-    permissions.push({ action: 'Documents:Write', resource: options.documentId })
-  }
-
-  return new SignJWT({ permissions })
-    .setProtectedHeader({ alg: 'ES256' })
-    .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
-    .setAudience(options.documentId ? ['AI', 'Documents'] : ['AI'])
-    .setIssuedAt()
-    .setExpirationTime('30m')
-    .sign(privateKey)
-}
-```
-
-<Callout title="Alternative: provide documents directly" variant="info">
-  If you manage documents in your own storage instead of Tiptap Cloud, omit the `documentId` option
-  and pass documents directly via the `document` field in API requests. The token only needs the
-  `AI:Toolkit` permission.
-</Callout>
-
-## Call API endpoints
-
-Once authenticated, call the Server AI Toolkit API endpoints. Generate the JWT and set the `Authorization` header.
-
-When using Tiptap Cloud documents, pass the document ID to include `Documents:Write` permission.
-
-```ts
-const jwt = await createJwtToken({ documentId: 'my-document-id' })
-
-const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${jwt}`,
-  },
-  body: JSON.stringify({
-    toolName: 'tiptapEdit',
-    input: toolCallInput,
-    editorContext,
-    experimental_documentOptions: {
-      documentId,
-    },
-  }),
-})
-```
-
-For complete API documentation, see the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api).
-
-See the [Authentication guide](/authentication) for more information about Tiptap Access Control.

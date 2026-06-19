@@ -8,11 +8,11 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-<Callout title="Available on request" variant="info">
-  This unified authentication model is currently rolling out and only enabled for selected environments. If you'd like early access, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until your environment is migrated, continue using the existing per-service authentication for [Collaboration](/collaboration/getting-started/authenticate), [Conversion](/conversion/getting-started/install), and [Content AI](/content-ai/capabilities/generation/install).
-</Callout>
-
 Tiptap services use JWTs (JSON Web Tokens) for authentication and authorization. You generate and sign tokens on your server, then pass them to Tiptap services. Each token identifies your environment, names the services it can access, and the actions it's authorized to perform on your resources.
+
+<Callout title="Already integrated?" variant="hint">
+  If you authenticate with App IDs and per-service secrets, see [Migrate to the new authentication](/authentication/migrate). The previous setup is documented under [Legacy authentication](/authentication/legacy) and keeps working.
+</Callout>
 
 ## How it works
 
@@ -21,13 +21,13 @@ Tiptap services use JWTs (JSON Web Tokens) for authentication and authorization.
 3. Your client passes the JWT when connecting to a Tiptap service (AI, Convert, Documents).
 4. Tiptap verifies the token's signature with the public key and checks your subscription.
 
-## Why a new auth model?
+## What a token controls
 
-The new model replaces per-service tokens with a single, unified JWT that carries everything a request needs to know. Which services it can reach, what it's allowed to do, and on which resources. The result is a smaller integration surface, stronger defaults, and finer-grained control.
+A single JWT carries everything a request needs: which services it can reach, what it's allowed to do, and on which resources.
 
 - **One token, many services.** A single JWT authorizes any combination of AI, Convert, and Documents through the `aud` claim.
-- **Cross-service workflows.** The AI service can act on your documents under the same token. No service-to-service plumbing.
-- **Permissions inside the token.** Declare exactly what's allowed via `action`, `resource`, and optional constraints, instead of relying on coarse service-level scopes.
+- **Cross-service workflows.** The AI service can act on your documents under the same token, with no service-to-service plumbing.
+- **Permissions inside the token.** Declare exactly what's allowed via `action`, `resource`, and optional constraints.
 - **Zero-downtime key rotation.** Run multiple active key pairs per environment and retire old keys without a switchover window.
 
 ## Claims reference
@@ -143,7 +143,7 @@ Actions follow the format `Service:Operation`. Each Tiptap service defines its o
 
 `Documents:Write` implies `Documents:Read` and `Documents:Comment` — granting write access automatically grants the other two, so you don't need to list them separately.
 
-`Documents:Api:All` grants full access to the Document Server's REST API. It's separate from the other `Documents:*` actions, which authorize document operations over the collaboration connection.
+`Documents:Api:All` grants access to every Document Server API endpoint, including managed settings. It's separate from the other `Documents:*` actions, which authorize document operations over the collaboration connection. Treat a token carrying it like an admin credential. Keep it server-side, scope its lifetime tightly, and never share it with clients.
 
 `Convert:*` actions are scoped by file format **and** operation (`Import` vs. `Export`). A token only needs the actions for what it actually does — e.g. a token that only exports PDF needs `Convert:Export:Pdf`. Today only DOCX and Markdown support both directions; Doc, ODT, EPUB, and PDF are export-only. `Convert:Fonts` is unscoped and applies to the `/fonts/*` routes.
 
@@ -213,6 +213,23 @@ Matches `"team1_doc"` or `"team2_doc"`.
 - `in` cannot be combined with `prefix` or `suffix` in the same constraint object. Use separate constraints in an array instead.
 - `prefix` and `suffix` must be non-empty strings.
 - `in` must be a non-empty array of strings.
+
+## Cross-service actions
+
+Some actions cross service boundaries. The Document Server stores your documents, and other services act on it. For example, importing a DOCX through the Convert service writes the document and its comments to the Document Server. When an action reads or writes a document this way, the token needs both the originating action and the matching `Documents` action.
+
+A token that imports a commented DOCX into a stored document needs both:
+
+```json
+{
+  "permissions": [
+    { "action": "Convert:Import:Docx", "resource": "*" },
+    { "action": "Documents:Write", "resource": "*" }
+  ]
+}
+```
+
+The `resource` is yours to define. Each service page calls out which cross-service actions it performs and the permissions they require.
 
 ## Examples
 

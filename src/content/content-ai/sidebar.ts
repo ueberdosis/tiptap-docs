@@ -274,7 +274,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/install',
             },
             {
-              title: 'Tiptap Access Control',
+              title: 'Authorization',
               href: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
             },
             {

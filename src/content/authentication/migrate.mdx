@@ -1,0 +1,91 @@
+---
+title: Migrate to the new authentication
+meta:
+  title: Migrate to the new authentication | Tiptap Docs
+  description: Map the previous per-service App ID and secret authentication onto the unified Tiptap authentication model.
+  category: Authentication
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+This guide maps the previous per-service authentication, documented under [Legacy authentication](/authentication/legacy), onto the unified [Authentication](/authentication) model.
+
+<Callout title="Migrate at your own pace" variant="info">
+  Both formats run side by side. A request is routed to the new path only when its JWT carries an `aud` claim, so your existing integration keeps working while you migrate one service at a time.
+</Callout>
+
+## What changes
+
+| Previous | New |
+| --- | --- |
+| A separate App ID and secret per service | One asymmetric key pair per environment |
+| HS256 shared secret | ES256 key pair (you hold the private key, Tiptap stores the public key) |
+| App ID sent in the `X-App-Id` header on REST requests | Environment id carried in the JWT `iss` claim |
+| A different token shape per service | One token with an `aud` claim and a `permissions` array |
+| `allowedDocumentNames`, `readonlyDocumentNames`, `commentDocumentNames` | `permissions` entries with `action`, `resource`, and optional `constraints` |
+
+## Step 1: create a key pair
+
+Create an asymmetric key pair for your environment in the Tiptap dashboard. You keep the private key on your server. Tiptap stores only the public key and uses it to verify your tokens. See [Signing the token](/authentication#signing-the-token) for the full flow.
+
+## Step 2: sign one token instead of several
+
+Replace your per-service signing code with a single token that names the services it needs in `aud` and lists what it may do in `permissions`. The [Authentication](/authentication) reference covers the claims and shows signing examples in several languages.
+
+## Step 3: map your permissions
+
+### Collaboration and Documents
+
+Document-access claims become `permissions` entries:
+
+| Previous | New |
+| --- | --- |
+| `allowedDocumentNames: ['doc_a']` | `{ "action": "Documents:Write", "resource": "doc_a" }` |
+| `readonlyDocumentNames: ['doc_a']` | `{ "action": "Documents:Read", "resource": "doc_a" }` |
+| `commentDocumentNames: ['doc_a']` | `{ "action": "Documents:Comment", "resource": "doc_a" }` |
+| `allowedDocumentNames: ['team/*']` | `{ "action": "Documents:Write", "resource": "*", "constraints": { "prefix": "team/" } }` |
+| `allowedDocumentNames` omitted (full access) | `{ "action": "Documents:Write", "resource": "*" }` |
+
+`Documents:Write` implies `Documents:Read` and `Documents:Comment`, so you do not list those separately.
+
+### Conversion
+
+Set `aud` to `"Convert"` and grant the format and direction actions the integration uses. The `X-App-Id` header is no longer read on the new path, because the environment id travels in `iss`.
+
+```json
+{
+  "aud": "Convert",
+  "permissions": [
+    { "action": "Convert:Import:Docx", "resource": "*" },
+    { "action": "Convert:Export:Pdf", "resource": "*" }
+  ]
+}
+```
+
+### Content AI
+
+Set `aud` to `"AI"` and grant `AI:Generation`, `AI:Toolkit`, or both.
+
+```json
+{
+  "aud": "AI",
+  "permissions": [
+    { "action": "AI:Generation", "resource": "*" },
+    { "action": "AI:Toolkit", "resource": "*" }
+  ]
+}
+```
+
+## Frontend extensions
+
+The `token` property is unchanged everywhere. What changes is how you mint the token, and whether the App ID is still needed:
+
+- **Collaboration.** `TiptapCollabProvider` still takes both `appId` and `token`, exactly as before.
+- **Conversion.** Drop `appId`. Pass the new token through the same `token` property.
+- **Content AI.** Drop `appId`. Pass the new token through the same `token` property.
+
+In every case you keep using the `token` property. You only change how the token is signed, now with your environment key pair.
+
+## Step 4: roll out and retire the old secret
+
+Run both formats in parallel until every client signs new-model tokens. Because Tiptap supports multiple active key pairs per environment, you can rotate without downtime. Once traffic is fully on the new model, retire the old per-service secret.
