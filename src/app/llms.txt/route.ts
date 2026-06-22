@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import glob from 'fast-glob'
-import frontMatter from 'front-matter'
+import { parseFrontmatter } from '@/utils/parseFrontmatter'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 // Reads the content directory once at build time; the output never varies per request.
@@ -47,7 +47,7 @@ export async function GET() {
   const entries = await Promise.all(
     files.map(async (file) => {
       const raw = await fs.readFile(path.join(process.cwd(), 'src/content', file), 'utf8')
-      const { attributes } = frontMatter<Frontmatter>(raw)
+      const { attributes } = parseFrontmatter<Frontmatter>(raw)
       const route = fileToRoute(file)
       return {
         route,
