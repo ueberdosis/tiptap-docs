@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import glob from 'fast-glob'
-import frontmatter from 'front-matter'
+import { parseFrontMatter } from '@/utils/parseFrontMatter'
 import { PageMeta } from '@/types'
 
 export async function getAllMetadata() {
@@ -13,7 +13,7 @@ export async function getAllMetadata() {
       pagePath = pagePath.replace(/\/\([^)]+\)\/?/g, '/')
 
       const mdxContent = fs.readFileSync(path.join(process.cwd(), 'src/content', page), 'utf-8')
-      const { attributes } = frontmatter(mdxContent) as {
+      const { attributes } = parseFrontMatter(mdxContent) as {
         attributes: { meta: PageMeta | undefined }
       }
 

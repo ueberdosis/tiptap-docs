@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
-import frontMatter from 'front-matter'
+import { parseFrontMatter } from '@/utils/parseFrontMatter'
 import { transformMdxToMarkdown } from './transformMdx'
 
 type Frontmatter = {
@@ -67,7 +67,7 @@ function buildFrontmatter(fields: {
  */
 export async function fileToMarkdown(filePath: string, canonicalUrl?: string): Promise<string> {
   const raw = await fs.readFile(filePath, 'utf8')
-  const { attributes, body } = frontMatter<Frontmatter>(raw)
+  const { attributes, body } = parseFrontMatter<Frontmatter>(raw)
   const transformed = await transformMdxToMarkdown(body)
 
   const title = attributes.title ?? attributes.meta?.title
