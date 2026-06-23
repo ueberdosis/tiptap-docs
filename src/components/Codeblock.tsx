@@ -36,7 +36,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
           <button
             onClick={onCopy}
             aria-label={clipboard.copied ? 'Copied' : 'Copy code'}
-            className="absolute top-3 right-4 flex items-center justify-center bg-black border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
+            className="absolute top-4 right-4 flex items-center justify-center bg-black border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
           >
             <span className="relative size-4">
               <CopyIcon
