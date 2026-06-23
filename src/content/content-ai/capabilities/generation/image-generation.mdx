@@ -1,48 +1,94 @@
 ---
-title: AI image generation editor command
+title: Generate images
 tags:
   - type: start
 meta:
   title: Generate images | Tiptap Content AI Docs
-  description: Integrate the aiImagePrompt into your editor to generate images with AI with a custom prompt and style. More in the docs!
+  description: Generate images with the OpenAI API and insert them into your Tiptap editor.
   category: Content AI
 ---
 
-import { Requirements, RequirementItem } from '@/components/Requirements'
+import { Callout } from '@/components/ui/Callout'
 
-<Requirements>
-  <RequirementItem label="1. Activate trial or subscribe">
-    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
-    plan](https://cloud.tiptap.dev/v2/billing) in your account.
-  </RequirementItem>
-  <RequirementItem label="2. Integrate an AI provider">
-    Configure OpenAI in your [AI settings](https://cloud.tiptap.dev/v2/cloud/ai) or review the
-    [Custom LLM guides](/content-ai/capabilities/generation/custom-llms).
-  </RequirementItem>
-  <RequirementItem label="3. Install from private registry">
-    To install the frontend extensions, authenticate to Tiptap’s private npm registry by following
-    the [setup guide](/guides/pro-extensions).
-  </RequirementItem>
-</Requirements>
+Generate images with AI and insert them in your document.
 
-The `aiImagePrompt` command in Tiptap Content AI enables you to generate images directly within the editor. You can use different OpenAI models and customize the style of the generated images.
+## Install the Image extension
 
-## Integrate aiImagePrompt
-
-Generates an image based on your prompt and the desired style.
-
-Make sure to load the image extension (`'@tiptap/extension-image'`) in your editor instance.
+Add the [`@tiptap/extension-image`](/editor/extensions/nodes/image) extension to your editor.
 
 ```js
-editor.chain().focus().aiImagePrompt(options: ImageOptions).run()
+import Image from '@tiptap/extension-image'
+import { Editor } from '@tiptap/core'
+
+const editor = new Editor({
+  extensions: [Image],
+})
 ```
 
-## Image command options
+## Generate the image on your server
 
-With these settings you can control how the image is generated:
+Call the OpenAI API from a server-side route so your API key is not exposed to the browser. Use an image generation model such as `gpt-image-2`.
 
-| Setting   | Type                                                                                            | Default          | Definition               |
-| --------- | ----------------------------------------------------------------------------------------------- | ---------------- | ------------------------ |
-| modelName | `dall-e-2`, `dall-e-3`, `null`                                                                  | `dall-e-3`       | The model used at OpenAI |
-| style     | `photorealistic`, `digital_art`, `comic_book`, `neon_punk`, `isometric`, `line_art`, `3d_model` | `photorealistic` | Define the image style   |
-| size      | `256x256`, `512x512`, `1024x1024`                                                               | `null`           |
+Then, store the generated image in your application's storage solution, such as S3, R2, Supabase Storage, or your own media service. Return the stored image URL to the client.
+
+<Callout title="Avoid storing images as base64" variant="warning">
+  Storing generated images as base64 in the document is not recommended, especially in collaborative documents. Base64 images significantly increase document size, slow down syncing, and can make collaboration updates more expensive to process.
+</Callout>
+
+```js
+import OpenAI from 'openai'
+
+const openai = new OpenAI()
+
+export async function POST(request) {
+  const { prompt } = await request.json()
+
+  const result = await openai.images.generate({
+    model: 'gpt-image-2',
+    prompt,
+    size: '1024x1024',
+  })
+
+  const imageBuffer = Buffer.from(result.data[0].b64_json, 'base64')
+  const imageSrc = await uploadImageToStorage(imageBuffer, {
+    contentType: 'image/png',
+    fileName: `generated-${Date.now()}.png`,
+  })
+
+  return Response.json({
+    imageSrc,
+  })
+}
+```
+
+The `uploadImageToStorage` function depends on your application. It should upload the image bytes to your storage provider and return a URL that the editor can render.
+
+## Insert the generated image
+
+Call your server route from the client and pass the returned image source to `setImage`.
+
+```js
+async function generateAndInsertImage(prompt) {
+  const response = await fetch('/api/generate-image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt }),
+  })
+
+  const { imageSrc } = await response.json()
+
+  editor.commands.setImage({ src: imageSrc })
+}
+```
+
+You can include additional attributes when inserting the image. See a [list of all available options](/editor/extensions/nodes/image).
+
+```js
+editor.commands.setImage({
+  src: imageSrc,
+  alt: prompt,
+  title: prompt,
+})
+```
