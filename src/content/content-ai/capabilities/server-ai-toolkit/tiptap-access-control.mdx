@@ -10,13 +10,10 @@ import { Callout } from '@/components/ui/Callout'
 
 <Callout title="Not generally available" variant="warning">
   The Tiptap Access Control authentication format is in preview and is not enabled by default. To
-  request access, email [humans@tiptap.dev](mailto:humans@tiptap.dev). Until it's enabled, keep
-  using the App ID + secret flow described in the [Install
-  guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) — it continues to
-  work unchanged.
+  request access, email [humans@tiptap.dev](mailto:humans@tiptap.dev).
 </Callout>
 
-Tiptap Access Control is a new authentication format that replaces the `X-App-Id` + per-service secret with a single signed JWT carrying explicit permissions. The two formats live side by side: the service routes a request to the new path only when the JWT's audience claim is `"AI"`, so existing integrations keep working without changes.
+Tiptap Access Control replaces the `X-App-Id` + per-service secret with a single signed JWT carrying explicit permissions.
 
 ## How to enable it
 
@@ -26,10 +23,10 @@ Tiptap Access Control is a new authentication format that replaces the `X-App-Id
 
 ## Permissions
 
-| Action            | Grants                                                                                                                                                                     |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI:Toolkit`      | All Server AI Toolkit endpoints (tools, workflows, execute-tool)                                                                                                           |
-| `Documents:Write` | Read, write, and comment access to Tiptap Cloud documents. Required when using `experimental_documentOptions` so the AI server can fetch and save documents automatically. |
+| Action            | Grants                                                                                                                                                                        |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI:Toolkit`      | All Server AI Toolkit endpoints.                                                                                                                                              |
+| `Documents:Write` | Read, write, and comment access to Tiptap Cloud documents. Required when using `document: { type: 'cloud', id }` so the AI server can fetch and save documents automatically. |
 
 `Documents:Write` implies read and comment access, so you do not need separate `Documents:Read` or `Documents:Comment` permissions for toolkit workflows.
 
@@ -98,7 +95,7 @@ TIPTAP_PRIVATE_KEY=your-private-key-pem
 
 ### Create a JWT token
 
-This function generates a JWT for authenticating with the Server AI Toolkit API. Pass a `documentId` when the Server AI Toolkit should fetch and save Tiptap Cloud documents automatically via `experimental_documentOptions`.
+This function generates a JWT for authenticating with the Server AI Toolkit API. Pass a `documentId` when the Server AI Toolkit should fetch and save a Tiptap Cloud document.
 
 ```ts
 // lib/server-ai-toolkit/create-jwt-token.ts
@@ -112,7 +109,14 @@ type CreateJwtTokenOptions = {
  * Generates a JWT for authenticating with the Server AI Toolkit API
  */
 export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promise<string> {
-  const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
+  const privateKeyPem = process.env.TIPTAP_PRIVATE_KEY
+  const environmentId = process.env.TIPTAP_ENVIRONMENT_ID
+
+  if (!privateKeyPem || !environmentId) {
+    throw new Error('Missing TIPTAP_PRIVATE_KEY or TIPTAP_ENVIRONMENT_ID')
+  }
+
+  const privateKey = await importPKCS8(privateKeyPem, 'ES256')
 
   const permissions: { action: string; resource: string }[] = [
     { action: 'AI:Toolkit', resource: '*' },
@@ -124,7 +128,7 @@ export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promi
 
   return new SignJWT({ permissions })
     .setProtectedHeader({ alg: 'ES256' })
-    .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
+    .setIssuer(environmentId)
     .setAudience(options.documentId ? ['AI', 'Documents'] : ['AI'])
     .setIssuedAt()
     .setExpirationTime('30m')
@@ -147,18 +151,22 @@ When using Tiptap Cloud documents, pass the document ID to include `Documents:Wr
 ```ts
 const jwt = await createJwtToken({ documentId: 'my-document-id' })
 
-const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${jwt}`,
   },
   body: JSON.stringify({
-    toolName: 'tiptapEdit',
-    input: toolCallInput,
     editorContext,
-    experimental_documentOptions: {
-      documentId,
+    document: {
+      type: 'cloud',
+      id: documentId,
+    },
+    user: 'ai-assistant',
+    tool: {
+      name: 'tiptapEdit',
+      input: toolCallInput,
     },
   }),
 })
