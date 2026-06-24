@@ -312,16 +312,16 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
                 },
                 {
-                  title: 'Tools',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
-                },
-                {
                   title: 'Editor context',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
                 },
                 {
                   title: 'Review options',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
+                },
+                {
+                  title: 'REST API (legacy v3)',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api-v3',
                 },
               ],
             },
