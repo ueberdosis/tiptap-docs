@@ -48,6 +48,11 @@ export const sidebarConfig: SidebarConfig = {
           tags: ['New'],
         },
         {
+          title: 'Endnotes',
+          href: '/pages/core-concepts/endnotes',
+          tags: ['New'],
+        },
+        {
           title: 'Page gap & background',
           href: '/pages/core-concepts/page-gap',
         },
