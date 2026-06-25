@@ -73,6 +73,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/templates/notion-like-editor',
           tags: ['Start'],
         },
+        {
+          title: 'DOCX Editor',
+          href: '/ui-components/templates/docx-editor',
+          tags: ['Team'],
+        },
       ],
     },
     {
