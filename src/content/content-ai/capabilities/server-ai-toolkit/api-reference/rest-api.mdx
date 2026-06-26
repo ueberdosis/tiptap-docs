@@ -196,9 +196,31 @@ Response:
 POST /v3/ai/toolkit/stream-tool
 ```
 
-Streams tool execution. The request shape matches `POST /v3/ai/toolkit/execute-tool`. The streaming response format is still being finalized.
+Streams tool execution over a duplex NDJSON connection: you send the AI-generated tool input incrementally as the model produces it, and the endpoint applies it and streams back its progress. For `tiptapEdit`, the edit appears in the document in real time. See the [Streaming guide](/content-ai/capabilities/server-ai-toolkit/agents/streaming) for an end-to-end example.
 
-Because this endpoint works on the document over a live connection, it can return connection and concurrency errors that the REST endpoints don't. They arrive as an `error` event in the response stream — see [Streaming and session errors](#streaming-and-session-errors).
+Both the request and response bodies are NDJSON: one JSON object per line. Every message carries `version: 1`.
+
+Request messages, sent in order:
+
+- `start`: opens the stream. Carries `toolName`, `editorContext`, and `experimental_documentOptions` (streaming targets a live Tiptap Cloud document, so it is required; an inline `document` is not supported), plus the optional `reviewOptions` and `format`.
+- `delta`: a chunk of the AI-generated tool input as `argsTextDelta`. Repeated as the model streams.
+- `end`: signals that the tool input is complete.
+
+```text
+{ "version": 1, "type": "start", "toolName": "tiptapEdit", "editorContext": {}, "experimental_documentOptions": { "documentId": "...", "userId": "..." } }
+{ "version": 1, "type": "delta", "argsTextDelta": "..." }
+{ "version": 1, "type": "end" }
+```
+
+Response events:
+
+- `action` (`tiptapEdit` only): one incremental edit, streamed as the input parses, so the client can render edits as they happen.
+- `operation_cancelled` (`tiptapEdit` only): the operation was cancelled because its target content was deleted by a concurrent edit. Carries a `reason` (`target_content_deleted`); no further `action` events follow for that operation.
+- `completed`: the tool finished. For `tiptapEdit`, carries the final `document`. For other tools, carries `output`, `hasError`, `docChanged`, and `document`.
+- `error`: an error occurred. Carries `code`, `status`, and `message`. See [Streaming and session errors](#streaming-and-session-errors).
+- `done`: the final event, after which the stream closes.
+
+Because this endpoint works on the document over a live connection, it can return connection and concurrency errors that the other REST endpoints don't. They arrive as an `error` event in the response stream. See [Streaming and session errors](#streaming-and-session-errors).
 
 ## Legacy workflow endpoints
 
