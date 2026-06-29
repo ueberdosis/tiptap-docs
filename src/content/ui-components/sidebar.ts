@@ -73,6 +73,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/templates/notion-like-editor',
           tags: ['Start'],
         },
+        {
+          title: 'DOCX Editor',
+          href: '/ui-components/templates/docx-editor',
+          tags: ['Team'],
+        },
       ],
     },
     {
@@ -153,6 +158,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/emoji-trigger-button',
             },
             {
+              title: 'Font family combobox',
+              href: '/ui-components/components/font-family-combobox',
+            },
+            {
               title: 'Heading button',
               href: '/ui-components/components/heading-button',
             },
@@ -201,6 +210,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/move-node-button',
             },
             {
+              title: 'Numbering format dropdown menu',
+              href: '/ui-components/components/numbering-format-dropdown-menu',
+            },
+            {
               title: 'Reset all formatting button',
               href: '/ui-components/components/reset-all-formatting-button',
             },
@@ -227,6 +240,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Undo redo button',
               href: '/ui-components/components/undo-redo-button',
+            },
+            {
+              title: 'Zoom dropdown menu',
+              href: '/ui-components/components/zoom-dropdown-menu',
             },
           ],
         },

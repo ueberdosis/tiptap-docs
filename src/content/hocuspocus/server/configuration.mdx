@@ -21,6 +21,9 @@ There are only a few settings to pass for now. Most things are controlled throug
 | `maxDebounce`      | Makes sure to call onStoreDocument at least in the given amount of time (ms).                                                        | `10000 (= 10s)` |
 | `quiet`            | By default, the servers show a start screen. If passed false, the server will start quietly.                                         | `false`         |
 | `websocketOptions` | Options forwarded to the underlying WebSocket server (e.g. `{ maxPayload: 1024 * 1024 }`). Moved inside the config object in v4.     | `{}`            |
+| `maxUnauthenticatedQueueSize`     | Maximum number of bytes buffered (across all documents) for a single connection while it is still unauthenticated. The connection is closed when exceeded. See [Pre-authentication resource limits](#pre-authentication-resource-limits). | `5242880 (= 5 MiB)` |
+| `maxUnauthenticatedQueueMessages` | Maximum number of messages buffered (across all documents) for a single connection while it is still unauthenticated. The connection is closed when exceeded.                                                                            | `1000`              |
+| `maxPendingDocuments`             | Maximum number of distinct documents a single connection may open before any of them is authenticated. The connection is closed when exceeded.                                                                                          | `100`               |
 
 ## Usage
 
@@ -65,3 +68,25 @@ const server = new Server<MyContext>({
 ```
 
 The generic defaults to `any`, so existing code without explicit typing continues to work.
+
+## Pre-authentication resource limits
+
+Messages received before authentication completes are buffered in memory per connection. Without a bound, an unauthenticated client could exhaust server memory (see [GHSA-xwhh-v746-pj9m](https://github.com/ueberdosis/hocuspocus/security/advisories/GHSA-xwhh-v746-pj9m)). Three settings cap this buffering, and the connection is closed as soon as any limit is exceeded:
+
+- `maxUnauthenticatedQueueSize` (default 5 MiB) — total buffered bytes per connection.
+- `maxUnauthenticatedQueueMessages` (default 1000) — total buffered messages per connection.
+- `maxPendingDocuments` (default 100) — distinct not-yet-authenticated documents a single connection may have open at once. Each pending document holds its own queue and hook payload, so this stops a client from fanning out across many document names while staying under the per-connection queue limits.
+
+In addition, the idle `timeout` is enforced as an *absolute* pre-authentication deadline (measured from when the connection was established and not refreshed by inbound traffic) until the connection authenticates its first document. After the first successful authentication, `timeout` reverts to the normal idle behavior for the rest of the socket's life.
+
+```js
+import { Server } from '@hocuspocus/server'
+
+const server = new Server({
+  maxUnauthenticatedQueueSize: 5 * 1024 * 1024, // 5 MiB
+  maxUnauthenticatedQueueMessages: 1000,
+  maxPendingDocuments: 100,
+})
+
+server.listen()
+```
