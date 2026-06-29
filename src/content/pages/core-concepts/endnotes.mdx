@@ -1,0 +1,385 @@
+---
+title: Endnotes
+meta:
+  title: Endnotes | Tiptap Pages Docs
+  description: Add Word-like endnotes to Tiptap Pages, collected at the end of the document with lowercase Roman numerals, in-place editing, and DOCX round-trip.
+  category: Pages
+sidebars:
+  hideSecondary: true
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+Endnotes let your readers annotate text with numbered notes that are gathered into a single list at the **end of the document**, exactly like in Microsoft Word. Each endnote is anchored to a superscript reference marker in the body text, and the collected list uses lowercase Roman numerals (`i, ii, iii…`), Word's default endnote format.
+
+Unlike footnotes, which sit at the bottom of the page that contains their marker, endnotes flow as ordinary content after the last body block. The list paginates naturally: if it's long, it continues onto additional pages with the same headers, footers, and page gaps as the rest of the document.
+
+<Callout title="Endnotes are not footnotes" variant="hint">
+  Endnotes collect at the end of the document; [footnotes](/pages/core-concepts/footnotes) sit at the
+  bottom of each page. The two features are independent and can be used together in the same document.
+</Callout>
+
+<Callout title="Imported from DOCX" variant="hint">
+  When you import a `.docx` file with the [DOCX import
+  extension](/conversion/import/docx/editor-extension#footnotes--endnotes), endnotes from the
+  document are auto-applied to Pages: references, content, and numbering. No extra wiring required.
+</Callout>
+
+<CodeDemo isPro path="/Extensions/PagesEndnotesImportExportDocx" />
+
+## Enabling endnotes
+
+Endnotes are disabled by default. Turn them on through the `endnotes` options group:
+
+```js
+import { Pages } from '@tiptap-pro/extension-pages'
+
+Pages.configure({
+  pageFormat: 'A4',
+  footer: 'Page {page} of {total}',
+  endnotes: {
+    enabled: true,
+  },
+})
+```
+
+That's all you need: the endnote reference node is registered automatically, and the document-end list renders as soon as the document contains endnotes.
+
+## How endnotes behave
+
+The mental model matches Microsoft Word:
+
+- **One marker, one note.** Each endnote is a superscript Roman numeral in the body text, paired with a numbered entry in the list at the end of the document.
+- **Endnotes live at the end of the document.** The list renders after the last body block, with a short separator rule above it.
+- **The list flows with the document.** Because it is ordinary content, a long list continues onto new pages, keeping the page headers, footers, and gaps. You never manage placement yourself.
+- **Numbering is automatic and continuous.** Endnotes are numbered `i, ii, iii…` in document order. Inserting an endnote between two existing ones renumbers everything after it; deleting one closes the gap. Numbers are computed, never stored, so they're always correct.
+
+## Inserting an endnote
+
+Call `insertEndnote()` to add an endnote at the current selection:
+
+```js
+editor.commands.insertEndnote()
+```
+
+This inserts the reference marker **after** the selection (selected text is kept, like in Word), creates an empty endnote, and opens the endnotes editor with the caret placed inside the new endnote so the user can type its content immediately.
+
+```jsx
+<button onClick={() => editor.commands.insertEndnote()}>Insert endnote</button>
+```
+
+## Editing endnotes
+
+Users edit endnotes directly by double-clicking the endnotes list at the end of the document. This opens a fully featured Tiptap editor in place over the list, with an edit bar that spans the page width. Each endnote is editable like regular rich text; double-clicking a specific endnote places the caret in it.
+
+Close the editor with <kbd>Escape</kbd>, the close button, or by double-clicking outside it. While the endnotes editor is open, the main document editor is temporarily non-editable, the same behavior as the header, footer, and footnotes editors.
+
+### Custom extensions
+
+The endnotes editor defaults to `ConvertKit`. Pass your own stack through `endnotes.extensions` to keep the schema consistent with your main editor:
+
+```ts
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+Pages.configure({
+  endnotes: {
+    enabled: true,
+    extensions: [ConvertKit.configure({ table: false })],
+  },
+})
+```
+
+<Callout title="Collaboration uses the callback form" variant="info">
+  `endnotes.extensions` also accepts a `(ctx) => Extensions` callback that receives the Y field name
+  and Y.Doc the endnotes editor should bind to. Use this form when you're wiring collaboration. See
+  [Endnotes and collaboration](#endnotes-and-collaboration) below.
+</Callout>
+
+### Active editor state
+
+While the endnotes editor is open, the extension exposes it through storage, the same pattern as headers, footers, and footnotes, so a unified toolbar works across all of them:
+
+- `activeEditor` – The Tiptap Editor instance of the open endnotes editor (or `null`)
+- `activeEditorType` – `'endnotes'` while editing endnotes (alongside the existing `'header'` / `'footer'` / `'footnotes'` / `null` values)
+- `endnotesEditorOn` / `endnotesEditorOff` – Subscribe/unsubscribe to events on the endnotes editor
+
+```tsx
+useEffect(() => {
+  if (!editor) return
+
+  const syncActiveEditorState = () => {
+    const { activeEditor, activeEditorType } = editor.storage.pages
+    // activeEditorType === 'endnotes' while the endnotes editor is open
+  }
+
+  editor.on('update', syncActiveEditorState)
+  return () => {
+    editor.off('update', syncActiveEditorState)
+  }
+}, [editor])
+```
+
+For a complete custom-toolbar example that follows the focused editor, see [Page header and footer → Building a custom toolbar](/pages/core-concepts/page-header-footer#building-a-custom-toolbar). Adding endnotes support to it only requires handling the additional `'endnotes'` value of `activeEditorType`.
+
+### Locking the endnotes
+
+Set `endnotes.editable` to `false` to render endnotes without the double-click editing affordance, or toggle at runtime:
+
+```js
+Pages.configure({
+  endnotes: { enabled: true, editable: false },
+})
+
+// Runtime
+editor.commands.setEndnotesEditable(false) // lock
+editor.commands.setEndnotesEditable(true) // unlock
+```
+
+When locked, endnotes still render normally; only editing is disabled. `openEndnoteEditor` returns `false`, double-click is inert, and an already-open endnotes editor is closed.
+
+### Preventing close on double-click
+
+Like headers, footers, and footnotes, you can keep the endnotes editor open when the user double-clicks outside it. This is useful when your own toolbar sits outside the editor:
+
+```js
+Pages.configure({
+  endnotes: { enabled: true },
+  onDblClickEndnotesPreventClose: (event) => {
+    const toolbar = document.querySelector('.my-toolbar')
+    return toolbar?.contains(event.target)
+  },
+})
+```
+
+The generic `onDblClickHeaderFooterPreventClose` callback acts as the fallback when the endnotes-specific one is not provided.
+
+### Programmatic open and close
+
+```js
+// Open the endnotes editor
+editor.commands.openEndnoteEditor()
+
+// Open it with the caret placed in a specific endnote
+editor.commands.openEndnoteEditor({ focusNoteId: '3' })
+
+// Close it
+editor.commands.closeEndnoteEditor()
+```
+
+`openEndnoteEditor` returns `false` when endnotes are disabled, locked, or the document has no endnotes yet.
+
+## Deleting endnotes and cleaning up
+
+Deleting a reference marker from the body immediately removes its endnote from the list and renumbers the rest. The endnote's **content is retained** behind the scenes so a plain undo restores the marker together with its text. This deliberately diverges from Word (which deletes the content immediately) in favor of undo safety.
+
+When you want to permanently discard content whose references are gone, call:
+
+```js
+editor.commands.cleanupOrphanEndnotes()
+```
+
+This returns `true` when at least one orphaned endnote was removed.
+
+## Copy & paste
+
+Copying text that contains an endnote marker and pasting it elsewhere duplicates the endnote, Word-style: the pasted marker gets its own endnote with a copy of the original content, and the numbering updates across the document. The two endnotes are independent from that point on.
+
+## References without content
+
+A reference marker always produces a visible endnote, even when no content exists for it yet (for example after `setContent()` with a document that contains markers but before any endnote content was provided). Such endnotes render as empty numbered entries, and opening the endnotes editor makes them immediately editable.
+
+## Navigating from a marker
+
+Clicking an endnote marker in the body scrolls the document so its endnote is visible, which is handy in long documents.
+
+## Configuration
+
+All endnote settings live in the `endnotes` options group:
+
+```ts
+Pages.configure({
+  endnotes: {
+    enabled: true, // master switch (default: false)
+    extensions: [ConvertKit], // editor extensions (or a collab-aware callback)
+    initialContent: undefined, // seed content, keyed by note id
+    separator: true, // the short rule above the list (default: true)
+    editable: true, // double-click editing (default: true)
+    accentColor: '#6366f1', // endnotes editor accent (defaults to accentColor)
+  },
+})
+```
+
+### Seeding initial content
+
+`initialContent` accepts endnote content keyed by note id, each id matching the `noteId` attribute of an `endnoteReference` node in your document content. The values are Tiptap `JSONContent` documents:
+
+```js
+Pages.configure({
+  endnotes: {
+    enabled: true,
+    initialContent: {
+      1: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'The first endnote.' }],
+          },
+        ],
+      },
+    },
+  },
+})
+```
+
+This is the exact shape the [DOCX import REST API](/conversion/import/docx/rest-api) returns in its `endnotes` field, so server-imported documents can be seeded directly.
+
+<Callout title="Collaboration" variant="info">
+  `initialContent` only applies when collaboration is **not** active. In collaborative documents the
+  shared document owns the endnote content. To load endnotes into a collaborative document as an
+  explicit user action (e.g. after a DOCX import), use the `setEndnotes` command instead.
+</Callout>
+
+### Separator rule
+
+Word draws a short horizontal rule between the body and the endnotes. It's on by default; disable it with `separator: false`.
+
+### Accent color
+
+The endnotes editor uses the shared `accentColor` by default; override it with `endnotes.accentColor` or at runtime:
+
+```js
+editor.commands.setEndnotesAccentColor('#10b981')
+```
+
+The accent affects the marker color in the body, the caret, and the editor's edit bar.
+
+## Accessing endnote content
+
+Endnote content is exposed on `editor.storage.pages`, keyed by note id:
+
+```js
+// Tiptap JSON per endnote, use this for persistence and DOCX export
+const endnotesJSON = editor.storage.pages.endnotesJSON
+// { '1': { type: 'doc', content: [...] }, 'en-abc123': { ... } }
+
+// Rendered HTML per endnote, matches what the document shows
+const endnotesHTML = editor.storage.pages.endnotesHTML
+
+// Current numbering (note id → 1-based number)
+const numbers = editor.storage.pages.endnoteNumbers
+```
+
+### Saving and restoring
+
+As with headers, footers, and footnotes, persisting endnote content is your responsibility. Save `endnotesJSON` alongside your document, and restore it with the `setEndnotes` command after loading the content:
+
+```js
+// Save
+await saveDocument({
+  content: editor.getJSON(),
+  endnotes: editor.storage.pages.endnotesJSON,
+})
+
+// Restore
+editor.commands.setContent(savedDocument.content)
+editor.commands.setEndnotes(savedDocument.endnotes)
+```
+
+`setEndnotes` replaces all endnote content from an id → document map. References in the body keep working because they're matched by id.
+
+## DOCX import and export
+
+Endnotes round-trip with Word documents out of the box:
+
+- **Import**: with the [DOCX import editor extension](/conversion/import/docx/editor-extension#footnotes--endnotes), endnotes from the imported file are auto-applied: markers appear in the body, content lands in the document-end list, numbering matches the source document. The import context also exposes the raw `footnotes` / `endnotes` data if you want to handle them yourself.
+- **Export**: with the [DOCX export editor extension](/conversion/export/docx/editor-extension), endnote content is auto-extracted from Pages and written as real Word endnotes: markers become live endnote references, and Word renders and renumbers them natively.
+
+No configuration is needed on either side. Install the import/export extensions next to Pages and endnotes are included.
+
+## Endnotes and collaboration
+
+Endnotes participate in collaboration alongside the main document: concurrent users see each other's endnote edits live, and inserting or deleting endnotes converges across clients, including the numbering.
+
+To opt in, pass `endnotes.extensions` as a **callback** that attaches a `Collaboration` extension to the endnotes editor, the same pattern headers, footers, and footnotes use:
+
+```ts
+Pages.configure({
+  endnotes: {
+    enabled: true,
+    extensions: (ctx) => {
+      const base = [ConvertKit.configure({ undoRedo: false })]
+      if (!ctx.isCollaborative || !ctx.ydoc) {
+        return base
+      }
+      return [...base, Collaboration.configure({ document: ctx.ydoc, field: ctx.field })]
+    },
+  },
+})
+```
+
+The callback receives the pre-computed Y field name (`ctx.field`) and the parent editor's Y.Doc (`ctx.ydoc`). See [Adding collaboration to Pages](/pages/guides/collaboration-with-pages) for the full collaboration setup, including the equivalent wiring for headers and footers.
+
+## What to expect
+
+- Word-like placement: a single endnotes list at the end of the document, with a separator rule, that flows across pages with full page chrome (headers, footers, and gaps).
+- Lowercase Roman numerals (`i, ii, iii…`), Word's default endnote format, with automatic, continuous numbering that updates on every insert, delete, paste, and reflow.
+- In-place editing by double-clicking the list, with an edit bar that spans the page width.
+- Rich-text endnote content with the extensions you configure.
+- DOCX round-trip with no extra configuration.
+
+## What not to expect
+
+- **Editing across a page break is a single surface.** When an endnote is long enough to span a page boundary, the rendered list paginates correctly, but the in-place editor shows the endnotes as one continuous surface while open (without the page break in between). The pagination reappears as soon as you close the editor.
+- **Lowercase Roman numbering only.** Endnotes number `i, ii, iii…` continuously through the document. Other formats (decimal, letters, symbols) and Word's section-restart options are not available yet.
+- **End of document only.** Endnotes always collect at the end of the document. Word's "end of section" placement is not supported.
+- **Tables inside endnotes don't export.** They render in the editor, but Word's endnote format only accepts paragraphs, so tables are dropped on DOCX export.
+
+<Callout title="Help us prioritise" variant="info">
+  If one of these gaps blocks your use case, let us know. Your feedback drives the roadmap.
+  <a href="https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd">
+    Share your use case with Tiptap
+  </a>
+</Callout>
+
+## Complete options reference
+
+All endnote settings live under the `endnotes` key of `Pages.configure()` unless noted otherwise.
+
+| Option                           | Type                                                | Default             | Description                                                                  |
+| -------------------------------- | --------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `enabled`                        | `boolean`                                           | `false`             | Master switch for the endnotes feature                                       |
+| `extensions`                     | `Extensions \| (ctx) => Extensions`                 | `ConvertKit`        | Extensions for the endnotes editor. Use the callback form for collaboration. |
+| `initialContent`                 | `Record<string, JSONContent>`                       | `undefined`         | Seed endnote content keyed by note id (non-collaborative documents only)     |
+| `separator`                      | `boolean`                                           | `true`              | Render the Word-style separator rule above the list                          |
+| `editable`                       | `boolean`                                           | `true`              | Whether double-clicking the list opens the endnotes editor                   |
+| `accentColor`                    | `string`                                            | `accentColor` value | Accent color for markers and the endnotes editor                             |
+| `onDblClickEndnotesPreventClose` | `(event: MouseEvent) => boolean` (top-level option) | `undefined`         | Prevent closing the endnotes editor on double-click outside                  |
+
+## Commands reference
+
+| Command                  | Parameters                              | Description                                                     |
+| ------------------------ | --------------------------------------- | -------------------------------------------------------------- |
+| `insertEndnote`          | none                                    | Insert an endnote at the selection and open its editor         |
+| `setEndnotes`            | `endnotes: Record<string, JSONContent>` | Replace all endnote content from an id → document map          |
+| `openEndnoteEditor`      | `{ focusNoteId?: string }` (optional)   | Open the endnotes editor, optionally focusing a specific note  |
+| `closeEndnoteEditor`     | none                                    | Close the endnotes editor if open                              |
+| `setEndnotesEditable`    | `enabled: boolean`                      | Lock or unlock endnotes editing                                |
+| `cleanupOrphanEndnotes`  | none                                    | Permanently remove endnote content whose references are gone   |
+| `setEndnotesAccentColor` | `color: string`                         | Set the endnotes accent color                                  |
+
+## Storage reference
+
+Read these from `editor.storage.pages`:
+
+| Property            | Type                                                        | Description                                                         |
+| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| `endnotesJSON`      | `Record<string, JSONContent>`                               | Endnote content per note id; use for persistence and DOCX export    |
+| `endnotesHTML`      | `Record<string, string>`                                    | Rendered HTML per note id, matching the document                    |
+| `endnoteNumbers`    | `Record<string, number>`                                    | Current numbering (note id → 1-based number)                        |
+| `endnotesEnabled`   | `boolean`                                                   | Whether endnotes are enabled                                        |
+| `editableEndnotes`  | `boolean`                                                   | Whether editing is unlocked (read-only; use `setEndnotesEditable`)  |
+| `activeEditorType`  | `'header' \| 'footer' \| 'footnotes' \| 'endnotes' \| null` | `'endnotes'` while the endnotes editor is open                      |
+| `endnotesEditorOn`  | `Editor['on'] \| null`                                      | Pre-bound subscriber for events on the endnotes editor              |
+| `endnotesEditorOff` | `Editor['off'] \| null`                                     | Pre-bound unsubscriber for the endnotes editor                      |
