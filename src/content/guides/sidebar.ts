@@ -82,7 +82,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/guides/nested-node-view-content',
-          title: 'Nested NodeViewContent',
+          title: 'Nested node views',
         },
       ],
     },
