@@ -14,7 +14,7 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
   ({ children, className, disableCopy, ...rest }, ref) => {
     const contentRef = useRef<HTMLDivElement>(null)
     const wrapperClassName = cn(
-      'bg-black text-white my-5 p-4 rounded-lg text-sm flex items-start gap-2',
+      'bg-black text-white my-5 p-4 rounded-lg text-sm relative items-start gap-2',
       className,
     )
 
@@ -29,14 +29,14 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
 
     return (
       <div className={wrapperClassName} {...rest} ref={ref}>
-        <div ref={contentRef} className="self-center w-full overflow-auto max-h-[36rem]">
+        <div ref={contentRef} className="overflow-auto max-h-[36rem]">
           {children}
         </div>
         {disableCopy ? null : (
           <button
             onClick={onCopy}
             aria-label={clipboard.copied ? 'Copied' : 'Copy code'}
-            className="flex items-center justify-center bg-white/0 border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
+            className="absolute top-4 right-4 flex items-center justify-center bg-black border border-white/20 rounded size-8 hover:bg-white/10 hover:border-white/40 transition-colors duration-200"
           >
             <span className="relative size-4">
               <CopyIcon

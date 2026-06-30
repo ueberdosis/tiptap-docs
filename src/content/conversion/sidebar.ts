@@ -311,6 +311,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/content-types/structures-and-media/footnotes-endnotes',
             },
             {
+              title: 'Comments',
+              href: '/conversion/content-types/structures-and-media/comments',
+            },
+            {
               title: 'Word styles',
               href: '/conversion/content-types/structures-and-media/word-styles',
             },

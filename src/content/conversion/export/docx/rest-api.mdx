@@ -30,7 +30,7 @@ import ElementOverridesRestApi from '../_shared/_element-overrides-rest-api.mdx'
 
 The DOCX export API converts Tiptap JSON documents into `.docx` (Microsoft Word) files. It uses the same conversion library as the [editor extension](/conversion/export/docx/editor-extension) and produces equivalent DOCX output for standard content.
 
-The REST API supports [style overrides](/conversion/export/docx/styles), [custom-node rendering via the DSL](/conversion/export/docx/custom-nodes-dsl), page size and margins, headers/footers, and element-level overrides (`tableOverrides`, `paragraphOverrides`, `textRunOverrides`, `tableCellOverrides`, `imageOverrides`). It does not accept JavaScript-function options. For the function-based custom-node API, use the [editor extension](/conversion/export/docx/editor-extension), which also works server-side.
+The REST API supports [style overrides](/conversion/export/docx/styles), [custom-node rendering via the DSL](/conversion/export/docx/custom-nodes-dsl), page size and margins, headers/footers, comment threads, and element-level overrides (`tableOverrides`, `paragraphOverrides`, `textRunOverrides`, `tableCellOverrides`, `imageOverrides`). It does not accept JavaScript-function options. For the function-based custom-node API, use the [editor extension](/conversion/export/docx/editor-extension), which also works server-side.
 
 <Callout title="Review the postman collection" variant="hint">
   You can also experiment with the Document Conversion API by heading over to our [Postman
@@ -95,6 +95,7 @@ curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/doc
 | `imageOverrides`     | `Object`          | Image rendering overrides                                                                                                                                                                                                                                                                                                                                                    | `undefined` |
 | `customNodeDsl`      | `Object`          | [Custom-node DSL](/conversion/export/docx/custom-nodes-dsl) rules                                                                                                                                                                                                                                                                                                            | `undefined` |
 | `placeholders`       | `Object \| false` | Optional `{ page?, total? }` rename map matching `Pages.configure({ placeholders })` so renamed tokens (e.g. `{p}` / `{pages}`) in plain-text headers/footers become live `PAGE` / `NUMPAGES` fields. Pass `false` to disable substitution entirely (literal `{page}` / `{total}` text in the exported `.docx`). See [Custom token names](#custom-token-names-placeholders). | `undefined` |
+| `comments`           | `Object`          | Comment threads to embed as native Word comments: `{ threads: [...] }`. Each thread carries its messages, author, dates, and resolved state, and is anchored to the document's `inlineThread` / `blockThread` marks. See [Comments](#comments).                                                                                                                              | `undefined` |
 
 #### Page Size Configuration
 
@@ -200,9 +201,9 @@ The `footers` object allows you to customize the footers of your exported DOCX d
 <Callout title="`{page}` / `{total}` tokens become live Word fields" variant="info">
   The REST API translates `{page}`, `{total}`, and the `{numpages}` synonym inside plain-text
   headers/footers into live Word `PAGE` / `NUMPAGES` fields in the exported `.docx`. Custom token
-  names (e.g. `{p}` / `{pages}`) require passing the optional `placeholders` rename map — see
-  [Custom token names](#custom-token-names-placeholders) below. Pass `"placeholders": false` to ship
-  the tokens as literal text instead.
+  names (e.g. `{p}` / `{pages}`) require passing the optional `placeholders` rename map. See [Custom
+  token names](#custom-token-names-placeholders) below. Pass `"placeholders": false` to ship the
+  tokens as literal text instead.
 </Callout>
 
 #### Custom token names (`placeholders`)
@@ -217,7 +218,7 @@ When the editor renames the built-in tokens via [`Pages.configure({ placeholders
 }
 ```
 
-When the map is omitted, the service falls back to recognizing `{page}`, `{total}`, and `{numpages}` (Word's spelling for the total-pages field, kept as a synonym so direct REST API callers can mirror what `/import/docx` emits). Renaming `total` removes the `{numpages}` synonym so stale tokens render literally — the rename is strict. Pass `"placeholders": false` to disable substitution on every slot so all `{page}` / `{total}` text ships literally with no live fields.
+When the map is omitted, the service falls back to recognizing `{page}`, `{total}`, and `{numpages}` (Word's spelling for the total-pages field, kept as a synonym so direct REST API callers can mirror what `/import/docx` emits). Renaming `total` removes the `{numpages}` synonym so stale tokens render literally; the rename is strict. Pass `"placeholders": false` to disable substitution on every slot so all `{page}` / `{total}` text ships literally with no live fields.
 
 **Example cURL with custom footers:**
 
@@ -229,6 +230,52 @@ curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/doc
       "doc": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Document with custom footers\"}]}]}",
       "exportType": "blob",
       "footers": {"evenAndOddFooters": true, "default": "Default Footer", "first": "First Page Footer", "even": "Even Page Footer"}
+    }'
+```
+
+### Comments
+
+Pass a `comments` object to embed comment threads as native Word comments in the exported `.docx`. Each thread is anchored to the text it belongs to through the document's own comment markers: an `inlineThread` mark whose `data-thread-id` matches the thread `id`, or a `blockThread` node. The `comments` field supplies the thread bodies, authors, dates, and resolved state.
+
+The shape mirrors the editor's export extension:
+
+| Field                  | Type               | Description                                                                                                                    |
+| ---------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `threads`              | `Array`            | The comment threads to embed.                                                                                                  |
+| `threads[].id`         | `String`           | Thread id. Must match the `data-thread-id` on the matching `inlineThread` / `blockThread` in `doc`.                            |
+| `threads[].resolvedAt` | `String \| null`   | When set, the thread is exported as resolved.                                                                                  |
+| `threads[].comments`   | `Array`            | The thread's messages, root first, then replies in order.                                                                      |
+| `comments[].id`        | `String`           | Message id.                                                                                                                    |
+| `comments[].content`   | `String \| Object` | The message body as plain text or Tiptap JSON.                                                                                 |
+| `comments[].data`      | `Object`           | Optional metadata: `author`, `initials`, `dateIso`, `dateUtc`, and round-trip identities (`originalWId`, `originalDurableId`). |
+
+When omitted, the export contains no comments, so existing requests are unaffected.
+
+**Example cURL with a comment thread:**
+
+```bash
+curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -H "X-App-Id: YOUR_APP_ID" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "doc": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Reviewed text\",\"marks\":[{\"type\":\"inlineThread\",\"attrs\":{\"data-thread-id\":\"T1\"}}]}]}]}",
+      "exportType": "blob",
+      "comments": {
+        "threads": [
+          {
+            "id": "T1",
+            "resolvedAt": null,
+            "comments": [
+              {
+                "id": "c1",
+                "content": "Please cite a source.",
+                "data": { "author": "Ada Lovelace", "initials": "AL", "dateIso": "2026-01-01T00:00:00.000Z" }
+              }
+            ]
+          }
+        ]
+      }
     }'
 ```
 
@@ -295,7 +342,7 @@ On success the API returns the DOCX file as a binary download:
 Converts a font into a form that can be embedded into a DOCX file: `TTF` / `OTF` uploads are returned unchanged, and `WOFF2` uploads are converted to `TTF`. This is the endpoint the editor extension's [`embedFonts`](/conversion/export/docx/fonts#automatic-embedding) option calls behind the scenes; you can also call it directly. Available from Convert Service **v2.25.0**.
 
 <Callout>
-  The endpoint is stateless — nothing is stored. Each request is converted and the temporary files
+  The endpoint is stateless: nothing is stored. Each request is converted and the temporary files
   are cleaned up immediately.
 </Callout>
 
@@ -334,7 +381,7 @@ On success the API returns the embeddable font as a binary download:
 
 | Status | Code                      | Description                                            |
 | ------ | ------------------------- | ------------------------------------------------------ |
-| 400    | —                         | Request validation error (e.g. no `file` field)        |
+| 400    | None                      | Request validation error (e.g. no `file` field)        |
 | 413    | `FONT_FILE_TOO_LARGE`     | The uploaded font exceeds the 25MB limit               |
 | 422    | `UNSUPPORTED_FONT_FORMAT` | The upload is not a recognized TTF, OTF, or WOFF2 font |
 | 422    | `FONT_CONVERSION_FAILED`  | The WOFF2 → TTF conversion produced no output          |
