@@ -10,6 +10,11 @@ export const redirects = [
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
+        destination: '/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization',
+        permanent: true,
+      },
+      {
         source: '/feed',
         destination: '/',
         permanent: true,
