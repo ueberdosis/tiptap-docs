@@ -21,7 +21,11 @@ import { Requirements, RequirementItem } from '@/components/Requirements'
     or your preferred package manager.
   </RequirementItem>
   <RequirementItem label="3. Authenticate to the service">
-    Configure your Content AI credentials to access the Server AI Toolkit service.
+    Configure a{' '}
+    <a href="/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization">
+      Tiptap Access Control JWT
+    </a>{' '}
+    to access the Server AI Toolkit service.
   </RequirementItem>
 </Requirements>
 
@@ -55,19 +59,13 @@ npx create-next-app@latest server-ai-agent-chatbot
 Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
 
 ```bash
-npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jsonwebtoken
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jose
 ```
 
 Install the Server AI Toolkit package:
 
 ```bash
 npm install @tiptap/server-ai-toolkit
-```
-
-Install TypeScript types for jsonwebtoken:
-
-```bash
-npm install --save-dev @types/jsonwebtoken
 ```
 
 ## API endpoint
@@ -117,11 +115,15 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
 }> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
-  const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
+  const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
     method: 'POST',
     headers: await getAuthHeaders(),
     body: JSON.stringify({
       editorContext,
+      tools: {
+        tiptapRead: true,
+        tiptapEdit: true,
+      },
     }),
   })
 
@@ -130,7 +132,10 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
   }
   const responseData = await response.json()
 
-  return responseData
+  return {
+    prompt: responseData.systemPrompt,
+    tools: responseData.tools,
+  }
 }
 ```
 
@@ -141,7 +146,7 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
 
 #### Execute tool
 
-This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document using the credentials in the JWT.
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document when the JWT includes `Documents:Write` permission for that document.
 
 ```ts
 // lib/server-ai-toolkit/execute-tool.ts
@@ -155,17 +160,27 @@ export async function executeTool(
   input: unknown,
   documentId: string,
   editorContext: unknown,
-): Promise<{ output: unknown; toolResult: unknown; docChanged: boolean; document: object | null }> {
+): Promise<{
+  tool: { name: string; output: unknown }
+  docChanged: boolean
+  document: object | null
+}> {
   const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
-  const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
+  const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
     method: 'POST',
-    headers: await getAuthHeaders(),
+    headers: await getAuthHeaders(documentId),
     body: JSON.stringify({
-      toolName,
-      input,
-      experimental_documentOptions: { documentId },
       editorContext,
+      document: {
+        type: 'cloud',
+        id: documentId,
+      },
+      user: 'ai-assistant',
+      tool: {
+        name: toolName,
+        input,
+      },
     }),
   })
 
@@ -211,7 +226,7 @@ export async function POST(req: Request) {
         execute: async (input) => {
           try {
             const result = await executeTool(toolDef.name, input, documentId, editorContext)
-            return result.output
+            return result.tool.output
           } catch (error) {
             console.error(`Failed to execute tool ${toolDef.name}:`, error)
             return {
@@ -263,7 +278,9 @@ export async function getCollabConfig(
   documentName: string,
 ): Promise<{ token: string; appId: string }> {
   if (!TIPTAP_PRIVATE_KEY || !TIPTAP_ENVIRONMENT_ID) {
-    throw new Error('TIPTAP_PRIVATE_KEY and TIPTAP_ENVIRONMENT_ID environment variables must be set')
+    throw new Error(
+      'TIPTAP_PRIVATE_KEY and TIPTAP_ENVIRONMENT_ID environment variables must be set',
+    )
   }
 
   if (!TIPTAP_CLOUD_DOCUMENT_SERVER_ID) {
@@ -396,9 +413,9 @@ export default function Page() {
 ```
 
 <Callout title="Document state management" variant="info">
-  This implementation passes a `documentId` via `experimental_documentOptions` so the Server AI
-  Toolkit automatically fetches and saves the document from Tiptap Cloud. The client uses Tiptap
-  Collaboration to sync changes in real-time.
+  This implementation passes `document: { type: 'cloud', id: documentId }` so the Server AI Toolkit
+  automatically fetches and saves the document from Tiptap Cloud. The client uses Tiptap
+  Collaboration to sync changes in real time.
 </Callout>
 
 ## End result
@@ -417,8 +434,7 @@ See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 ## Alternative: provide the document directly
 
 Instead of using Tiptap Cloud documents, you can provide and manage the document yourself by
-passing a `document` field (instead of `experimental_documentOptions`) in the execute-tool request
-body.
+passing an inline `document` field in the execute-tool request body.
 
 With this approach, you need to fetch the document before each tool execution and save back the
 updated document when `docChanged` is `true`.
@@ -427,14 +443,19 @@ updated document when `docChanged` is `true`.
 import { loadDocument, saveDocument } from './db'
 
 const document = await loadDocument()
-const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
   method: 'POST',
-  headers: getAuthHeaders(),
+  headers: await getAuthHeaders(),
   body: JSON.stringify({
-    toolName,
-    input,
-    experimental_documentOptions: { documentId },
     editorContext,
+    document: {
+      type: 'inline',
+      content: document,
+    },
+    tool: {
+      name: toolName,
+      input,
+    },
   }),
 })
 

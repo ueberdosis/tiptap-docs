@@ -274,10 +274,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/install',
             },
             {
-              title: 'Authorization',
-              href: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
-            },
-            {
               title: 'Agents',
               href: '/content-ai/capabilities/server-ai-toolkit/agents',
               children: [
@@ -298,10 +294,6 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/agents/streaming',
                 },
               ],
-            },
-            {
-              title: 'Workflows',
-              href: '/content-ai/capabilities/server-ai-toolkit/workflows',
             },
             {
               title: 'API reference',

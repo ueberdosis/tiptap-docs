@@ -21,7 +21,11 @@ import Link from '@/components/Link'
     or your preferred package manager.
   </RequirementItem>
   <RequirementItem label="3. Authenticate to the service">
-    Configure your Content AI credentials to access the Server AI Toolkit service.
+    Configure a{' '}
+    <a href="/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization">
+      Tiptap Access Control JWT
+    </a>{' '}
+    to access the Server AI Toolkit service.
   </RequirementItem>
 </Requirements>
 
@@ -70,7 +74,14 @@ For more details, see the [Editor context API reference](/content-ai/capabilitie
 
 ## Set up authorization
 
-The Server AI Toolkit is a cloud or on-premises service. Authenticate its REST API with a signed token carrying `aud: "AI"` and the `AI:Toolkit` permission. When the toolkit should fetch and save your Tiptap Cloud documents automatically, also grant `Documents:Write`. See [Authentication](/authentication) for how to create a key pair and sign tokens.
+The Server AI Toolkit is a cloud or on-premises service. Authenticate to access its REST API.
+
+1. **Create a secret** in the Tiptap Cloud dashboard. Go to `Authentication > Secrets > Add Secret`. The dashboard generates an ES256 key pair and shows you the **private key** once. Store the private key.
+2. **Copy your environment ID** from the dashboard. Go to `Authentication > Environment ID`. Use it as the JWT `iss` claim.
+3. **Generate a Tiptap Access Control JWT** on your server. See the [JWT token guide](#create-a-jwt-token) below.
+4. **Use the JWT** in API requests. Pass it in the `Authorization: Bearer JWT` header.
+
+For the full JWT format and signing examples, see the [Authentication reference](/authentication).
 
 ### Environment variables
 
@@ -89,34 +100,30 @@ TIPTAP_PRIVATE_KEY=your-private-key-pem
 
 ### Create a JWT token
 
-This function signs a token for the Server AI Toolkit API. Pass a `documentId` when the toolkit should fetch and save Tiptap Cloud documents automatically via `experimental_documentOptions`.
+The `createJwtToken` function signs a token for the Server AI Toolkit API. Pass a `documentId` when the AI Toolkit should read and edit a Tiptap Cloud document.
 
 ```ts
 // lib/server-ai-toolkit/create-jwt-token.ts
 import { SignJWT, importPKCS8 } from 'jose'
 
-type CreateJwtTokenOptions = {
-  documentId?: string
-}
-
 /**
  * Signs a JWT for authenticating with the Server AI Toolkit API
  */
-export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promise<string> {
+export async function createJwtToken(documentId?: string): Promise<string> {
   const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
 
   const permissions: { action: string; resource: string }[] = [
     { action: 'AI:Toolkit', resource: '*' },
   ]
 
-  if (options.documentId) {
-    permissions.push({ action: 'Documents:Write', resource: options.documentId })
+  if (documentId) {
+    permissions.push({ action: 'Documents:Write', resource: documentId })
   }
 
   return new SignJWT({ permissions })
     .setProtectedHeader({ alg: 'ES256' })
     .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
-    .setAudience(options.documentId ? ['AI', 'Documents'] : ['AI'])
+    .setAudience(documentId ? ['AI', 'Documents'] : ['AI'])
     .setIssuedAt()
     .setExpirationTime('30m')
     .sign(privateKey)
@@ -125,7 +132,7 @@ export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promi
 
 ### Get authentication headers
 
-This function returns the headers required for Server AI Toolkit API requests. No App ID is sent.
+This function returns the authentication headers required for Server AI Toolkit API requests. It is asynchronous because it signs a fresh JWT, so all examples use `await getAuthHeaders(...)`.
 
 ```ts
 // lib/server-ai-toolkit/get-auth-headers.ts
@@ -137,7 +144,7 @@ import { createJwtToken } from './create-jwt-token'
 export async function getAuthHeaders(documentId?: string): Promise<Record<string, string>> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${await createJwtToken({ documentId })}`,
+    Authorization: `Bearer ${await createJwtToken(documentId)}`,
   }
 }
 ```
@@ -150,7 +157,8 @@ export async function getAuthHeaders(documentId?: string): Promise<Record<string
 
 <Callout title="Maintaining an existing integration?" variant="info">
   The previous App ID and secret (HS256) flow, which sent the App ID in `X-App-Id` and embedded
-  document server credentials as JWT claims, is documented under [Legacy authentication](/authentication/legacy).
+  document server credentials as JWT claims, is documented under [Legacy
+  authentication](/authentication/legacy).
 </Callout>
 
 ## Call API endpoints
@@ -162,11 +170,15 @@ import { getAuthHeaders } from './lib/server-ai-toolkit/get-auth-headers'
 
 const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
 
-const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
   method: 'POST',
   headers: await getAuthHeaders(),
   body: JSON.stringify({
     editorContext,
+    tools: {
+      tiptapRead: true,
+      tiptapEdit: true,
+    },
   }),
 })
 
