@@ -65,7 +65,13 @@ Access the Collaboration Management API to manage your documents efficiently. Fo
 | Update Version     | PATCH      | `/api/documents/:identifier/versions/:versionId` | Update a version's name or metadata.                                                     |
 | Revert to Version  | POST       | `/api/documents/:identifier/versions/:versionId/revertTo` | Revert a document to an older version.                                        |
 | Update Document    | PATCH      | `/api/documents/:identifier`                 | Apply a Yjs update message to an existing document.                                          |
+| Replace Document   | PUT        | `/api/documents/:identifier`                 | Replace a document with a Yjs update message (same semantics as `PATCH`).                    |
+| Check Document Exists | HEAD    | `/api/documents/:identifier`                 | Check whether a document exists (no response body).                                          |
 | Delete Document    | DELETE     | `/api/documents/:identifier`                 | Delete a document from the server.                                                           |
+| Delete Version     | DELETE     | `/api/documents/:identifier/versions/:versionId` | Delete a specific version of a document.                                                 |
+| Export Document    | GET        | `/api/documents/:identifier/export`          | Export a document and all its versions as a `.zip` archive.                                  |
+| Import Document    | POST       | `/api/documents/:identifier/import`          | Import a document (and its versions) from an exported `.zip` archive.                        |
+| Send Stateless Message | POST   | `/api/documents/:identifier/stateless`       | Broadcast a stateless message to all connected clients of a document.                        |
 
 Take a look at the [metrics and statistics endpoints](/collaboration/operations/metrics) as well!
 
@@ -331,6 +337,21 @@ This call lets you update a version's name or metadata. You can use this to rena
 
 For available request body parameters and examples, see the [Postman Collection](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/folder/33042171-a6e8aa7e-c077-46ee-a2a3-241f8efd5d25?action=share&creator=33042171&active-environment=33042171-378cfb31-9c16-40f0-95b8-b9f0d3c7d2ab).
 
+### Delete a version
+
+```bash
+DELETE /api/documents/:identifier/versions/:versionId
+```
+
+This call deletes a single version of a document. The `:versionId` is the version number returned by the list/get version endpoints.
+
+The endpoint returns HTTP status `204` if the version was deleted successfully, or `404` if the document or version is not found.
+
+```bash
+curl --location --request DELETE 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/versions/VERSION_ID' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+```
+
 
 ## Update a document
 
@@ -339,6 +360,8 @@ PATCH /api/documents/:identifier
 ```
 
 This call accepts a Yjs update message and applies it to the existing document on the server.
+
+The same endpoint is also available as `PUT /api/documents/:identifier`, which behaves identically to `PATCH` (same body and query parameters).
 
 The endpoint returns the HTTP status `204` if the document was updated successfully, `404` if
 the document does not exist, or `422` if the payload is invalid or the update cannot be applied.
@@ -372,3 +395,70 @@ curl --location --request DELETE 'https://YOUR_APP_ID.collab.tiptap.cloud/api/do
 <Callout title="Document persists after deletion" variant="hint">
   If the endpoint returns `204` but the document still exists, make sure that no user is re-creating the document from the provider. We close all connections before deleting a document, but your error handling might recreate the provider, thus creating the document again.
 </Callout>
+
+## Check if a document exists
+
+```bash
+HEAD /api/documents/:identifier
+```
+
+This call checks whether a document with the given identifier exists, without transferring its content. The response has no body.
+
+It returns HTTP status `200` if the document exists, or `404` if it does not. Existence is independent of the document's active/inactive state.
+
+```bash
+curl --location --head 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+```
+
+## Export and import a document
+
+Use these endpoints to move a document&mdash;together with all of its versions&mdash;between servers or to create a portable backup. Unlike [duplicating a document](#duplicate-a-document), the export archive preserves the document's version history.
+
+### Export a document
+
+```bash
+GET /api/documents/:identifier/export
+```
+
+This call exports the current document and all of its versions as a `.zip` archive (`Content-Type: application/zip`). The archive can later be imported again with the import endpoint.
+
+It returns HTTP status `200` with the archive as the response body, or `404` if the document does not exist.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/export' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--output export.zip
+```
+
+### Import a document
+
+```bash
+POST /api/documents/:identifier/import
+```
+
+This call imports a document (and its versions) from an archive previously created with the export endpoint. Send the archive as the raw request body. The target `:identifier` must not already exist.
+
+The endpoint streams newline-delimited JSON (NDJSON) progress events while it works and finishes with a `done` event carrying the final status: `201` on success, `409` if a document with the target identifier already exists, `400` if the archive is malformed, or `413` if the archive exceeds the maximum allowed body size.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/import' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--data-binary '@export.zip'
+```
+
+## Send a stateless message
+
+```bash
+POST /api/documents/:identifier/stateless
+```
+
+This call broadcasts a custom payload to all clients currently connected to the document. Clients receive it as a [stateless message](/collaboration/provider/events), which you can handle with the provider's `onStateless` callback or by listening to the `stateless` event.
+
+The request body is sent verbatim as the stateless payload. The endpoint returns HTTP status `204` once the message has been broadcast.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/stateless' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Content-Type: application/json' \
+--data '{ "type": "ping", "payload": "hello" }'
