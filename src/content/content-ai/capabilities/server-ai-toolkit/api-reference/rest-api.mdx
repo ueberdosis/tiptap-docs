@@ -25,37 +25,35 @@ The Server AI Toolkit provides REST API endpoints for AI agent tools.
 
 ## Authentication
 
-All requests must include:
+All requests must include a signed token in the `Authorization` header:
 
 - `Authorization: Bearer <JWT>`
-- `X-App-Id: <APP_ID>`
 
-Generate the JWT server-side with your AI secret. Get your App ID and secret key on the [Server AI
-Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
+Sign the token server-side with `aud: "AI"` and the `AI:Toolkit` permission. To fetch and save Tiptap Cloud documents automatically, also grant `Documents:Write`. See [Authentication](/authentication) for how to create a key pair and sign tokens, and the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) for the full setup.
 
 ```ts
-import jwt from 'jsonwebtoken'
+import { SignJWT, importPKCS8 } from 'jose'
 
-const JWT_TOKEN = jwt.sign(
-  {
-    experimental_document_server_id: 'your-document-server-id',
-    experimental_document_server_management_api_secret:
-      'your-document-server-management-api-secret',
-  },
-  'your-ai-secret-key',
-  { expiresIn: '1h' },
-)
+const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY, 'ES256')
+
+const JWT_TOKEN = await new SignJWT({
+  permissions: [
+    { action: 'AI:Toolkit', resource: '*' },
+    { action: 'Documents:Write', resource: 'your-document-id' },
+  ],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID)
+  .setAudience(['AI', 'Documents'])
+  .setExpirationTime('30m')
+  .sign(privateKey)
 ```
 
-See the [authorization guide](/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization) for more information.
+The previous App ID and secret flow is documented under [Legacy authentication](/authentication/legacy).
 
-### Document Server credentials
+### Document access
 
-Include these JWT claims when you want the Server AI Toolkit to fetch and save Tiptap Cloud
-documents automatically:
-
-- `experimental_document_server_id`
-- `experimental_document_server_management_api_secret`
+To let the Server AI Toolkit fetch and save Tiptap Cloud documents, include `Documents:Write` in the token's permissions and reference the document via `experimental_documentOptions` in the request body (see [How to provide the document](#how-to-provide-the-document)).
 
 ## Base URL
 
@@ -231,7 +229,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/workflows/edit' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "format": "shorthand"
   }'
@@ -271,7 +268,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/read-document' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "format": "shorthand",
@@ -324,7 +320,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/read-selection' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "range": { "from": 10, "to": 42 },
@@ -363,7 +358,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/read/threads' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "format": "shorthand",
@@ -406,7 +400,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/insert-content' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "input": "This is the replacement content.",
@@ -454,7 +447,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/tiptap-edit' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "input": {
@@ -507,7 +499,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/proofreader' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "input": {
@@ -554,7 +545,6 @@ Example:
 curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
   --header 'Content-Type: application/json' \
   --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
-  --header 'X-App-Id: YOUR_APP_ID' \
   --data '{
     "schemaAwarenessData": { /* schema awareness data */ },
     "input": {
@@ -605,7 +595,7 @@ The API uses standard HTTP error codes:
 
 - `400 Bad Request`: Invalid body, invalid format, missing document source, or missing Document
   Server credentials
-- `401 Unauthorized`: Missing or invalid JWT or App ID
+- `401 Unauthorized`: Missing or invalid token
 - `404 Not Found`: Unknown endpoint or tool
 - `422 Unprocessable Entity`: Validation failed
 - `429 Too Many Requests`: Duplicate request or rate-limit protection

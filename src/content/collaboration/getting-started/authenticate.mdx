@@ -2,185 +2,121 @@
 title: Authenticate and authorize in Collaboration
 meta:
   title: Auth Guide | Tiptap Collaboration Docs
-  description: Secure and manage access in your collaborative editor with JWTs, covering setup, testing, and production integration.
+  description: Authorize collaborative editing with Tiptap authentication. Scope a token to the Documents service and grant per-document read, write, and comment access.
   category: Collaboration
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-After setting up a collaborative editor in the installation guide, it's crucial to address authentication for longer-term use. The temporary JWT provided in your [Tiptap account](https://cloud.tiptap.dev/v2/configuration/document-server) is only suitable for brief testing sessions.
+Collaboration authenticates against the Documents service. You sign a JWT on your server and pass it to the provider when a client connects. The token names which documents a user can reach and what they may do with them.
 
-<Callout title="Need help with JWT?" variant="hint">
-  If you need assistance with setting up server-side JWT authentication, you can find guidance at
-  the [bottom of the page](#integrate-jwt-server-side).
+<Callout title="New to Tiptap authentication?" variant="hint">
+  This page covers the Documents-specific claims. To create a key pair and sign a token, see [Authentication](/authentication). For the previous `allowedDocumentNames` model, see [Legacy authentication](/authentication/legacy).
 </Callout>
 
-## Set up authorization
+## Audience and actions
 
-Setting up the right access controls is important for keeping your documents secure and workflows smooth in Tiptap Collaboration.
+Set the `aud` claim to `"Documents"`. Collaboration recognizes these actions:
 
-This part of the guide walks you through how to use JSON Web Tokens (JWTs) to fine-tune who gets to see and edit what. Whether you need to give someone full access, restrict them to certain documents, or block access entirely, we've got you covered with minimalistic examples.
+| Action | Grants |
+| --- | --- |
+| `Documents:Read` | Open and read a document |
+| `Documents:Write` | Edit a document. Implies `Documents:Read` and `Documents:Comment` |
+| `Documents:Comment` | Add comments without editing |
+| `Documents:Api:All` | Full access to every Document Server API endpoint, including settings. Keep this token server-side. See [REST API](/collaboration/documents/rest-api) |
+
+Because `Documents:Write` implies read and comment, granting write alone is enough for full editing access.
+
+## Authorize per document
+
+The `resource` field names the document a permission applies to. Use `"*"` for every document, an exact document name for a single one, or `"*"` with constraints to match a group.
+
+### Full access to every document
+
+```json
+{
+  "aud": "Documents",
+  "permissions": [{ "action": "Documents:Write", "resource": "*" }]
+}
+```
 
 <Callout title="Caution" variant="warning">
-  If you exclude the `allowedDocumentNames` property from your JWT setup, users can access all
-  documents in your system!
+  A permission with `"resource": "*"` and no constraints matches every document in your environment. Scope the resource when a user should only reach specific documents.
 </Callout>
 
-### Allow full access to every document
+### Specific documents
 
-Omitting the `allowedDocumentNames` property from the JWT payload grants the user access to all documents. This is useful for users who need unrestricted access.
-
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = { sub: 'your_local_user_identifier' }
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
-```
-
-### Limit access to specific documents
-
-To restrict a user's access to specific documents, include those document names in the `allowedDocumentNames` array within the JWT payload. This ensures the user can only access the listed documents.
-
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = {
-  sub: 'your_local_user_identifier',
-  allowedDocumentNames: ['user-specific-document-1', 'user-specific-document-2'],
+```json
+{
+  "permissions": [
+    { "action": "Documents:Write", "resource": "user-specific-document-1" },
+    { "action": "Documents:Write", "resource": "user-specific-document-2" }
+  ]
 }
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
 ```
 
-### Block access to all documents
+### Read-only access
 
-To prohibit a user from accessing any documents, provide an empty array for `allowedDocumentNames` in the JWT payload. This effectively blocks access to all documents, except if granted using `readonlyDocumentNames`.
+Grant `Documents:Read` without `Documents:Write`:
 
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = {
-  sub: 'your_local_user_identifier',
-  allowedDocumentNames: [],
+```json
+{
+  "permissions": [{ "action": "Documents:Read", "resource": "annual-report-2024" }]
 }
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
 ```
 
-## Set Read-Only access
+### Comment without editing
 
-The `readonlyDocumentNames` property in your JWT setup plays a crucial role when you need to allow users to view documents without the ability to edit them. This feature is particularly useful in scenarios where you want to share information with team members for review or reference purposes but need to maintain the integrity of the original document.
-
-By specifying document names in the `readonlyDocumentNames` array, you grant users read-only access to those documents. Users can open and read the documents, but any attempts to modify the content will be restricted. This ensures that sensitive or critical information remains unchanged while still being accessible for necessary personnel.
-
-In this example, we grant read-only access to two documents, `annual-report-2024` and `policy-document-v3`. Users with this JWT can view these documents but cannot make any edits.
-
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = {
-  sub: 'your_local_user_identifier',
-  allowedDocumentNames: ['annual-report-2024', 'policy-document-v3'], // or [] ; if you omit "allowedDocumentNames", the user has read-write to all documents, except the ones mentioned in readonlyDocumentNames (as mentioned above!),
-  readonlyDocumentNames: ['annual-report-2024', 'policy-document-v3'],
+```json
+{
+  "permissions": [
+    { "action": "Documents:Read", "resource": "policy-document-v3" },
+    { "action": "Documents:Comment", "resource": "policy-document-v3" }
+  ]
 }
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
 ```
 
-Incorporating the `readonlyDocumentNames` property into your JWT strategy improves document security by ensuring that only authorized edits are made, preserving the integrity of your critical documents.
+### A group of documents
 
-## Allow commenting while on read-only access
+Use a `prefix` constraint instead of listing each document by name:
 
-If you want to forbid editing the document but still allow comments, you can add `commentDocumentNames` to the JWT.
-
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = {
-  sub: 'your_local_user_identifier',
-  allowedDocumentNames: [], // no write access to any doc
-  readonlyDocumentNames: ['annual-report-2024', 'policy-document-v3'], // read access
-  commentDocumentNames: ['annual-report-2024', 'policy-document-v3'], // plus comments access
+```json
+{
+  "permissions": [
+    {
+      "action": "Documents:Write",
+      "resource": "*",
+      "constraints": { "prefix": "project-alpha/" }
+    }
+  ]
 }
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
 ```
 
-## Authorize with Wildcards
+This grants access to every document whose name starts with `project-alpha/`. See [Permissions](/authentication#permissions) for the full constraint reference, including `suffix` and `in`.
 
-Wildcards in JWTs offer a dynamic way to manage document access, allowing for broader permissions within specific criteria without listing each document individually. This method is particularly useful in scenarios where documents are grouped by certain attributes, such as projects or teams.
+## Connect the provider
 
-### Manage project-specific documents
+Pass the signed token to `TiptapCollabProvider` as `token`, alongside your `appId`. Generate the token on your server and send it to the client. Never expose your signing key in client code.
 
-For teams working on multiple projects, it's essential to ensure that members have access only to the documents relevant to their current projects. By using project identifiers with wildcards, you can streamline access management.
+```ts
+const doc = new Y.Doc()
 
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const data = {
-  sub: 'your_local_user_identifier',
-  allowedDocumentNames: ['project-alpha/*', 'project-beta/*'],
-}
-
-const jwt = jsonwebtoken.sign(data, 'your_secret')
+const provider = new TiptapCollabProvider({
+  name: note.id, // Document identifier
+  appId: 'YOUR_APP_ID', // Document server ID from the Cloud dashboard
+  token: 'YOUR_JWT', // Signed Documents token
+  document: doc,
+  user: userId,
+})
 ```
 
-In this example, users will have access to all documents under 'project-alpha' and 'project-beta', making it easier to manage permissions as new documents are added to these projects.
+## Handle token expiry
 
-## Short-lived JWTs
+Keep tokens short-lived by setting `exp`. Tokens are validated every few seconds, so an expired token is rejected shortly after expiration and cannot reconnect.
 
-You may want to limit the lifetime of your JWTs by setting an expiration time. JWTs are validated every few seconds, so an expired token will be rejected shortly after expiration and won't be able to reconnect.
+- If the token is invalid when connecting or reconnecting, the `onAuthenticationFailed` callback fires with reason `permission-denied`.
+- If the token expires during an established connection, the `onClose` callback fires with reason `JWT verification failed`.
 
-Needless to say, with expiring tokens it's essential to handle the expiration case - both mid-session, but also on initial connect or reconnect. Your users may leave tabs open for weeks, and you don't want them to lose data because of an expired token (see also [unsynced Changes](/collaboration/provider/integration#unsynced-changes)).
+In both cases, create a fresh token and re-create the provider. Users may leave tabs open for a long time, so handle expiry on reconnect to avoid losing [unsynced changes](/collaboration/provider/integration#unsynced-changes).
 
-If the JWT is not valid when creating the connection (or reconnecting), the `onAuthenticationFailed` callback is triggered (reason `permission-denied`)
-If the JWT expired during an established connection, the `onClose` callback is triggered with a reason `JWT verification failed`.
-
-In both cases, you need to re-create the provider and supply a new JWT.
-
-Tiptap Collab provides an API to revoke JWTs in case you need to, so we don't recommend making your tokens too short-lived. ([see Revoke JWT API](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/request/33042171-63ed5bbe-f54d-4a85-b2d0-5c1bc215d2fc))
-
-## Integrate JWT server side
-
-JWT, or JSON Web Token, is a compact, URL-safe means of representing claims to be transferred between two parties. The information in a JWT is digitally signed using a cryptographic algorithm to ensure that the claims cannot be altered after the token is issued. This digital signature makes the JWT a reliable vehicle for secure information exchange in web applications, providing a method to authenticate and exchange information.
-
-### Create a static JWT for testing
-
-For testing purposes, you might not want to set up a complete backend system to generate JWTs. In such cases, using online tools like http://jwtbuilder.jamiekurtz.com/ can be a quick workaround. These tools allow you to create a JWT by inputting the necessary payload and signing it with a secret key.
-
-When using these tools, ensure that the "Key" field is replaced with the secret key from your [Collaboration settings](https://collab.tiptap.dev/apps/settings) page. You don’t need to change any other information.
-
-Remember, this approach is only recommended for testing due to security risks associated with exposing your secret key.
-
-### Generate JWTs server side
-
-For production-level applications, generating JWTs on the server side is a necessity to maintain security. Exposing your secret key in client-side code would compromise the security of your application. Here’s an example using NodeJS for creating JWTs server-side:
-
-```bash
-npm install jsonwebtoken
-```
-
-```typescript
-import jsonwebtoken from 'jsonwebtoken'
-
-const payload = {
-  // The payload contains claims like the user ID, which can be used to identify the user and their permissions.
-  sub: 'your_local_user_identifier',
-}
-
-// The 'sign' method creates the JWT, with the payload and your secret key as inputs.
-const jwt = jsonwebtoken.sign(payload, 'your_secret_key_here')
-// The resulting JWT is used for authentication in API requests, ensuring secure access.
-// Important: Never expose your secret key in client-side code!
-```
-
-This JWT should be incorporated into API requests within the `token` field of your authentication provider, safeguarding user sessions and data access.
-
-To fully integrate JWT into your application, consider setting up a dedicated server or API endpoint, such as `GET /getCollabToken`. This endpoint would dynamically generate JWTs based on a secret stored securely on the server and user-specific information, like document access permissions.
-
-This setup not only increases security but also provides a scalable solution for managing user sessions and permissions in your collaborative application.
-
-Ensure the secret key is stored as an environment variable on the server, or define it directly in the server code. Avoid sending it from the client side.
-
-A full server / API example is available [here](https://github.com/ueberdosis/tiptap-collab-replit/tree/main/src).
+To invalidate a token before it expires, Collaboration provides a [Revoke JWT API](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/request/33042171-63ed5bbe-f54d-4a85-b2d0-5c1bc215d2fc). Because revocation is available, you do not need to make tokens extremely short-lived.
