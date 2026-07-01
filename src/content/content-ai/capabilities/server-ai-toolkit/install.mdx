@@ -76,10 +76,10 @@ For more details, see the [Editor context API reference](/content-ai/capabilitie
 
 The Server AI Toolkit is a cloud or on-premises service. Authenticate to access its REST API.
 
-1. **Create a secret** in your Tiptap dashboard. The dashboard generates an ES256 key pair and shows you the **private key** once. Store that private key on your server.
-2. **Copy your environment hash ID** from the dashboard. Use it as the JWT `iss` claim.
-3. **Generate a Tiptap Access Control JWT** on your server. When building the JWT, always include the `AI` audience and `AI:Toolkit` permission. Include the `Documents` audience and the `Documents:Write` permission when the toolkit should read or write Tiptap Cloud documents.
-4. **Use the JWT** in API requests. Pass it in the `Authorization` header as a Bearer token.
+1. **Create a secret** in the Tiptap Cloud dashboard. Go to `Authentication > Secrets > Add Secret`. The dashboard generates an ES256 key pair and shows you the **private key** once. Store the private key.
+2. **Copy your environment ID** from the dashboard. Go to `Authentication > Environment ID`. Use it as the JWT `iss` claim.
+3. **Generate a Tiptap Access Control JWT** on your server. See the [JWT token guide](#create-a-jwt-token) below.
+4. **Use the JWT** in API requests. Pass it in the `Authorization: Bearer JWT` header.
 
 For the full JWT format and signing examples, see the [Tiptap Access Control guide](/content-ai/capabilities/server-ai-toolkit/tiptap-access-control) and the [Authentication reference](/authentication).
 
@@ -100,41 +100,35 @@ TIPTAP_PRIVATE_KEY=your-private-key-pem
 
 ### Create a JWT token
 
-The `createJwtToken` function signs a token for the Server AI Toolkit API. Pass a `documentId` when the toolkit should fetch and save Tiptap Cloud documents automatically via `experimental_documentOptions`.
+The `createJwtToken` function signs a token for the Server AI Toolkit API. Pass a `documentId` when the AI Toolkit should read and edit a Tiptap Cloud document.
 
 ```ts
 // lib/server-ai-toolkit/create-jwt-token.ts
 import { SignJWT, importPKCS8 } from 'jose'
 
-type CreateJwtTokenOptions = {
-  documentId?: string
-}
-
 /**
  * Signs a JWT for authenticating with the Server AI Toolkit API
  */
-export async function createJwtToken(options: CreateJwtTokenOptions = {}): Promise<string> {
+export async function createJwtToken(documentId?: string): Promise<string> {
   const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
 
   const permissions: { action: string; resource: string }[] = [
     { action: 'AI:Toolkit', resource: '*' },
   ]
 
-  if (options.documentId) {
-    permissions.push({ action: 'Documents:Write', resource: options.documentId })
+  if (documentId) {
+    permissions.push({ action: 'Documents:Write', resource: documentId })
   }
 
   return new SignJWT({ permissions })
     .setProtectedHeader({ alg: 'ES256' })
     .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
-    .setAudience(options.documentId ? ['AI', 'Documents'] : ['AI'])
+    .setAudience(documentId ? ['AI', 'Documents'] : ['AI'])
     .setIssuedAt()
     .setExpirationTime('30m')
     .sign(privateKey)
 }
 ```
-
-Create a `createJwtToken` function that creates the JWT token.
 
 ### Get authentication headers
 
@@ -150,7 +144,7 @@ import { createJwtToken } from './create-jwt-token'
 export async function getAuthHeaders(documentId?: string): Promise<Record<string, string>> {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${await createJwtToken({ documentId })}`,
+    Authorization: `Bearer ${await createJwtToken(documentId)}`,
   }
 }
 ```
@@ -163,7 +157,8 @@ export async function getAuthHeaders(documentId?: string): Promise<Record<string
 
 <Callout title="Maintaining an existing integration?" variant="info">
   The previous App ID and secret (HS256) flow, which sent the App ID in `X-App-Id` and embedded
-  document server credentials as JWT claims, is documented under [Legacy authentication](/authentication/legacy).
+  document server credentials as JWT claims, is documented under [Legacy
+  authentication](/authentication/legacy).
 </Callout>
 
 ## Call API endpoints
