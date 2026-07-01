@@ -296,10 +296,6 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Workflows',
-              href: '/content-ai/capabilities/server-ai-toolkit/workflows',
-            },
-            {
               title: 'API reference',
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [

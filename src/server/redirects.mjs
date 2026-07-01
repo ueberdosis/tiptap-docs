@@ -694,6 +694,11 @@ export const redirects = [
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/server-ai-toolkit/workflows',
+        destination: '/content-ai/capabilities/server-ai-toolkit/overview',
+        permanent: true,
+      },
+      {
         source: '/content-ai/capabilities/server-ai-toolkit',
         destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
