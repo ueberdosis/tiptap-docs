@@ -71,7 +71,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/guides/mobile-integration',
-          title: 'Mobile integration',
+          title: 'Mobile app integration',
         },
       ],
     },

@@ -10,7 +10,7 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-Tiptap runs in the browser, so to use it in a mobile app you render the editor in a webview and drive it from your native code. This guide shows a small JSON message protocol that lets your app run any editor command and receive any editor event, with the editor staying a normal Tiptap instance whose extensions render exactly as they do on the web. The same approach works in Flutter, iOS, and Android.
+To run Tiptap in a mobile or multi-platform app, render the editor in a WebView and drive it from your native code. This guide shows a simple protocol that connects the multi-platform app to the Tiptap editor instance running in the WebView. This JSON-based protocol allows the app to send and receive any type of command or event. It works on any platform, including iOS, Android, React Native, and Flutter.
 
 <Callout title="Reference implementation" variant="hint">
   This guide explains the pattern with focused snippets. The
@@ -23,17 +23,19 @@ Tiptap runs in the browser, so to use it in a mobile app you render the editor i
 
 ## How it works
 
-The webview renders the editor; your native code renders the surrounding UI (toolbars, menus) and talks to the editor over JSON messages in three directions:
+The WebView renders the editor; your native code renders the surrounding UI (toolbars, menus) and talks to the editor over JSON messages in three directions:
 
 - **Commands** flow from your app to the editor. Each carries an `id`, and the editor answers with one response that echoes it, which is how you correlate an async result like "give me the document".
 - **Events** flow from the editor to your app. They carry no `id` and get no reply; they are notifications, like the selection moving or the content changing.
 - **Host requests** flow from the editor to your app and, unlike events, wait for a reply. The editor asks for something only native can do, like uploading a pasted image, and your app answers with one reply correlated by `id`.
 
+These protocol commands are different from Tiptap's own editor commands (`toggleBold`, `setContent`, and so on): both are called "commands", so this guide says "Tiptap command" for the editor's.
+
 The protocol is platform-agnostic: the same editor bundle and the same messages work everywhere, and only the transport that carries the JSON differs per platform.
 
 ## Try the reference app
 
-Before wiring your own app, clone the reference repository and run a host end to end, the fastest way to see the protocol working:
+Before wiring your own app, clone the reference repository and run a host app end-to-end, the fastest way to see the protocol working:
 
 ```bash
 git clone https://github.com/ueberdosis/tiptap-mobile-bridge
@@ -41,11 +43,11 @@ cd tiptap-mobile-bridge/web && npm install && npm run build  # builds the editor
 cd ../flutter_example && flutter run                         # or open ../ios_example in Xcode
 ```
 
-The rest of this guide builds the same thing from scratch so you can drop it into your own app.
+The rest of this guide walks through the same architecture so you can build it into your own app.
 
 ## Set up the editor
 
-Build the editor to a single, self-contained HTML file (for example with [vite-plugin-singlefile](https://www.npmjs.com/package/vite-plugin-singlefile)) and load it into the webview from the device filesystem, so it works offline. The quickest start is to copy the [`web/`](https://github.com/ueberdosis/tiptap-mobile-bridge/tree/main/web) project from the reference repository and change its extension list to match your web editor. That schema parity is the point, so your documents render in the app exactly as they do on the web.
+Build the editor to a single, self-contained HTML file (for example with [vite-plugin-singlefile](https://www.npmjs.com/package/vite-plugin-singlefile)) and load it into the WebView from the device filesystem, so it works offline. The quickest start is to copy the [`web/`](https://github.com/ueberdosis/tiptap-mobile-bridge/tree/main/web) project from the reference repository and change its extension list to match your web editor. That schema parity is the point, so your documents render in the app exactly as they do on the web.
 
 Alongside the editor, add a small bridge: an entry point the native side calls to send commands in, and a `send` helper to post messages back out. The editor is created by the first command the host sends, `init`, so your app can open a saved document by passing its content:
 
@@ -87,7 +89,7 @@ The `content` can be an HTML string or ProseMirror JSON: pass your saved documen
 
 ## Run any command
 
-You don't need a bridge method per command. Send a generic `exec` message with a command name and its arguments, and run it on the editor's [command chain](/editor/api/commands). Add an `exec` branch to the `onCommand` from the previous step:
+You don't need a bridge method per Tiptap command. Send the generic `exec` command with a Tiptap command name and its arguments, and run it on the editor's [command chain](/editor/api/commands). Add an `exec` branch to the `onCommand` from the previous step:
 
 ```json
 {
@@ -111,7 +113,7 @@ if (command.name === 'exec') {
 }
 ```
 
-`args` is a positional array spread into the command, so one path serves both object-argument commands (`toggleHeading([{ level: 2 }])`) and scalar ones (`setTextAlign(['left'])`). Every command in your build is reachable from native, with no glue per command.
+`args` is encoded as a positional array in JSON and spread into the command, so `{ "args": [{ "level": 2 }] }` calls `toggleHeading({ level: 2 })`, and `{ "args": ["left"] }` calls `setTextAlign('left')`.
 
 Responses carry an `ok` flag. The handler above always succeeds, but a real one replies `ok: false` with an error when a command is unknown or throws: `{ ok: false, error: { code, message } }`. Check `ok` on every response instead of assuming success.
 
@@ -161,7 +163,7 @@ if (command.name === 'getJSON') {
 
 ## Drive a native toolbar
 
-A native toolbar needs to know which buttons are active (the selection is bold) and which are available (you can't make a list item bold). Compute that state when the selection changes and send it as a `selectionChanged` event, but only for the commands you actually render, never by looping over every command (see the warning below):
+A native toolbar needs to know which buttons are active (the selection is bold) and which are available (whether a heading can be toggled at the current selection). Compute that state when the selection changes and send it as a `selectionChanged` event, but only for the commands you actually render, never by looping over every command (see the warning below):
 
 ```js
 // one entry per button your toolbar renders
@@ -224,7 +226,7 @@ Reading the pasted file as a data URL and suppressing the default paste with Tip
 
 ## Connect your native app
 
-Your app always sends commands the same way, by evaluating `window.tiptapBridge.handleCommand("<json>")` in the webview, and receives messages through the platform's own channel. On the editor side, detect which channel is available and `send` through it. Use the section that matches your stack. With Flutter, one host serves both iOS and Android, so you only need the Flutter section. Each host is a single small file you can copy: [`tiptap_bridge.dart`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/flutter_example/lib/tiptap_bridge.dart) (Flutter) and [`TiptapBridge.swift`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/ios_example/TiptapBridgeExample/TiptapBridge.swift) (iOS).
+Your app always sends commands the same way, by evaluating `window.tiptapBridge.handleCommand("<json>")` in the WebView, and receives messages through the platform's own channel. On the editor side, detect which channel is available and `send` through it. Use the section that matches your stack. With Flutter, one host serves both iOS and Android, so you only need the Flutter section. Each host is a single small file you can copy: [`tiptap_bridge.dart`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/flutter_example/lib/tiptap_bridge.dart) (Flutter) and [`TiptapBridge.swift`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/ios_example/TiptapBridgeExample/TiptapBridge.swift) (iOS).
 
 ### Flutter
 
@@ -263,7 +265,7 @@ controller.addJavaScriptHandler(
 );
 ```
 
-### iOS (WKWebView)
+### iOS (`WKWebView`)
 
 Add a script-message handler for outbound messages, and evaluate JavaScript for inbound commands:
 
@@ -277,7 +279,7 @@ webView.evaluateJavaScript("window.tiptapBridge.handleCommand(\(jsStringLiteral)
 
 Send your first command only after `window.tiptapBridge` exists. `WKWebView`'s `didFinish` can fire before the editor's module installs it, so poll for it before sending that first command (see [`EditorWebView.swift`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/ios_example/TiptapBridgeExample/EditorWebView.swift) for the polling loop).
 
-### Android (WebView)
+### Android (`WebView`)
 
 Expose a `@JavascriptInterface` for outbound messages, and call `evaluateJavascript` for inbound commands:
 
@@ -300,3 +302,5 @@ webView.evaluateJavascript("window.tiptapBridge.handleCommand(${JSONObject.quote
 ## Security
 
 Treat content coming from the editor like any other user input. `setContent` and the HTML you load are parsed against your editor's schema, which drops tags and attributes it doesn't recognize, but that is not a substitute for validating and sanitizing untrusted content on your server before you store or render it.
+
+Treat the bridge itself as a trust boundary too. Validate every incoming message before you act on it, and load only trusted, bundled editor HTML into the WebView, never a remote or untrusted page. Keep the native surface narrow: expose host requests explicitly and by allow-list instead of a broad native API, so the editor can only request the specific things you intend.
