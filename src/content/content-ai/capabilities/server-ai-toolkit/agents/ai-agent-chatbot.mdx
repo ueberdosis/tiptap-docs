@@ -119,7 +119,7 @@ export async function getToolDefinitions(editorContext: unknown): Promise<{
 
   const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/tools`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify({
       editorContext,
     }),
@@ -160,7 +160,7 @@ export async function executeTool(
 
   const response = await fetch(`${apiBaseUrl}/v3/ai/toolkit/execute-tool`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify({
       toolName,
       input,
@@ -252,29 +252,35 @@ First, create a server function to generate a JWT for Tiptap Cloud collaboration
 // app/actions.ts
 'use server'
 
-import jwt from 'jsonwebtoken'
+import { SignJWT, importPKCS8 } from 'jose'
 
-const TIPTAP_CLOUD_SECRET = process.env.TIPTAP_CLOUD_SECRET
+const TIPTAP_PRIVATE_KEY = process.env.TIPTAP_PRIVATE_KEY
+const TIPTAP_ENVIRONMENT_ID = process.env.TIPTAP_ENVIRONMENT_ID
 const TIPTAP_CLOUD_DOCUMENT_SERVER_ID = process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID
 
 export async function getCollabConfig(
   userId: string,
   documentName: string,
 ): Promise<{ token: string; appId: string }> {
-  if (!TIPTAP_CLOUD_SECRET) {
-    throw new Error('TIPTAP_CLOUD_SECRET environment variable is not set')
+  if (!TIPTAP_PRIVATE_KEY || !TIPTAP_ENVIRONMENT_ID) {
+    throw new Error('TIPTAP_PRIVATE_KEY and TIPTAP_ENVIRONMENT_ID environment variables must be set')
   }
 
   if (!TIPTAP_CLOUD_DOCUMENT_SERVER_ID) {
     throw new Error('TIPTAP_CLOUD_DOCUMENT_SERVER_ID environment variable is not set')
   }
 
-  const payload = {
-    sub: userId,
-    allowedDocumentNames: [documentName],
-  }
+  const privateKey = await importPKCS8(TIPTAP_PRIVATE_KEY, 'ES256')
 
-  const token = jwt.sign(payload, TIPTAP_CLOUD_SECRET, { expiresIn: '1h' })
+  const token = await new SignJWT({
+    permissions: [{ action: 'Documents:Write', resource: documentName }],
+  })
+    .setProtectedHeader({ alg: 'ES256' })
+    .setIssuer(TIPTAP_ENVIRONMENT_ID)
+    .setSubject(userId)
+    .setAudience(['Documents'])
+    .setExpirationTime('1h')
+    .sign(privateKey)
 
   return { token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID }
 }

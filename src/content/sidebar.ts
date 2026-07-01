@@ -22,6 +22,16 @@ export const sidebarConfig: SidebarConfig = {
           href: '/authentication',
           title: 'Authentication',
           tags: ['New'],
+          children: [
+            {
+              href: '/authentication/migrate',
+              title: 'Migrate from legacy',
+            },
+            {
+              href: '/authentication/legacy',
+              title: 'Legacy authentication',
+            },
+          ],
         },
       ],
     },
