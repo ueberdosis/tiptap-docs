@@ -1,0 +1,306 @@
+---
+tags:
+  - type: editor
+title: Tiptap for mobile apps
+meta:
+  title: Tiptap for mobile apps | Tiptap Editor Docs
+  description: Run Tiptap inside mobile and multi-platform apps like iOS, Android and Flutter. Control it from native code with a simple JSON message protocol.
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+To run Tiptap in a mobile or multi-platform app, render the editor in a WebView and drive it from your native code. This guide shows a simple protocol that connects the multi-platform app to the Tiptap editor instance running in the WebView. This JSON-based protocol allows the app to send and receive any type of command or event. It works on any platform, including iOS, Android, React Native, and Flutter.
+
+<Callout title="Reference implementation" variant="hint">
+  This guide explains the pattern with focused snippets. The
+  [`tiptap-mobile-bridge`](https://github.com/ueberdosis/tiptap-mobile-bridge) repository has the
+  complete, runnable version (the editor bundle plus tested Flutter and iOS host apps), and its
+  [`PROTOCOL.md`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/PROTOCOL.md) and
+  [`GUIDE.md`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/GUIDE.md) are the full
+  wire contract and setup notes you can refer to alongside this page.
+</Callout>
+
+## How it works
+
+The WebView renders the editor; your native code renders the surrounding UI (toolbars, menus) and talks to the editor over JSON messages in three directions:
+
+- **Commands** flow from your app to the editor. Each carries an `id`, and the editor answers with one response that echoes it, which is how you correlate an async result like "give me the document".
+- **Events** flow from the editor to your app. They carry no `id` and get no reply; they are notifications, like the selection moving or the content changing.
+- **Host requests** flow from the editor to your app and, unlike events, wait for a reply. The editor asks for something only native can do, like uploading a pasted image, and your app answers with one reply correlated by `id`.
+
+These protocol commands are different from Tiptap's own editor commands (`toggleBold`, `setContent`, and so on): both are called "commands", so this guide says "Tiptap command" for the editor's.
+
+The protocol is platform-agnostic: the same editor bundle and the same messages work everywhere, and only the transport that carries the JSON differs per platform.
+
+## Try the reference app
+
+Before wiring your own app, clone the reference repository and run a host app end-to-end, the fastest way to see the protocol working:
+
+```bash
+git clone https://github.com/ueberdosis/tiptap-mobile-bridge
+cd tiptap-mobile-bridge/web && npm install && npm run build  # builds the editor bundle and copies it into the example apps
+cd ../flutter_example && flutter run                         # or open ../ios_example in Xcode
+```
+
+The rest of this guide walks through the same architecture so you can build it into your own app.
+
+## Set up the editor
+
+Build the editor to a single, self-contained HTML file (for example with [vite-plugin-singlefile](https://www.npmjs.com/package/vite-plugin-singlefile)) and load it into the WebView from the device filesystem, so it works offline. The quickest start is to copy the [`web/`](https://github.com/ueberdosis/tiptap-mobile-bridge/tree/main/web) project from the reference repository and change its extension list to match your web editor. That schema parity is the point, so your documents render in the app exactly as they do on the web.
+
+Alongside the editor, add a small bridge: an entry point the native side calls to send commands in, and a `send` helper to post messages back out. The editor is created by the first command the host sends, `init`, so your app can open a saved document by passing its content:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+
+let editor = null
+
+// The native side calls this to send a command in.
+window.tiptapBridge = {
+  handleCommand: (json) => onCommand(JSON.parse(json)),
+}
+
+// Post a message out to the native side (see "Connect your native app").
+function send(message) {
+  // e.g. window.flutter_inappwebview.callHandler('tiptapBridge', JSON.stringify(message))
+}
+
+function onCommand(command) {
+  // `init` is the first command: create the editor with the host's content.
+  if (command.name === 'init') {
+    editor = new Editor({
+      element: document.querySelector('#editor'),
+      extensions: [StarterKit], // use the same extensions as your web editor
+      content: command.params?.content ?? '<p>Hello from Tiptap 👋</p>',
+      editable: command.params?.editable !== false,
+    })
+    // register your event forwarders here (see "Receive any event" and "Drive a native toolbar")
+    send({ type: 'response', id: command.id, ok: true })
+    return
+  }
+
+  // The commands below run against the editor created here.
+}
+```
+
+The `content` can be an HTML string or ProseMirror JSON: pass your saved document to open it, and set `editable: false` for a read-only view. To swap the document later (for example after fetching it from your API), send a `setContent` command that calls `editor.commands.setContent(content)`.
+
+## Run any command
+
+You don't need a bridge method per Tiptap command. Send the generic `exec` command with a Tiptap command name and its arguments, and run it on the editor's [command chain](/editor/api/commands). Add an `exec` branch to the `onCommand` from the previous step:
+
+```json
+{
+  "type": "command",
+  "id": "1",
+  "name": "exec",
+  "params": { "command": "toggleHeading", "args": [{ "level": 2 }] }
+}
+```
+
+```js
+// inside onCommand(command), after the init branch:
+if (command.name === 'exec') {
+  const { command: name, args = [] } = command.params
+  const executed = editor
+    .chain()
+    .focus()
+    [name](...args)
+    .run()
+  send({ type: 'response', id: command.id, ok: true, result: { executed } })
+}
+```
+
+`args` is encoded as a positional array in JSON and spread into the command, so `{ "args": [{ "level": 2 }] }` calls `toggleHeading({ level: 2 })`, and `{ "args": ["left"] }` calls `setTextAlign('left')`.
+
+Responses carry an `ok` flag. The handler above always succeeds, but a real one replies `ok: false` with an error when a command is unknown or throws: `{ ok: false, error: { code, message } }`. Check `ok` on every response instead of assuming success.
+
+## Receive any event
+
+The editor [emits events](/editor/api/events) like `focus`, `blur`, `update`, `selectionUpdate`, and `transaction`. Let your app subscribe to the ones it needs, then forward each as a JSON message. Track subscriptions and register the forwarders when you create the editor (inside the `init` branch, right after `editor = new Editor(...)`):
+
+```js
+const subscriptions = new Set()
+
+// Add a subscribe branch to onCommand so the host can opt into events:
+if (command.name === 'subscribe') {
+  subscriptions.add(command.params.event)
+  send({ type: 'response', id: command.id, ok: true })
+}
+
+// Register the forwarders once, when the editor is created in the init branch:
+for (const name of ['focus', 'blur', 'update', 'selectionUpdate', 'transaction']) {
+  editor.on(name, () => {
+    if (subscriptions.has(name)) {
+      send({ type: 'event', name, payload: project(name) })
+    }
+  })
+}
+```
+
+A raw event payload holds live objects (the `Editor`, a `Transaction`) that can't cross a JSON boundary, so forward a small projection instead, returning the selection for the document and selection events and an empty object for `focus` and `blur`:
+
+```js
+function project(name) {
+  if (name === 'update' || name === 'selectionUpdate' || name === 'transaction') {
+    const { from, to, empty } = editor.state.selection
+    return { selection: { from, to, empty } }
+  }
+  return {} // focus, blur
+}
+```
+
+The reference [`PROTOCOL.md`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/PROTOCOL.md) lists every forwarded event and its projected payload. When you need the full document after a change, ask for it with a command that returns `editor.getJSON()` or `editor.getHTML()`:
+
+```js
+// getJSON / getHTML are commands like any other: run, then reply with the document
+if (command.name === 'getJSON') {
+  send({ type: 'response', id: command.id, ok: true, result: editor.getJSON() })
+}
+```
+
+## Drive a native toolbar
+
+A native toolbar needs to know which buttons are active (the selection is bold) and which are available (whether a heading can be toggled at the current selection). Compute that state when the selection changes and send it as a `selectionChanged` event, but only for the commands you actually render, never by looping over every command (see the warning below):
+
+```js
+// one entry per button your toolbar renders
+function toolbarState() {
+  return {
+    bold: { isActive: editor.isActive('bold'), canExec: editor.can().toggleBold() },
+    italic: { isActive: editor.isActive('italic'), canExec: editor.can().toggleItalic() },
+    // nodes pass attributes, e.g. editor.isActive('heading', { level: 2 })
+  }
+}
+
+// register alongside the other forwarders when you create the editor:
+editor.on('selectionUpdate', () => {
+  send({ type: 'event', name: 'selectionChanged', payload: { commandStates: toolbarState() } })
+})
+```
+
+Your app reads this map to highlight active buttons and disable unavailable ones. The reference implementation sends `selectionChanged` on every selection change (no subscription needed) and debounces it. See [`PROTOCOL.md`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/PROTOCOL.md) for details.
+
+## Ask the host for data
+
+Some things only the native side can do: uploading a pasted image, resolving a mention, picking a file. For those the editor sends a **host request** and awaits a reply, the same `id` correlation as commands but in the other direction. Give each request a timeout, so a host that never replies cannot leave the editor waiting forever:
+
+```js
+const pending = new Map()
+let nextRequestId = 1
+
+// Ask the host to do something, and await its reply.
+function hostRequest(name, params) {
+  const id = `r${nextRequestId++}`
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending.delete(id)
+      reject(new Error(`host request timed out: ${name}`))
+    }, 30000)
+    pending.set(id, { resolve, reject, timer })
+    send({ type: 'hostRequest', id, name, params })
+  })
+}
+
+// The native side delivers the host's answer here.
+window.tiptapBridge.handleReply = (json) => {
+  const { id, ok, result, error } = JSON.parse(json)
+  const entry = pending.get(id)
+  if (!entry) return
+  clearTimeout(entry.timer)
+  pending.delete(id)
+  ok ? entry.resolve(result) : entry.reject(error)
+}
+```
+
+For example, intercept a pasted image, hand it to the host, and insert the URL the host returns:
+
+```js
+const url = await hostRequest('uploadImage', { dataUrl })
+editor.chain().focus().setImage({ src: url }).run()
+```
+
+Reading the pasted file as a data URL and suppressing the default paste with Tiptap's `handlePaste` is shown in full in [`main.ts`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/web/src/main.ts) in the reference repo.
+
+## Connect your native app
+
+Your app always sends commands the same way, by evaluating `window.tiptapBridge.handleCommand("<json>")` in the WebView, and receives messages through the platform's own channel. On the editor side, detect which channel is available and `send` through it. Use the section that matches your stack. With Flutter, one host serves both iOS and Android, so you only need the Flutter section. Each host is a single small file you can copy: [`tiptap_bridge.dart`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/flutter_example/lib/tiptap_bridge.dart) (Flutter) and [`TiptapBridge.swift`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/ios_example/TiptapBridgeExample/TiptapBridge.swift) (iOS).
+
+### Flutter
+
+With [`flutter_inappwebview`](https://pub.dev/packages/flutter_inappwebview), register a handler for outbound messages and evaluate JavaScript for inbound commands. Your app holds a map of pending commands by `id` and resolves each when its response arrives:
+
+```dart
+final _pending = <String, Completer<Object?>>{};
+int _nextId = 1;
+
+// inbound: app to editor. Returns a future that completes with the response.
+Future<Object?> send(String name, [Map<String, dynamic>? params]) {
+  final id = '${_nextId++}';
+  final completer = Completer<Object?>();
+  _pending[id] = completer; // resolved when the response with this id arrives
+  final command = {'type': 'command', 'id': id, 'name': name, if (params != null) 'params': params};
+  // double-encode so the JSON is a valid JS string argument
+  controller.evaluateJavascript(
+    source: 'window.tiptapBridge.handleCommand(${jsonEncode(jsonEncode(command))})',
+  );
+  return completer.future;
+}
+
+// outbound: editor to app. Route responses, events, and host requests.
+controller.addJavaScriptHandler(
+  handlerName: 'tiptapBridge',
+  callback: (args) {
+    final message = jsonDecode(args.first as String) as Map<String, dynamic>;
+    if (message['type'] == 'response') {
+      final completer = _pending.remove(message['id']);
+      message['ok'] == true
+          ? completer?.complete(message['result'])
+          : completer?.completeError(message['error']);
+    }
+    // 'event' and 'hostRequest' are handled here too (see tiptap_bridge.dart)
+  },
+);
+```
+
+### iOS (`WKWebView`)
+
+Add a script-message handler for outbound messages, and evaluate JavaScript for inbound commands:
+
+```swift
+// outbound: the editor calls window.webkit.messageHandlers.tiptapBridge.postMessage(json)
+config.userContentController.add(self, name: "tiptapBridge")
+
+// inbound
+webView.evaluateJavaScript("window.tiptapBridge.handleCommand(\(jsStringLiteral))")
+```
+
+Send your first command only after `window.tiptapBridge` exists. `WKWebView`'s `didFinish` can fire before the editor's module installs it, so poll for it before sending that first command (see [`EditorWebView.swift`](https://github.com/ueberdosis/tiptap-mobile-bridge/blob/main/ios_example/TiptapBridgeExample/EditorWebView.swift) for the polling loop).
+
+### Android (`WebView`)
+
+Expose a `@JavascriptInterface` for outbound messages, and call `evaluateJavascript` for inbound commands:
+
+```kotlin
+// outbound: the editor calls window.AndroidTiptapBridge.postMessage(json)
+webView.addJavascriptInterface(bridge, "AndroidTiptapBridge")
+
+// inbound
+webView.evaluateJavascript("window.tiptapBridge.handleCommand(${JSONObject.quote(json)})", null)
+```
+
+<Callout title="Building a native toolbar? Don't probe every command" variant="warning">
+  To light up toolbar buttons you'll want each one's active and enabled state. Read it only for the
+  commands you actually render (`editor.isActive('bold')`, `editor.can().toggleBold()`). Never loop
+  `editor.can()` over *every* command. Some commands aren't side-effect free in a dry run (`blur`,
+  for example, schedules a real blur on the next frame), so probing all of them on each keystroke
+  can pull focus away from the user as they type.
+</Callout>
+
+## Security
+
+Treat content coming from the editor like any other user input. `setContent` and the HTML you load are parsed against your editor's schema, which drops tags and attributes it doesn't recognize, but that is not a substitute for validating and sanitizing untrusted content on your server before you store or render it.
+
+Treat the bridge itself as a trust boundary too. Validate every incoming message before you act on it, and load only trusted, bundled editor HTML into the WebView, never a remote or untrusted page. Keep the native surface narrow: expose host requests explicitly and by allow-list instead of a broad native API, so the editor can only request the specific things you intend.
