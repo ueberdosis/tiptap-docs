@@ -70,8 +70,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Collaboration API',
         },
         {
-          href: '/guides/mobile-integration',
-          title: 'Mobile app integration',
+          href: '/guides/mobile-apps',
+          title: 'Mobile apps',
         },
       ],
     },
