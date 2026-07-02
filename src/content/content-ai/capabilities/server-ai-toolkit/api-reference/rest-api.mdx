@@ -132,6 +132,39 @@ curl --location 'BASE_URL/v4/ai/toolkit/fetch-tools' \
   }'
 ```
 
+#### Error responses
+
+HTTP errors return:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context.
+
+This endpoint can return:
+
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `422` with `validation_failed`: The request body does not match the endpoint schema. The response
+  includes `error.issues`, a list of validation issues.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request. This response uses a different top-level
+  shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `internal_server_error`: An unexpected server error occurred.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+
 ### Execute a tool
 
 ```txt
@@ -192,6 +225,65 @@ curl --location 'BASE_URL/v4/ai/toolkit/execute-tool' \
   }'
 ```
 
+#### Error responses
+
+HTTP errors return:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context. Document and thread upstream
+    failures include fields such as `operation`, `upstreamStatus`, `upstreamUrl`, and
+    `upstreamMethod`.
+
+This endpoint can return:
+
+- `400` with `missing_document_credentials`: The request uses a cloud document, but the JWT does not
+  include document server credentials.
+- `400` with `missing_document_options`: `getThreads` or `editThreads` was executed against an
+  inline document. These tools require a cloud document.
+- `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A thread or
+  comment operation referenced data that does not exist.
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`, or it does not grant
+  access to the requested cloud document.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `403` with `unsupported_tool_format`: The selected tool does not support the requested `format`.
+- `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
+  the editor schema does not support tracked changes.
+- `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `409` with `concurrent_edit_conflict`: The cloud document changed while the tool was executing.
+  Retry the request with the latest document state.
+- `422` with `validation_failed`: The request body does not match the endpoint schema. The response
+  includes `error.issues`, a list of validation issues.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request. This response uses a different top-level
+  shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `document_save_failed`: The server could not save the cloud document after loading it,
+  or the save flow was called before a document was loaded.
+- `500` with `diff_worker_failed` or `diff_worker_invalid_result`: The internal diff worker failed
+  while preparing reviewable changes.
+- `500` with `internal_server_error` or `unknown_error`: An unexpected server error occurred.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `502` with `document_load_failed` or `document_save_failed`: Loading or saving the cloud document
+  failed upstream. Check `error.data.upstreamStatus` for the upstream HTTP status.
+- `502` with a thread or comment code such as `thread_list_failed`, `thread_create_failed`,
+  `thread_update_failed`, `thread_delete_failed`, `thread_resolve_failed`,
+  `thread_unresolve_failed`, `comment_create_failed`, `comment_update_failed`, or
+  `comment_delete_failed`: A comments API operation failed upstream.
+- `503` with `diff_worker_queue_timeout`: The diff worker queue was saturated or timed out.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+
 ### Stream a tool
 
 <Callout title="Alpha feature" variant="hint">
@@ -232,6 +324,66 @@ Response:
 - `tiptapEdit`: Incremental events while edits are applied, followed by a final event with the
   updated `document`.
 - Other tools: One final event with the same result shape as `execute-tool`.
+
+#### Error responses
+
+Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context.
+
+After streaming starts, errors are sent as NDJSON events:
+
+- `version` (`number`): Stream protocol version.
+- `type` (`'error'`): Event type.
+- `code` (`string`): Stable error code.
+- `status` (`number`): HTTP-style status code.
+- `message` (`string`): Human-readable error message.
+
+This endpoint can return or emit:
+
+- `400` with `invalid_request`: The request has no body.
+- `400` with `missing_document_credentials`: The JWT does not include document server credentials.
+- `400` with `invalid_stream_message`: A stream message is not valid JSON, fails schema validation,
+  uses an unsupported protocol version, or the stream ends with an unterminated NDJSON line.
+- `400` with `duplicate_start`: More than one `start` message was sent.
+- `400` with `delta_before_start`: A `delta` message arrived before `start`.
+- `400` with `end_before_start`: An `end` message arrived before `start`.
+- `400` with `incomplete_stream`: The request ended before an `end` message arrived.
+- `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A buffered
+  thread or comment operation referenced data that does not exist.
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
+  the editor schema does not support tracked changes.
+- `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size.
+- `429` with `stream_rate_limit_exceeded`: Too many concurrent streams are open for the same client.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request before streaming started. This response
+  uses a different top-level shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `diff_worker_failed`, `diff_worker_invalid_result`, `stream_internal_error`, or
+  `unknown_error`: An unexpected server error occurred during stream processing.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `502` with document, thread, or comment upstream failure codes such as `document_load_failed`,
+  `document_save_failed`, `thread_list_failed`, or `comment_create_failed`: A cloud document or
+  comments API operation failed upstream.
+- `503` with `diff_worker_queue_timeout`: The diff worker queue was saturated or timed out.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+- `504` with `stream_request_timeout`: The stream exceeded the server request timeout.
 
 ## Available tools
 
