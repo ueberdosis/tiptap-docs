@@ -274,10 +274,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/content-ai/capabilities/server-ai-toolkit/install',
             },
             {
-              title: 'Tiptap Access Control',
-              href: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
-            },
-            {
               title: 'Agents',
               href: '/content-ai/capabilities/server-ai-toolkit/agents',
               children: [
@@ -300,10 +296,6 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Workflows',
-              href: '/content-ai/capabilities/server-ai-toolkit/workflows',
-            },
-            {
               title: 'API reference',
               href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
               children: [
@@ -312,16 +304,16 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
                 },
                 {
-                  title: 'Tools',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
-                },
-                {
                   title: 'Editor context',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
                 },
                 {
                   title: 'Review options',
                   href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
+                },
+                {
+                  title: 'REST API (legacy v3)',
+                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api-v3',
                 },
               ],
             },

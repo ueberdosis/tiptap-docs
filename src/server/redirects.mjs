@@ -10,6 +10,11 @@ export const redirects = [
         permanent: true,
       },
       {
+        source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
+        destination: '/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization',
+        permanent: true,
+      },
+      {
         source: '/feed',
         destination: '/',
         permanent: true,
@@ -680,7 +685,17 @@ export const redirects = [
       },
       {
         source: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
-        destination: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
+        destination: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/tools',
+        destination: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
+        permanent: true,
+      },
+      {
+        source: '/content-ai/capabilities/server-ai-toolkit/workflows',
+        destination: '/content-ai/capabilities/server-ai-toolkit/overview',
         permanent: true,
       },
       {
