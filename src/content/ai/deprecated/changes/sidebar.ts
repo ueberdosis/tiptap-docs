@@ -8,7 +8,7 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'link',
       title: '← Back to Content AI',
-      href: '/content-ai/getting-started/overview',
+      href: '/ai/getting-started/overview',
     },
     {
       type: 'group',
