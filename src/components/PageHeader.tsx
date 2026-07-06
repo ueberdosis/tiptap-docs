@@ -158,7 +158,7 @@ export const PageHeaderTag = ({
   }
 
   if (tag.type === 'ai') {
-    return <Tag tooltip={tag.tooltip}>Content AI</Tag>
+    return <Tag tooltip={tag.tooltip}>AIUmbrellaTerm</Tag>
   }
 
   if (tag.type === 'collaboration') {

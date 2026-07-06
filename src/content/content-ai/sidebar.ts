@@ -3,7 +3,7 @@ import { SidebarConfig } from '@/types'
 export const sidebarConfig: SidebarConfig = {
   id: 'content-ai',
   rootHref: '/content-ai/getting-started/overview',
-  title: 'Content AI',
+  title: 'AIUmbrellaTerm',
   items: [
     {
       href: '/content-ai/getting-started/overview',

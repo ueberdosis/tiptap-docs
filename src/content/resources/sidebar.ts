@@ -89,7 +89,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
+          title: 'AIUmbrellaTerm',
         },
         {
           href: '/collaboration/documents/snapshot',
