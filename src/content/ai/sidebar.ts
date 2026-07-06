@@ -340,7 +340,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Generation',
           tags: ['Start'],
-          href: '/ai/simple-generation',
+          href: '/ai/simple-generation/overview',
           children: [
             {
               title: 'Overview',
