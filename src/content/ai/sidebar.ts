@@ -16,110 +16,110 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Use cases',
-          href: '/content-ai/capabilities/use-cases',
+          href: '/ai/use-cases',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities',
+      href: '/ai',
       title: 'AI Extensions',
       children: [
         {
           title: 'AI Toolkit',
-          href: '/content-ai/capabilities/ai-toolkit',
+          href: '/ai/ai-toolkit/client',
           tags: ['Add-on'],
           releaseTag: 'beta',
           children: [
             {
               title: 'Overview',
-              href: '/content-ai/capabilities/ai-toolkit/overview',
+              href: '/ai/ai-toolkit/client/overview',
             },
             {
               title: 'Install',
-              href: '/content-ai/capabilities/ai-toolkit/install',
+              href: '/ai/ai-toolkit/client/install',
             },
             {
               title: 'Agents',
-              href: '/content-ai/capabilities/ai-toolkit/agents',
+              href: '/ai/ai-toolkit/client/agents',
               children: [
                 {
                   title: 'AI agent chatbot',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
+                  href: '/ai/ai-toolkit/client/agents/ai-agent-chatbot',
                 },
                 {
                   title: 'Review changes',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
+                  href: '/ai/ai-toolkit/client/agents/review-changes',
                   children: [
                     {
                       title: 'With Tracked Changes',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes',
+                      href: '/ai/ai-toolkit/client/agents/review-changes/tracked-changes',
                     },
                     {
                       title: 'Tracked changes with comments',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/tracked-changes-with-comments',
+                      href: '/ai/ai-toolkit/client/agents/review-changes/tracked-changes-with-comments',
                     },
                     {
                       title: 'Suggestions',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions',
+                      href: '/ai/ai-toolkit/client/agents/review-changes/suggestions',
                     },
                     {
                       title: 'Suggestions with comments',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/suggestions-with-comments',
+                      href: '/ai/ai-toolkit/client/agents/review-changes/suggestions-with-comments',
                     },
                     {
                       title: 'Style suggestions',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/review-changes/style-suggestions',
+                      href: '/ai/ai-toolkit/client/agents/review-changes/style-suggestions',
                     },
                   ],
                 },
                 {
                   title: 'Streaming',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
+                  href: '/ai/ai-toolkit/client/agents/streaming',
                 },
                 {
                   title: 'Comments',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/comments',
+                  href: '/ai/ai-toolkit/client/agents/comments',
                 },
                 {
                   title: 'Multi-document',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
+                  href: '/ai/ai-toolkit/client/agents/multi-document',
                 },
                 {
                   title: 'Selection awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/selection-awareness',
+                  href: '/ai/ai-toolkit/client/agents/selection-awareness',
                 },
                 {
                   title: 'Schema awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
+                  href: '/ai/ai-toolkit/client/agents/schema-awareness',
                 },
                 {
                   title: 'Tool definitions',
-                  href: '/content-ai/capabilities/ai-toolkit/agents/tools',
+                  href: '/ai/ai-toolkit/client/agents/tools',
                   children: [
                     {
                       title: 'Vercel AI SDK',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/ai-sdk',
+                      href: '/ai/ai-toolkit/client/agents/tools/ai-sdk',
                     },
                     {
                       title: 'LangChain.js',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/langchain-js',
+                      href: '/ai/ai-toolkit/client/agents/tools/langchain-js',
                     },
                     {
                       title: 'OpenAI',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/openai',
+                      href: '/ai/ai-toolkit/client/agents/tools/openai',
                     },
                     {
                       title: 'Anthropic',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/anthropic',
+                      href: '/ai/ai-toolkit/client/agents/tools/anthropic',
                     },
                     {
                       title: 'Mastra',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/mastra',
+                      href: '/ai/ai-toolkit/client/agents/tools/mastra',
                     },
                     {
                       title: 'Other providers',
-                      href: '/content-ai/capabilities/ai-toolkit/agents/tools/other-providers',
+                      href: '/ai/ai-toolkit/client/agents/tools/other-providers',
                     },
                   ],
                 },
@@ -127,85 +127,85 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'Workflows',
-              href: '/content-ai/capabilities/ai-toolkit/workflows',
+              href: '/ai/ai-toolkit/client/workflows',
               children: [
                 {
                   title: 'Insert content',
-                  href: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
+                  href: '/ai/ai-toolkit/client/workflows/insert-content',
                 },
                 {
                   title: 'Proofreader',
-                  href: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
+                  href: '/ai/ai-toolkit/client/workflows/proofreader',
                 },
                 {
                   title: 'Tiptap Edit',
-                  href: '/content-ai/capabilities/ai-toolkit/workflows/tiptap-edit',
+                  href: '/ai/ai-toolkit/client/workflows/tiptap-edit',
                 },
                 {
                   title: 'Comments',
-                  href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
+                  href: '/ai/ai-toolkit/client/workflows/comments',
                 },
                 {
                   title: 'Template',
-                  href: '/content-ai/capabilities/ai-toolkit/workflows/template',
+                  href: '/ai/ai-toolkit/client/workflows/template',
                 },
               ],
             },
             {
               title: 'Advanced guides',
-              href: '/content-ai/capabilities/ai-toolkit/advanced-guides',
+              href: '/ai/ai-toolkit/client/advanced-guides',
               children: [
                 {
                   title: 'Live demo',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
+                  href: '/ai/ai-toolkit/client/advanced-guides/live-demo',
                 },
                 {
                   title: 'Concepts',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/concepts',
+                  href: '/ai/ai-toolkit/client/advanced-guides/concepts',
                 },
                 {
                   title: 'AI engineering',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
+                  href: '/ai/ai-toolkit/client/advanced-guides/ai-engineering',
                 },
                 {
                   title: 'Compare documents',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
+                  href: '/ai/ai-toolkit/client/advanced-guides/compare-documents',
                 },
                 {
                   title: 'Split view',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/split-view',
+                  href: '/ai/ai-toolkit/client/advanced-guides/split-view',
                 },
                 {
                   title: 'Tiptap Edit hooks',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/tiptap-edit-hooks',
+                  href: '/ai/ai-toolkit/client/advanced-guides/tiptap-edit-hooks',
                 },
                 {
                   title: 'AI Caret',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-caret',
+                  href: '/ai/ai-toolkit/client/advanced-guides/ai-caret',
                 },
                 {
                   title: 'Non-TypeScript backends',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/non-typescript-backends',
+                  href: '/ai/ai-toolkit/client/advanced-guides/non-typescript-backends',
                 },
                 {
                   title: 'Migration guides',
-                  href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
+                  href: '/ai/ai-toolkit/client/advanced-guides/migration-guides',
                   children: [
                     {
                       title: 'AI Generation',
-                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-generation',
+                      href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-generation',
                     },
                     {
                       title: 'AI Suggestion',
-                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-suggestion',
+                      href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-suggestion',
                     },
                     {
                       title: 'AI Changes',
-                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-changes',
+                      href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-changes',
                     },
                     {
                       title: 'AI Assistant',
-                      href: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-assistant',
+                      href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-assistant',
                     },
                   ],
                 },
@@ -213,121 +213,121 @@ export const sidebarConfig: SidebarConfig = {
             },
             {
               title: 'API reference',
-              href: '/content-ai/capabilities/ai-toolkit/api-reference',
+              href: '/ai/ai-toolkit/client/api-reference',
               children: [
                 {
                   title: 'Read the document',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/read-the-document',
+                  href: '/ai/ai-toolkit/client/api-reference/read-the-document',
                 },
                 {
                   title: 'Edit the document',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document',
+                  href: '/ai/ai-toolkit/client/api-reference/edit-the-document',
                 },
                 {
                   title: 'Tool execution',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
+                  href: '/ai/ai-toolkit/client/api-reference/execute-tool',
                 },
                 {
                   title: 'Workflows',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
+                  href: '/ai/ai-toolkit/client/api-reference/workflows',
                 },
                 {
                   title: 'Schema awareness',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
+                  href: '/ai/ai-toolkit/client/api-reference/schema-awareness',
                 },
                 {
                   title: 'Review options',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/review-options',
+                  href: '/ai/ai-toolkit/client/api-reference/review-options',
                 },
                 {
                   title: 'Suggestions',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/suggestions',
+                  href: '/ai/ai-toolkit/client/api-reference/suggestions',
                 },
                 {
                   title: 'Diff utility',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
+                  href: '/ai/ai-toolkit/client/api-reference/diff-utility',
                 },
                 {
                   title: 'Split view',
-                  href: '/content-ai/capabilities/ai-toolkit/api-reference/split-view',
+                  href: '/ai/ai-toolkit/client/api-reference/split-view',
                 },
               ],
             },
             {
               title: 'Changelog',
-              href: '/content-ai/capabilities/ai-toolkit/changelog',
+              href: '/ai/ai-toolkit/client/changelog',
             },
           ],
         },
         {
           title: 'Server AI Toolkit',
-          href: '/content-ai/capabilities/server-ai-toolkit',
+          href: '/ai/ai-toolkit',
           tags: ['Add-on'],
           releaseTag: 'alpha',
           children: [
             {
               title: 'Overview',
-              href: '/content-ai/capabilities/server-ai-toolkit/overview',
+              href: '/ai/ai-toolkit/overview',
             },
             {
               title: 'Install',
-              href: '/content-ai/capabilities/server-ai-toolkit/install',
+              href: '/ai/ai-toolkit/install',
             },
             {
               title: 'Agents',
-              href: '/content-ai/capabilities/server-ai-toolkit/agents',
+              href: '/ai/ai-toolkit/agents',
               children: [
                 {
                   title: 'AI agent chatbot',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot',
+                  href: '/ai/ai-toolkit/agents/ai-agent-chatbot',
                 },
                 {
                   title: 'With Tracked Changes',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes',
+                  href: '/ai/ai-toolkit/agents/tracked-changes',
                 },
                 {
                   title: 'Comments',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/comments',
+                  href: '/ai/ai-toolkit/agents/comments',
                 },
                 {
                   title: 'Streaming',
-                  href: '/content-ai/capabilities/server-ai-toolkit/agents/streaming',
+                  href: '/ai/ai-toolkit/agents/streaming',
                 },
               ],
             },
             {
               title: 'API reference',
-              href: '/content-ai/capabilities/server-ai-toolkit/api-reference',
+              href: '/ai/ai-toolkit/api-reference',
               children: [
                 {
                   title: 'REST API',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api',
+                  href: '/ai/ai-toolkit/api-reference/rest-api',
                 },
                 {
                   title: 'Editor context',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/editor-context',
+                  href: '/ai/ai-toolkit/api-reference/editor-context',
                 },
                 {
                   title: 'Review options',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/review-options',
+                  href: '/ai/ai-toolkit/api-reference/review-options',
                 },
                 {
                   title: 'REST API (legacy v3)',
-                  href: '/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api-v3',
+                  href: '/ai/ai-toolkit/api-reference/rest-api-v3',
                 },
               ],
             },
             {
               title: 'Advanced guides',
-              href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
+              href: '/ai/ai-toolkit/advanced-guides',
               children: [
                 {
                   title: 'Custom nodes',
-                  href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/custom-nodes',
+                  href: '/ai/ai-toolkit/advanced-guides/custom-nodes',
                 },
                 {
                   title: 'Tiptap Shorthand',
-                  href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
+                  href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
                 },
               ],
             },
@@ -340,61 +340,61 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'AI Generation',
           tags: ['Start'],
-          href: '/content-ai/capabilities/generation',
+          href: '/ai/simple-generation',
           children: [
             {
               title: 'Overview',
-              href: '/content-ai/capabilities/generation/overview',
+              href: '/ai/simple-generation/overview',
             },
             {
               title: 'Install',
-              href: '/content-ai/capabilities/generation/install',
+              href: '/ai/simple-generation/install',
             },
             {
               title: 'Text generation',
-              href: '/content-ai/capabilities/generation/text-generation',
+              href: '/ai/simple-generation/text-generation',
               children: [
                 {
                   title: 'Built-in commands',
-                  href: '/content-ai/capabilities/generation/text-generation/built-in-commands',
+                  href: '/ai/simple-generation/text-generation/built-in-commands',
                 },
                 {
                   title: 'Autocompletion',
-                  href: '/content-ai/capabilities/generation/text-generation/autocompletion',
+                  href: '/ai/simple-generation/text-generation/autocompletion',
                 },
                 {
                   title: 'Provide context',
-                  href: '/content-ai/capabilities/generation/text-generation/provide-context',
+                  href: '/ai/simple-generation/text-generation/provide-context',
                 },
                 {
                   title: 'Formatted responses',
-                  href: '/content-ai/capabilities/generation/text-generation/format',
+                  href: '/ai/simple-generation/text-generation/format',
                 },
                 {
                   title: 'Manage responses',
-                  href: '/content-ai/capabilities/generation/text-generation/manage-responses',
+                  href: '/ai/simple-generation/text-generation/manage-responses',
                 },
                 {
                   title: 'Custom commands',
-                  href: '/content-ai/capabilities/generation/text-generation/custom-commands',
+                  href: '/ai/simple-generation/text-generation/custom-commands',
                 },
                 {
                   title: 'Stream content (Advanced)',
-                  href: '/content-ai/capabilities/generation/text-generation/stream',
+                  href: '/ai/simple-generation/text-generation/stream',
                 },
               ],
             },
             {
               title: 'Image generation',
-              href: '/content-ai/capabilities/generation/image-generation',
+              href: '/ai/simple-generation/image-generation',
             },
             {
               title: 'Integrate your LLM',
-              href: '/content-ai/capabilities/generation/custom-llms',
+              href: '/ai/simple-generation/custom-llms',
             },
             {
               title: 'Configure',
-              href: '/content-ai/capabilities/generation/configure',
+              href: '/ai/simple-generation/configure',
             },
           ],
         },

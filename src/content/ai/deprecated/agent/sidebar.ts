@@ -2,7 +2,7 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ai-assistant',
-  rootHref: '/content-ai/capabilities/agent/overview',
+  rootHref: '/ai/deprecated/agent/overview',
   title: 'AI Assistant (Legacy)',
   items: [
     {
@@ -12,85 +12,85 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/overview',
+      href: '/ai/deprecated/agent/overview',
       title: 'Get started',
       children: [
         {
           title: 'Overview',
-          href: '/content-ai/capabilities/agent/overview',
+          href: '/ai/deprecated/agent/overview',
         },
         {
           title: 'Install',
-          href: '/content-ai/capabilities/agent/install',
+          href: '/ai/deprecated/agent/install',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
+      href: '/ai/deprecated/agent/use-with-content-ai-cloud',
       title: 'Integration',
       children: [
         {
           title: 'Use with Tiptap Cloud',
-          href: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
+          href: '/ai/deprecated/agent/use-with-content-ai-cloud',
         },
         {
           title: 'Use with your AI agent',
-          href: '/content-ai/capabilities/agent/custom-llms',
+          href: '/ai/deprecated/agent/custom-llms',
           children: [
             {
               title: 'Overview',
-              href: '/content-ai/capabilities/agent/custom-llms/overview',
+              href: '/ai/deprecated/agent/custom-llms/overview',
             },
             {
               title: 'Get started',
-              href: '/content-ai/capabilities/agent/custom-llms/get-started',
+              href: '/ai/deprecated/agent/custom-llms/get-started',
               children: [
                 {
                   title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/agent/custom-llms/get-started/vercel-ai-sdk',
+                  href: '/ai/deprecated/agent/custom-llms/get-started/vercel-ai-sdk',
                 },
                 {
                   title: 'OpenAI Completions',
-                  href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-chat-completions',
+                  href: '/ai/deprecated/agent/custom-llms/get-started/openai-chat-completions',
                 },
                 {
                   title: 'OpenAI Responses',
-                  href: '/content-ai/capabilities/agent/custom-llms/get-started/openai-responses',
+                  href: '/ai/deprecated/agent/custom-llms/get-started/openai-responses',
                 },
                 {
                   title: 'Anthropic Claude',
-                  href: '/content-ai/capabilities/agent/custom-llms/get-started/anthropic-messages',
+                  href: '/ai/deprecated/agent/custom-llms/get-started/anthropic-messages',
                 },
               ],
             },
             {
               title: 'Tools overview',
-              href: '/content-ai/capabilities/agent/custom-llms/tools',
+              href: '/ai/deprecated/agent/custom-llms/tools',
             },
             {
               title: 'Client-side tools',
-              href: '/content-ai/capabilities/agent/custom-llms/client-side-tools',
+              href: '/ai/deprecated/agent/custom-llms/client-side-tools',
             },
             {
               title: 'Server-side tools',
-              href: '/content-ai/capabilities/agent/custom-llms/server-side-tools',
+              href: '/ai/deprecated/agent/custom-llms/server-side-tools',
               children: [
                 {
                   title: 'Vercel AI SDK',
-                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/vercel-ai-sdk',
+                  href: '/ai/deprecated/agent/custom-llms/server-side-tools/vercel-ai-sdk',
                 },
                 {
                   title: 'OpenAI Completions',
-                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-chat-completions',
+                  href: '/ai/deprecated/agent/custom-llms/server-side-tools/openai-chat-completions',
                 },
                 {
                   title: 'OpenAI Responses',
-                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/openai-responses',
+                  href: '/ai/deprecated/agent/custom-llms/server-side-tools/openai-responses',
                 },
                 {
                   title: 'Anthropic Claude',
-                  href: '/content-ai/capabilities/agent/custom-llms/server-side-tools/anthropic-messages',
+                  href: '/ai/deprecated/agent/custom-llms/server-side-tools/anthropic-messages',
                 },
               ],
             },
@@ -100,89 +100,89 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/features/state',
+      href: '/ai/deprecated/agent/features/state',
       title: 'Features',
       children: [
         {
           title: 'State',
-          href: '/content-ai/capabilities/agent/features/state',
+          href: '/ai/deprecated/agent/features/state',
         },
         {
           title: 'Events',
-          href: '/content-ai/capabilities/agent/features/events',
+          href: '/ai/deprecated/agent/features/events',
         },
         {
           title: 'Methods',
-          href: '/content-ai/capabilities/agent/features/methods',
+          href: '/ai/deprecated/agent/features/methods',
         },
         {
           title: 'Lifecycle',
-          href: '/content-ai/capabilities/agent/features/lifecycle',
+          href: '/ai/deprecated/agent/features/lifecycle',
         },
         {
           title: 'Checkpoints',
-          href: '/content-ai/capabilities/agent/features/checkpoints',
+          href: '/ai/deprecated/agent/features/checkpoints',
         },
         {
           title: 'Provide context',
-          href: '/content-ai/capabilities/agent/features/context',
+          href: '/ai/deprecated/agent/features/context',
         },
         {
           title: 'Selection awareness',
-          href: '/content-ai/capabilities/agent/features/selection-awareness',
+          href: '/ai/deprecated/agent/features/selection-awareness',
         },
         {
           title: 'Read large documents',
-          href: '/content-ai/capabilities/agent/features/large-documents',
+          href: '/ai/deprecated/agent/features/large-documents',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/configure/options',
+      href: '/ai/deprecated/agent/configure/options',
       title: 'Configuration',
       children: [
         {
           title: 'Configuration options',
-          href: '/content-ai/capabilities/agent/configure/options',
+          href: '/ai/deprecated/agent/configure/options',
         },
         {
           title: 'System prompt',
-          href: '/content-ai/capabilities/agent/configure/system-prompt',
+          href: '/ai/deprecated/agent/configure/system-prompt',
         },
         {
           title: 'Custom nodes/marks',
-          href: '/content-ai/capabilities/agent/configure/custom-nodes',
+          href: '/ai/deprecated/agent/configure/custom-nodes',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/review',
+      href: '/ai/deprecated/agent/review',
       title: 'Review changes',
       children: [
         {
           title: 'With AI Changes',
-          href: '/content-ai/capabilities/agent/review/ai-changes',
+          href: '/ai/deprecated/agent/review/ai-changes',
         },
         {
           title: 'With AI Suggestion',
-          href: '/content-ai/capabilities/agent/review/ai-suggestion',
+          href: '/ai/deprecated/agent/review/ai-suggestion',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/agent/api-reference',
+      href: '/ai/deprecated/agent/api-reference',
       title: 'Reference',
       children: [
         {
           title: 'API Reference',
-          href: '/content-ai/capabilities/agent/api-reference',
+          href: '/ai/deprecated/agent/api-reference',
         },
         {
           title: 'Changelog',
-          href: '/content-ai/capabilities/agent/changelog',
+          href: '/ai/deprecated/agent/changelog',
         },
       ],
     },

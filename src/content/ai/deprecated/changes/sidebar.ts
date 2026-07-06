@@ -2,7 +2,7 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ai-changes',
-  rootHref: '/content-ai/capabilities/changes/overview',
+  rootHref: '/ai/deprecated/changes/overview',
   title: 'AI Changes (Legacy)',
   items: [
     {
@@ -12,50 +12,50 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/changes/overview',
+      href: '/ai/deprecated/changes/overview',
       title: 'Get started',
       children: [
         {
           title: 'Overview',
-          href: '/content-ai/capabilities/changes/overview',
+          href: '/ai/deprecated/changes/overview',
         },
         {
           title: 'Install',
-          href: '/content-ai/capabilities/changes/install',
+          href: '/ai/deprecated/changes/install',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/changes/features/review-changes',
+      href: '/ai/deprecated/changes/features/review-changes',
       title: 'Features',
       children: [
         {
           title: 'Review changes',
-          href: '/content-ai/capabilities/changes/features/review-changes',
+          href: '/ai/deprecated/changes/features/review-changes',
         },
         {
           title: 'Display changes',
-          href: '/content-ai/capabilities/changes/features/display-changes',
+          href: '/ai/deprecated/changes/features/display-changes',
         },
       ],
     },
     {
       type: 'group',
-      href: '/content-ai/capabilities/changes/configure',
+      href: '/ai/deprecated/changes/configure',
       title: 'Reference',
       children: [
         {
           title: 'Configure',
-          href: '/content-ai/capabilities/changes/configure',
+          href: '/ai/deprecated/changes/configure',
         },
         {
           title: 'API Reference',
-          href: '/content-ai/capabilities/changes/api-reference',
+          href: '/ai/deprecated/changes/api-reference',
         },
         {
           title: 'Changelog',
-          href: '/content-ai/capabilities/changes/changelog',
+          href: '/ai/deprecated/changes/changelog',
         },
       ],
     },
