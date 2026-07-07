@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       href: '/ai/getting-started/overview',
-      title: 'Get started',
+      title: 'AIProductTerm',
       type: 'group',
       children: [
         {
@@ -26,7 +26,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'AI Extensions',
       children: [
         {
-          title: 'AI Toolkit',
+          title: 'AIClientTerm',
           href: '/ai/ai-toolkit/client',
           tags: ['Add-on'],
           releaseTag: 'beta',
