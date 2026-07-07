@@ -1,29 +1,93 @@
 import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
-  id: 'content-ai',
+  id: 'ai',
   rootHref: '/ai/getting-started/overview',
   title: 'AIUmbrellaTerm',
   items: [
     {
-      href: '/ai/getting-started/overview',
+      href: '/ai/ai-toolkit/getting-started/overview',
       title: 'AIProductTerm',
       type: 'group',
+      tags: ['Add-on'],
       children: [
         {
           title: 'Overview',
+          releaseTag: 'beta',
           href: '/ai/getting-started/overview',
         },
         {
-          title: 'Use cases',
-          href: '/ai/use-cases',
+          title: 'Install',
+          href: '/ai/ai-toolkit/install',
+        },
+        {
+          title: 'Agents',
+          href: '/ai/ai-toolkit/agents',
+          children: [
+            {
+              title: 'AI agent chatbot',
+              href: '/ai/ai-toolkit/agents/ai-agent-chatbot',
+            },
+            {
+              title: 'With Tracked Changes',
+              href: '/ai/ai-toolkit/agents/tracked-changes',
+            },
+            {
+              title: 'Comments',
+              href: '/ai/ai-toolkit/agents/comments',
+            },
+            {
+              title: 'Streaming',
+              href: '/ai/ai-toolkit/agents/streaming',
+            },
+          ],
+        },
+        {
+          title: 'API reference',
+          href: '/ai/ai-toolkit/api-reference',
+          children: [
+            {
+              title: 'REST API',
+              href: '/ai/ai-toolkit/api-reference/rest-api',
+            },
+            {
+              title: 'Editor context',
+              href: '/ai/ai-toolkit/api-reference/editor-context',
+            },
+            {
+              title: 'Review options',
+              href: '/ai/ai-toolkit/api-reference/review-options',
+            },
+            {
+              title: 'REST API (legacy v3)',
+              href: '/ai/ai-toolkit/api-reference/rest-api-v3',
+            },
+          ],
+        },
+        {
+          title: 'Advanced guides',
+          href: '/ai/ai-toolkit/advanced-guides',
+          children: [
+            {
+              title: 'Custom nodes',
+              href: '/ai/ai-toolkit/advanced-guides/custom-nodes',
+            },
+            {
+              title: 'Tiptap Shorthand',
+              href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
+            },
+          ],
+        },
+        {
+          title: 'Changelog',
+          href: '/resources/changelog/server-ai-toolkit',
         },
       ],
     },
     {
       type: 'group',
       href: '/ai',
-      title: 'AI Extensions',
+      title: 'Other Options',
       children: [
         {
           title: 'AIClientTerm',
@@ -256,84 +320,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Changelog',
               href: '/ai/ai-toolkit/client/changelog',
-            },
-          ],
-        },
-        {
-          title: 'Server AI Toolkit',
-          href: '/ai/ai-toolkit',
-          tags: ['Add-on'],
-          releaseTag: 'alpha',
-          children: [
-            {
-              title: 'Overview',
-              href: '/ai/ai-toolkit/overview',
-            },
-            {
-              title: 'Install',
-              href: '/ai/ai-toolkit/install',
-            },
-            {
-              title: 'Agents',
-              href: '/ai/ai-toolkit/agents',
-              children: [
-                {
-                  title: 'AI agent chatbot',
-                  href: '/ai/ai-toolkit/agents/ai-agent-chatbot',
-                },
-                {
-                  title: 'With Tracked Changes',
-                  href: '/ai/ai-toolkit/agents/tracked-changes',
-                },
-                {
-                  title: 'Comments',
-                  href: '/ai/ai-toolkit/agents/comments',
-                },
-                {
-                  title: 'Streaming',
-                  href: '/ai/ai-toolkit/agents/streaming',
-                },
-              ],
-            },
-            {
-              title: 'API reference',
-              href: '/ai/ai-toolkit/api-reference',
-              children: [
-                {
-                  title: 'REST API',
-                  href: '/ai/ai-toolkit/api-reference/rest-api',
-                },
-                {
-                  title: 'Editor context',
-                  href: '/ai/ai-toolkit/api-reference/editor-context',
-                },
-                {
-                  title: 'Review options',
-                  href: '/ai/ai-toolkit/api-reference/review-options',
-                },
-                {
-                  title: 'REST API (legacy v3)',
-                  href: '/ai/ai-toolkit/api-reference/rest-api-v3',
-                },
-              ],
-            },
-            {
-              title: 'Advanced guides',
-              href: '/ai/ai-toolkit/advanced-guides',
-              children: [
-                {
-                  title: 'Custom nodes',
-                  href: '/ai/ai-toolkit/advanced-guides/custom-nodes',
-                },
-                {
-                  title: 'Tiptap Shorthand',
-                  href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
-                },
-              ],
-            },
-            {
-              title: 'Changelog',
-              href: '/resources/changelog/server-ai-toolkit',
             },
           ],
         },
