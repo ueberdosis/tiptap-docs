@@ -57,7 +57,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Tracked Changes',
         },
         {
-          href: '/ai/getting-started/overview',
+          href: '/ai/ai-toolkit/overview',
           title: 'AIUmbrellaTerm',
         },
         {

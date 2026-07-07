@@ -2,7 +2,7 @@ import { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ai',
-  rootHref: '/ai/getting-started/overview',
+  rootHref: '/ai/ai-toolkit/overview',
   title: 'AIUmbrellaTerm',
   items: [
     {
@@ -14,7 +14,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Overview',
           releaseTag: 'beta',
-          href: '/ai/getting-started/overview',
+          href: '/ai/ai-toolkit/overview',
         },
         {
           title: 'Install',
