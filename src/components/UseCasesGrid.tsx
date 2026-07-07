@@ -1,5 +1,7 @@
 'use client'
 
+// TODO [Dave]: I did a quick update to split this into Generation and AI Toolkit, but it's not the most elegant work.
+
 import {
   MessageSquare,
   FileCheck,
@@ -36,7 +38,7 @@ interface UseCase {
   icon: LucideIcon
 }
 
-const USE_CASES: UseCase[] = [
+const CLIENT_USE_CASES: UseCase[] = [
   // AI Toolkit use cases - AI AGENTS
   {
     title: 'AI agent chatbot',
@@ -151,7 +153,9 @@ const USE_CASES: UseCase[] = [
     tags: ['AI Generation'],
     icon: Code,
   },
+];
 
+const GENERATION_USE_CASES = [
   // AI Generation use cases - TEXT MANIPULATION
   {
     title: 'Fix grammar and spelling',
@@ -231,16 +235,17 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
   )
 }
 
-export const UseCasesGrid = () => {
-  const toolkitAgentUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Agents'))
-  const toolkitWorkflowUseCases = USE_CASES.filter((uc) => uc.tags.includes('Workflows'))
-  const generationUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Generation'))
+export const UseCasesGrid: React.FC<{ variant: 'client' | 'generation' }> = ({ variant }) => {
+  const useCases = variant === "client" ? CLIENT_USE_CASES : GENERATION_USE_CASES;
+  const toolkitAgentUseCases = useCases.filter((uc) => uc.tags.includes('AI Agents'))
+  const toolkitWorkflowUseCases = useCases.filter((uc) => uc.tags.includes('Workflows'))
+  const generationUseCases = useCases.filter((uc) => uc.tags.includes('AI Generation'))
 
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
-      <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />
-      <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />
-      <UseCaseSection title="AI Generation" useCases={generationUseCases} />
+      {toolkitAgentUseCases.length > 0 && <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />}
+      {toolkitWorkflowUseCases.length > 0 && <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />}
+      {generationUseCases.length > 0 && <UseCaseSection title="" useCases={generationUseCases} />}
     </div>
   )
 }
@@ -248,7 +253,7 @@ export const UseCasesGrid = () => {
 function UseCaseSection({ title, useCases }: { title: string; useCases: UseCase[] }) {
   return (
     <div>
-      <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
+      {title && <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>}
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
         {useCases.map((useCase) => (
           <UseCaseCard useCase={useCase} key={useCase.href} />
