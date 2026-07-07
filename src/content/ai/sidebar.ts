@@ -39,6 +39,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Streaming',
               href: '/ai/ai-toolkit/agents/streaming',
+              releaseTag: 'alpha',
             },
           ],
         },
@@ -75,6 +76,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Tiptap Shorthand',
               href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
+              releaseTag: 'alpha',
             },
           ],
         },
@@ -256,7 +258,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/ai/ai-toolkit/client/advanced-guides/migration-guides',
                   children: [
                     {
-                      title: 'AI Generation',
+                      title: 'AIBasicTerm',
                       href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-generation',
                     },
                     {
@@ -324,63 +326,63 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AI Generation',
+          title: 'AIBasicTerm',
           tags: ['Start'],
-          href: '/ai/simple-generation/overview',
+          href: '/ai/basic/overview',
           children: [
             {
               title: 'Overview',
-              href: '/ai/simple-generation/overview',
+              href: '/ai/basic/overview',
             },
             {
               title: 'Install',
-              href: '/ai/simple-generation/install',
+              href: '/ai/basic/install',
             },
             {
               title: 'Text generation',
-              href: '/ai/simple-generation/text-generation',
+              href: '/ai/basic/text-generation',
               children: [
                 {
                   title: 'Built-in commands',
-                  href: '/ai/simple-generation/text-generation/built-in-commands',
+                  href: '/ai/basic/text-generation/built-in-commands',
                 },
                 {
                   title: 'Autocompletion',
-                  href: '/ai/simple-generation/text-generation/autocompletion',
+                  href: '/ai/basic/text-generation/autocompletion',
                 },
                 {
                   title: 'Provide context',
-                  href: '/ai/simple-generation/text-generation/provide-context',
+                  href: '/ai/basic/text-generation/provide-context',
                 },
                 {
                   title: 'Formatted responses',
-                  href: '/ai/simple-generation/text-generation/format',
+                  href: '/ai/basic/text-generation/format',
                 },
                 {
                   title: 'Manage responses',
-                  href: '/ai/simple-generation/text-generation/manage-responses',
+                  href: '/ai/basic/text-generation/manage-responses',
                 },
                 {
                   title: 'Custom commands',
-                  href: '/ai/simple-generation/text-generation/custom-commands',
+                  href: '/ai/basic/text-generation/custom-commands',
                 },
                 {
                   title: 'Stream content (Advanced)',
-                  href: '/ai/simple-generation/text-generation/stream',
+                  href: '/ai/basic/text-generation/stream',
                 },
               ],
             },
             {
               title: 'Image generation',
-              href: '/ai/simple-generation/image-generation',
+              href: '/ai/basic/image-generation',
             },
             {
               title: 'Integrate your LLM',
-              href: '/ai/simple-generation/custom-llms',
+              href: '/ai/basic/custom-llms',
             },
             {
               title: 'Configure',
-              href: '/ai/simple-generation/configure',
+              href: '/ai/basic/configure',
             },
           ],
         },
