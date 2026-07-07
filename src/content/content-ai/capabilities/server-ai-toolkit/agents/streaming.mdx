@@ -34,7 +34,7 @@ See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 ## How it works
 
 1. Your server fetches the `tiptapEdit` tool definition and reads the document, just as it does with a [non-streaming agent](/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot).
-2. As the model generates the tool call, your server forwards the raw input deltas to `POST /v3/ai/toolkit/stream-tool` as [NDJSON](https://github.com/ndjson/ndjson-spec) `start`, `delta`, and `end` messages.
+2. As the model generates the tool call, your server forwards the raw input deltas to `POST /v4/ai/toolkit/stream-tool` as [NDJSON](https://github.com/ndjson/ndjson-spec) `start`, `delta`, and `end` messages.
 3. From there, the Server AI Toolkit applies the edit for you: as the forwarded deltas arrive, it incrementally updates the Tiptap Cloud document over a live connection. You never apply anything yourself; the document updates happen automatically on the server side as the deltas stream in.
 4. The client renders the changes through [Collaboration](/collaboration/getting-started/overview). The editor never calls a streaming method itself, so the edits arrive as document updates.
 
@@ -60,13 +60,13 @@ npm install ai zod
 import { gateway, stepCountIs, streamText, tool, type UIMessage } from 'ai'
 import { z } from 'zod'
 import { getAuthHeaders } from '@/lib/server-ai-toolkit/get-auth-headers'
+import { streamToolFetch } from '@/lib/server-ai-toolkit/stream-tool-fetch'
 
 // The Server AI Toolkit API base URL
-const apiBaseUrl = 'https://api.tiptap.dev/v3/ai'
+const apiBaseUrl = 'https://api.tiptap.dev/v4/ai'
 
 export async function POST(req: Request) {
   const { messages, editorContext, documentId } = await req.json()
-  const documentOptions = { documentId, userId: 'ai-assistant' }
   // Single-shot edit: the task is the latest user message.
   const lastUser = (messages as UIMessage[]).filter((m) => m.role === 'user').at(-1)
   const task =
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
   // 1. Fetch the tiptapEdit tool definition and read the document.
   //    These steps match the non-streaming flow. See the REST API reference.
-  const { tools, prompt } = await fetch(`${apiBaseUrl}/toolkit/tools`, {
+  const { tools, systemPrompt } = await fetch(`${apiBaseUrl}/toolkit/fetch-tools`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ editorContext, tools: { tiptapEdit: true } }),
@@ -88,10 +88,9 @@ export async function POST(req: Request) {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
-      toolName: 'readDocument',
-      input: {},
+      tool: { name: 'readDocument', input: {} },
+      document: { type: 'cloud', id: documentId },
       editorContext,
-      experimental_documentOptions: documentOptions,
     }),
   }).then((res) => res.json())
 
@@ -102,20 +101,22 @@ export async function POST(req: Request) {
   const send = (message: object) =>
     controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`))
 
-  const upstream = fetch(`${apiBaseUrl}/toolkit/stream-tool`, {
+  // `streamToolFetch` sends the request over HTTP/2 so the duplex upload
+  // survives a reverse proxy (an HTTP/1.1 proxy drains the request body once the
+  // response starts, which truncates the stream). See the demo source for the
+  // helper. `duplex: 'half'` is required whenever you stream a request body.
+  const upstream = streamToolFetch(`${apiBaseUrl}/toolkit/stream-tool`, {
     method: 'POST',
     headers: { ...getAuthHeaders(), 'Content-Type': 'application/x-ndjson' },
     body,
-    // `duplex: 'half'` is required when streaming a request body; some fetch
-    // type definitions don't include it yet, so the init is cast.
     duplex: 'half',
-  } as RequestInit & { duplex: 'half' })
+  })
 
   // 3. Drive the model. Forward its tool input as start / delta / end messages.
   const result = streamText({
     model: gateway('openai/gpt-5.4-mini'),
-    system: `${prompt}\n\nMake the edit with tiptapEdit, then reply with one short sentence confirming what you changed.`,
-    prompt: JSON.stringify({ content: read.toolResult.content, task }),
+    system: `${systemPrompt}\n\nMake the edit with tiptapEdit, then reply with one short sentence confirming what you changed.`,
+    prompt: JSON.stringify({ content: read.tool.output, task }),
     tools: {
       tiptapEdit: tool({
         description: tiptapEdit.description,
@@ -126,9 +127,10 @@ export async function POST(req: Request) {
           send({
             version: 1,
             type: 'start',
-            toolName: 'tiptapEdit',
             editorContext,
-            experimental_documentOptions: documentOptions,
+            document: documentId,
+            tool: { name: 'tiptapEdit' },
+            user: 'ai-assistant',
           }),
         onInputDelta: ({ inputTextDelta }) =>
           send({ version: 1, type: 'delta', argsTextDelta: inputTextDelta }),
@@ -205,9 +207,10 @@ To let users review streamed edits instead of applying them directly, add `revie
 send({
   version: 1,
   type: 'start',
-  toolName: 'tiptapEdit',
   editorContext,
-  experimental_documentOptions: documentOptions,
+  document: documentId,
+  tool: { name: 'tiptapEdit' },
+  user: 'ai-assistant',
   reviewOptions: { mode: 'trackedChanges' },
 })
 ```
