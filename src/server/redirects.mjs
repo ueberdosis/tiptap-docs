@@ -724,6 +724,21 @@ export const redirects = [
   },
   // More SAIT launch redirects
   {
+    source: '/content-ai/getting-started/overview',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
+    source: '/ai',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
+    source: '/ai/ai-toolkit',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/server-ai-toolkit/:rest',
     destination: '/ai/ai-toolkit/:rest',
     permanent: true,
