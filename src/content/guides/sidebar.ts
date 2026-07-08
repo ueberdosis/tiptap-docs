@@ -38,6 +38,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'React Composable API',
         },
         {
+          href: '/guides/migrate-to-react-experimental',
+          title: 'Experimental React renderer',
+          tags: ['Experimental'],
+        },
+        {
           href: '/guides/invalid-schema',
           title: 'Invalid schema handling',
         },
