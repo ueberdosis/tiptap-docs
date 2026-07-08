@@ -104,6 +104,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/client/overview',
             },
             {
+              title: 'Use cases',
+              href: '/ai/ai-toolkit/client/use-cases',
+            },
+            {
               title: 'Install',
               href: '/ai/ai-toolkit/client/install',
             },
@@ -335,6 +339,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Overview',
               href: '/ai/basic/overview',
+            },
+            {
+              title: 'Use cases',
+              href: '/ai/basic/use-cases',
             },
             {
               title: 'Install',
