@@ -451,11 +451,6 @@ export const redirects = [
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
-    destination: '/ai/ai-toolkit/client/advanced-guides/live-demo',
-    permanent: true,
-  },
-  {
     source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
     destination: '/ai/ai-toolkit/client/agents/multi-document',
     permanent: true,
@@ -659,6 +654,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/ai/ai-toolkit/advanced-guides',
+    destination: '/ai/ai-toolkit/advanced-guides/custom-nodes',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/server-ai-toolkit/agents/schema-awareness',
     destination: '/ai/ai-toolkit/advanced-guides/custom-nodes',
     permanent: true,
@@ -743,6 +743,16 @@ export const redirects = [
   {
     source: '/content-ai/:rest',
     destination: '/ai/:rest',
+    permanent: true,
+  },
+  {
+    source: '/ai/ai-toolkit/client',
+    destination: '/ai/ai-toolkit/client/overview',
+    permanent: true,
+  },
+  {
+    source: '/ai/ai-toolkit/client/advanced-guides',
+    destination: '/ai/ai-toolkit/client/advanced-guides/live-demo',
     permanent: true,
   },
   // End more SAIT launch redirects

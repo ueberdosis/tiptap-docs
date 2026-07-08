@@ -80,10 +80,12 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+        /*
         {
           title: 'Changelog',
           href: '/resources/changelog/server-ai-toolkit',
         },
+        */
       ],
     },
     {
