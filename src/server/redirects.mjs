@@ -729,6 +729,16 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/content-ai/capabilities/use-cases',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/capabilities/use-cases/index',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
     source: '/ai',
     destination: '/ai/ai-toolkit/overview',
     permanent: true,
