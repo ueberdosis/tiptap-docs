@@ -420,6 +420,8 @@ export const redirects = [
     destination: '/ai/ai-toolkit/client/agents/tools',
     permanent: true,
   },
+  /*
+    TODO DF: Commented this out during the SAIT launch because these destination linkes were already broken on main.
   {
     source: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
     destination: '/resources/changelog/pro-ai-toolkit',
@@ -450,6 +452,7 @@ export const redirects = [
     destination: '/resources/changelog/pro-ai-toolkit-tool-definitions',
     permanent: true,
   },
+  */
   {
     source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
     destination: '/ai/ai-toolkit/client/agents/multi-document',
