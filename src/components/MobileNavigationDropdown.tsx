@@ -22,7 +22,7 @@ const options = [
         label: 'Tracked Changes',
         href: '/tracked-changes/getting-started/overview',
       },
-      { label: 'AIUmbrellaTerm', href: '/ai/ai-toolkit/overview' },
+      { label: 'AI Toolkit', href: '/ai/ai-toolkit/overview' },
       { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
       { label: 'Conversion', href: '/conversion/getting-started/overview' },
       { label: 'Pages', href: '/pages/getting-started/overview' },

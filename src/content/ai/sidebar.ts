@@ -3,11 +3,11 @@ import { SidebarConfig } from '@/types'
 export const sidebarConfig: SidebarConfig = {
   id: 'ai',
   rootHref: '/ai/ai-toolkit/overview',
-  title: 'AIUmbrellaTerm',
+  title: 'AI Toolkit',
   items: [
     {
       href: '/ai/ai-toolkit/getting-started/overview',
-      title: 'AIProductTerm',
+      title: 'AI Toolkit',
       type: 'group',
       tags: ['Add-on'],
       children: [
@@ -94,10 +94,9 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Other Options',
       children: [
         {
-          title: 'AIClientTerm',
+          title: 'Client toolkit',
           href: '/ai/ai-toolkit/client',
           tags: ['Add-on'],
-          releaseTag: 'beta',
           children: [
             {
               title: 'Overview',
@@ -264,7 +263,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/ai/ai-toolkit/client/advanced-guides/migration-guides',
                   children: [
                     {
-                      title: 'AIBasicTerm',
+                      title: 'Basic AI Generation',
                       href: '/ai/ai-toolkit/client/advanced-guides/migration-guides/ai-generation',
                     },
                     {
@@ -332,7 +331,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'AIBasicTerm',
+          title: 'Basic AI Generation',
           tags: ['Start'],
           href: '/ai/basic/overview',
           children: [

@@ -58,7 +58,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           href: '/ai/ai-toolkit/overview',
-          title: 'AIUmbrellaTerm',
+          title: 'AI Toolkit',
         },
         {
           href: '/collaboration/documents/snapshot',
