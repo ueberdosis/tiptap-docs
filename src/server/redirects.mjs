@@ -754,6 +754,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/ai/basic',
+    destination: '/ai/basic/overview',
+    permanent: true,
+  },
+  {
     source: '/ai/ai-toolkit/client/advanced-guides',
     destination: '/ai/ai-toolkit/client/advanced-guides/live-demo',
     permanent: true,

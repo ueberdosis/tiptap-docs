@@ -90,7 +90,8 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/ai',
+      // Not a real URL and as far as I can see doesn't need to be...
+      href: '/ai/other-options',
       title: 'Other Options',
       children: [
         {
@@ -333,7 +334,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Basic AI Generation',
           tags: ['Start'],
-          href: '/ai/basic/overview',
+          href: '/ai/basic',
           children: [
             {
               title: 'Overview',
