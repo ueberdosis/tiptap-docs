@@ -2,20 +2,232 @@
 title: Streaming
 meta:
   title: Streaming | Tiptap Server AI Toolkit
-  description: Streaming support is coming soon to the Server AI Toolkit.
+  description: Stream server-side AI edits into the document in real time, so changes appear in the browser as the model generates them.
   category: Content AI
 ---
 
 import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
 
-<Callout title="Coming soon" variant="info">
-  Streaming is not yet available in the Server AI Toolkit. In the meantime, you can use the [AI
-  Toolkit](/content-ai/capabilities/ai-toolkit/agents/streaming) to stream AI-generated content in
-  real-time on the client side.
+<Callout title="Alpha" variant="warning">
+  Server-side streaming is in Alpha. The API may still change.
 </Callout>
 
-Streaming support for the Server AI Toolkit is under active development. Once available, it will allow AI-generated document edits to appear in real-time as the model produces them, directly from the server side.
+Stream AI edits from the server so they appear in the document in real time, as the model generates them. The edit runs on your server and is applied to the Tiptap Cloud document over a live connection, so every collaborator sees it happen.
 
-## Use the AI Toolkit for streaming
+<Callout title="Requires Collaboration" variant="info">
+  Streaming applies the edit to a live Tiptap Cloud document and syncs it to the editor through
+  [Collaboration](/collaboration/getting-started/overview), so both are required. Unlike the
+  non-streaming tools, there is no inline-document mode. If you are not on Tiptap Cloud
+  Collaboration yet, you will need it to stream edits from the server.
+</Callout>
 
-Until server-side streaming is available, you can use the [AI Toolkit's streaming feature](/content-ai/capabilities/ai-toolkit/agents/streaming) to achieve real-time updates. The AI Toolkit runs on the client side and supports streaming today via the `streamTool` method.
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-ai-stream-tool-chatbot"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## How it works
+
+1. Your server fetches the `tiptapEdit` tool definition and reads the document, just as it does with a [non-streaming agent](/content-ai/capabilities/server-ai-toolkit/agents/ai-agent-chatbot).
+2. As the model generates the tool call, your server forwards the raw input deltas to `POST /v4/ai/toolkit/stream-tool` as [NDJSON](https://github.com/ndjson/ndjson-spec) `start`, `delta`, and `end` messages.
+3. From there, the Server AI Toolkit applies the edit for you: as the forwarded deltas arrive, it incrementally updates the Tiptap Cloud document over a live connection. You never apply anything yourself; the document updates happen automatically on the server side as the deltas stream in.
+4. The client renders the changes through [Collaboration](/collaboration/getting-started/overview). The editor never calls a streaming method itself, so the edits arrive as document updates.
+
+## Stream an edit
+
+<Callout title="Works with most AI backends" variant="hint">
+  This example uses the [AI SDK by Vercel](https://ai-sdk.vercel.app/), but you can drive
+  `stream-tool` from most AI back-end setups. You just forward your model's tool-call input as
+  NDJSON deltas.
+</Callout>
+
+On the server, open a [duplex](https://developer.mozilla.org/en-US/docs/Web/API/RequestInit#duplex) NDJSON request to `stream-tool` and drive it with your model's tool-call stream. A duplex request lets you stream the body up incrementally, so you can forward each tool-call delta as the model produces it instead of sending the whole input at once.
+
+The `stream-tool` request and response are both NDJSON: one JSON object per line. You send three message types: `start` to open the stream, `delta` for each chunk of the AI-generated tool input, and `end` once the input is complete.
+
+Install the AI SDK and Zod:
+
+```bash
+npm install ai zod
+```
+
+```ts
+import { gateway, stepCountIs, streamText, tool, type UIMessage } from 'ai'
+import { z } from 'zod'
+import { getAuthHeaders } from '@/lib/server-ai-toolkit/get-auth-headers'
+import { streamToolFetch } from '@/lib/server-ai-toolkit/stream-tool-fetch'
+
+// The Server AI Toolkit API base URL
+const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
+
+export async function POST(req: Request) {
+  const { messages, editorContext, documentId } = await req.json()
+  // Single-shot edit: the task is the latest user message.
+  const lastUser = (messages as UIMessage[]).filter((m) => m.role === 'user').at(-1)
+  const task =
+    lastUser?.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => (p as { text: string }).text)
+      .join(' ') ?? ''
+
+  // 1. Fetch the tiptapEdit tool definition and read the document.
+  //    These steps match the non-streaming flow. See the REST API reference.
+  const { tools, systemPrompt } = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ editorContext, tools: { tiptapEdit: true } }),
+  }).then((res) => res.json())
+  const tiptapEdit = tools.find((t) => t.name === 'tiptapEdit')
+
+  const read = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
+    method: 'POST',
+    headers: await getAuthHeaders(documentId),
+    body: JSON.stringify({
+      tool: { name: 'readDocument', input: {} },
+      document: { type: 'cloud', id: documentId },
+      editorContext,
+    }),
+  }).then((res) => res.json())
+
+  // 2. Open a duplex NDJSON request to stream-tool. Each message is one line.
+  const encoder = new TextEncoder()
+  let controller: ReadableStreamDefaultController<Uint8Array>
+  const body = new ReadableStream<Uint8Array>({ start: (c) => (controller = c) })
+  const send = (message: object) =>
+    controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`))
+
+  // `streamToolFetch` sends the request over HTTP/2 so the duplex upload
+  // survives a reverse proxy (an HTTP/1.1 proxy drains the request body once the
+  // response starts, which truncates the stream). See the demo source for the
+  // helper. `duplex: 'half'` is required whenever you stream a request body.
+  const upstream = streamToolFetch(`${apiBaseUrl}/v4/ai/toolkit/stream-tool`, {
+    method: 'POST',
+    headers: { ...(await getAuthHeaders(documentId)), 'Content-Type': 'application/x-ndjson' },
+    body,
+    duplex: 'half',
+  })
+
+  // 3. Drive the model. Forward its tool input as start / delta / end messages.
+  const result = streamText({
+    model: gateway('openai/gpt-5.4-mini'),
+    system: `${systemPrompt}\n\nMake the edit with tiptapEdit, then reply with one short sentence confirming what you changed.`,
+    prompt: JSON.stringify({ content: read.tool.output, task }),
+    tools: {
+      tiptapEdit: tool({
+        description: tiptapEdit.description,
+        inputSchema: z.fromJSONSchema(tiptapEdit.inputSchema),
+        // Constrain sampling to the tool's input schema.
+        strict: true,
+        onInputStart: () =>
+          send({
+            version: 1,
+            type: 'start',
+            editorContext,
+            document: { type: 'cloud', id: documentId },
+            tool: { name: 'tiptapEdit' },
+            user: 'ai-assistant',
+          }),
+        onInputDelta: ({ inputTextDelta }) =>
+          send({ version: 1, type: 'delta', argsTextDelta: inputTextDelta }),
+        onInputAvailable: () => {
+          send({ version: 1, type: 'end' })
+          controller.close()
+        },
+        // Wait for the AI server to finish applying the edit, then report a
+        // result so the chat turn completes.
+        execute: async () => {
+          const res = await upstream
+          await res.text()
+          return { ok: res.ok }
+        },
+      }),
+    },
+    // Step 0: force the edit. Step 1: forbid tools so the model writes the
+    // confirmation sentence for the chat.
+    stopWhen: stepCountIs(2),
+    prepareStep: ({ stepNumber }) => ({
+      toolChoice: stepNumber === 0 ? 'required' : 'none',
+    }),
+  })
+
+  // The edits reach the editor via Y.Doc sync; this stream drives the chat.
+  return result.toUIMessageStreamResponse()
+}
+```
+
+See the [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#stream-a-tool) for the full request and response message shapes, and the [demo source](https://github.com/ueberdosis/ai-toolkit-demos) for a production-ready route with error handling.
+
+## Client-side setup
+
+On the client, add the `Collaboration` and `ServerAiToolkit` extensions, connect the document with a `TiptapCollabProvider`, and drive the chat with the AI SDK `useChat` hook (the same as the other server demos). The streamed edits arrive in the editor through Collaboration; `useChat` shows the model's replies.
+
+```tsx
+import { useChat } from '@ai-sdk/react'
+import { Collaboration } from '@tiptap/extension-collaboration'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { ServerAiToolkit, getEditorContext } from '@tiptap/server-ai-toolkit'
+import { DefaultChatTransport } from 'ai'
+import { useRef } from 'react'
+
+const editor = useEditor({
+  immediatelyRender: false,
+  extensions: [
+    StarterKit.configure({ undoRedo: false }),
+    Collaboration.configure({ document: doc }),
+    ServerAiToolkit,
+  ],
+})
+
+// editorContext in a ref to avoid an AI SDK stale-closure (vercel/ai#7819).
+const editorContextRef = useRef(editor ? getEditorContext(editor) : null)
+editorContextRef.current = editor ? getEditorContext(editor) : null
+
+const { messages, sendMessage, status } = useChat({
+  transport: new DefaultChatTransport({
+    api: '/api/stream-edit',
+    body: () => ({
+      editorContext: editorContextRef.current,
+      documentId: 'your-document-id',
+    }),
+  }),
+})
+```
+
+## Stream as tracked changes
+
+To let users review streamed edits instead of applying them directly, add `reviewOptions` to the `start` message. The edit then appears as a tracked-change suggestion that's typed into the document in real time and that users can accept or reject.
+
+```ts
+send({
+  version: 1,
+  type: 'start',
+  editorContext,
+  document: { type: 'cloud', id: documentId },
+  tool: { name: 'tiptapEdit' },
+  user: 'ai-assistant',
+  reviewOptions: { mode: 'trackedChanges' },
+})
+```
+
+Add the [Tracked Changes](/tracked-changes/getting-started/overview) extension on the client to render and accept or reject the suggestions. See the [Use with Tracked Changes guide](/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes) and the [Tracked Changes streaming demo](https://ai-toolkit-demos.vercel.app/server-ai-stream-tool-chatbot-tracked-changes).
+
+## End result
+
+The result is a simple but polished AI chatbot application:
+
+<CodeDemo isLarge path="" isScrollable src="https://ai-toolkit-demos.vercel.app/server-ai-stream-tool-chatbot" />
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- [REST API reference](/content-ai/capabilities/server-ai-toolkit/api-reference/rest-api#stream-a-tool): the full `stream-tool` request and response protocol.
+- [Review options](/content-ai/capabilities/server-ai-toolkit/api-reference/review-options): all `reviewOptions` settings.
+- [Use with Tracked Changes](/content-ai/capabilities/server-ai-toolkit/agents/tracked-changes): review server-side edits before they're accepted.
+- [AI Toolkit streaming](/content-ai/capabilities/ai-toolkit/agents/streaming): stream on the client with your own LLM.
