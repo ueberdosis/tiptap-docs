@@ -739,6 +739,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/examples/experiments/ai-agent',
+    destination: '/ai/deprecated/agent/overview',
+    permanent: true,
+  },
+  {
     source: '/ai',
     destination: '/ai/ai-toolkit/overview',
     permanent: true,
