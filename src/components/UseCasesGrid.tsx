@@ -136,13 +136,13 @@ const CLIENT_USE_CASES: UseCase[] = [
     icon: GitCompare,
   },
 
-  // AI Generation use cases - POPULAR FEATURES
+  // Basic AI Generation use cases - POPULAR FEATURES
   {
     title: 'Inline autocompletion',
     description:
       'Show AI-powered text suggestions as users type. Accept with Tab, like GitHub Copilot.',
     href: '/ai/basic/text-generation/autocompletion',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Zap,
   },
   {
@@ -150,18 +150,18 @@ const CLIENT_USE_CASES: UseCase[] = [
     description:
       'Build your own AI commands with custom prompts, parameters, and response handling.',
     href: '/ai/basic/text-generation/custom-commands',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Code,
   },
 ];
 
 const GENERATION_USE_CASES = [
-  // AI Generation use cases - TEXT MANIPULATION
+  // Basic AI Generation use cases - TEXT MANIPULATION
   {
     title: 'Fix grammar and spelling',
     description: 'Automatically correct grammar and spelling errors in selected text.',
     href: '/ai/basic/text-generation/built-in-commands#aifixspellingandgrammar',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: CheckCircle2,
   },
   {
@@ -169,37 +169,37 @@ const GENERATION_USE_CASES = [
     description:
       'Adjust writing tone to academic, casual, formal, friendly, professional, and more.',
     href: '/ai/basic/text-generation/built-in-commands#aiadjusttone',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Volume2,
   },
   {
     title: 'Translate text',
     description: 'Translate selected content into any language with AI-powered translation.',
     href: '/ai/basic/text-generation/built-in-commands#aitranslate',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Languages,
   },
   {
     title: 'Summarize content',
     description: 'Generate concise summaries or extract key points from selected text.',
     href: '/ai/basic/text-generation/built-in-commands#aisummarize',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: AlignLeft,
   },
 
-  // AI Generation use cases - ADVANCED FEATURES
+  // Basic AI Generation use cases - ADVANCED FEATURES
   {
     title: 'Generate rich text format',
     description: 'Generate AI responses with rich formatting like bold, italic, lists, and links.',
     href: '/ai/basic/text-generation/format',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Type,
   },
   {
     title: 'Stream AI content',
     description: 'Display AI-generated text in real-time with typewriter-style streaming effect.',
     href: '/ai/basic/text-generation/stream',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: Activity,
   },
   {
@@ -207,14 +207,14 @@ const GENERATION_USE_CASES = [
     description:
       'Preview, accept, reject, or regenerate AI-generated content before inserting into editor.',
     href: '/ai/basic/text-generation/manage-responses',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: RotateCcw,
   },
   {
     title: 'Generate images',
     description: 'Create AI-generated images using custom prompts with different visual styles.',
     href: '/ai/basic/image-generation',
-    tags: ['AI Generation'],
+    tags: ['Basic AI Generation'],
     icon: ImagePlus,
   },
 ]
@@ -239,7 +239,7 @@ export const UseCasesGrid: React.FC<{ variant: 'client' | 'generation' }> = ({ v
   const useCases = variant === "client" ? CLIENT_USE_CASES : GENERATION_USE_CASES;
   const toolkitAgentUseCases = useCases.filter((uc) => uc.tags.includes('AI Agents'))
   const toolkitWorkflowUseCases = useCases.filter((uc) => uc.tags.includes('Workflows'))
-  const generationUseCases = useCases.filter((uc) => uc.tags.includes('AI Generation'))
+  const generationUseCases = useCases.filter((uc) => uc.tags.includes('Basic AI Generation'))
 
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
