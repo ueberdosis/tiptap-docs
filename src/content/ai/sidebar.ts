@@ -95,7 +95,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Other Options',
       children: [
         {
-          title: 'Client toolkit',
+          title: 'Client Toolkit',
           href: '/ai/ai-toolkit/client',
           tags: ['Add-on'],
           children: [
