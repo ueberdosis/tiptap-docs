@@ -387,6 +387,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/basic/image-generation',
             },
             {
+              title: 'With Collaboration',
+              href: '/ai/basic/collaboration',
+            },
+            {
               title: 'Integrate your LLM',
               href: '/ai/basic/custom-llms',
             },
