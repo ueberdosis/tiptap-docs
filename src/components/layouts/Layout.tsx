@@ -245,7 +245,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
                 Changelog
               </Link>
             </div>
-            <div className="flex-none">Copyright © 2025 Tiptap</div>
+            <div className="flex-none">Copyright © {new Date().getFullYear()} Tiptap</div>
           </div>
         </footer>
       </main>
