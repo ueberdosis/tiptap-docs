@@ -744,6 +744,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/content-ai/resources/privacy',
+    destination: '/ai/basic/privacy',
+    permanent: true,
+  },
+  {
     source: '/ai',
     destination: '/ai/ai-toolkit/overview',
     permanent: true,
