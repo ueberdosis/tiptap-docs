@@ -328,7 +328,7 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Tiptap Shorthand',
                   href: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
-                  tags: ["Alpha"]
+                  tags: ['Alpha'],
                 },
               ],
             },
