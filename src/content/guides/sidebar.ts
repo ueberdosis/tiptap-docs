@@ -80,6 +80,14 @@ export const sidebarConfig: SidebarConfig = {
           href: '/guides/typescript',
           title: 'Extend with TypeScript',
         },
+        {
+          href: '/guides/decorations-react',
+          title: 'Search & Replace with Decorations in React',
+        },
+        {
+          href: '/guides/decorations-vue',
+          title: 'Search & Replace with Decorations in Vue 3',
+        },
       ],
     },
     {

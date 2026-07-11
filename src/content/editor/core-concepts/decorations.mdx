@@ -9,9 +9,9 @@ meta:
 import { Callout } from '@/components/ui/Callout'
 import { CodeDemo } from '@/components/CodeDemo'
 
-Decorations are **view-only** markers attached to positions or ranges in the document. They are **not** serialized into JSON or HTML and they **do not** modify the underlying ProseMirror document. Use them for highlights, search results, comments and annotations, temporary UI markers, and lightweight widgets that don't represent persisted document structure.
+Decorations change how content looks inside the editor. They do not change the document itself. They are not included when you save the editor as JSON or HTML.
 
-Decorations are declared by extensions through the `addDecorations()` hook and built with the framework-agnostic `decoration` factory. Tiptap aggregates the declarations from every extension into a single ProseMirror plugin for you.
+Extensions add decorations with `addDecorations()`. Use the `decoration` helper to create them. Tiptap takes care of adding them to the editor.
 
 <CodeDemo path="/Examples/Decorations?inline=false&hideSource=false" />
 
@@ -20,19 +20,19 @@ Decorations are declared by extensions through the `addDecorations()` hook and b
 Reach for decorations when the marker is purely visual and lives outside the document. Reach for a [node view](/editor/extensions/custom-extensions/node-views) when the content is part of the document itself.
 
 <Callout title="Decorations vs. node views" variant="info">
-  Use **decorations** for highlights, search results, comments, annotations, and temporary UI markers that
-  don't change the document. Use **[node views](/editor/extensions/custom-extensions/node-views)** when you
-  need persisted custom document content, editable custom blocks, or complex embedded UI that owns document
-  structure.
+  Use **decorations** for highlights, search results, comments, annotations, and temporary UI
+  markers that don't change the document. Use **[node
+  views](/editor/extensions/custom-extensions/node-views)** when you need persisted custom document
+  content, editable custom blocks, or complex embedded UI that owns document structure.
 </Callout>
 
 ## The three kinds of decoration
 
 There are three kinds of decoration, all created through the `decoration` factory:
 
-- **node** — adds attributes (for example a class) to a single node's DOM wrapper.
-- **inline** — wraps a range of inline content in a styled span.
-- **widget** — renders a DOM node (or a framework component) at a single position.
+- **node** adds attributes, such as a CSS class, to one node.
+- **inline** styles a range of text or other inline content.
+- **widget** adds a DOM element or framework component at one document position.
 
 ## Declaring decorations
 
@@ -56,7 +56,7 @@ Like other extension hooks, `addDecorations()` is bound to `this` (`{ name, opti
 
 ### The `decoration` factory
 
-`decoration` builds framework-agnostic **descriptors** (plain objects) — not ProseMirror decorations directly. Import it from `@tiptap/core`:
+The `decoration` helper returns plain objects that describe what Tiptap should show. Import it from `@tiptap/core`:
 
 ```ts
 import { decoration } from '@tiptap/core'
@@ -117,7 +117,7 @@ decoration.widget(
 )
 ```
 
-`side` controls which side of the position the widget biases to (see ProseMirror's [`Decoration.widget`](https://prosemirror.net/docs/ref/#view.Decoration%5Ewidget)). The `key` is mandatory — read the next section before choosing one.
+`side` controls which side of the position the widget belongs to. See ProseMirror's [`Decoration.widget`](https://prosemirror.net/docs/ref/#view.Decoration%5Ewidget). Every widget also needs a `key`.
 
 ## Widget keys
 
@@ -126,44 +126,44 @@ Every widget decoration requires a stable, position-independent `key`. This is t
 <Callout title="Choose stable, globally unique keys" variant="warning">
   ProseMirror reuses a widget's DOM across redraws **only when the key matches** the previous render. Without
   a stable key the widget is destroyed and recreated on every update, causing flicker and lost component
-  state. Keys must also be **globally unique** across all widget decorations in the editor — duplicate keys
+  state. Keys must also be **globally unique** across all widget decorations in the editor. Duplicate keys
   cause ProseMirror to misplace the widget DOM and crash.
 
-  Tiptap logs a development warning when it detects two widget decorations with the same key in a single
-  build, naming the offending extension:
+Tiptap logs a development warning when it detects two widget decorations with the same key in a single
+build, naming the offending extension:
 
-  `[tiptap warn]: Duplicate widget decoration key "<key>" in extension "<name>". Widget decoration keys must
+`[tiptap warn]: Duplicate widget decoration key "<key>" in extension "<name>". Widget decoration keys must
   be globally unique…`
 
-  The warning is a safety net, not a fix — you must still ensure keys are globally unique, otherwise
-  ProseMirror misplaces the widget DOM.
+The warning helps you find the problem. You must still make every key unique. Otherwise,
+ProseMirror misplaces the widget DOM.
+
 </Callout>
 
-**Good keys** are stable and domain-based: `comment-${id}`, `paragraph-${node.attrs.id}`, `suggestion-${id}`.
+**Good keys** use an ID that belongs to the item: `comment-${id}`, `paragraph-${node.attrs.id}`, `suggestion-${id}`.
 
 **Bad keys** are unstable or position-dependent: a loop or paragraph index, a document position (`marker-${from}`), or any position-derived value.
 
 If you need two widgets for one entity, suffix them: `comment-${id}-start` and `comment-${id}-end`.
 
 <Callout title="Exception for stateless widgets" variant="hint">
-  For stateless widgets in demos and simple examples (such as a static marker), index- or position-based keys
-  are acceptable. Stateful widgets — anything backed by a framework component or holding internal state — must
-  always use stable, domain-based keys.
+  For stateless widgets in demos and simple examples (such as a static marker), index- or
+  position-based keys are acceptable. Widgets that hold state must use a stable item ID instead.
 </Callout>
 
 ## Default behavior
 
 - On editor init, every extension's `create` runs once to build the initial decorations.
-- On each transaction, by default decorations recompute when the document changed (`tr.docChanged`); otherwise the existing decorations are mapped forward (positions shifted) without recomputing.
-- Selection-only changes do **not** recompute.
+- When the document changes, Tiptap builds the decorations again by default.
+- When only the selection changes, Tiptap keeps the current decorations and updates their positions.
 
 ## Performance
 
-Decorations recompute on every document change by default. For large documents or expensive `create()` logic — full-document scans, regex matching — there are two levers. `shouldUpdate` decides *whether* to recompute; `incrementalCreate` decides *how*.
+Decorations use the `document` update strategy by default. This builds them again after every document change. For a large document, you can choose a different strategy to reduce the amount of work.
 
-### `shouldUpdate` — gate whether to recompute
+### Use `shouldUpdate` to skip updates
 
-Return `false` from `shouldUpdate` to skip recomputation and just map existing decorations forward. Recompute only when the part of the document you care about actually changed:
+Return `false` from `shouldUpdate` when an edit cannot affect your decorations. Tiptap will keep them and update their positions instead of building them again.
 
 ```ts
 addDecorations() {
@@ -177,23 +177,17 @@ addDecorations() {
 }
 ```
 
-By default `shouldUpdate` recomputes whenever the document changed.
+By default, `shouldUpdate` runs after every document change.
 
-### `incrementalCreate` — change how recomputation happens
+### Use `changedRanges` for edited blocks
 
-<Callout title="Experimental" variant="warning">
-  `incrementalCreate` / `createInRange` are **experimental**. Their semantics, the way changed ranges are
-  computed, and the naming may change in a minor release while the API stabilizes. The non-incremental
-  `create` / `shouldUpdate` API is stable.
-</Callout>
+With `update: 'changedRanges'` and a `createInRange` callback, on a document change the manager:
 
-With `incrementalCreate: true` and a `createInRange` callback, on a document change the manager:
-
-1. Maps all existing decorations forward (cheap — proportional to the number of decorations, not the document size).
+1. Updates the positions of the current decorations.
 2. Computes the changed range(s) of the transaction and expands them to the **enclosing top-level block boundaries**, so a match that overlaps the raw edit (for example typing in the middle of a word) is still fully contained.
 3. Removes the now-stale decorations anchored in those blocks and rebuilds **only those blocks** by calling `createInRange({ state, from, to })`.
 
-`create` (the full-document scan) is **not** called during normal editing — only on the initial build and on a forced [`updateDecorations()`](#forcing-a-recompute). On a large document this turns a full rescan on every keystroke into a tiny per-block rescan.
+During normal editing, Tiptap does not call `create`. It only calls `create` when the editor starts or when you call [`updateDecorations()`](#build-decorations-again). This avoids scanning the full document after every key press.
 
 `createInRange` receives a **block-aligned** `from`/`to` and must return only decorations within that range. It typically shares a scan helper with `create`:
 
@@ -208,7 +202,7 @@ addDecorations() {
   }
 
   return {
-    incrementalCreate: true,
+    update: 'changedRanges',
     create: ({ editor, state }) => scan(editor, state, 0, state.doc.content.size),
     createInRange: ({ editor, state, from, to }) => scan(editor, state, from, to),
   }
@@ -216,47 +210,53 @@ addDecorations() {
 ```
 
 <Callout title="createInRange contract" variant="warning">
-  `createInRange` must return **only** decorations whose anchor position lies within `[from, to)` — `from` for
-  inline and node decorations, `pos` for widget decorations. Decorations anchored before `from` or at/after
-  `to` are **not supported** in incremental mode: they belong to a neighbouring block that the manager did not
-  remove, so returning them leaks duplicate decorations that are never cleaned up. If you need such
-  decorations, use a full `create` instead.
+  `createInRange` must return **only** decorations whose start position lies within `[from, to)`.
+  `from` for inline and node decorations, `pos` for widget decorations. Decorations anchored before
+  `from` or at/after `to` are **not supported** in incremental mode: they belong to a neighbouring
+  block that the manager did not remove, so returning them leaks duplicate decorations that are
+  never cleaned up. If you need such decorations, use a full `create` instead.
 </Callout>
 
-TypeScript enforces the pairing: setting `incrementalCreate: true` **requires** `createInRange`, and providing `createInRange` **without** `incrementalCreate: true` is a type error.
+TypeScript enforces the pairing: `update: 'changedRanges'` requires `createInRange`, while the other strategies do not accept it.
 
 <Callout title="Incremental mode is only correct for block-local decorations" variant="warning">
   Incremental mode is **only correct when each decoration depends solely on the content within its own
-  block/range.** Because only the edited blocks are rescanned, decorations elsewhere are merely mapped forward
-  — never re-evaluated.
+  block or range.** Tiptap only scans edited blocks again. It does not check decorations in other blocks.
 
-  **Safe (local):** "highlight every occurrence of a word", "outline every heading", "underline misspelled
-  words" — each decoration depends only on its own block.
+**Safe (local):** "highlight every occurrence of a word", "outline every heading", "underline misspelled
+words". Each decoration depends only on its own block.
 
-  **Not safe (depends on the whole document)** — leave `incrementalCreate` off and use `create`, or force a
-  full rebuild with `updateDecorations()`:
+**Not safe (depends on the whole document):** use the default `document` strategy and `create`, or force a
+full rebuild with `updateDecorations()`:
 
-  - Ordinal/counting logic: "highlight only the first match", "color every 3rd occurrence".
-  - Cross-document relationships: "mark duplicate words across the document".
-  - Structural relations: "the first heading gets a special class".
-  - Anything depending on selection or external state — incremental mode reacts to *content* changes only;
-    trigger `updateDecorations()` on selection or state changes instead.
+- Ordinal/counting logic: "highlight only the first match", "color every 3rd occurrence".
+- Cross-document relationships: "mark duplicate words across the document".
+- Structural relations: "the first heading gets a special class".
+- Anything depending on the selection or external state. Changed-range updates react to _content_ changes only;
+  trigger `updateDecorations()` on selection or state changes instead.
+
 </Callout>
 
-## Forcing a recompute
+### Use `manual` for external state
 
-`shouldUpdate` and `incrementalCreate` keep things fast during editing, but sometimes your decorations depend on something *outside* the document — a search term, a filter, a toggled setting. Use the `updateDecorations` command to force a recompute:
+Use `update: 'manual'` when document transactions should only map existing decorations to their new positions. Manual decorations are rebuilt only during initialization and when you call `updateDecorations()`.
+
+Use the manual strategy when decorations depend on a value outside the document, such as a search query or filter. You cannot use it with `shouldUpdate` or `createInRange`.
+
+## Build decorations again
+
+Sometimes decorations depend on something outside the document, such as a search term or filter. Call `updateDecorations` when that value changes:
 
 ```ts
-editor.commands.updateDecorations() // recompute ALL extensions' decorations
-editor.commands.updateDecorations('myExtension') // recompute only the named extension
+editor.commands.updateDecorations() // Update every extension.
+editor.commands.updateDecorations('myExtension') // Update one extension.
 ```
 
-`updateDecorations` bypasses `shouldUpdate` and always triggers a **full** `create` — even for incremental extensions. It is the escape hatch to re-evaluate everything.
+`updateDecorations` always calls `create` for the full document. It ignores the update strategy and `shouldUpdate` for this update.
 
 ### Runtime parameters via storage
 
-Decorations can't take live arguments directly. The idiom is to keep the parameter in the extension's [`storage`](/editor/extensions/custom-extensions/create-new/extension#addstorage), read it inside `create`, and force a recompute when it changes:
+Store changing values in the extension's [`storage`](/editor/extensions/custom-extensions/create-new/extension#addstorage). Read them inside `create`, then call `updateDecorations` after changing them:
 
 ```ts
 editor.storage.myExtension.term = 'foo'
@@ -265,13 +265,13 @@ editor.commands.updateDecorations('myExtension')
 
 ## Rendering framework components as widgets
 
-Widget decorations can render full React or Vue components instead of plain DOM nodes. The framework renderers reuse Tiptap's existing renderer infrastructure, so your component lives inside the editor's component tree — context, hooks, and `provide`/`inject` all work as usual.
+Widget decorations can render React or Vue components. The component stays inside your editor's React or Vue app, so hooks, context, and `provide`/`inject` continue to work.
 
 <CodeDemo path="/Examples/DecorationComponents?inline=false&hideSource=false" />
 
-### React — `ReactWidgetRenderer`
+### React: `ReactWidgetRenderer`
 
-Import `ReactWidgetRenderer` from `@tiptap/react`. It returns a `WidgetDecorationDescriptor` you return from `create`/`createInRange`, alongside `decoration.node` and `decoration.inline`. Your component additionally receives `editor` and `getPos` as props.
+Import `ReactWidgetRenderer` from `@tiptap/react`. It returns a `WidgetDecorationDescriptor` you return from `create` or `createInRange`, alongside `decoration.node` and `decoration.inline`. Your component additionally receives `editor` and `getPos` as props.
 
 ```tsx
 import { Extension } from '@tiptap/core'
@@ -311,10 +311,10 @@ const Comments = Extension.create({
 
 A few things worth knowing:
 
-- Fresh `props` are pushed each time `create`/`createInRange` re-runs. ProseMirror skips `toDOM` when it reuses the DOM, so props can't ride along there — the renderer for a key is cached and reused so component state survives across edits.
+- Tiptap sends new `props` when `create` or `createInRange` runs again. It reuses the renderer for the same key, so the component keeps its state.
 - The cache is swept when the editor is destroyed.
 
-### Vue — `VueWidgetRenderer`
+### Vue: `VueWidgetRenderer`
 
 Import `VueWidgetRenderer` from `@tiptap/vue-3` (or `@tiptap/vue-2`). It reuses Tiptap's `VueRenderer`, so the component shares the editor's app context (`provide`/`inject` work). The component receives `editor` and `getPos` in addition to your `props`.
 
@@ -343,15 +343,15 @@ const Comments = Extension.create({
 ```
 
 <Callout title="Vue-specific notes" variant="warning">
-  The component **must render a single root element**. The `editor` is passed raw (with `markRaw`) on purpose
-  — do not wrap it in reactivity.
+  The component **must render a single root element**. The `editor` is passed raw (with `markRaw`)
+  on purpose. Do not wrap it in reactivity.
 </Callout>
 
 ## Worked example: a search-term highlighter
 
 This example uses all three kinds of decoration and incremental mode. It highlights every occurrence of a term (inline), renders a star marker before each match (widget), and outlines every heading (node). The term lives in storage and is changed at runtime via `updateDecorations`.
 
-Each match and each heading depends only on its own block, so `incrementalCreate` is safe here.
+Each match and each heading depends only on its own block, so `update: 'changedRanges'` is safe here.
 
 ```ts
 import { decoration, Extension } from '@tiptap/core'
@@ -415,7 +415,7 @@ export const Highlight = Extension.create<HighlightOptions, HighlightStorage>({
     }
 
     return {
-      incrementalCreate: true, // each match/heading is block-local → safe
+      update: 'changedRanges', // each match/heading is block-local → safe
       create: ({ editor, state }) => scan(editor, state, 0, state.doc.content.size),
       createInRange: ({ editor, state, from, to }) => scan(editor, state, from, to),
     }
@@ -423,7 +423,7 @@ export const Highlight = Extension.create<HighlightOptions, HighlightStorage>({
 })
 ```
 
-Change the term at runtime by updating storage and forcing a full recompute:
+Change the term by updating storage and rebuilding the decorations:
 
 ```ts
 editor.storage.highlight.term = 'editor'
@@ -433,5 +433,6 @@ editor.commands.updateDecorations('highlight')
 ## Next steps
 
 - Read the full [Decorations API reference](/editor/api/decorations) for every signature and option.
+- Build a stateful widget with the [React tutorial](/guides/decorations-react) or [Vue 3 tutorial](/guides/decorations-vue).
 - Learn how the [`addDecorations` hook](/editor/extensions/custom-extensions/create-new/extension#adddecorations) fits into the extension lifecycle.
 - Compare with [node views](/editor/extensions/custom-extensions/node-views) when you need persisted, editable custom content.
