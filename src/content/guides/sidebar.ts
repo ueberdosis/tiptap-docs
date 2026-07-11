@@ -88,6 +88,14 @@ export const sidebarConfig: SidebarConfig = {
           href: '/guides/nested-node-view-content',
           title: 'Nested node views',
         },
+        {
+          href: '/guides/decorations-react',
+          title: 'Search & Replace with Decorations in React',
+        },
+        {
+          href: '/guides/decorations-vue',
+          title: 'Search & Replace with Decorations in Vue 3',
+        },
       ],
     },
     {

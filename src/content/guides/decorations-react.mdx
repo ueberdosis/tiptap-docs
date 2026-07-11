@@ -1,0 +1,288 @@
+---
+title: 'Build Search & Replace with Decorations in React'
+meta:
+  title: 'Search & Replace with Decorations in React | Tiptap Editor Docs'
+  description: Build find and replace for a React Tiptap editor with inline, node, and widget decorations.
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+In this tutorial, you will build find and replace without changing the document just to show search results. The finished feature uses all three decoration types:
+
+- **Inline decorations** highlight every match.
+- A **node decoration** outlines the block containing the active match.
+- A **widget decoration** renders a React replacement button beside the active match.
+
+The search controls live outside the editor. Extension storage holds their current values, and `updateDecorations()` refreshes the view whenever those values change.
+
+## Create the replacement widget
+
+`ReactWidgetRenderer` adds `editor` and `getPos` to your component props. Because the widget is placed at the end of the active match, `getPos()` also gives the replacement action its current endpoint.
+
+```tsx
+// ReplaceButton.tsx
+import type { ReactWidgetDecorationProps } from '@tiptap/react'
+
+interface ReplaceButtonProps extends ReactWidgetDecorationProps {
+  replacement: string
+  searchTerm: string
+}
+
+export function ReplaceButton({ editor, getPos, replacement, searchTerm }: ReplaceButtonProps) {
+  const replace = () => {
+    const to = getPos()
+
+    if (to === undefined || !searchTerm) {
+      return
+    }
+
+    editor.commands.insertContentAt({ from: to - searchTerm.length, to }, replacement)
+    editor.commands.updateDecorations('searchAndReplace')
+  }
+
+  return (
+    <button
+      className="search-replace-button"
+      contentEditable={false}
+      type="button"
+      onClick={replace}
+    >
+      Replace
+    </button>
+  )
+}
+```
+
+<Callout title="Always read the current position" variant="info">
+  Keep the `getPos` function, not its initial result. Tiptap updates the function as edits map the
+  widget to a new document position.
+</Callout>
+
+## Create the search extension
+
+The extension searches through text nodes without changing them. It uses the `manual` update strategy. This means the toolbar decides when to run the search again.
+
+```tsx
+// SearchAndReplace.tsx
+import { decoration, Extension } from '@tiptap/core'
+import type { DecorationDescriptor } from '@tiptap/core'
+import { ReactWidgetRenderer } from '@tiptap/react'
+
+import { ReplaceButton } from './ReplaceButton'
+
+interface SearchStorage {
+  activeIndex: number
+  replacement: string
+  searchTerm: string
+}
+
+declare module '@tiptap/core' {
+  interface Storage {
+    searchAndReplace: SearchStorage
+  }
+}
+
+interface Match {
+  from: number
+  to: number
+}
+
+export const SearchAndReplace = Extension.create<{}, SearchStorage>({
+  name: 'searchAndReplace',
+
+  addStorage() {
+    return {
+      activeIndex: 0,
+      replacement: '',
+      searchTerm: '',
+    }
+  },
+
+  addDecorations() {
+    return {
+      update: 'manual',
+      create: ({ editor, state }) => {
+        const { activeIndex, replacement, searchTerm } = editor.storage.searchAndReplace
+        const term = searchTerm.trim().toLocaleLowerCase()
+
+        if (!term) {
+          return []
+        }
+
+        const matches: Match[] = []
+
+        state.doc.descendants((node, pos) => {
+          if (!node.isText || !node.text) {
+            return
+          }
+
+          const text = node.text.toLocaleLowerCase()
+          let index = text.indexOf(term)
+
+          while (index !== -1) {
+            matches.push({
+              from: pos + index,
+              to: pos + index + term.length,
+            })
+            index = text.indexOf(term, index + term.length)
+          }
+        })
+
+        if (!matches.length) {
+          return []
+        }
+
+        const normalizedIndex = ((activeIndex % matches.length) + matches.length) % matches.length
+        const activeMatch = matches[normalizedIndex]
+        const decorations: DecorationDescriptor[] = matches.map((match, index) =>
+          decoration.inline(match.from, match.to, {
+            class: index === normalizedIndex ? 'search-match search-match-active' : 'search-match',
+          }),
+        )
+
+        const $active = state.doc.resolve(activeMatch.from)
+        const blockDepth = Math.max(1, $active.depth)
+
+        decorations.push(
+          decoration.node($active.before(blockDepth), $active.after(blockDepth), {
+            class: 'search-active-block',
+          }),
+          ReactWidgetRenderer(ReplaceButton, {
+            editor,
+            pos: activeMatch.to,
+            key: 'search-active-match',
+            props: { replacement, searchTerm: term },
+            side: 1,
+          }),
+        )
+
+        return decorations
+      },
+    }
+  },
+})
+```
+
+The widget key is a constant because there is exactly one active-match widget. Its identity stays stable while it moves between results, allowing React to reuse the component.
+
+## Add the search controls
+
+Keep the input fields in React state. When a value or the active result changes, copy it into extension storage and force a decoration rebuild.
+
+```tsx
+// Editor.tsx
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { useState } from 'react'
+
+import { SearchAndReplace } from './SearchAndReplace'
+import './styles.css'
+
+export function TiptapEditor() {
+  const [replacement, setReplacement] = useState('editor')
+  const [searchTerm, setSearchTerm] = useState('tiptap')
+  const editor = useEditor({
+    extensions: [StarterKit, SearchAndReplace],
+    content: `
+      <h2>Search this Tiptap document</h2>
+      <p>Tiptap makes editor interfaces approachable.</p>
+      <p>Try replacing either Tiptap match.</p>
+    `,
+  })
+
+  const refresh = (activeIndex = 0) => {
+    if (!editor) {
+      return
+    }
+
+    Object.assign(editor.storage.searchAndReplace, {
+      activeIndex,
+      replacement,
+      searchTerm,
+    })
+    editor.commands.updateDecorations('searchAndReplace')
+  }
+
+  if (!editor) {
+    return null
+  }
+
+  return (
+    <div>
+      <div className="search-toolbar">
+        <input
+          aria-label="Find"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+        <input
+          aria-label="Replace with"
+          value={replacement}
+          onChange={(event) => setReplacement(event.target.value)}
+        />
+        <button type="button" onClick={() => refresh(0)}>
+          Find
+        </button>
+        <button
+          type="button"
+          onClick={() => refresh(editor.storage.searchAndReplace.activeIndex - 1)}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          onClick={() => refresh(editor.storage.searchAndReplace.activeIndex + 1)}
+        >
+          Next
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSearchTerm('')
+            editor.storage.searchAndReplace.searchTerm = ''
+            editor.commands.updateDecorations('searchAndReplace')
+          }}
+        >
+          Clear
+        </button>
+      </div>
+      <EditorContent editor={editor} />
+    </div>
+  )
+}
+```
+
+## Style the three decoration types
+
+```css
+.search-match {
+  background: #fff3a3;
+}
+
+.search-match-active {
+  background: #ffc857;
+}
+
+.search-active-block {
+  outline: 2px solid #ffc857;
+  outline-offset: 3px;
+}
+
+.search-replace-button {
+  margin-inline-start: 0.25rem;
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  background: #1f2937;
+  color: white;
+}
+```
+
+You now have a view-only search layer and a replacement action that changes content only when the user asks it to. For production use, consider case-sensitivity and whole-word options, keyboard shortcuts, scrolling the active result into view, and searches that span multiple text nodes.
+
+## Next steps
+
+- Review [decoration types and update strategies](/editor/core-concepts/decorations).
+- Look up every [`ReactWidgetRenderer` option](/editor/api/decorations#reactwidgetrenderer).
+- See the parallel [Vue 3 tutorial](/guides/decorations-vue).

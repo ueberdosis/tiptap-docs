@@ -266,7 +266,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
               tags: ['Add-on'],
-              releaseTag: "beta",
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -317,7 +317,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
               tags: ['Start'],
-              releaseTag: "beta",
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/filehandler',
