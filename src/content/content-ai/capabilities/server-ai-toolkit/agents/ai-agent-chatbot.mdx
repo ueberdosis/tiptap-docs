@@ -44,29 +44,15 @@ See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 
 ## Tech stack
 
-- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
-- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
-- Server AI Toolkit API
+- A client-side [React](https://react.dev/) application
+- A server application
+- An AI agent framework like the [Vercel AI SDK](https://ai-sdk.dev/)
+- [OpenAI](https://openai.com/) models
+- The Server AI Toolkit
 
-## Installation
+The Server AI Toolkit works with any AI agent framework and AI model. It can also be used with any frontend framework and backend programming language. Here, we'll assume a simple Node.js server endpoint that takes a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) object and returns a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response).
 
-Create a [Next.js](https://nextjs.org/) project:
-
-```bash
-npx create-next-app@latest server-ai-agent-chatbot
-```
-
-Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
-
-```bash
-npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jose
-```
-
-Install the Server AI Toolkit package:
-
-```bash
-npm install @tiptap/server-ai-toolkit
-```
+Before you continue, set up the Server AI Toolkit by following the [installation guide](/content-ai/capabilities/server-ai-toolkit/install).
 
 ## API endpoint
 
@@ -192,17 +178,17 @@ export async function executeTool(
 }
 ```
 
-Now create the main API route:
+Create the `POST /api/server-ai-agent-chatbot` endpoint:
 
 ```ts
-// app/api/server-ai-agent-chatbot/route.ts
+// server/server-ai-agent-chatbot.ts
 import { openai } from '@ai-sdk/openai'
 import { createAgentUIStreamResponse, ToolLoopAgent, tool } from 'ai'
 import z from 'zod'
 import { executeTool } from '@/lib/server-ai-toolkit/execute-tool'
 import { getToolDefinitions } from '@/lib/server-ai-toolkit/get-tool-definitions'
 
-export async function POST(req: Request) {
+export async function handleChatRequest(request: Request): Promise<Response> {
   const {
     messages,
     editorContext,
@@ -211,7 +197,7 @@ export async function POST(req: Request) {
     messages: unknown[]
     editorContext: unknown
     documentId: string
-  } = await req.json()
+  } = await request.json()
 
   // Get prompt and tool definitions from the Server AI Toolkit API
   const { prompt, tools: toolDefinitions } = await getToolDefinitions(editorContext)
@@ -261,22 +247,22 @@ ${prompt}`,
 
 Create a client-side React component that renders the Tiptap Editor with collaboration support and a simple chat UI. This component leverages the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation.
 
-First, create a server function to generate a JWT for Tiptap Cloud collaboration. This function creates a secure JWT that authorizes the client to access a specific document in Tiptap Cloud's collaboration service.
+First, create an API endpoint that generates a JWT for Tiptap Cloud collaboration. This endpoint
+authorizes the client to access a specific document in Tiptap Cloud's collaboration service.
+
+Create the `POST /api/collaboration-token` endpoint.
 
 ```ts
-// app/actions.ts
-'use server'
-
+// server/collaboration-token.ts
 import { SignJWT, importPKCS8 } from 'jose'
 
 const TIPTAP_PRIVATE_KEY = process.env.TIPTAP_PRIVATE_KEY
 const TIPTAP_ENVIRONMENT_ID = process.env.TIPTAP_ENVIRONMENT_ID
 const TIPTAP_CLOUD_DOCUMENT_SERVER_ID = process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID
 
-export async function getCollabConfig(
-  userId: string,
-  documentName: string,
-): Promise<{ token: string; appId: string }> {
+export async function handleCollaborationTokenRequest(request: Request): Promise<Response> {
+  const { documentId, userId }: { documentId: string; userId: string } = await request.json()
+
   if (!TIPTAP_PRIVATE_KEY || !TIPTAP_ENVIRONMENT_ID) {
     throw new Error(
       'TIPTAP_PRIVATE_KEY and TIPTAP_ENVIRONMENT_ID environment variables must be set',
@@ -290,7 +276,7 @@ export async function getCollabConfig(
   const privateKey = await importPKCS8(TIPTAP_PRIVATE_KEY, 'ES256')
 
   const token = await new SignJWT({
-    permissions: [{ action: 'Documents:Write', resource: documentName }],
+    permissions: [{ action: 'Documents:Write', resource: documentId }],
   })
     .setProtectedHeader({ alg: 'ES256' })
     .setIssuer(TIPTAP_ENVIRONMENT_ID)
@@ -299,16 +285,14 @@ export async function getCollabConfig(
     .setExpirationTime('1h')
     .sign(privateKey)
 
-  return { token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID }
+  return Response.json({ token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID })
 }
 ```
 
 Now create the main page component:
 
 ```tsx
-// app/page.tsx
-'use client'
-
+// components/AiChatbot.tsx
 import { useChat } from '@ai-sdk/react'
 import { Collaboration } from '@tiptap/extension-collaboration'
 import { EditorContent, useEditor } from '@tiptap/react'
@@ -316,56 +300,47 @@ import StarterKit from '@tiptap/starter-kit'
 import { TiptapCollabProvider } from '@tiptap-pro/provider'
 import { ServerAiToolkit, getEditorContext } from '@tiptap/server-ai-toolkit'
 import { DefaultChatTransport } from 'ai'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { v4 as uuid } from 'uuid'
 import * as Y from 'yjs'
-import { getCollabConfig } from './actions'
 
-export default function Page() {
+export function Page() {
   const [doc] = useState(() => new Y.Doc())
   const [documentId] = useState(() => `server-ai-agent-chatbot/${uuid()}`)
-  const providerRef = useRef<TiptapCollabProvider | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [StarterKit, Collaboration.configure({ document: doc }), ServerAiToolkit],
   })
 
-  // Get the JWT and appId from server function
   useEffect(() => {
-    const setupProvider = async () => {
-      try {
-        const { token, appId } = await getCollabConfig('user-1', documentId)
+    let provider: TiptapCollabProvider | undefined
 
-        const collabProvider = new TiptapCollabProvider({
-          appId,
-          name: documentId,
-          token,
-          document: doc,
-          user: 'user-1',
-          onOpen() {
-            console.log('WebSocket connection opened.')
-          },
-          onConnect() {
-            editor?.commands.setContent('Hello, world!')
-          },
-        })
+    const connect = async () => {
+      const response = await fetch('/api/collaboration-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId, userId }),
+      })
 
-        providerRef.current = collabProvider
-      } catch (error) {
-        console.error('Failed to setup collaboration:', error)
+      if (!response.ok) {
+        throw new Error('Failed to get collaboration credentials')
       }
+
+      const { appId, token } = await response.json()
+      provider = new TiptapCollabProvider({
+        appId,
+        name: documentId,
+        token,
+        document: doc,
+        user: 'user-1',
+      })
     }
 
-    setupProvider()
+    void connect().catch(console.error)
 
-    return () => {
-      if (providerRef.current) {
-        providerRef.current.destroy()
-        providerRef.current = null
-      }
-    }
-  }, [documentId, doc, editor])
+    return () => provider?.destroy()
+  }, [doc, documentId, userId])
 
   const editorContext = editor ? getEditorContext(editor) : null
 
