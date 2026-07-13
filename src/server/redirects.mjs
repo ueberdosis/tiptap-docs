@@ -136,7 +136,7 @@ export const redirects = [
   },
   {
     source: '/content-ai/capabilities/generation/text-generation',
-    destination: '/ai/basic/text-generation/built-in-commands',
+    destination: '/ai/basic/text-generation',
     permanent: true,
   },
   {
@@ -687,6 +687,22 @@ export const redirects = [
     permanent: true,
   },
   // END Server AI Toolkit redirects
+  // SAIT Generation → Basic AI redirects (must precede the /capabilities/:rest* wildcard)
+  {
+    source: '/content-ai/capabilities/generation/:rest*',
+    destination: '/ai/basic/:rest*',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/custom-llms',
+    destination: '/ai/basic/custom-llms',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/resources/collaboration',
+    destination: '/ai/basic/collaboration',
+    permanent: true,
+  },
   {
     source: '/hocuspocus/introduction',
     destination: '/hocuspocus/getting-started/overview',
