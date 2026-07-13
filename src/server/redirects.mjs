@@ -759,8 +759,28 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/editor/extensions/functionality/server-ai-toolkit',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/server-ai-toolkit/:rest*',
     destination: '/ai/ai-toolkit/:rest*',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/capabilities/generation/:rest*',
+    destination: '/ai/basic/:rest*',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/capabilities/ai-toolkit/changelog/:rest*',
+    destination: '/ai/ai-toolkit/client/changelog',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
+    destination: '/ai/ai-toolkit/client/agents/review-changes',
     permanent: true,
   },
   {
@@ -790,6 +810,11 @@ export const redirects = [
   },
   {
     source: '/content-ai/custom-llms',
+    destination: '/ai/basic/custom-llms',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/custom-llms/index',
     destination: '/ai/basic/custom-llms',
     permanent: true,
   },
