@@ -759,28 +759,28 @@ export const redirects = [
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/server-ai-toolkit/:rest',
-    destination: '/ai/ai-toolkit/:rest',
+    source: '/content-ai/capabilities/server-ai-toolkit/:rest*',
+    destination: '/ai/ai-toolkit/:rest*',
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/ai-toolkit/:rest',
-    destination: '/ai/ai-toolkit/client/:rest',
+    source: '/content-ai/capabilities/ai-toolkit/:rest*',
+    destination: '/ai/ai-toolkit/client/:rest*',
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/text-generation/:rest',
-    destination: '/ai/basic/text-generation/:rest',
+    source: '/content-ai/capabilities/text-generation/:rest*',
+    destination: '/ai/basic/text-generation/:rest*',
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/:rest',
-    destination: '/ai/deprecated/:rest',
+    source: '/content-ai/capabilities/:rest*',
+    destination: '/ai/deprecated/:rest*',
     permanent: true,
   },
   {
-    source: '/content-ai/:rest',
-    destination: '/ai/:rest',
+    source: '/content-ai/:rest*',
+    destination: '/ai/:rest*',
     permanent: true,
   },
   {
