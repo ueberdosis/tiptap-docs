@@ -774,13 +774,33 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/content-ai/capabilities/generation/:rest*',
+    destination: '/ai/basic/:rest*',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/:rest*',
     destination: '/ai/deprecated/:rest*',
     permanent: true,
   },
   {
+    source: '/content-ai/resources/:rest*',
+    destination: '/ai/basic/:rest*',
+    permanent: true,
+  },
+  {
+    source: '/content-ai/custom-llms',
+    destination: '/ai/basic/custom-llms',
+    permanent: true,
+  },
+  {
     source: '/content-ai/:rest*',
     destination: '/ai/:rest*',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/server-ai-toolkit',
+    destination: '/ai/ai-toolkit/overview',
     permanent: true,
   },
   {
