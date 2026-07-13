@@ -744,6 +744,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/content-ai/resources/collaboration',
+    destination: '/ai/deprecated/resources/collaboration',
+    permanent: true,
+  },
+  {
     source: '/ai',
     destination: '/ai/ai-toolkit/overview',
     permanent: true,
