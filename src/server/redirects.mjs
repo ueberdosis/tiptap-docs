@@ -6,7 +6,7 @@
 export const redirects = [
   {
     source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
-    destination: '/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization',
+    destination: '/ai/ai-toolkit/install#set-up-authorization',
     permanent: true,
   },
   {
