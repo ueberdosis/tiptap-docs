@@ -5,11 +5,6 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
-    source: '/content-ai/capabilities/text-generation',
-    destination: '/content-ai/capabilities/text-generation/built-in-commands',
-    permanent: true,
-  },
-  {
     source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
     destination: '/content-ai/capabilities/server-ai-toolkit/install#set-up-authorization',
     permanent: true,
@@ -166,7 +161,7 @@ export const redirects = [
   },
   {
     source: '/content-ai/capabilities/text-generation',
-    destination: '/ai/basic/text-generation/overview',
+    destination: '/ai/basic/text-generation/built-in-commands',
     permanent: true,
   },
   {
@@ -794,11 +789,6 @@ export const redirects = [
     permanent: true,
   },
   {
-    source: '/content-ai/capabilities/generation/:rest*',
-    destination: '/ai/basic/:rest*',
-    permanent: true,
-  },
-  {
     source: '/content-ai/capabilities/:rest*',
     destination: '/ai/deprecated/:rest*',
     permanent: true,
@@ -821,11 +811,6 @@ export const redirects = [
   {
     source: '/content-ai/:rest*',
     destination: '/ai/:rest*',
-    permanent: true,
-  },
-  {
-    source: '/editor/extensions/functionality/server-ai-toolkit',
-    destination: '/ai/ai-toolkit/overview',
     permanent: true,
   },
   {
