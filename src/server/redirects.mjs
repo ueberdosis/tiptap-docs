@@ -687,7 +687,6 @@ export const redirects = [
     permanent: true,
   },
   // END Server AI Toolkit redirects
-  // SAIT Generation → Basic AI redirects (must precede the /capabilities/:rest* wildcard)
   {
     source: '/content-ai/capabilities/generation/:rest*',
     destination: '/ai/basic/:rest*',
