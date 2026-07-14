@@ -255,7 +255,7 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             {
               href: '/editor/extensions/functionality/ai-generation',
-              title: 'AI Generation',
+              title: 'Basic AI Generation',
               tags: ['Start'],
             },
             {

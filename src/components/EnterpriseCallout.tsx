@@ -45,9 +45,9 @@ const VARIANT_CONFIG: Record<
     showWaitlist: false,
   },
   'server-ai-toolkit': {
-    title: 'Get access to the Server AI Toolkit',
+    title: 'Get access to the AI Toolkit',
     description:
-      'Apply for early access to the Server AI Toolkit. Integrate it with success and get dedicated engineering support via Slack.',
+      'Add the AI Toolkit to any Tiptap subscription. Integrate it successfully with dedicated engineering support via Slack.',
     showWaitlist: false,
   },
   docx: {

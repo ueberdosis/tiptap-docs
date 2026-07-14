@@ -88,8 +88,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Tracked Changes',
         },
         {
-          href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
+          href: '/ai/ai-toolkit/overview',
+          title: 'AI Toolkit',
         },
         {
           href: '/collaboration/documents/snapshot',

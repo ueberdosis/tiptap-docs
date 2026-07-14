@@ -1,0 +1,493 @@
+---
+title: AI agent chatbot
+meta:
+  title: AI agent chatbot | Tiptap AI Toolkit
+  description: Build an AI agent that can read and edit Tiptap documents using the Server AI Toolkit API.
+  category: AI Toolkit
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+
+<Requirements>
+  <RequirementItem label="1. Get access">
+    Access the Server AI Toolkit by purchasing the paid Server AI Toolkit add-on.{' '}
+    <a href="https://tiptap.dev/contact-sales?form=server-ai-toolkit">Contact our team</a>.
+  </RequirementItem>
+  <RequirementItem label="2. Install the package">
+    The Server AI Toolkit package is open source. Install it from the public npm registry using npm
+    or your preferred package manager.
+  </RequirementItem>
+  <RequirementItem label="3. Authenticate to the service">
+    Configure a{' '}
+    <a href="/ai/ai-toolkit/install#set-up-authorization">
+      Tiptap Access Control JWT
+    </a>{' '}
+    to access the Server AI Toolkit service.
+  </RequirementItem>
+</Requirements>
+
+<EnterpriseCalloutAuto variant="server-ai-toolkit" renderMode="sidebar" />
+
+Build a simple AI agent chatbot that can read and edit Tiptap documents.
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-ai-agent-chatbot"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Tech stack
+
+- A client-side [React](https://react.dev/) application
+- A server application
+- An AI agent framework like the [Vercel AI SDK](https://ai-sdk.dev/)
+- [OpenAI](https://openai.com/) models
+- The Server AI Toolkit
+
+The Server AI Toolkit works with any AI agent framework and AI model. Use it with any frontend framework and backend programming language. This guide uses a simple Node.js server endpoint that takes a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) object and returns a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response).
+
+Before you continue, set up the Server AI Toolkit by following the [installation guide](/ai/ai-toolkit/install).
+
+## Set up the demo application
+
+```bash
+npx create-next-app@latest server-ai-agent-chatbot
+```
+
+Install the core Tiptap packages, collaboration extensions, and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap-pro/provider ai @ai-sdk/react @ai-sdk/openai zod uuid yjs jose
+```
+
+Install the Server AI Toolkit package:
+
+```bash
+npm install @tiptap/ai-toolkit
+```
+
+## Server API endpoint
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model. Get tool definitions from the Server AI Toolkit API and execute tools via the API.
+
+<details>
+  <summary>Install dependencies</summary>
+
+Install these dependencies in your server app:
+
+```bash
+npm install ai @ai-sdk/openai jose zod
+```
+
+</details>
+
+### Environment variables
+
+<Callout title="Set up authorization first" variant="info">
+  Before creating the helper functions, set up your environment variables and authentication helpers
+  (`createJwtToken` and `getAuthHeaders`) by following the [authorization
+  guide](/ai/ai-toolkit/install#set-up-authorization).
+</Callout>
+
+You also need an OpenAI API key and, if using Tiptap Cloud collaboration, a `TIPTAP_CLOUD_DOCUMENT_SERVER_ID` with your Document Server ID. Add these to your `.env` file alongside the variables from the [authorization
+guide](/ai/ai-toolkit/install#set-up-authorization):
+
+```sh
+# .env (in addition to the Server AI Toolkit variables)
+TIPTAP_CLOUD_DOCUMENT_SERVER_ID=document-server-id
+OPENAI_API_KEY=your-openai-key # The AI SDK will pick this up automatically
+```
+
+### Helper functions
+
+Create several helper functions to support your endpoint and interact with the Server AI Toolkit:
+
+#### Get tool definitions
+
+This function fetches the prompt and available tool definitions from the Server AI Toolkit API.
+
+```ts
+// lib/server-ai-toolkit/get-tool-definitions.ts
+import type z from 'zod'
+import { getAuthHeaders } from './get-auth-headers'
+
+/**
+ * Gets tool definitions from the Server AI Toolkit API
+ */
+export async function getToolDefinitions(editorContext: unknown): Promise<{
+  prompt: string
+  tools: {
+    name: string
+    description: string
+    inputSchema: z.core.JSONSchema.JSONSchema
+  }[]
+}> {
+  const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
+
+  const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({
+      editorContext,
+      tools: {
+        tiptapRead: true,
+        tiptapEdit: true,
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch tools: ${response.statusText}`)
+  }
+  const responseData = await response.json()
+
+  return {
+    prompt: responseData.systemPrompt,
+    tools: responseData.tools,
+  }
+}
+```
+
+<Callout title="Using custom nodes?" variant="info">
+  If your editor includes custom nodes or marks, configure them with `addJsonSchemaAwareness`. See
+  the [custom nodes guide](/ai/ai-toolkit/advanced-guides/custom-nodes).
+</Callout>
+
+#### Execute tool
+
+This function executes a tool via the Server AI Toolkit API. It sends the tool name, input parameters, document ID, and editor context data to the API. The server automatically fetches and saves the Tiptap Cloud document when the JWT includes `Documents:Write` permission for that document.
+
+```ts
+// lib/server-ai-toolkit/execute-tool.ts
+import { getAuthHeaders } from './get-auth-headers'
+
+/**
+ * Executes a tool via the Server AI Toolkit API
+ */
+export async function executeTool(
+  toolName: string,
+  input: unknown,
+  documentId: string,
+  editorContext: unknown,
+): Promise<{
+  tool: { name: string; output: unknown }
+  docChanged: boolean
+  document: object | null
+}> {
+  const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
+
+  const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
+    method: 'POST',
+    headers: await getAuthHeaders(documentId),
+    body: JSON.stringify({
+      editorContext,
+      document: {
+        type: 'cloud',
+        id: documentId,
+      },
+      user: 'ai-assistant',
+      tool: {
+        name: toolName,
+        input,
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Tool execution failed: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+```
+
+Create the `POST /api/server-ai-agent-chatbot` endpoint:
+
+```ts
+// server/server-ai-agent-chatbot.ts
+import { openai } from '@ai-sdk/openai'
+import { createAgentUIStreamResponse, ToolLoopAgent, tool } from 'ai'
+import z from 'zod'
+import { executeTool } from '@/lib/server-ai-toolkit/execute-tool'
+import { getToolDefinitions } from '@/lib/server-ai-toolkit/get-tool-definitions'
+
+export async function handleChatRequest(request: Request): Promise<Response> {
+  const {
+    messages,
+    editorContext,
+    documentId,
+  }: {
+    messages: unknown[]
+    editorContext: unknown
+    documentId: string
+  } = await request.json()
+
+  // Get prompt and tool definitions from the Server AI Toolkit API
+  const { prompt, tools: toolDefinitions } = await getToolDefinitions(editorContext)
+
+  // Convert API tool definitions to AI SDK tool format
+  const tools = Object.fromEntries(
+    toolDefinitions.map((toolDef) => [
+      toolDef.name,
+      tool({
+        description: toolDef.description,
+        inputSchema: z.fromJSONSchema(toolDef.inputSchema),
+        execute: async (input) => {
+          try {
+            const result = await executeTool(toolDef.name, input, documentId, editorContext)
+            return result.tool.output
+          } catch (error) {
+            console.error(`Failed to execute tool ${toolDef.name}:`, error)
+            return {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }
+          }
+        },
+      }),
+    ]),
+  )
+
+  const agent = new ToolLoopAgent({
+    model: openai('gpt-5.4-mini'),
+    instructions: `You are an assistant that can edit rich text documents.
+In your responses, be concise and to the point. However, the content you generate in the document does not need to be concise and to the point: instead, it should follow the user's request as closely as possible.
+Before calling any tools, summarize you're going to do (in a sentence or less), as a high-level view of the task, as a human writer would describe it.
+Rule: In your responses, do not provide any details of the tool calls.
+Rule: In your responses, do not provide any details of the HTML content of the document.
+
+${prompt}`,
+    tools,
+  })
+
+  return createAgentUIStreamResponse({
+    agent,
+    uiMessages: messages,
+  })
+}
+```
+
+## Client-side setup
+
+<details>
+  <summary>Install dependencies</summary>
+
+Install these dependencies in your client app:
+
+```bash
+npm install @ai-sdk/react @tiptap/extension-collaboration @tiptap/react @tiptap/starter-kit @tiptap-pro/provider @tiptap/server-ai-toolkit ai uuid yjs
+```
+
+</details>
+
+Create a client-side React component that renders the Tiptap Editor with collaboration support and a simple chat UI. This component leverages the [useChat hook](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) from the Vercel AI SDK to call the API endpoint and manage the chat conversation.
+
+First, create an API endpoint that generates a JWT for Tiptap Cloud collaboration. This endpoint
+authorizes the client to access a specific document in Tiptap Cloud's collaboration service.
+
+Create the `POST /api/collaboration-token` endpoint.
+
+```ts
+// server/collaboration-token.ts
+import { SignJWT, importPKCS8 } from 'jose'
+
+const TIPTAP_PRIVATE_KEY = process.env.TIPTAP_PRIVATE_KEY
+const TIPTAP_ENVIRONMENT_ID = process.env.TIPTAP_ENVIRONMENT_ID
+const TIPTAP_CLOUD_DOCUMENT_SERVER_ID = process.env.TIPTAP_CLOUD_DOCUMENT_SERVER_ID
+
+export async function handleCollaborationTokenRequest(request: Request): Promise<Response> {
+  const { documentId, userId } = await request.json()
+  const privateKey = await importPKCS8(TIPTAP_PRIVATE_KEY, 'ES256')
+
+  const token = await new SignJWT({
+    permissions: [{ action: 'Documents:Write', resource: documentId }],
+  })
+    .setProtectedHeader({ alg: 'ES256' })
+    .setIssuer(TIPTAP_ENVIRONMENT_ID)
+    .setSubject(userId)
+    .setAudience(['Documents'])
+    .setExpirationTime('1h')
+    .sign(privateKey)
+
+  return Response.json({ token, appId: TIPTAP_CLOUD_DOCUMENT_SERVER_ID })
+}
+```
+
+Now create the main page component:
+
+```tsx
+// components/AiChatbot.tsx
+import { useChat } from '@ai-sdk/react'
+import { Collaboration } from '@tiptap/extension-collaboration'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import { ServerAiToolkit, getEditorContext } from '@tiptap/ai-toolkit'
+import { DefaultChatTransport } from 'ai'
+import { useEffect, useState } from 'react'
+import { v4 as uuid } from 'uuid'
+import * as Y from 'yjs'
+
+export function Page() {
+  const [doc] = useState(() => new Y.Doc())
+  const [documentId] = useState(() => `server-ai-agent-chatbot/${uuid()}`)
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, Collaboration.configure({ document: doc }), ServerAiToolkit],
+  })
+
+  useEffect(() => {
+    let provider: TiptapCollabProvider | undefined
+
+    const connect = async () => {
+      const response = await fetch('/api/collaboration-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId, userId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get collaboration credentials')
+      }
+
+      const { appId, token } = await response.json()
+      provider = new TiptapCollabProvider({
+        appId,
+        name: documentId,
+        token,
+        document: doc,
+        user: 'user-1',
+      })
+    }
+
+    void connect().catch(console.error)
+
+    return () => provider?.destroy()
+  }, [doc, documentId, userId])
+
+  const editorContext = editor ? getEditorContext(editor) : null
+
+  const { messages, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/server-ai-agent-chatbot',
+      body: { documentId },
+    }),
+  })
+
+  const [input, setInput] = useState('Replace the last paragraph with a short story about Tiptap')
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      {messages?.map((message) => (
+        <div key={message.id} style={{ whiteSpace: 'pre-wrap' }}>
+          <strong>{message.role}</strong>
+          <br />
+          <div className="mt-2 whitespace-pre-wrap">
+            {message.parts
+              .filter((p) => p.type === 'text')
+              .map((p) => p.text)
+              .join('\n') || 'Loading...'}
+          </div>
+        </div>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (input.trim()) {
+            sendMessage({ text: input }, { body: { editorContext } })
+            setInput('')
+          }
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  )
+}
+```
+
+<Callout title="Document state management" variant="info">
+  This implementation passes `document: { type: 'cloud', id: documentId }` so the Server AI Toolkit
+  automatically fetches and saves the document from Tiptap Cloud. The client uses Tiptap
+  Collaboration to sync changes in real time.
+</Callout>
+
+## End result
+
+With additional CSS styles, the result is a simple but polished AI chatbot application that uses the Server AI Toolkit to edit documents:
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-ai-agent-chatbot"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Alternative: provide the document directly
+
+Instead of using Tiptap Cloud documents, you can provide and manage the document yourself by
+passing an inline `document` field in the execute-tool request body.
+
+With this approach, you need to fetch the document before each tool execution and save back the
+updated document when `docChanged` is `true`.
+
+```ts
+import { loadDocument, saveDocument } from './db'
+
+const document = await loadDocument()
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
+  method: 'POST',
+  headers: await getAuthHeaders(),
+  body: JSON.stringify({
+    editorContext,
+    document: {
+      type: 'inline',
+      content: document,
+    },
+    tool: {
+      name: toolName,
+      input,
+    },
+  }),
+})
+
+if (!response.ok) {
+  throw new Error(`Tool execution failed: ${response.statusText}`)
+}
+
+const body = await response.json()
+
+// Store the document if the tool execution modified the document
+if (body.docChanged && body.document) {
+  await saveDocument(body.document)
+}
+```
+
+<Callout title="The tiptapRead tool can modify the document" variant="info">
+  The `tiptapRead` tool can make edits to the document to prepare it for subsequent read operations.
+  Therefore, if the `docChanged` property is `true`, you should update the document after executing
+  the `tiptapRead` tool.
+</Callout>
+
+The approach of providing the document inline in the `document` field has several limitations. First, [Tiptap comments](/comments/getting-started/overview) are not supported, because they are stored in the Tiptap Cloud document. Additionally, changes cannot be associated with a certain user, and there is no built-in integration with [version history](/collaboration/documents/snapshot).
+
+See the [REST API
+reference](/ai/ai-toolkit/api-reference/rest-api) for more information about the `document` field.
+
+## Next steps
+
+- Allow your AI to generate custom elements with the [custom nodes guide](/ai/ai-toolkit/advanced-guides/custom-nodes)
+- Learn more about the available tools in the [Agents section](/ai/ai-toolkit/agents)
+- Explore the [REST API reference](/ai/ai-toolkit/api-reference/rest-api) for complete endpoint documentation

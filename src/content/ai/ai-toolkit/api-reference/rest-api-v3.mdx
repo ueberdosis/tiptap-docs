@@ -1,0 +1,902 @@
+---
+title: REST API (legacy v3 endpoints)
+meta:
+  title: REST API (legacy) | Tiptap Server AI Toolkit
+  description: Complete reference for the Server AI Toolkit REST API endpoints.
+  category: AI Toolkit
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+The Server AI Toolkit provides REST API endpoints for AI agent tools.
+
+<Callout title="Deprecated endpoints" variant="warning">
+  These API endpoints are deprecated, see the [new API
+  endpoints](/ai/ai-toolkit/api-reference/rest-api).
+</Callout>
+
+<Callout title="Backward compatibility" variant="warning">
+  Previous API names such as `schemaAwarenessData`, `getSchemaAwarenessData`,
+  `/v3/ai/toolkit/tools`, and `/v3/ai/toolkit/schema-awareness-prompt` are still available for
+  backward compatibility, but they are deprecated. Use `editorContext`, `getEditorContext`, and
+  `/v3/ai/toolkit/tools` for new integrations.
+</Callout>
+
+<Callout title="Postman collection" variant="info">
+  Browse the [Postman
+  collection](https://www.postman.com/tiptap-platform/tiptap-workspace/collection/42722929-6a366c4c-10e4-4674-93c3-da35b70357a7?action=share&source=copy-link&creator=42722929)
+  for the Server AI Toolkit REST API.
+</Callout>
+
+## Authentication
+
+All requests must include:
+
+- `Authorization: Bearer <JWT>`
+- `X-App-Id: <APP_ID>`
+
+Generate the JWT server-side with your AI secret. Get your App ID and secret key on the [Server AI
+Toolkit settings](https://cloud.tiptap.dev/v2/cloud/ai) page.
+
+```ts
+import jwt from 'jsonwebtoken'
+
+const JWT_TOKEN = jwt.sign(
+  {
+    experimental_document_server_id: 'your-document-server-id',
+    experimental_document_server_management_api_secret:
+      'your-document-server-management-api-secret',
+  },
+  'your-ai-secret-key',
+  { expiresIn: '1h' },
+)
+```
+
+See the [authorization guide](/ai/ai-toolkit/install#set-up-authorization) for more information.
+
+### Document Server credentials
+
+Include these JWT claims when you want the Server AI Toolkit to fetch and save Tiptap Cloud
+documents automatically:
+
+- `experimental_document_server_id`
+- `experimental_document_server_management_api_secret`
+
+## Base URL
+
+The hosted base URL is:
+
+```txt
+https://api.tiptap.dev
+```
+
+In the examples below, requests are written as `BASE_URL/v3/ai/...`.
+
+## How to provide the document
+
+Tool endpoints accept exactly one document source:
+
+- `document`: Inline Tiptap JSON
+- `experimental_documentOptions`: A Tiptap Cloud document reference
+
+`experimental_documentOptions` has the following shape:
+
+- `documentId` (`string`, required): The Tiptap Cloud document identifier.
+- `userId?` (`string | null`, optional): Identifier attributed to edits the AI performs.
+- `field?` (`string | null`, optional, default: `"default"`): Targets a specific collaborative field (Y.js XML fragment) inside the document when omitted or `null`. Use this when your document stores multiple editable fields — for example a separate title and body — under the same `documentId`.
+
+Example with a Tiptap Cloud document:
+
+```json
+{
+  "experimental_documentOptions": {
+    "documentId": "your-document-id",
+    "userId": "ai-assistant"
+  }
+}
+```
+
+Example targeting a non-default collaborative field:
+
+```json
+{
+  "experimental_documentOptions": {
+    "documentId": "your-document-id",
+    "userId": "ai-assistant",
+    "field": "title"
+  }
+}
+```
+
+Example with an inline document:
+
+```json
+{
+  "document": {
+    "type": "doc",
+    "content": []
+  }
+}
+```
+
+<Callout title="Threads require a cloud document" variant="info">
+  Thread and comment endpoints always require `experimental_documentOptions.documentId`.
+</Callout>
+
+## Formats
+
+Most endpoints accept a `format` field:
+
+- `"json"`: Standard JSON representation
+- `"shorthand"`: Tiptap Shorthand, a token-efficient format for prompts and model output
+
+## Tool endpoints
+
+### Get tool definitions
+
+```txt
+POST /v3/ai/toolkit/tools
+```
+
+Returns the available [tool definitions](#available-tools)
+for AI agents.
+
+Request body:
+
+- `editorContext` (`EditorContext`, required). Editor context obtained from the `getEditorContext` function. See [installation guide](/ai/ai-toolkit/install).
+- `tools?` (`Record<string, boolean>`, optional): Enable or disable individual tools. See the
+  [tools reference](#available-tools)
+  for the supported keys.
+- `operationMeta?` (`string`, optional, default: `""`)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `schemaAwarenessData?` (`SchemaAwarenessData`, optional, deprecated): Use `editorContext` instead. Supported for backward compatibility.
+
+Response:
+
+- `prompt` (`string`): Add this to the system prompt for your AI request. It teaches the AI how the Tiptap document works, what elements it can contain, and how the document format works.
+- `tools` (`array`)
+  - `name` (`string`)
+  - `description` (`string`)
+  - `inputSchema` (`object`): JSON schema for the AI-generated tool `input`.
+
+### Execute a tool
+
+```txt
+POST /v3/ai/toolkit/execute-tool
+```
+
+Executes one Server AI Toolkit tool such as `tiptapRead`, `tiptapEdit`, `getThreads`, or
+`editThreads`. See the
+[tools reference](#available-tools) for every
+supported tool and its type shapes.
+
+Request body:
+
+- `toolName` (`string`, required)
+- `input` (required): Tool input generated by the AI model. The shape depends on
+  `toolName`; see the [tools reference](#available-tools).
+- `editorContext` (`EditorContext`, required unless `schemaAwarenessData` is provided)
+- `schemaAwarenessData?` (`SchemaAwarenessData`, optional, deprecated): Use `editorContext` instead. Supported for backward compatibility.
+- `toolConfig?` (optional): Tool-specific parameters provided by the developer, not by
+  the AI model. See the [tools reference](#available-tools).
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- `experimental_commentsOptions?` (`{ threadData?: Record<string, unknown>, commentData?: Record<string, unknown> }`, optional): Metadata attached to new threads and comments created during thread-related tool execution.
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`: tool response that should be read by the AI model. See the
+  [tools reference](#available-tools).
+- `toolResult`: tool response in a format that is designed to be parsed by the developer. Should not be read by the AI. See the
+  [tools reference](#available-tools).
+- `docChanged` (`boolean`): whether the document changed as a result of the tool call
+- `document` (`object | null`): the document after the AI made changes to it
+
+### Stream a tool
+
+```txt
+POST /v3/ai/toolkit/stream-tool
+```
+
+Streams tool execution. The request shape matches `POST /v3/ai/toolkit/execute-tool`. The streaming response format is still being finalized.
+
+Because this endpoint works on the document over a live connection, it can return connection and concurrency errors that the REST endpoints don't. They arrive as an `error` event in the response stream — see [Streaming and session errors](#streaming-and-session-errors).
+
+## Legacy workflow endpoints
+
+<Callout title="Workflow endpoints are deprecated" variant="warning">
+  Workflow endpoints are preserved for existing integrations. They will be removed in a future
+  release.
+</Callout>
+
+### Get a workflow definition
+
+Use one of these endpoints:
+
+- `POST /v3/ai/toolkit/workflows/edit`
+- `POST /v3/ai/toolkit/workflows/insert-content`
+- `POST /v3/ai/toolkit/workflows/proofreader`
+- `POST /v3/ai/toolkit/workflows/threads`
+
+Request body:
+
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`). The `proofreader` workflow only accepts `'shorthand'`.
+
+Response:
+
+- `systemPrompt` (`string`)
+- `outputSchema` (`object`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/workflows/edit' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "format": "shorthand"
+  }'
+```
+
+### Read document content for a workflow
+
+```txt
+POST /v3/ai/toolkit/read/read-document
+```
+
+Reads document content and returns workflow-ready content.
+
+Request body:
+
+- `range?` (`{ from: number, to: number }`, optional, default: entire document)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `chunkSize?` (`number`, optional, default: `32000`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`
+  - `success` (`boolean`)
+  - `content?` (`unknown`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/read/read-document' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Read the current selection
+
+```txt
+POST /v3/ai/toolkit/read/read-selection
+```
+
+Reads the selection and returns either a selection payload or an explicit empty state.
+
+Request body:
+
+- `range` (`{ from: number, to: number }`, required)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `chunkSize?` (`number`, optional, default: `32000`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`
+  - when the selection is empty:
+    - `isEmpty` (`true`)
+  - when the selection contains content:
+    - `isEmpty` (`false`)
+    - `content` (`unknown`)
+    - `nodeHashes` (`string[]`)
+    - `nodeRange` (`{ from: number, to: number }`)
+    - `prompt` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/read/read-selection' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "range": { "from": 10, "to": 42 },
+    "format": "shorthand",
+    "experimental_documentOptions": {
+      "documentId": "your-document-id"
+    }
+  }'
+```
+
+### Read threads
+
+```txt
+POST /v3/ai/toolkit/read/threads
+```
+
+Reads all threads and comments for a Tiptap Cloud document.
+
+Request body:
+
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'json' | 'shorthand'`, required)
+- `experimental_documentOptions` (`{ documentId: string, userId?: string, field?: string | null }`, required)
+
+Response:
+
+- `output`
+  - `threads?` (`unknown[]`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/read/threads' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "format": "shorthand",
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Execute the insert-content workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/insert-content
+```
+
+Request body:
+
+- `input` (`unknown`, required): Generated insert-content payload
+- `range?` (`{ from: number, to: number }`, optional)
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `chunkSize?` (`number`, optional, default: `32000`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`
+  - `error?` (`string`)
+  - `range?` (`{ from: number, to: number }`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/insert-content' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": "This is the replacement content.",
+    "range": { "from": 10, "to": 42 },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Execute the Tiptap Edit workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/tiptap-edit
+```
+
+Request body:
+
+- `input` (`object`, required): Edit workflow operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `chunkSize?` (`number`, optional, default: `32000`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`
+  - `operationResults?` (`array`)
+  - `reason?` (`'validationError' | 'unexpectedError'`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/tiptap-edit' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": [
+        {
+          "type": "replace",
+          "target": "abc123",
+          "content": "# Updated heading\n\nUpdated paragraph content."
+        }
+      ]
+    },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "disabled"
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    }
+  }'
+```
+
+### Execute the proofreader workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/proofreader
+```
+
+Request body:
+
+- `input` (`object`, required): Proofreader operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format` (`'shorthand'`, required)
+- `chunkSize?` (`number`, optional, default: `32000`)
+- `reviewOptions?` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`)
+- exactly one of:
+  - `document`
+  - `experimental_documentOptions`
+
+Response:
+
+- `output`
+  - `operationResults` (`array`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/proofreader' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": []
+    },
+    "format": "shorthand",
+    "reviewOptions": {
+      "mode": "trackedChanges",
+      "trackedChangesOptions": {
+        "userId": "ai-assistant"
+      }
+    },
+    "experimental_documentOptions": {
+      "documentId": "your-document-id"
+    }
+  }'
+```
+
+### Execute the comments workflow
+
+```txt
+POST /v3/ai/toolkit/execute-workflow/threads
+```
+
+Request body:
+
+- `input` (`object`, required): Thread operations
+- `schemaAwarenessData` (`SchemaAwarenessData`, required)
+- `format?` (`'json' | 'shorthand'`, optional, default: `'json'`)
+- `experimental_documentOptions` (`{ documentId: string, userId?: string, field?: string | null }`, required)
+- `experimental_commentsOptions?` (`{ threadData?: Record<string, unknown>, commentData?: Record<string, unknown> }`, optional): Metadata attached to new threads and comments created by the workflow.
+
+Response:
+
+- `output`
+  - `operations?` (`array`)
+  - `error?` (`string`)
+- `docChanged` (`boolean`)
+- `document` (`object | null`)
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v3/ai/toolkit/execute-workflow/threads' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+  --header 'X-App-Id: YOUR_APP_ID' \
+  --data '{
+    "schemaAwarenessData": { /* schema awareness data */ },
+    "input": {
+      "operations": [
+        {
+          "type": "createComment",
+          "threadId": "thread-123",
+          "content": "Please clarify this point."
+        }
+      ]
+    },
+    "format": "shorthand",
+    "experimental_documentOptions": {
+      "documentId": "your-document-id",
+      "userId": "ai-assistant"
+    },
+    "experimental_commentsOptions": {
+      "threadData": {
+        "source": "ai"
+      },
+      "commentData": {
+        "source": "ai"
+      }
+    }
+  }'
+```
+
+## Error handling
+
+REST endpoints return errors with this shape:
+
+```json
+{
+  "error": {
+    "message": "Human-readable description of what went wrong.",
+    "status": 502,
+    "code": "document_load_failed"
+  }
+}
+```
+
+- `message` (`string`): Human-readable description. Don't match on it — the wording can change.
+- `status` (`number`): The HTTP status code, also set on the response.
+- `code` (`string`): A stable identifier you can branch on. Validation failures use
+  `code: "validation_failed"` and add an `issues` array.
+
+The API uses standard HTTP error codes:
+
+- `400 Bad Request`: Invalid body, invalid format, missing document source, or missing Document
+  Server credentials
+- `401 Unauthorized`: Missing or invalid JWT or App ID
+- `404 Not Found`: Unknown endpoint or tool
+- `422 Unprocessable Entity`: Validation failed
+- `429 Too Many Requests`: Duplicate request or rate-limit protection
+- `500 Internal Server Error`: Unexpected server error
+- `502 Bad Gateway`: Failed to load or save the Tiptap Cloud document
+
+### Streaming and session errors
+
+[`POST /v3/ai/toolkit/stream-tool`](#stream-a-tool) works on a Tiptap Cloud document over a live
+connection: it joins the document in real time so the AI edits the latest content alongside other
+collaborators. Errors that happen while establishing or using that connection are delivered in-band
+as an `error` event in the response stream, not as an HTTP status:
+
+```json
+{ "type": "error", "code": "concurrent_edit_conflict", "status": 409, "message": "..." }
+```
+
+The `status` field mirrors the equivalent HTTP status. Possible `code` values:
+
+| `code`                        | `status` | When it happens                                                                                                                             | How to handle                                                                                                                                                  |
+| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `concurrent_edit_conflict`    | 409      | The document changed (for example, a user edited it) while the tool was running, so the change couldn't be applied on top of stale content. | Re-run the request. The AI reads the latest content on the next attempt. Safe to retry automatically. See [Handle concurrent edits](#handle-concurrent-edits). |
+| `schema_mismatch`             | 409      | The editor schema in the request doesn't match the schema already in use for this document, or the stored document can't be parsed with it. | Send a consistent `editorContext` schema for the same document. Don't retry with the same schema.                                                              |
+| `websocket_auth_failed`       | 401      | Tiptap Cloud rejected the document credentials when opening the connection.                                                                 | Refresh the Document Server JWT claims, then retry. Don't retry with the same token.                                                                           |
+| `websocket_connection_failed` | 502      | The connection to Tiptap Cloud closed before the initial sync completed.                                                                    | Retry with backoff. Check connectivity and Tiptap Cloud status.                                                                                                |
+| `websocket_sync_timeout`      | 504      | The document didn't finish its initial sync within the time limit.                                                                          | Retry with backoff. Large documents and degraded connectivity make this more likely.                                                                           |
+| `session_limit_reached`       | 503      | The server is handling the maximum number of concurrent document sessions.                                                                  | Retry with backoff. Sessions are released as they go idle.                                                                                                     |
+| `session_creation_cancelled`  | 503      | The session was torn down before it finished connecting, usually during a server restart.                                                   | Retry.                                                                                                                                                         |
+
+<Callout title="Specific to Tiptap Cloud documents" variant="info">
+  These errors only occur on the live-connection path used by `stream-tool`. Requests that send an
+  inline `document` never open a connection, so they don't return session or WebSocket errors.
+</Callout>
+
+### Handle concurrent edits
+
+`concurrent_edit_conflict` is expected in collaborative documents. While the AI reads a document,
+calls the model, and writes its changes, a user can edit the same document in between. Rather than
+overwrite that edit, the toolkit rejects the write so no work is lost.
+
+Treat it as a safe, retriable signal: when you receive an `error` event with
+`code: "concurrent_edit_conflict"`, run the same tool call again. The toolkit re-reads the document,
+so the AI works from the user's latest changes. Cap the number of retries to avoid long loops on a
+document that's being edited heavily.
+
+```ts
+// `runStream` sends the start/delta/end messages and resolves to the stream's
+// final `error` event, or `null` when the stream completes successfully.
+async function streamToolWithRetry(body: unknown, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const error = await runStream(body)
+
+    if (!error) {
+      return // completed successfully
+    }
+    if (error.code !== 'concurrent_edit_conflict') {
+      throw new Error(`stream-tool failed: ${error.code}`)
+    }
+    // Document changed mid-flight — retry with the latest content.
+  }
+
+  throw new Error('Tool call kept conflicting with concurrent edits.')
+}
+```
+
+## Available tools
+
+Below is a list of the available tools.
+
+### `tiptapRead`
+
+Reads a slice of top-level document nodes. **It also edits the document** to prepare it for efficient edits.
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+#### Tool input (`toolInput`)
+
+- `from` (`number`): Zero-based index of the first top-level node to read.
+
+#### Tool output (`toolOutput`)
+
+Success response:
+
+- `success` (`true`): Indicates that the read request was successful.
+- `totalNodeCount` (`number`): Total number of top-level nodes in the document.
+- `nodeRange` (`[number, number]`): Top-level node range that was read.
+- `content` (`JSONContent[] | string`): Document content for the returned range. When `format` is
+  `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand
+  string.
+
+Error response:
+
+- `success` (`false`): Indicates that the read request failed.
+- `error` (`string`): Error message.
+- `totalNodeCount?` (`number`): Total number of top-level nodes.
+
+#### Tool result (`toolResult`)
+
+`null`
+
+### `tiptapEdit`
+
+Edits document nodes by replacing a target, inserting before a target, or inserting after a target.
+Targets are node hashes from `tiptapRead`, or `"doc"` for the whole document.
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+#### Tool input (`toolInput`)
+
+- `operations` (`array`): Edit operations applied sequentially. The format of the operations is described in the tool definition. If you are a customer, contact us for more information on the operation format.
+
+#### Tool output (`toolOutput`)
+
+Success or partial-success response:
+
+- `success` (`boolean`): Whether all operations completed successfully.
+- `operationResults` (`array`): Result for each operation.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `target` (`string`): String identifier of the element targeted by the operation.
+  - `error` (`string | null`): Failure reason, or `null` if the operation succeeded.
+
+Error response:
+
+- `success` (`false`): Indicates that the edit request failed.
+- `reason` (`'validationError' | 'unexpectedError'`): Error category.
+- `error` (`string`): Error message.
+
+#### Tool result (`toolResult`)
+
+`null`
+
+### `getThreads`
+
+Reads persisted comment threads, their comments, and their document locations.
+
+<Callout title="Requires a Tiptap Cloud document" variant="warning">
+  This tool requires `experimental_documentOptions` in the request body because threads are stored
+  on the Tiptap Document Server. Pass a `documentId` referencing your Tiptap Cloud document.
+</Callout>
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+#### Tool input (`toolInput`)
+
+- `from` (`number`): Zero-based index of the first thread to read.
+
+#### Tool output (`toolOutput`)
+
+Success response:
+
+- `success` (`true`): Indicates that the read request was successful.
+- `totalThreadCount` (`number`): Total number of threads in the document.
+- `threadRange` (`[number, number]`): Thread range that was read, as `[from, to)`.
+- `threads` (`array`): Returned thread objects.
+  - `id` (`string`): Unique thread identifier.
+  - `nodeRange` (`[number, number] | null`): Node range where the thread is located, or `null` if
+    the thread is not annotated in the document.
+  - `content` (`JSONContent[] | string | null`): Content marked by the thread. When `format` is
+    `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap
+    Shorthand string. `null` means the thread is not annotated in the document.
+  - `comments` (`array`): Comments in the thread.
+    - `id` (`string`): Unique comment identifier.
+    - `content` (`string`): Comment text.
+    - `userId` (`string`): ID of the user who created the comment.
+    - `createdAt` (`string`): ISO timestamp when the comment was created.
+    - `updatedAt` (`string`): ISO timestamp when the comment was last updated.
+  - `resolvedAt?` (`string | null`): ISO timestamp when the thread was resolved, or `null` if
+    unresolved.
+  - `createdAt` (`string`): ISO timestamp when the thread was created.
+  - `updatedAt` (`string`): ISO timestamp when the thread was last updated.
+  - `data?` (`Record<string, unknown>`): Public thread metadata.
+
+Error response:
+
+- `success` (`false`): Indicates that the read request failed.
+- `error` (`string`): Error message.
+- `totalThreadCount?` (`number`): Total number of persisted threads, when known.
+
+#### Tool result (`toolResult`)
+
+`null`
+
+### `editThreads`
+
+Creates, updates, removes, resolves, or unresolves comment threads and comments.
+
+<Callout title="Requires a Tiptap Cloud document" variant="warning">
+  This tool requires `experimental_documentOptions` in the request body because threads are stored
+  on the Tiptap Document Server. Pass a `documentId` referencing your Tiptap Cloud document.
+</Callout>
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+To attach metadata to new AI-generated threads or comments, pass `experimental_commentsOptions` on
+the `execute-tool` request.
+
+#### Tool input (`toolInput`)
+
+- `operations` (`array`): Thread operations applied sequentially. The format of the operations is described in the tool definition. If you are a customer, contact us for more information on the operation format.
+
+#### Tool output (`toolOutput`)
+
+Success or partial-success response:
+
+- `success` (`boolean`): Indicates whether all operations completed successfully.
+- `operations` (`array`): Result for each operation.
+  - `type` (`string`): Operation type that was executed.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `message` (`string`): Human-readable operation result.
+  - `threadId?` (`string`): Thread ID for operations that create or reference a thread.
+
+Error response:
+
+- `success` (`false`): Indicates that the request failed before operations were processed.
+- `error` (`string`): Error message.
+
+#### Tool result (`toolResult`)
+
+`null`
+
+### `readDocument`
+
+Reads the content of the entire document.
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+#### Tool input (`toolInput`)
+
+`{}`
+
+#### Tool output (`toolOutput`)
+
+Success response:
+
+- `success` (`true`): Indicates that the document was read successfully.
+- `content` (`JSONContent[] | string`): Whole effective document content. When `format` is `json`,
+  this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand string.
+
+<Callout title="Returns entire document" variant="warning">
+  The tool output contains the content of the entire document, which might overflow the context
+  window. To avoid it, you must manage the context window yourself.
+</Callout>
+
+#### Tool result (`toolResult`)
+
+Same shape as `toolOutput`.
+
+### `proofreader`
+
+Applies small edits to the document. Optimized for use cases where the AI makes small edits of one or few words. For example, proofreading the document or checking for spelling mistakes.
+
+This tool only supports `format: "shorthand"`.
+
+#### Tool config (`toolConfig`)
+
+`null`
+
+#### Tool input (`toolInput`)
+
+- `operations` (`array`): Proofreader operations applied sequentially. The format of the operations is described in the tool definition. If you are a customer, contact us for more information on the operation format.
+
+#### Tool output (`toolOutput`)
+
+Success or partial-success response:
+
+- `success` (`boolean`): Indicates whether all operations completed successfully.
+- `operationResults` (`array`): Result for each operation.
+  - `target` (`string`): String identifier of the element targeted by the operation.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `error` (`string | null`): Failure reason, or `null` when the operation succeeded.
+
+#### Tool result (`toolResult`)
+
+`null`
+
+## Related pages
+
+- [Review options](/ai/ai-toolkit/api-reference/review-options)
+- [Editor context](/ai/ai-toolkit/api-reference/editor-context)
