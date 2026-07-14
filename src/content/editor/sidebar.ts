@@ -292,7 +292,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/comments',
               title: 'Comments',
               tags: ['Start'],
-              releaseTag: "beta",
             },
             {
               href: '/editor/extensions/functionality/drag-handle',
