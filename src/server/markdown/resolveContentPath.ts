@@ -4,7 +4,7 @@ import { redirects } from '@/server/redirects.mjs'
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
 
-// All redirect sources are static strings, so an exact-match lookup is enough.
+// Most redirect sources are static strings; wildcard redirects are resolved below.
 const redirectMap = new Map(redirects.map((r) => [r.source, r]))
 
 export type ResolveResult =
@@ -44,9 +44,22 @@ export function resolveContentPath(input: string): ResolveResult {
   if (fs.existsSync(direct)) return { type: 'file', filePath: direct, routePath }
   if (fs.existsSync(index)) return { type: 'file', filePath: index, routePath }
 
-  const redirect = redirectMap.get(`/${routePath}`)
+  const sourcePath = `/${routePath}`
+  const redirect =
+    redirectMap.get(sourcePath) ??
+    redirects.find(({ source }) => {
+      if (!source.endsWith('/:rest*')) return false
+      const prefix = source.slice(0, -'/:rest*'.length)
+      return sourcePath === prefix || sourcePath.startsWith(`${prefix}/`)
+    })
+
   if (redirect) {
-    return { type: 'redirect', destination: redirect.destination, permanent: redirect.permanent }
+    const rest = sourcePath.slice(redirect.source.length - ':rest*'.length).replace(/^\//, '')
+    return {
+      type: 'redirect',
+      destination: redirect.destination.replace(':rest*', rest),
+      permanent: redirect.permanent,
+    }
   }
 
   return { type: 'not-found' }
