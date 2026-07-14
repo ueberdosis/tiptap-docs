@@ -17,10 +17,8 @@ import {
   Languages,
   AlignLeft,
   CheckCircle2,
-  Zap,
   Type,
   RotateCcw,
-  Code,
   ImagePlus,
   Activity,
   Edit,
@@ -135,25 +133,7 @@ const CLIENT_USE_CASES: UseCase[] = [
     tags: ['Workflows'],
     icon: GitCompare,
   },
-
-  // Basic AI Generation use cases - POPULAR FEATURES
-  {
-    title: 'Inline autocompletion',
-    description:
-      'Show AI-powered text suggestions as users type. Accept with Tab, like GitHub Copilot.',
-    href: '/ai/basic/text-generation/autocompletion',
-    tags: ['Basic AI Generation'],
-    icon: Zap,
-  },
-  {
-    title: 'Create custom commands',
-    description:
-      'Build your own AI commands with custom prompts, parameters, and response handling.',
-    href: '/ai/basic/text-generation/custom-commands',
-    tags: ['Basic AI Generation'],
-    icon: Code,
-  },
-];
+]
 
 const GENERATION_USE_CASES = [
   // Basic AI Generation use cases - TEXT MANIPULATION
@@ -236,15 +216,19 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
 }
 
 export const UseCasesGrid: React.FC<{ variant: 'client' | 'generation' }> = ({ variant }) => {
-  const useCases = variant === "client" ? CLIENT_USE_CASES : GENERATION_USE_CASES;
+  const useCases = variant === 'client' ? CLIENT_USE_CASES : GENERATION_USE_CASES
   const toolkitAgentUseCases = useCases.filter((uc) => uc.tags.includes('AI Agents'))
   const toolkitWorkflowUseCases = useCases.filter((uc) => uc.tags.includes('Workflows'))
   const generationUseCases = useCases.filter((uc) => uc.tags.includes('Basic AI Generation'))
 
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
-      {toolkitAgentUseCases.length > 0 && <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />}
-      {toolkitWorkflowUseCases.length > 0 && <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />}
+      {toolkitAgentUseCases.length > 0 && (
+        <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />
+      )}
+      {toolkitWorkflowUseCases.length > 0 && (
+        <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />
+      )}
       {generationUseCases.length > 0 && <UseCaseSection title="" useCases={generationUseCases} />}
     </div>
   )
