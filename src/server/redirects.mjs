@@ -667,6 +667,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/content-ai/capabilities/server-ai-toolkit/api-reference/tools',
+    destination: '/ai/ai-toolkit/api-reference/rest-api',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/server-ai-toolkit/agents/tools',
     destination: '/ai/ai-toolkit/api-reference/rest-api',
     permanent: true,
@@ -688,18 +693,8 @@ export const redirects = [
   },
   // END Server AI Toolkit redirects
   {
-    source: '/content-ai/capabilities/generation/:rest*',
-    destination: '/ai/basic/:rest*',
-    permanent: true,
-  },
-  {
-    source: '/content-ai/custom-llms',
-    destination: '/ai/basic/custom-llms',
-    permanent: true,
-  },
-  {
     source: '/content-ai/resources/collaboration',
-    destination: '/ai/basic/collaboration',
+    destination: '/ai/deprecated/resources/collaboration',
     permanent: true,
   },
   {
