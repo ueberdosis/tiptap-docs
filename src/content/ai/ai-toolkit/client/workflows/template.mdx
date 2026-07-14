@@ -1,0 +1,459 @@
+---
+title: Template workflow
+meta:
+  title: Build a template workflow with the AI Toolkit | Tiptap AI Toolkit
+  description: Use the Tiptap AI Toolkit to fill structured templates with AI-generated content.
+  category: AI Toolkit
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="Experimental" variant="warning">
+  This feature is experimental and may change in future releases.
+</Callout>
+
+Fill structured Tiptap templates with AI-generated content and insert the result into the editor.
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/template-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## How templates work
+
+Tiptap templates are Tiptap JSON structures with special attributes that mark dynamic parts:
+
+- **`_templateSlot`** (string key): The entire node is replaced with AI-generated HTML content.
+- **`_templateIf`** (string key): The node is conditionally included based on a boolean value.
+- **`_templateAttributes`** (array of `{key, attribute}` objects): Specific node attributes are set from AI-generated values.
+
+Here is an example template in Tiptap JSON format:
+
+```json
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 1 },
+      "content": [{ "type": "text", "text": "Non-Disclosure Agreement" }]
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "_templateSlot": "parties" },
+      "content": [{ "type": "text", "text": "Party details will be generated here." }]
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "_templateIf": "includeArbitration" },
+      "content": [{ "type": "text", "text": "Arbitration clause content..." }]
+    },
+    {
+      "type": "heading",
+      "attrs": {
+        "level": 1,
+        "_templateAttributes": [{ "key": "sectionLevel", "attribute": "level" }]
+      },
+      "content": [{ "type": "text", "text": "Governing Law" }]
+    }
+  ]
+}
+```
+
+The AI generates a JSON object with values for each key:
+
+```json
+{
+  "parties": "<p>This agreement is between <strong>Acme Corp</strong> and <strong>Beta LLC</strong>.</p>",
+  "includeArbitration": true,
+  "sectionLevel": 2
+}
+```
+
+## Tech stack
+
+- [React](https://react.dev/) + [Next.js](https://nextjs.org/)
+- [AI SDK by Vercel](https://ai-sdk.dev/) + [OpenAI](https://openai.com/) models
+- Tiptap AI Toolkit
+
+## Project overview
+
+This demo uses the AI Toolkit's template workflow to fill a legal document template (Non-Disclosure Agreement) with AI-generated content. The template has predefined sections with slots, conditional clauses, and dynamic attributes. The AI fills in the dynamic parts while the fixed legal boilerplate is preserved.
+
+## Installation
+
+Create a [Next.js](https://nextjs.org/) project:
+
+```bash
+npx create-next-app@latest template-workflow
+```
+
+Install the core Tiptap packages and the [Vercel AI SDK](https://ai-sdk.dev/) for OpenAI:
+
+```bash
+npm install @tiptap/react @tiptap/starter-kit ai @ai-sdk/openai zod
+```
+
+Install the Tiptap AI Toolkit:
+
+<Callout title="Pro package" variant="hint">
+  The AI Toolkit is a pro package. Before installation, set up access to the private NPM registry by
+  following the [private registry guide](/guides/pro-extensions).
+</Callout>
+
+```bash
+npm install @tiptap-pro/client-ai-toolkit @tiptap-pro/ai-toolkit-tool-definitions
+```
+
+## Server setup
+
+Create an API endpoint that uses the [Vercel AI SDK](https://ai-sdk.dev/) to call the OpenAI model.
+
+If your backend is in another programming language than TypeScript, see [this guide](/ai/ai-toolkit/client/advanced-guides/non-typescript-backends).
+
+Inside the API endpoint, convert the HTML template to a workflow configuration using `createTemplateWorkflow`. The function auto-extracts all template keys from the HTML, generates the system prompt, and creates the output schema.
+
+```ts
+// app/api/template-workflow/route.ts
+import { openai } from '@ai-sdk/openai'
+import { createTemplateWorkflow } from '@tiptap-pro/ai-toolkit-tool-definitions'
+import { Output, streamText } from 'ai'
+
+export async function POST(req: Request) {
+  const { htmlTemplate, task } = await req.json()
+
+  // Create the workflow from the HTML template.
+  // It auto-extracts template keys and generates the prompt and schema.
+  const workflow = createTemplateWorkflow({ htmlTemplate })
+
+  const result = streamText({
+    model: openai('gpt-5.4-mini'),
+    system: workflow.systemPrompt,
+    prompt: JSON.stringify({
+      task,
+      context: 'Additional background information related to the task',
+    }),
+    output: Output.object({ schema: workflow.zodOutputSchema }),
+  })
+
+  return result.toTextStreamResponse()
+}
+```
+
+## Client setup
+
+On the client side, define the template as Tiptap JSON. Use the Vercel AI SDK's `useObject` hook to stream partial values from the server. Pass a permissive Zod schema (`z.object({}).passthrough()`) to accept any properties the server returns.
+
+As partial values arrive, call `templateWorkflow` with `hasFinished` and `workflowId` to progressively fill the template. The `workflowId` enables streaming mode where the method tracks the insertion range across calls and replaces content progressively. Before calling the API, convert the template to HTML using the `createHtmlTemplate` method so the server can parse the template keys.
+
+```tsx
+// app/template-workflow/page.tsx
+'use client'
+
+import { experimental_useObject as useObject } from '@ai-sdk/react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { AiToolkit, getAiToolkit } from '@tiptap-pro/client-ai-toolkit'
+import { useEffect, useState } from 'react'
+import { v4 as uuid } from 'uuid'
+import { z } from 'zod'
+
+// Define the template as Tiptap JSON
+const template = {
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'Non-Disclosure Agreement' }],
+    },
+    {
+      type: 'paragraph',
+      attrs: { _templateSlot: 'parties' },
+      content: [{ type: 'text', text: 'Party details...' }],
+    },
+    // ... more template content
+  ],
+}
+
+// A permissive schema that accepts any properties from the server
+const templateSchema = z.object({}).passthrough()
+
+export default function Page() {
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [StarterKit, AiToolkit],
+    content: '<p>Click "Generate" to fill the template.</p>',
+  })
+
+  const [workflowId, setWorkflowId] = useState('')
+
+  const { submit, isLoading, object } = useObject({
+    api: '/api/template-workflow',
+    schema: templateSchema,
+  })
+
+  // Stream partial results as they arrive
+  useEffect(() => {
+    if (!editor || !object) return
+
+    const toolkit = getAiToolkit(editor)
+    toolkit.templateWorkflow({
+      template,
+      values: object as Record<string, unknown>,
+      hasFinished: !isLoading,
+      workflowId,
+    })
+  }, [object, workflowId, editor, isLoading])
+
+  const generate = () => {
+    if (!editor) return
+
+    const toolkit = getAiToolkit(editor)
+    const htmlTemplate = toolkit.createHtmlTemplate(template)
+
+    setWorkflowId(uuid())
+    submit({
+      htmlTemplate,
+      task: 'Generate an NDA between Acme Corp and Beta LLC',
+    })
+  }
+
+  if (!editor) return null
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+      <button onClick={generate} disabled={isLoading}>
+        {isLoading ? 'Generating...' : 'Generate'}
+      </button>
+    </div>
+  )
+}
+```
+
+## End result
+
+With additional CSS styles, the result is a polished template workflow application:
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/template-workflow"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Insert template in part of the document
+
+To insert the template result into a specific region instead of replacing the entire document, set the `position` option. It takes either a position or a [Range](/ai/ai-toolkit/client/advanced-guides/concepts#range).
+
+```ts
+// Insert template result at a specific range
+toolkit.templateWorkflow({
+  template,
+  values: object,
+  position: { from: 10, to: 50 },
+  hasFinished: !isLoading,
+  workflowId,
+})
+```
+
+## Build a template editor
+
+You can build a system where users create and edit templates in a rich text editor and define which parts the AI should fill. Use the `_templateSlot` attribute to mark nodes as template fields.
+
+First, register the `TemplateField` extension in your editor. This extension adds four template attributes (`_templateSlot`, `_templateIf`, `_templateAttributes`, `_templateFieldMetadata`) as global attributes to all node types in the editor schema:
+
+```tsx
+import { TemplateField } from '@tiptap-pro/client-ai-toolkit'
+
+const editor = new Editor({
+  extensions: [StarterKit, TemplateField],
+})
+```
+
+<Callout title="TemplateField vs AiToolkit" variant="hint">
+  You can use `TemplateField` alongside the `AiToolkit` extension, or on its own if you only need
+  template field support without the full AI Toolkit functionality.
+</Callout>
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://deploy-preview-405--tiptap-pro.netlify.app/preview/Extensions/AiToolkitTemplateEditor/"
+/>
+
+The `TemplateField` extension provides commands for setting and unsetting template attributes on the node at the current selection:
+
+```tsx
+// Mark the selected node as a template slot
+editor.commands.setTemplateSlot('intro')
+
+// Remove the template slot
+editor.commands.unsetTemplateSlot()
+
+// Mark the selected node as conditionally included
+editor.commands.setTemplateIf('showDisclaimer')
+
+// Remove the conditional
+editor.commands.unsetTemplateIf()
+
+// Map template keys to node attributes
+editor.commands.setTemplateAttributes([{ key: 'sectionLevel', attribute: 'level' }])
+
+// Remove the attribute mappings
+editor.commands.unsetTemplateAttributes()
+```
+
+Use `_templateFieldMetadata` when you want to store extra information about a field directly in the template. The metadata value is optional and can contain any JSON object that helps your application interpret the field later:
+
+```json
+{
+  "type": "paragraph",
+  "attrs": {
+    "_templateSlot": "intro",
+    "_templateFieldMetadata": {
+      "label": "Introduction",
+      "group": "summary",
+      "analyticsKey": "template.intro"
+    }
+  },
+  "content": [{ "type": "text", "text": "Placeholder" }]
+}
+```
+
+You can attach metadata to slot fields, conditional fields, and attribute fields. The metadata does not change how the template is filled. It is only there for your own application logic.
+
+Style template slots using the `[_templateslot]` CSS attribute selector. The `TemplateField` extension outputs lowercased template attributes in the DOM:
+
+```css
+[_templateslot] {
+  border: 2px dashed #6a00f5;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: rgba(106, 0, 245, 0.05);
+  position: relative;
+}
+
+[_templateslot]::after {
+  content: attr(_templateslot);
+  position: absolute;
+  top: -10px;
+  right: 4px;
+  font-size: 10px;
+  background: #6a00f5;
+  color: white;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+```
+
+## Persist template fields after filling
+
+By default, the `templateWorkflow` method removes all `_templateSlot` attributes after filling the template. Set `preserveSlotAttr` to `true` to keep the attributes on the filled nodes:
+
+```tsx
+toolkit.templateWorkflow({
+  template,
+  values: object,
+  hasFinished: !isLoading,
+  workflowId,
+  preserveSlotAttr: true,
+})
+```
+
+When `preserveSlotAttr` is enabled, each filled node retains its `_templateSlot` attribute. This lets you:
+
+- **Identify AI-filled content**: Inspect which parts of the document were generated by the AI.
+- **Re-fill template fields**: Use the filled document as a new template to regenerate specific sections.
+- **Keep field metadata available**: Read `_templateFieldMetadata` from the filled document later.
+
+## Re-fill template fields
+
+When `preserveSlotAttr` is `true`, the filled document still contains `_templateSlot` attributes. You can extract the document JSON and pass it back to `templateWorkflow` to re-fill specific fields:
+
+```tsx
+// Extract the current document as a template
+const currentDoc = editor.getJSON()
+
+// Re-fill with new values
+const toolkit = getAiToolkit(editor)
+toolkit.templateWorkflow({
+  template: currentDoc,
+  values: newValues,
+  preserveSlotAttr: true,
+})
+```
+
+This enables iterative editing workflows where users can ask the AI to regenerate individual sections without affecting the rest of the document.
+
+## Read field content and metadata
+
+The AI Toolkit also exports `getTemplateFieldMatches()`, a helper that scans a Tiptap JSON document for a field name and returns all matching fields in document order.
+
+This is useful when you want to:
+
+- read the current content of a template field
+- access the `_templateFieldMetadata` you stored on that field
+- support workflows such as regeneration, analytics, or custom UI labels
+
+```ts
+import { getTemplateFieldMatches } from '@tiptap-pro/client-ai-toolkit'
+
+const matches = getTemplateFieldMatches({
+  document: editor.getJSON(),
+  fieldName: 'intro',
+})
+
+for (const match of matches) {
+  console.log(match.fieldType)
+  console.log(match.metadata)
+  console.log(match.content)
+}
+```
+
+Each result includes:
+
+- `fieldType`: whether the match came from `_templateSlot`, `_templateIf`, or `_templateAttributes`
+- `metadata`: the `_templateFieldMetadata` object, or `null`
+- `content`: the matched node content as Tiptap JSON, or `null` for empty nodes
+
+## Control which template fields are required
+
+By default, all template fields are required — the AI must fill every field. To make specific fields optional, use `requiredSlots`, `requiredConditions`, and `requiredAttributes` on the server side. Only listed fields are required; unlisted fields become optional:
+
+```ts
+// Server-side: only "intro" is required, other slots are optional
+const workflow = createTemplateWorkflow({
+  htmlTemplate,
+  requiredSlots: ['intro'],
+})
+```
+
+The AI will always fill required slots and may optionally fill other slots based on the task context.
+
+To make all fields of a type optional, pass an empty array:
+
+```ts
+// All slots are optional, but specific conditions and attributes are required
+const workflow = createTemplateWorkflow({
+  htmlTemplate,
+  requiredSlots: [],
+  requiredConditions: ['includeDisclaimer'],
+  requiredAttributes: ['headingLevel'],
+})
+```
+
+## Related guides
+
+- [API reference](/ai/ai-toolkit/client/api-reference/workflows#templateworkflow) of the `templateWorkflow` method
+- [API reference](/ai/ai-toolkit/client/api-reference/workflows#createhtmltemplate) of the `createHtmlTemplate` method
+- [API reference](/ai/ai-toolkit/client/api-reference/workflows#createtemplateworkflow-server-side-utility) of the `createTemplateWorkflow` utility

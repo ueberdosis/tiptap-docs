@@ -1,5 +1,7 @@
 'use client'
 
+// TODO [Dave]: I did a quick update to split this into Generation and AI Toolkit, but it's not the most elegant work.
+
 import {
   MessageSquare,
   FileCheck,
@@ -15,10 +17,8 @@ import {
   Languages,
   AlignLeft,
   CheckCircle2,
-  Zap,
   Type,
   RotateCcw,
-  Code,
   ImagePlus,
   Activity,
   Edit,
@@ -36,13 +36,13 @@ interface UseCase {
   icon: LucideIcon
 }
 
-const USE_CASES: UseCase[] = [
+const CLIENT_USE_CASES: UseCase[] = [
   // AI Toolkit use cases - AI AGENTS
   {
     title: 'AI agent chatbot',
     description:
       'Create conversational AI interfaces where agents read and edit documents based on user requests.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
+    href: '/ai/ai-toolkit/client/agents/ai-agent-chatbot',
     tags: ['AI Agents'],
     icon: MessageSquare,
   },
@@ -50,7 +50,7 @@ const USE_CASES: UseCase[] = [
     title: 'Review changes',
     description:
       'Show each AI edit as a track-changes style suggestion that users review immediately.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
+    href: '/ai/ai-toolkit/client/agents/review-changes',
     tags: ['AI Agents'],
     icon: FileCheck,
   },
@@ -58,7 +58,7 @@ const USE_CASES: UseCase[] = [
     title: 'Review all changes at once',
     description:
       'Let AI make all edits, then show a summary of changes for batch review and approval.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
+    href: '/ai/ai-toolkit/client/agents/review-changes-as-summary',
     tags: ['AI Agents'],
     icon: ListChecks,
   },
@@ -66,7 +66,7 @@ const USE_CASES: UseCase[] = [
     title: 'Edit multiple documents',
     description:
       'Build AI agents that create, switch between, and edit multiple documents in one workflow.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
+    href: '/ai/ai-toolkit/client/agents/multi-document',
     tags: ['AI Agents'],
     icon: Files,
   },
@@ -74,14 +74,14 @@ const USE_CASES: UseCase[] = [
     title: 'Add AI comments',
     description:
       'Enable AI agents to read, write, and edit comments in documents for collaborative workflows.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/comments',
+    href: '/ai/ai-toolkit/client/agents/comments',
     tags: ['AI Agents'],
     icon: MessageCircle,
   },
   {
     title: 'Stream edits',
     description: 'Display AI tool calls and document changes in real-time as the agent works.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/streaming',
+    href: '/ai/ai-toolkit/client/agents/streaming',
     tags: ['AI Agents'],
     icon: Workflow,
   },
@@ -89,7 +89,7 @@ const USE_CASES: UseCase[] = [
     title: 'Generate custom components with AI',
     description:
       'Enable AI to generate content using your custom editor nodes and marks, not just basic text.',
-    href: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
+    href: '/ai/ai-toolkit/client/agents/schema-awareness',
     tags: ['AI Agents'],
     icon: Layers,
   },
@@ -99,7 +99,7 @@ const USE_CASES: UseCase[] = [
     title: 'Make inline edits',
     description:
       'Select text and rewrite it with AI based on instructions. Best for simple, focused edits.',
-    href: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
+    href: '/ai/ai-toolkit/client/workflows/insert-content',
     tags: ['Workflows'],
     icon: PenLine,
   },
@@ -107,21 +107,21 @@ const USE_CASES: UseCase[] = [
     title: 'Proofread documents',
     description:
       'Build an AI proofreader that analyzes documents and suggests corrections with explanations.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
+    href: '/ai/ai-toolkit/client/advanced-guides/proofreader',
     tags: ['Workflows'],
     icon: FileSearch,
   },
   {
     title: 'Tiptap Edit',
     description: 'A general-purpose workflow for making small and large edits to Tiptap documents.',
-    href: '/content-ai/capabilities/ai-toolkit/workflows/tiptap-edit',
+    href: '/ai/ai-toolkit/client/workflows/tiptap-edit',
     tags: ['Workflows'],
     icon: Edit,
   },
   {
     title: 'Comments',
     description: 'Manage comments and threads in your Tiptap documents.',
-    href: '/content-ai/capabilities/ai-toolkit/workflows/comments',
+    href: '/ai/ai-toolkit/client/workflows/comments',
     tags: ['Workflows'],
     icon: MessageSquare,
   },
@@ -129,88 +129,72 @@ const USE_CASES: UseCase[] = [
     title: 'Show document differences',
     description:
       'Compare two document versions in real-time and display differences with highlights.',
-    href: '/content-ai/capabilities/ai-toolkit/advanced-guides/compare-documents',
+    href: '/ai/ai-toolkit/client/advanced-guides/compare-documents',
     tags: ['Workflows'],
     icon: GitCompare,
   },
+]
 
-  // AI Generation use cases - POPULAR FEATURES
-  {
-    title: 'Inline autocompletion',
-    description:
-      'Show AI-powered text suggestions as users type. Accept with Tab, like GitHub Copilot.',
-    href: '/content-ai/capabilities/generation/text-generation/autocompletion',
-    tags: ['AI Generation'],
-    icon: Zap,
-  },
-  {
-    title: 'Create custom commands',
-    description:
-      'Build your own AI commands with custom prompts, parameters, and response handling.',
-    href: '/content-ai/capabilities/generation/text-generation/custom-commands',
-    tags: ['AI Generation'],
-    icon: Code,
-  },
-
-  // AI Generation use cases - TEXT MANIPULATION
+const GENERATION_USE_CASES = [
+  // Basic AI Generation use cases - TEXT MANIPULATION
   {
     title: 'Fix grammar and spelling',
     description: 'Automatically correct grammar and spelling errors in selected text.',
-    href: '/content-ai/capabilities/generation/text-generation/built-in-commands#aifixspellingandgrammar',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/built-in-commands#aifixspellingandgrammar',
+    tags: ['Basic AI Generation'],
     icon: CheckCircle2,
   },
   {
     title: 'Change text tone',
     description:
       'Adjust writing tone to academic, casual, formal, friendly, professional, and more.',
-    href: '/content-ai/capabilities/generation/text-generation/built-in-commands#aiadjusttone',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/built-in-commands#aiadjusttone',
+    tags: ['Basic AI Generation'],
     icon: Volume2,
   },
   {
     title: 'Translate text',
     description: 'Translate selected content into any language with AI-powered translation.',
-    href: '/content-ai/capabilities/generation/text-generation/built-in-commands#aitranslate',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/built-in-commands#aitranslate',
+    tags: ['Basic AI Generation'],
     icon: Languages,
   },
   {
     title: 'Summarize content',
     description: 'Generate concise summaries or extract key points from selected text.',
-    href: '/content-ai/capabilities/generation/text-generation/built-in-commands#aisummarize',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/built-in-commands#aisummarize',
+    tags: ['Basic AI Generation'],
     icon: AlignLeft,
   },
 
-  // AI Generation use cases - ADVANCED FEATURES
+  // Basic AI Generation use cases - ADVANCED FEATURES
   {
     title: 'Generate rich text format',
     description: 'Generate AI responses with rich formatting like bold, italic, lists, and links.',
-    href: '/content-ai/capabilities/generation/text-generation/format',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/format',
+    tags: ['Basic AI Generation'],
     icon: Type,
   },
   {
     title: 'Stream AI content',
     description: 'Display AI-generated text in real-time with typewriter-style streaming effect.',
-    href: '/content-ai/capabilities/generation/text-generation/stream',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/stream',
+    tags: ['Basic AI Generation'],
     icon: Activity,
   },
   {
     title: 'Manage AI responses',
     description:
       'Preview, accept, reject, or regenerate AI-generated content before inserting into editor.',
-    href: '/content-ai/capabilities/generation/text-generation/manage-responses',
-    tags: ['AI Generation'],
+    href: '/ai/basic/text-generation/manage-responses',
+    tags: ['Basic AI Generation'],
     icon: RotateCcw,
   },
   {
     title: 'Generate images',
     description: 'Create AI-generated images using custom prompts with different visual styles.',
-    href: '/content-ai/capabilities/generation/image-generation',
-    tags: ['AI Generation'],
+    href: '/ai/basic/image-generation',
+    tags: ['Basic AI Generation'],
     icon: ImagePlus,
   },
 ]
@@ -231,16 +215,21 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
   )
 }
 
-export const UseCasesGrid = () => {
-  const toolkitAgentUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Agents'))
-  const toolkitWorkflowUseCases = USE_CASES.filter((uc) => uc.tags.includes('Workflows'))
-  const generationUseCases = USE_CASES.filter((uc) => uc.tags.includes('AI Generation'))
+export const UseCasesGrid: React.FC<{ variant: 'client' | 'generation' }> = ({ variant }) => {
+  const useCases = variant === 'client' ? CLIENT_USE_CASES : GENERATION_USE_CASES
+  const toolkitAgentUseCases = useCases.filter((uc) => uc.tags.includes('AI Agents'))
+  const toolkitWorkflowUseCases = useCases.filter((uc) => uc.tags.includes('Workflows'))
+  const generationUseCases = useCases.filter((uc) => uc.tags.includes('Basic AI Generation'))
 
   return (
     <div className="grid gap-20 first:mt-0 last:mb-0">
-      <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />
-      <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />
-      <UseCaseSection title="AI Generation" useCases={generationUseCases} />
+      {toolkitAgentUseCases.length > 0 && (
+        <UseCaseSection title="AI agents" useCases={toolkitAgentUseCases} />
+      )}
+      {toolkitWorkflowUseCases.length > 0 && (
+        <UseCaseSection title="Custom workflows" useCases={toolkitWorkflowUseCases} />
+      )}
+      {generationUseCases.length > 0 && <UseCaseSection title="" useCases={generationUseCases} />}
     </div>
   )
 }
@@ -248,7 +237,7 @@ export const UseCasesGrid = () => {
 function UseCaseSection({ title, useCases }: { title: string; useCases: UseCase[] }) {
   return (
     <div>
-      <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>
+      {title && <div className="text-xl font-bold mb-6 leading-[120%]">{title}</div>}
       <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
         {useCases.map((useCase) => (
           <UseCaseCard useCase={useCase} key={useCase.href} />

@@ -1,0 +1,175 @@
+---
+title: Install
+meta:
+  title: Install AI Toolkit | Tiptap AI Toolkit
+  description: Installation guide for the AI Toolkit. Learn how to install, configure authentication, and start using the AI Toolkit cloud service.
+  category: AI Toolkit
+---
+
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { Callout } from '@/components/ui/Callout'
+import Link from '@/components/Link'
+
+<Requirements>
+  <RequirementItem label="1. Request access">
+    Request access to the Server AI Toolkit by{' '}
+    <a href="https://tiptap.dev/contact-sales?form=server-ai-toolkit">contacting our team</a>.
+  </RequirementItem>
+  <RequirementItem label="2. Install the package">
+    The Server AI Toolkit package is open source. Install it from the public npm registry using npm
+    or your preferred package manager.
+  </RequirementItem>
+  <RequirementItem label="3. Authenticate to the service">
+    Configure a <a href="#set-up-authorization">Tiptap Access Control JWT</a> to access the Server
+    AI Toolkit service.
+  </RequirementItem>
+</Requirements>
+
+<EnterpriseCalloutAuto variant="server-ai-toolkit" renderMode="sidebar" />
+
+First, <a href="https://tiptap.dev/contact-sales?form=server-ai-toolkit">contact our team</a> to get access to the AI Toolkit.
+
+Then, install the open-source AI Toolkit package:
+
+```bash
+npm install @tiptap/ai-toolkit
+```
+
+## Get editor context
+
+First, install the `ServerAiToolkit` extension in your editor. This will modify your editor schema so that your documents are compatible with the AI Toolkit.
+
+Start by getting the editor context. This JSON object contains the data that the AI Toolkit needs to know about the Tiptap editor.
+
+```tsx
+// Run this on the client app
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { getEditorContext, ServerAiToolkit } from '@tiptap/ai-toolkit'
+
+const editor = new Editor({
+  extensions: [StarterKit, ServerAiToolkit],
+})
+
+// Get the editor context
+const editorContext = getEditorContext(editor)
+```
+
+Pass the `editorContext` on every request you make to the AI Toolkit.
+
+## Set up authorization
+
+The Server AI Toolkit is a cloud or on-premises service. To authenticate:
+
+1. **Create a secret** in the [Tiptap Cloud dashboard](https://cloud.tiptap.dev) (Authentication → Secrets → Add Secret). Generate an ES256 key pair and copy the **private key**, which is shown only once. Store it as the `TIPTAP_PRIVATE_KEY` environment variable.
+2. **Copy your environment ID** from the dashboard (Authentication → Environment ID). Store it as the `TIPTAP_ENVIRONMENT_ID` environment variable.
+3. **Generate a Tiptap Access Control JWT** (see the [JWT guide](#create-a-jwt-token) below) and pass it in the `Authorization: Bearer JWT` header on every request.
+
+Example `.env` file:
+
+```sh
+# ES256 private key (PKCS#8 PEM) from the Tiptap dashboard. Used to sign tokens server-side.
+TIPTAP_PRIVATE_KEY=your-private-key-pem
+# Environment ID from the Tiptap dashboard. Used as the `iss` claim when signing tokens.
+TIPTAP_ENVIRONMENT_ID=your-environment-hash-id
+
+# Base URL for the AI Toolkit API.
+TIPTAP_CLOUD_AI_API_URL=https://api.tiptap.dev
+```
+
+### Create a JWT token
+
+Sign a JWT token for the AI Toolkit API, with these properties:
+
+- Issuer: `TIPTAP_ENVIRONMENT_ID`
+- Permissions
+  - `{ action: 'AI:Toolkit', resource: '*' }` to access the AI Toolkit
+  - `{ action: 'Documents:Write', resource: 'document-id' }` to access a Tiptap Cloud document
+- Audience: `['AI', 'Documents']`
+
+The `createJwtToken` creates a JWT token for accessing the AI Toolkit. Pass the `documentId` when the AI Toolkit should read and edit a Tiptap Cloud document.
+
+```ts
+// lib/server-ai-toolkit/create-jwt-token.ts
+import { SignJWT, importPKCS8 } from 'jose'
+
+export async function createJwtToken(documentId?: string) {
+  const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY!, 'ES256')
+
+  const permissions = [{ action: 'AI:Toolkit', resource: '*' }]
+
+  if (documentId) {
+    permissions.push({ action: 'Documents:Write', resource: documentId })
+  }
+
+  return new SignJWT({ permissions })
+    .setProtectedHeader({ alg: 'ES256' })
+    .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID!)
+    .setAudience(documentId ? ['AI', 'Documents'] : ['AI'])
+    .setIssuedAt()
+    .setExpirationTime('30m')
+    .sign(privateKey)
+}
+```
+
+For the full JWT format and signing examples, see the [Authentication reference](/authentication).
+
+### Authentication headers
+
+Pass the `Authorization: Bearer JWT` header to every API request.
+
+The `getAuthHeaders` function creates the headers:
+
+```ts
+// lib/server-ai-toolkit/get-auth-headers.ts
+import { createJwtToken } from './create-jwt-token'
+
+export async function getAuthHeaders(documentId?: string) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${await createJwtToken(documentId)}`,
+  }
+}
+```
+
+## Call API endpoints
+
+Call the `/fetch-tools` API endpoint to get the list of tools:
+
+```ts
+import { getAuthHeaders } from './lib/server-ai-toolkit/get-auth-headers'
+
+const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
+
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
+  method: 'POST',
+  headers: await getAuthHeaders(),
+  body: JSON.stringify({
+    editorContext,
+    tools: {
+      tiptapRead: true,
+      tiptapEdit: true,
+    },
+  }),
+})
+```
+
+## Next steps
+
+Now that you've set up the AI Toolkit, start building your AI integration:
+
+<div className="grid md:grid-cols-2 gap-6 mt-6 md:items-start">
+  <Link
+    href="/ai/ai-toolkit/agents/ai-agent-chatbot"
+    className="flex flex-col p-4 border border-grayAlpha-200 rounded-lg hover:border-grayAlpha-300 transition-colors cursor-pointer no-underline"
+  >
+    <div className="flex items-center justify-between mb-2">
+      <h4 className="font-semibold text-black">AI agent chatbot</h4>
+      <span className="text-sm text-blue-600 font-medium whitespace-nowrap ml-4">More →</span>
+    </div>
+    <div className="text-sm text-grayAlpha-700">
+      Build a conversational AI capable of editing documents and interacting through chat.
+    </div>
+  </Link>
+</div>

@@ -1,0 +1,548 @@
+---
+title: REST API
+meta:
+  title: REST API | Tiptap Server AI Toolkit
+  description: Complete reference for the Server AI Toolkit REST API endpoints.
+  category: AI Toolkit
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+The Server AI Toolkit REST API contains endpoints for getting the available tools and executing tool calls
+
+<Callout title="Legacy endpoints" variant="info">
+  V4 is the current API version of the Server AI Toolkit endpoints. V3 endpoints are deprecated; use
+  v4 for new work. v4 also renames the tool-definition endpoint to `/v4/ai/toolkit/fetch-tools`;
+  older names such as `/v3/ai/toolkit/tools` belong to the v3 API. See the [v3 REST API
+  reference](/ai/ai-toolkit/api-reference/rest-api-v3) for the legacy
+  endpoints.
+</Callout>
+
+## Base URL
+
+The Tiptap Cloud base URL is:
+
+```sh
+BASE_URL=https://api.tiptap.dev
+```
+
+In on-premises deployments, the base URL may differ.
+
+In the examples below, requests are written as `BASE_URL/v4/ai/toolkit/...`.
+
+## Authentication
+
+All requests must include this authentication header:
+
+- `Authorization: Bearer JWT`, where `JWT` is a Tiptap Access Control JWT.
+
+Sign the token server-side with these settings:
+
+- Audience: `AI`
+- Permissions: `AI:Toolkit`
+
+To fetch and save Tiptap Cloud documents automatically, add the `Documents` audience and the `Documents:Write` permission. `Documents:Write` includes read and comment access.
+
+See [Authentication](/authentication) for how to create a key pair and sign tokens, and the [authorization guide](/ai/ai-toolkit/install#set-up-authorization) for the full setup.
+
+```ts
+import { SignJWT, importPKCS8 } from 'jose'
+
+const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY, 'ES256')
+
+const JWT_TOKEN = await new SignJWT({
+  permissions: [
+    { action: 'AI:Toolkit', resource: '*' },
+    { action: 'Documents:Write', resource: 'your-document-id' },
+  ],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID)
+  .setAudience(['AI', 'Documents'])
+  .setExpirationTime('30m')
+  .sign(privateKey)
+```
+
+The previous App ID + secret authentication flow is documented under [Legacy authentication](/authentication/legacy).
+
+## Optional fields
+
+Optional fields can be omitted, `null`, or `undefined`.
+
+## Endpoints
+
+### Fetch tool definitions
+
+```txt
+POST /v4/ai/toolkit/fetch-tools
+```
+
+Returns the prompt and tool definitions that you pass to your AI provider.
+
+Request body:
+
+- `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
+- `tools` (`Record<string, boolean | ToolConfig>`, optional, default: `{}`): Enables, disables, or
+  configures tools. Tools are disabled by default.
+- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format used by tool
+  definitions and model output. See [Tiptap
+  Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
+
+`tools` can contain these keys:
+
+- `tiptapRead` (`boolean`, optional)
+- `tiptapEdit` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
+  include an extra metadata field on every edit operation, such as a short explanation.
+- `getThreads` (`boolean`, optional)
+- `editThreads` (`boolean`, optional)
+- `readDocument` (`boolean`, optional)
+- `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
+  include an extra metadata field on every proofreading edit, such as a short explanation.
+
+Response:
+
+- `systemPrompt` (`string`): Add this to the system prompt for your AI request. It teaches the AI
+  how Tiptap documents work, what elements the editor supports, and which document format to use.
+- `tools` (`array`): Tool definitions the AI or developer can call. Each array element contains:
+  - `name` (`string`): Tool name.
+  - `description` (`string`): Tool description.
+  - `inputSchema` (`object`): JSON schema for the AI-generated tool input.
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v4/ai/toolkit/fetch-tools' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT' \
+  --data '{
+    "editorContext": { /* editor context data */ },
+    "tools": {
+      "tiptapRead": true,
+      "tiptapEdit": {
+        "meta": "Briefly explain the edit."
+      }
+    },
+    "format": "shorthand"
+  }'
+```
+
+#### Error responses
+
+HTTP errors return:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context.
+
+This endpoint can return:
+
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `422` with `validation_failed`: The request body does not match the endpoint schema. The response
+  includes `error.issues`, a list of validation issues.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request. This response uses a different top-level
+  shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `internal_server_error`: An unexpected server error occurred.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+
+### Execute a tool
+
+```txt
+POST /v4/ai/toolkit/execute-tool
+```
+
+Executes a tool. Use this endpoint after the AI model has generated the tool call.
+
+Request body:
+
+- `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
+- `document` (`object`, required): Document to execute the tool against. Use
+  `{ "type": "cloud", "id": "your-document-id" }` when the API should read from and write to a
+  Tiptap Cloud document. Use
+  `{ "type": "inline", "content": { /* Tiptap JSON document */ } }` when you want to provide the
+  Tiptap JSON document in the request body.
+- `user` (`string`, optional): Identifier attributed to edits the AI performs.
+- `field` (`string`, optional, default: `"default"`): Collaborative field to target inside a cloud
+  document. Use this when a document stores multiple editable fields, such as a title and body.
+- `tool` (`object`, required): Tool call to execute.
+  - `name` (`string`, required): Tool name, for example `"tiptapRead"`.
+  - `input` (`object`, required): Tool input generated by the AI. This is an object that matches the
+    schema and the tool definition for that tool. The schemas and tool definitions of each tool are obtained from
+    the `/v4/ai/toolkit/fetch-tools` endpoint.
+  - `config` (`unknown`, optional): Tool-specific configuration provided by the developer.
+- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format for tool input and
+  output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
+- `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+
+Response:
+
+- `tool` (`object`): Executed tool and its output.
+  - `name` (`string`): Tool name.
+  - `output` (`object`): Tool output for the AI.
+- `docChanged` (`boolean`): Whether the document changed.
+- `document` (`object | null`): Updated document, or `null` when the document did not change.
+
+Example:
+
+```curl
+curl --location 'BASE_URL/v4/ai/toolkit/execute-tool' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_JWT' \
+  --data '{
+    "editorContext": { /* editor context data */ },
+    "document": {
+      "type": "cloud",
+      "id": "your-document-id"
+    },
+    "user": "ai-assistant",
+    "tool": {
+      "name": "tiptapRead",
+      "input": {
+        "from": 0
+      }
+    },
+    "format": "shorthand"
+  }'
+```
+
+#### Error responses
+
+HTTP errors return:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context. Document and thread upstream
+    failures include fields such as `operation`, `upstreamStatus`, `upstreamUrl`, and
+    `upstreamMethod`.
+
+This endpoint can return:
+
+- `400` with `missing_document_credentials`: The request uses a cloud document, but the JWT does not
+  include document server credentials.
+- `400` with `missing_document_options`: `getThreads` or `editThreads` was executed against an
+  inline document. These tools require a cloud document.
+- `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A thread or
+  comment operation referenced data that does not exist.
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`, or it does not grant
+  access to the requested cloud document.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `403` with `unsupported_tool_format`: The selected tool does not support the requested `format`.
+- `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
+  the editor schema does not support tracked changes.
+- `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `409` with `concurrent_edit_conflict`: The cloud document changed while the tool was executing.
+  Retry the request with the latest document state.
+- `422` with `validation_failed`: The request body does not match the endpoint schema. The response
+  includes `error.issues`, a list of validation issues.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request. This response uses a different top-level
+  shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `document_save_failed`: The server could not save the cloud document after loading it,
+  or the save flow was called before a document was loaded.
+- `500` with `diff_worker_failed` or `diff_worker_invalid_result`: The internal diff worker failed
+  while preparing reviewable changes.
+- `500` with `internal_server_error` or `unknown_error`: An unexpected server error occurred.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `502` with `document_load_failed` or `document_save_failed`: Loading or saving the cloud document
+  failed upstream. Check `error.data.upstreamStatus` for the upstream HTTP status.
+- `502` with a thread or comment code such as `thread_list_failed`, `thread_create_failed`,
+  `thread_update_failed`, `thread_delete_failed`, `thread_resolve_failed`,
+  `thread_unresolve_failed`, `comment_create_failed`, `comment_update_failed`, or
+  `comment_delete_failed`: A comments API operation failed upstream.
+- `503` with `diff_worker_queue_timeout`: The diff worker queue was saturated or timed out.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+
+### Stream a tool
+
+<Callout title="Alpha feature" variant="hint">
+  Streaming is currently in alpha
+</Callout>
+
+```txt
+POST /v4/ai/toolkit/stream-tool
+```
+
+Streams tool execution. `tiptapEdit` can apply edits incrementally for a typing effect. Other tools
+run after the full input is received and return one final event, like `execute-tool`.
+
+The request is sent in parts. The first part contains:
+
+- `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
+- `document` (`object`, required): Cloud document to stream the edit into:
+  `{ "type": "cloud", "id": "your-document-id" }`. Inline documents are not supported for
+  streaming.
+- `user` (`string`, optional): Identifier attributed to edits the AI performs.
+- `field` (`string`, optional, default: `"default"`): Collaborative field to target inside a cloud
+  document.
+- `tool` (`object`, required): Tool call to execute, without `tool.input`.
+  - `name` (`string`, required): Tool name, for example `"tiptapEdit"`.
+  - `config` (`unknown`, optional): Tool-specific configuration provided by the developer.
+- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format for tool input and
+  output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
+- `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+- `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
+  `tiptapEdit` output. Must be between `0` and `1000`. Use `0` to apply edits as fast as possible.
+
+Then send:
+
+- Following parts: The value of `tool.input`, streamed as the AI generates it.
+
+Response:
+
+- `tiptapEdit`: Incremental events while edits are applied, followed by a final event with the
+  updated `document`.
+- Other tools: One final event with the same result shape as `execute-tool`.
+
+#### Error responses
+
+Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
+
+- `error` (`object`): An object with these properties:
+  - `message` (`string`): Human-readable error message.
+  - `status` (`number`): HTTP status code.
+  - `code` (`string`): Stable error code.
+  - `data` (`object`, optional): Sanitized structured context.
+
+After streaming starts, errors are sent as NDJSON events:
+
+- `version` (`number`): Stream protocol version.
+- `type` (`'error'`): Event type.
+- `code` (`string`): Stable error code.
+- `status` (`number`): HTTP-style status code.
+- `message` (`string`): Human-readable error message.
+
+This endpoint can return or emit:
+
+- `400` with `invalid_request`: The request has no body.
+- `400` with `missing_document_credentials`: The JWT does not include document server credentials.
+- `400` with `invalid_stream_message`: A stream message is not valid JSON, fails schema validation,
+  uses an unsupported protocol version, or the stream ends with an unterminated NDJSON line.
+- `400` with `duplicate_start`: More than one `start` message was sent.
+- `400` with `delta_before_start`: A `delta` message arrived before `start`.
+- `400` with `end_before_start`: An `end` message arrived before `start`.
+- `400` with `incomplete_stream`: The request ended before an `end` message arrived.
+- `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A buffered
+  thread or comment operation referenced data that does not exist.
+- `401` with `access_control_auth_required` or `missing_token`: The request did not include a
+  Tiptap Access Control JWT.
+- `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
+  rejected by Access Control.
+- `403` with `feature_not_available`: Server AI Toolkit is not enabled for the environment.
+- `403` with `insufficient_permissions`: The JWT does not grant `AI:Toolkit`.
+- `403` with `origin_not_allowed`: The request `Origin` is not allowed for the environment.
+- `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
+  the editor schema does not support tracked changes.
+- `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size.
+- `429` with `stream_rate_limit_exceeded`: Too many concurrent streams are open for the same client.
+- `429` with `rate_limited`: Access Control rate-limited authentication.
+- `429`: The server-side rate limiter blocked the request before streaming started. This response
+  uses a different top-level shape:
+  - `error` (`string`): Rate limit error message.
+  - `retryAfter` (`number`, optional): Seconds to wait before retrying.
+  - `limit` (`number`, optional): Request limit for the current window.
+  - `window` (`number`, optional): Rate-limit window in seconds.
+- `500` with `diff_worker_failed`, `diff_worker_invalid_result`, `stream_internal_error`, or
+  `unknown_error`: An unexpected server error occurred during stream processing.
+- `500` with `missing_cloud_api_token`: The cloud service is missing internal authentication
+  configuration.
+- `502` with document, thread, or comment upstream failure codes such as `document_load_failed`,
+  `document_save_failed`, `thread_list_failed`, or `comment_create_failed`: A cloud document or
+  comments API operation failed upstream.
+- `503` with `diff_worker_queue_timeout`: The diff worker queue was saturated or timed out.
+- `503` with `service_unavailable`: Access Control was temporarily unavailable.
+- `504` with `stream_request_timeout`: The stream exceeded the server request timeout.
+
+## Available tools
+
+These tools can be provided to an AI agent. The agent decides which tool to call.
+
+All tools are disabled by default. We recommend starting with `tiptapRead` and `tiptapEdit`, then
+enabling additional tools as needed.
+
+You can also call these tools directly from your application code to build custom workflows.
+
+### `tiptapRead`
+
+Reads the document in chunks to avoid overflowing the context window.
+
+Tool config (`tool.config`):
+
+- `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the read request was successful.
+- `totalNodeCount` (`number`): Total number of top-level nodes in the document.
+- `nodeRange` (`[number, number]`): Top-level node range that was read.
+- `content` (`JSONContent[] | string`): Document content for the returned range. When `format` is
+  `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand
+  string.
+
+Error response:
+
+- `success` (`false`): Indicates that the read request failed.
+- `error` (`string`): Error message.
+- `totalNodeCount?` (`number`): Total number of top-level nodes.
+
+### `tiptapEdit`
+
+Edits document content.
+
+Tool config (`tool.config`):
+
+- `threadData` (`object`, optional): Metadata added to created threads.
+- `commentData` (`object`, optional): Metadata added to created comments.
+
+Tool output (`tool.output`):
+
+Success or partial-success response:
+
+- `success` (`boolean`): Whether all operations completed successfully.
+- `operationResults` (`array`): Result for each operation.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `target` (`string`): String identifier of the element targeted by the operation.
+  - `error` (`string | null`): Failure reason, or `null` if the operation succeeded.
+
+Error response:
+
+- `success` (`false`): Indicates that the edit request failed.
+- `reason` (`'validationError' | 'unexpectedError'`): Error category.
+- `error` (`string`): Error message.
+
+### `getThreads`
+
+Reads comment threads from a cloud document.
+
+Tool config (`tool.config`):
+
+- `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the read request was successful.
+- `totalThreadCount` (`number`): Total number of threads in the document.
+- `threadRange` (`[number, number]`): Thread range that was read, as `[from, to)`.
+- `threads` (`array`): Returned thread objects.
+  - `id` (`string`): Unique thread identifier.
+  - `nodeRange` (`[number, number] | null`): Node range where the thread is located, or `null` if
+    the thread is not annotated in the document.
+  - `content` (`JSONContent[] | string | null`): Content marked by the thread. When `format` is
+    `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand
+    string. `null` means the thread is not annotated in the document.
+  - `comments` (`array`): Comments in the thread.
+    - `id` (`string`): Unique comment identifier.
+    - `content` (`string`): Comment text.
+    - `userId` (`string`): ID of the user who created the comment.
+    - `createdAt` (`string`): ISO timestamp when the comment was created.
+    - `updatedAt` (`string`): ISO timestamp when the comment was last updated.
+  - `resolvedAt?` (`string | null`): ISO timestamp when the thread was resolved, or `null` if
+    unresolved.
+  - `createdAt` (`string`): ISO timestamp when the thread was created.
+  - `updatedAt` (`string`): ISO timestamp when the thread was last updated.
+  - `data?` (`Record<string, unknown>`): Public thread metadata.
+
+Error response:
+
+- `success` (`false`): Indicates that the read request failed.
+- `error` (`string`): Error message.
+- `totalThreadCount?` (`number`): Total number of persisted threads, when known.
+
+### `editThreads`
+
+Creates and updates comment threads.
+
+Tool config (`tool.config`):
+
+- `threadData` (`object`, optional): Metadata added to created threads.
+- `commentData` (`object`, optional): Metadata added to created comments.
+
+Tool output (`tool.output`):
+
+Success or partial-success response:
+
+- `success` (`boolean`): Indicates whether all operations completed successfully.
+- `operations` (`array`): Result for each operation.
+  - `type` (`string`): Operation type that was executed.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `message` (`string`): Human-readable operation result.
+  - `threadId?` (`string`): Thread ID for operations that create or reference a thread.
+
+Error response:
+
+- `success` (`false`): Indicates that the request failed before operations were processed.
+- `error` (`string`): Error message.
+
+### `readDocument`
+
+Reads the entire document.
+
+<Callout title="May overflow the context window" variant="warning">
+  `readDocument` returns the full document. For large documents, use `tiptapRead` instead.
+</Callout>
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the document was read successfully.
+- `content` (`JSONContent[] | string`): Whole effective document content. When `format` is `json`,
+  this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand string.
+
+### `proofread`
+
+Applies proofreading edits.
+
+Tool config (`tool.config`):
+
+- `threadData` (`object`, optional): Metadata added to created threads.
+- `commentData` (`object`, optional): Metadata added to created comments.
+
+Tool output (`tool.output`):
+
+Success or partial-success response:
+
+- `success` (`boolean`): Indicates whether all operations completed successfully.
+- `operationResults` (`array`): Result for each operation.
+  - `target` (`string`): String identifier of the element targeted by the operation.
+  - `success` (`boolean`): Whether the operation completed successfully.
+  - `error` (`string | null`): Failure reason, or `null` when the operation succeeded.
+
+## Related pages
+
+- [Review options](/ai/ai-toolkit/api-reference/review-options)
+- [Editor context](/ai/ai-toolkit/api-reference/editor-context)
