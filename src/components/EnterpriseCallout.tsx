@@ -16,6 +16,7 @@ export type EnterpriseCalloutProps = {
     | 'epub'
     | 'doc'
     | 'markdown'
+    | 'tracked-changes'
     | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
@@ -24,7 +25,7 @@ export type EnterpriseCalloutProps = {
 
 const VARIANT_CONFIG: Record<
   EnterpriseCalloutProps['variant'],
-  { title: string; description: string; showWaitlist: boolean }
+  { title: string; description: string; showWaitlist: boolean; contactUrl?: string }
 > = {
   migration: {
     title: 'Migration support',
@@ -86,6 +87,13 @@ const VARIANT_CONFIG: Record<
       'Get dedicated Slack support, priority features, and hands-on help from our engineers to integrate Markdown conversion into your enterprise application.',
     showWaitlist: true,
   },
+  'tracked-changes': {
+    title: 'Get access to Tracked Changes',
+    description:
+      'Add Tracked Changes to any Tiptap subscription. Integrate it successfully with dedicated engineering support via Slack.',
+    showWaitlist: false,
+    contactUrl: 'https://tiptap.dev/contact-sales?form=tracked-changes',
+  },
   deprecated: {
     title: 'Migrate to AI Toolkit',
     description:
@@ -94,14 +102,15 @@ const VARIANT_CONFIG: Record<
   },
 }
 
-const CONTACT_URL = 'https://tiptap.dev/contact-sales?form=ai-toolkit'
+const DEFAULT_CONTACT_URL = 'https://tiptap.dev/contact-sales?form=ai-toolkit'
 
 export const EnterpriseCallout = forwardRef<HTMLDivElement, EnterpriseCalloutProps>(
   (
     { variant, inline = false, disableWaitlist = false, inverted = false, className, ...rest },
     ref,
   ) => {
-    const { title, description, showWaitlist } = VARIANT_CONFIG[variant]
+    const { title, description, showWaitlist, contactUrl } = VARIANT_CONFIG[variant]
+    const CONTACT_URL = contactUrl ?? DEFAULT_CONTACT_URL
     const displayWaitlist = showWaitlist && !disableWaitlist
 
     const waitlistText = 'On a different plan? Join the'
