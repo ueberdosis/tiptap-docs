@@ -1,42 +1,42 @@
-import { forwardRef } from "react";
-import { ArrowRightIcon } from "lucide-react";
-import { PageEditStatus } from "../ui/PageEditStatus";
-import PageHelpFeedback from "../PageHelpFeedback";
-import { TiptapLogo } from "../TiptapLogo";
-import { ProductDropdown } from "../ProductDropdown";
-import { NavLink } from "../NavLink";
-import { SearchButton } from "../SearchButton";
-import { ToCButton } from "../ToCButton";
-import { MobileTableOfContent } from "../MobileTableOfContent";
-import { MobileSidebarNavigation } from "../MobileSidebarNavigation";
-import { MobileNavigationButton } from "../MobileNavigationButton";
-import { DocsSidebar } from "../SidebarRenderer";
-import { MobileNavigationDropdown } from "../MobileNavigationDropdown";
-import { SidebarTableOfContent } from "../SidebarTableOfContent";
-import { VersionSwitch } from "../VersionSwitch";
-import styles from "./Layout.module.css";
-import Link from "@/components/Link";
-import { cn } from "@/utils";
-import { getAllMetadata } from "@/server/getAllMetadata";
-import { SidebarConfig } from "@/types";
-import { CTA_BAR } from "@/utils/constants";
+import { forwardRef } from 'react'
+import { ArrowRightIcon } from 'lucide-react'
+import { PageEditStatus } from '../ui/PageEditStatus'
+import PageHelpFeedback from '../PageHelpFeedback'
+import { TiptapLogo } from '../TiptapLogo'
+import { ProductDropdown } from '../ProductDropdown'
+import { NavLink } from '../NavLink'
+import { SearchButton } from '../SearchButton'
+import { ToCButton } from '../ToCButton'
+import { MobileTableOfContent } from '../MobileTableOfContent'
+import { MobileSidebarNavigation } from '../MobileSidebarNavigation'
+import { MobileNavigationButton } from '../MobileNavigationButton'
+import { DocsSidebar } from '../SidebarRenderer'
+import { MobileNavigationDropdown } from '../MobileNavigationDropdown'
+import { SidebarTableOfContent } from '../SidebarTableOfContent'
+import { VersionSwitch } from '../VersionSwitch'
+import styles from './Layout.module.css'
+import Link from '@/components/Link'
+import { cn } from '@/utils'
+import { getAllMetadata } from '@/server/getAllMetadata'
+import { SidebarConfig } from '@/types'
+import { CTA_BAR } from '@/utils/constants'
 
 const PageEditFooter = async () => {
-  const allMeta = await getAllMetadata();
+  const allMeta = await getAllMetadata()
 
   return (
     <>
       <PageEditStatus allMeta={allMeta} />
     </>
-  );
-};
+  )
+}
 
 export const LayoutCTABar = () => {
   return (
     <div
       className={cn(
         styles.notificationBar,
-        "flex flex-col items-center justify-center gap-3 px-2 py-3 text-sm font-semibold text-center text-white lg:flex-row lg:gap-6",
+        'flex flex-col items-center justify-center gap-3 px-2 py-3 text-sm font-semibold text-center text-white lg:flex-row lg:gap-6',
       )}
     >
       <span className="leading-none">{CTA_BAR.label}</span>
@@ -59,8 +59,8 @@ export const LayoutCTABar = () => {
         </Link>
       </div>
     </div>
-  );
-};
+  )
+}
 
 export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig }>(
   ({ config, ...rest }, ref) => {
@@ -121,33 +121,33 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
           </div>
         </div>
       </header>
-    );
+    )
   },
-);
+)
 
-LayoutHeader.displayName = "LayoutHeader";
+LayoutHeader.displayName = 'LayoutHeader'
 
-export type LayoutWrapperProps = {} & React.HTMLAttributes<HTMLDivElement>;
+export type LayoutWrapperProps = {} & React.HTMLAttributes<HTMLDivElement>
 
 const LayoutWrapper = forwardRef<HTMLDivElement, LayoutWrapperProps>(
   ({ children, className, ...rest }, ref) => {
     return (
       <div
         {...rest}
-        className={cn("container relative flex items-start lg:gap-8 gap-[4.5rem]", className)}
+        className={cn('container relative flex items-start lg:gap-8 gap-[4.5rem]', className)}
         ref={ref}
       >
         {children}
       </div>
-    );
+    )
   },
-);
+)
 
-LayoutWrapper.displayName = "LayoutWrapper";
+LayoutWrapper.displayName = 'LayoutWrapper'
 
 export type LayoutSidebarProps = {
-  config: SidebarConfig;
-} & React.HTMLAttributes<HTMLDivElement>;
+  config: SidebarConfig
+} & React.HTMLAttributes<HTMLDivElement>
 
 const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
   ({ config, children, className, ...rest }, ref) => {
@@ -157,7 +157,7 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
         <div
           {...rest}
           className={cn(
-            "hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain",
+            'hidden lg:block flex-none sticky top-[4.25rem] px-2 pt-6 pb-12 self-start w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}
@@ -166,13 +166,13 @@ const LayoutSidebar = forwardRef<HTMLDivElement, LayoutSidebarProps>(
           {children}
         </div>
       </>
-    );
+    )
   },
-);
+)
 
-LayoutSidebar.displayName = "LayoutSidebar";
+LayoutSidebar.displayName = 'LayoutSidebar'
 
-export type LayoutSecondarySidebarProps = {} & React.HTMLAttributes<HTMLDivElement>;
+export type LayoutSecondarySidebarProps = {} & React.HTMLAttributes<HTMLDivElement>
 
 const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebarProps>(
   ({ className, ...rest }, ref) => {
@@ -182,7 +182,7 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
         <div
           {...rest}
           className={cn(
-            "hidden xl:block flex-none self-start sticky px-3 py-6 top-[4.25rem] w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain",
+            'hidden xl:block flex-none self-start sticky px-3 py-6 top-[4.25rem] w-[16.25rem] h-[calc(100vh-4.75rem)] overflow-auto overscroll-contain',
             className,
           )}
           ref={ref}
@@ -191,13 +191,13 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
           <div id="requirements-slot" className="flex flex-col gap-8 mt-8" />
         </div>
       </>
-    );
+    )
   },
-);
+)
 
-LayoutSecondarySidebar.displayName = "LayoutSecondarySidebar";
+LayoutSecondarySidebar.displayName = 'LayoutSecondarySidebar'
 
-export type LayoutContentProps = {} & React.HTMLAttributes<HTMLDivElement>;
+export type LayoutContentProps = {} & React.HTMLAttributes<HTMLDivElement>
 
 export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
   ({ children, className, ...rest }, ref) => {
@@ -205,7 +205,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
       <main
         {...rest}
         className={cn(
-          "px-2 sm:px-6 lg:pr-12 lg:pl-0 flex-1 self-start sticky top-14 min-w-0 lg:max-w-[66rem]",
+          'px-2 sm:px-6 lg:pr-12 lg:pl-0 flex-1 self-start sticky top-14 min-w-0 lg:max-w-[66rem]',
           className,
         )}
         ref={ref}
@@ -258,11 +258,11 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
           </div>
         </footer>
       </main>
-    );
+    )
   },
-);
+)
 
-LayoutContent.displayName = "LayoutContent";
+LayoutContent.displayName = 'LayoutContent'
 
 export const Layout = {
   Header: LayoutHeader,
@@ -271,4 +271,4 @@ export const Layout = {
   SecondarySidebar: LayoutSecondarySidebar,
   Content: LayoutContent,
   CTA: LayoutCTABar,
-};
+}
