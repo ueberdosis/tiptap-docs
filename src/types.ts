@@ -3,7 +3,7 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
-  releaseTag?: 'beta' | 'alpha'
+  releaseTag?: "beta" | "alpha"
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
