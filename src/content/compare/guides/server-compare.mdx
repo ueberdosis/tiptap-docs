@@ -1,0 +1,74 @@
+---
+title: Compare documents on the server
+tags:
+  - type: addon
+  - type: alpha
+meta:
+  title: Compare documents on the server | Tiptap Compare Docs
+  description: Compare Tiptap documents on the server.
+  category: Compare
+---
+
+The Compare package does not need a Tiptap Editor instance to run. Document comparison can run in a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) or on the server.
+
+First, create the two documents you want to compare:
+
+```ts
+import { Editor } from '@tiptap/core'
+
+const editorA = new Editor()
+const docA = editorA.toJSON()
+
+const editorB = new Editor()
+const docB = editorB.toJSON()
+```
+
+To compare two documents or versions, the Compare package needs the editor schema. To send the schema over the network, serialize it first:
+
+```ts
+import { serializeSchema } from '@tiptap-pro/compare'
+
+const serializedSchema = serializeSchema(editorA.schema)
+
+const response = await fetch('/api/compare', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ docA, docB, schema: serializedSchema }),
+})
+const changes = await response.json()
+```
+
+Then, on the server, deserialize the schema and compare the two documents using the [`compareDocuments`](/compare/api-reference/utilities#comparedocuments) utility. This returns a list of [Change objects](/compare/api-reference/types#changes).
+
+```ts
+import { compareDocuments, deserializeSchema } from '@tiptap-pro/compare'
+
+export async function POST(request: Request) {
+  const { docA, docB, schema: serializedSchema } = await request.json()
+  const schema = deserializeSchema(serializedSchema)
+  const changes = compareDocuments({ schema, docA, docB })
+
+  return Response.json(changes)
+}
+```
+
+Each Change object contains the position where the document changed. You can store the documents and change objects in your database, or send them to the client to display them.
+
+To learn how to display these changes, see the [Compare documents guide](/compare/guides/compare-documents).
+
+Other comparison APIs like `compareVersions` can also run on the server.
+
+## Performance recommendations
+
+### Run document comparison in a separate process
+
+Comparing large documents is computationally expensive. Besides, document comparison is a synchronous process that blocks the event loop while it is running. For this reason, avoid running document comparison on the main thread of the client or the server. Instead, run it in a separate process:
+
+- On the client, use a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
+- On the server, use a [worker thread](https://nodejs.org/api/worker_threads.html) or a message queue with a pool of workers.
+
+### Cache diff results
+
+The `compareDocuments` utility returns a list of Change objects. If your users request the diff between the same two documents more than once, cache the result to avoid repeating the comparison.
+
+The above recommendations also apply to other comparison APIs like `compareVersions`.

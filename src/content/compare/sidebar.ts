@@ -18,6 +18,10 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Compare documents', href: '/compare/guides/compare-documents' },
         { title: 'Compare versions', href: '/compare/guides/compare-versions' },
+        {
+          title: 'Server compare',
+          href: '/compare/guides/server-compare',
+        },
       ],
     },
     {
