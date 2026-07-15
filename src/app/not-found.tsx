@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { ArrowRightIcon } from 'lucide-react'
 import type { Metadata } from 'next'
 import Link from '@/components/Link'
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 export default async function NotFoundPage() {
   return (
     <>
-      <Layout.CTA />
+      <Suspense fallback={null}>
+        <Layout.CTA />
+      </Suspense>
       <Layout.Header />
       <Layout.Wrapper>
         <Layout.Content className="mx-auto">

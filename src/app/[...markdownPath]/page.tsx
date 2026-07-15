@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
@@ -96,7 +97,9 @@ export default async function MarkdownPage({ params }: Props) {
 
   return (
     <>
-      <Layout.CTA />
+      <Suspense fallback={null}>
+        <Layout.CTA />
+      </Suspense>
       <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}

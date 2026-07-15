@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
@@ -55,7 +56,9 @@ export default async function HomePage() {
 
   return (
     <>
-      <Layout.CTA />
+      <Suspense fallback={null}>
+        <Layout.CTA />
+      </Suspense>
       <Layout.Header config={sidebar.sidebarConfig} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}

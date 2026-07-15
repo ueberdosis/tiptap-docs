@@ -22,6 +22,9 @@ export async function getActiveCTACampaign() {
     }
 
     const url = `https://api.webflow.com/v2/collections/${collectionId}/items`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_WEBFLOW_API_TOKEN}`,
@@ -30,7 +33,10 @@ export async function getActiveCTACampaign() {
       next: {
         revalidate: 60,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       console.error("Failed to fetch CTA campaigns from Webflow", {
