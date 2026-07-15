@@ -176,18 +176,7 @@ async function listDirectories(config: RepoConfig, dirPath: string): Promise<str
   const response = await fetch(url, { headers: getHeaders() })
 
   if (!response.ok) {
-    if (response.status === 404) {
-      console.warn(
-        `Warning: Cannot access ${config.owner}/${config.repo}/${dirPath} (HTTP 404). Skipping.`,
-      )
-    } else if (response.status === 403) {
-      console.warn(get403Warning(config, dirPath, response))
-    } else {
-      console.warn(
-        `Failed to list ${dirPath} in ${config.owner}/${config.repo}: ${response.status}`,
-      )
-    }
-    return []
+    throw new Error('Unable to generate release-notes. Throwing to avoid a broken deployment.')
   }
 
   const entries = (await response.json()) as Array<{ name: string; type: string }>
@@ -400,12 +389,8 @@ async function main() {
         console.warn(
           `Warning: Failed to process ${config.owner}/${config.repo}: ${message}. Skipping.`,
         )
-        return {
-          packageResults: {
-            results: [],
-            nextCacheEntries: [],
-          },
-        }
+
+        throw error
       }
     }),
   )
