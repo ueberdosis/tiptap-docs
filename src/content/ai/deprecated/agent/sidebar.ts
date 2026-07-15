@@ -36,7 +36,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Use with your AI agent',
-          href: '/ai/deprecated/agent/custom-llms',
+          href: '/ai/deprecated/agent/custom-llms/overview',
           children: [
             {
               title: 'Overview',

@@ -58,7 +58,7 @@ const CLIENT_USE_CASES: UseCase[] = [
     title: 'Review all changes at once',
     description:
       'Let AI make all edits, then show a summary of changes for batch review and approval.',
-    href: '/ai/ai-toolkit/client/agents/review-changes-as-summary',
+    href: '/ai/ai-toolkit/client/agents/review-changes/tracked-changes',
     tags: ['AI Agents'],
     icon: ListChecks,
   },
@@ -107,7 +107,7 @@ const CLIENT_USE_CASES: UseCase[] = [
     title: 'Proofread documents',
     description:
       'Build an AI proofreader that analyzes documents and suggests corrections with explanations.',
-    href: '/ai/ai-toolkit/client/advanced-guides/proofreader',
+    href: '/ai/ai-toolkit/client/workflows/proofreader',
     tags: ['Workflows'],
     icon: FileSearch,
   },
