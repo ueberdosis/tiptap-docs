@@ -16,6 +16,7 @@ export type EnterpriseCalloutAutoProps = {
     | 'epub'
     | 'doc'
     | 'markdown'
+    | 'tracked-changes'
     | 'deprecated'
   renderMode?: 'inline' | 'sidebar'
   disableWaitlist?: boolean
