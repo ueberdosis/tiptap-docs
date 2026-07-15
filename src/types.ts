@@ -229,19 +229,3 @@ export const INCIDENT_SEVERITY_COLORS = {
   critical: "danger",
 } as const;
 
-export type WebflowCampaign = {
-  fieldData: {
-    active: boolean;
-    "show-button-link"?: boolean;
-    "button-text"?: string;
-    link?: string;
-    "button-type"?: string;
-    "open-link"?: string;
-    "product-hunt-link"?: boolean;
-    "product-hunt-link-2"?: string;
-    "product-hunt-image-src"?: string;
-    "product-hunt-image-alt"?: string;
-    name: string;
-    slug?: string;
-  };
-};

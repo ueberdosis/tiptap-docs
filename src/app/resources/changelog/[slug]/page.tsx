@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
@@ -76,9 +75,7 @@ export default async function ChangelogPage({ params }: Props) {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <Layout.CTA />
-      </Suspense>
+      <Layout.CTA />
       <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}

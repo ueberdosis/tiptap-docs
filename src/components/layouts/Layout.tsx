@@ -19,7 +19,7 @@ import Link from "@/components/Link";
 import { cn } from "@/utils";
 import { getAllMetadata } from "@/server/getAllMetadata";
 import { SidebarConfig } from "@/types";
-import { getActiveCTACampaign } from "@/server/getActiveCTACampaign";
+import { CTA_BAR } from "@/utils/constants";
 
 const PageEditFooter = async () => {
   const allMeta = await getAllMetadata();
@@ -31,16 +31,7 @@ const PageEditFooter = async () => {
   );
 };
 
-export const LayoutCTABar = async () => {
-  const campaign = await getActiveCTACampaign();
-
-  if (!campaign?.fieldData) {
-    return null;
-  }
-
-  const { fieldData } = campaign;
-  const target = fieldData.link?.startsWith("https://docs.tiptap.dev") ? "_self" : "_blank";
-
+export const LayoutCTABar = () => {
   return (
     <div
       className={cn(
@@ -48,30 +39,24 @@ export const LayoutCTABar = async () => {
         "flex flex-col items-center justify-center gap-3 px-2 py-3 text-sm font-semibold text-center text-white lg:flex-row lg:gap-6",
       )}
     >
-      <span className="leading-none">{fieldData.name}</span>
+      <span className="leading-none">{CTA_BAR.label}</span>
       <div className="flex items-center gap-4">
-        {fieldData["show-button-link"] && fieldData["button-text"] && fieldData.link && (
-          <Link href={fieldData.link} target={target} className={styles.notificationBarButton}>
-            <span className={styles.notificationBarButtonArrow} aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-            <span className={styles.notificationBarButtonLabel}>{fieldData["button-text"]}</span>
-            <span className={styles.notificationBarButtonArrow} aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-        )}
-        {fieldData["product-hunt-link"] &&
-          fieldData["product-hunt-link-2"] &&
-          fieldData["product-hunt-image-src"] && (
-            <Link href={fieldData["product-hunt-link-2"]} target="_blank">
-              <img
-                src={fieldData["product-hunt-image-src"]}
-                alt={fieldData["product-hunt-image-alt"] || "Featured on Product Hunt"}
-                className="block h-8"
-              />
-            </Link>
-          )}
+        <Link href={CTA_BAR.button.href} target="_blank" className={styles.notificationBarButton}>
+          <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+            <ArrowRightIcon />
+          </span>
+          <span className={styles.notificationBarButtonLabel}>{CTA_BAR.button.text}</span>
+          <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+            <ArrowRightIcon />
+          </span>
+        </Link>
+        <Link href={CTA_BAR.productHunt.href} target="_blank">
+          <img
+            src={CTA_BAR.productHunt.imageSrc}
+            alt={CTA_BAR.productHunt.alt}
+            className="block h-8"
+          />
+        </Link>
       </div>
     </div>
   );
