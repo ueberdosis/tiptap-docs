@@ -17,6 +17,7 @@ const options = [
   { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
   { label: 'Pages', href: '/pages/getting-started/overview' },
+  { label: 'Compare', href: '/compare/getting-started/overview' },
 ]
 
 export const ProductDropdown = () => {
