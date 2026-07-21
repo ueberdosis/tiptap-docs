@@ -37,6 +37,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/agents/comments',
             },
             {
+              title: 'Selection awareness',
+              href: '/ai/ai-toolkit/agents/selection-awareness',
+            },
+            {
               title: 'Streaming',
               href: '/ai/ai-toolkit/agents/streaming',
               releaseTag: 'alpha',
