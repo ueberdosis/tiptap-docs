@@ -228,6 +228,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Link',
             },
             {
+              href: '/editor/extensions/marks/ruby-text',
+              title: 'Ruby Text',
+            },
+            {
               href: '/editor/extensions/marks/strike',
               title: 'Strike',
             },
