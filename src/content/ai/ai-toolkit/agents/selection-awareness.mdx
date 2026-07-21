@@ -1,0 +1,155 @@
+---
+title: Selection awareness
+meta:
+  title: Selection awareness | Tiptap Server AI Toolkit
+  description: Let the server-side AI read and edit a collaborator's live selection.
+  category: AI Toolkit
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="server-ai-toolkit" renderMode="sidebar" />
+
+Make the server-side AI aware of the content a collaborator has selected, so it can edit exactly
+what the user selected.
+
+<Callout title="Continuation from the AI agent chatbot guide" variant="info">
+  This guide continues the [AI agent chatbot guide](/ai/ai-toolkit/agents/ai-agent-chatbot). Read it
+  first.
+</Callout>
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-read-selection"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## The `readSelection` tool
+
+The `readSelection` tool lets the AI read a collaborator's current selection from a live Tiptap
+Cloud document. It returns the complete top-level nodes containing the selection, with
+`selectionStart` and `selectionEnd` markers at the exact boundaries, so the AI knows what is
+selected and where.
+
+Enable it in the `fetch-tools` request alongside the other tools:
+
+```ts
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
+  method: 'POST',
+  headers: await getAuthHeaders(),
+  body: JSON.stringify({
+    editorContext,
+    tools: {
+      tiptapRead: true,
+      tiptapEdit: true,
+      readSelection: true,
+    },
+  }),
+})
+```
+
+Unlike the other tools, `readSelection` reads a _specific_ collaborator's selection. Tell the server
+whose selection to read by passing that user's id in `tool.config.user` when you execute the tool.
+The id is developer configuration, not a model input, so the AI cannot choose which user to read.
+
+```ts
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
+  method: 'POST',
+  headers: await getAuthHeaders(documentId),
+  body: JSON.stringify({
+    editorContext,
+    document: { type: 'cloud', id: documentId },
+    tool: {
+      name: 'readSelection',
+      // readSelection takes no model input.
+      input: {},
+      // The id of the collaborator whose selection to read.
+      config: { user: 'user-1' },
+    },
+  }),
+})
+```
+
+See the [REST API reference](/ai/ai-toolkit/api-reference/rest-api#readselection) for the full
+output shape.
+
+## Publish the selection to awareness
+
+The server reads the selection from live collaboration awareness, so the client must publish it. Add
+the `CollaborationCaret` extension and give the user an `id` that matches the `tool.config.user` you
+send to the server. Create the editor once the provider is connected so the caret can attach.
+
+```tsx
+import { CollaborationCaret } from '@tiptap/extension-collaboration-caret'
+
+const editor = useEditor({
+  extensions: [
+    StarterKit,
+    Collaboration.configure({ document: doc }),
+    CollaborationCaret.configure({
+      provider,
+      // The id is what readSelection matches against on the server.
+      user: { id: 'user-1', name: 'You', color: '#6a00f5' },
+    }),
+    ServerAiToolkit,
+  ],
+})
+```
+
+<Callout title="Cloud documents with live sessions only" variant="warning">
+  `readSelection` requires a Tiptap Cloud document, the default document field, and server document
+  sessions enabled. It does not work with inline documents.
+</Callout>
+
+## Preserving the selection
+
+The server reads the selection from awareness at the moment the tool runs. `CollaborationCaret`
+clears the awareness selection when the editor loses focus, so if the user clicks into a chat input
+before sending, the server reads an empty selection.
+
+Re-focus the editor when the user sends a message so the caret re-publishes the current selection:
+
+```tsx
+const handleSubmit = () => {
+  if (!input.trim()) return
+  // Re-publish the selection to awareness: moving to the chat input blurred the
+  // editor and cleared the awareness cursor.
+  editor.commands.focus()
+  sendMessage({ text: input })
+  setInput('')
+}
+```
+
+## Keep edits scoped to the selection
+
+`readSelection` tells the AI what is selected, but it does not force the AI to edit only the
+selection. A weaker model may rewrite the surrounding paragraph instead of just the selected span,
+especially for a sub-sentence selection.
+
+In our testing, models with reasoning enabled (for example `gpt-5.4-mini` with reasoning effort set
+to `low`) keep their edits scoped to the selection more reliably. A clear instruction such as "edit
+only the selected text" also helps.
+
+## End result
+
+With additional CSS styles, the result is a chatbot that edits only the collaborator's live
+selection:
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-read-selection"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+## Next steps
+
+- Read the [`readSelection` REST API reference](/ai/ai-toolkit/api-reference/rest-api#readselection)
+- Learn about the other tools in the [Agents section](/ai/ai-toolkit/agents)
