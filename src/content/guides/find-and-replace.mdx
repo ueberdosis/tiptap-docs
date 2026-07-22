@@ -1,0 +1,257 @@
+---
+tags:
+  - type: editor
+title: Build a custom find-and-replace UI
+meta:
+  title: Build a custom find-and-replace UI | Tiptap Editor Docs
+  description: Learn how to connect a React or Vue search-and-replace interface to Tiptap's Find and Replace extension.
+  category: Editor
+---
+
+The [Find and Replace extension](/editor/extensions/functionality/find-and-replace) is headless. It searches, highlights, navigates, and replaces text, but it does not render an interface. You decide where the controls belong: in a toolbar, modal, sidebar, floating panel, or a keyboard-driven workflow.
+
+This guide builds a small interface with search and replacement inputs, matching options, result navigation, and replacement actions.
+
+## How the UI connects to the extension
+
+The extension exposes commands to update the search and perform actions. Its current state is available through `editor.storage.findAndReplace`.
+
+Use commands for input and button events:
+
+```js
+editor.commands.setSearchTerm('Tiptap')
+editor.commands.goToNextResult()
+editor.commands.replaceAll()
+```
+
+Read storage to show the selected result and disable actions when there are no matches:
+
+```js
+const { currentIndex, results } = editor.storage.findAndReplace
+const resultLabel =
+  results.length === 0 ? 'No results' : `${(currentIndex ?? 0) + 1} of ${results.length}`
+```
+
+## React
+
+Use `useEditorState` to subscribe only to the Find and Replace storage values that the controls need. This keeps the UI in sync without re-rendering it for unrelated editor changes.
+
+```jsx
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
+import FindAndReplace from '@tiptap/extension-find-and-replace'
+import StarterKit from '@tiptap/starter-kit'
+
+function FindAndReplaceControls({ editor }) {
+  const state = useEditorState({
+    editor,
+    selector: (context) => ({
+      searchTerm: context.editor.storage.findAndReplace.searchTerm,
+      replaceTerm: context.editor.storage.findAndReplace.replaceTerm,
+      caseSensitive: context.editor.storage.findAndReplace.caseSensitive,
+      useRegex: context.editor.storage.findAndReplace.useRegex,
+      wholeWord: context.editor.storage.findAndReplace.wholeWord,
+      resultCount: context.editor.storage.findAndReplace.results.length,
+      currentIndex: context.editor.storage.findAndReplace.currentIndex,
+    }),
+  })
+
+  const resultLabel =
+    state.resultCount === 0
+      ? 'No results'
+      : `${(state.currentIndex ?? 0) + 1} of ${state.resultCount}`
+
+  return (
+    <div className="find-and-replace">
+      <input
+        aria-label="Search"
+        placeholder="Search"
+        value={state.searchTerm}
+        onChange={(event) => editor.commands.setSearchTerm(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return
+
+          if (event.shiftKey) {
+            editor.commands.goToPreviousResult()
+          } else {
+            editor.commands.goToNextResult()
+          }
+        }}
+      />
+      <input
+        aria-label="Replace"
+        placeholder="Replace"
+        value={state.replaceTerm}
+        onChange={(event) => editor.commands.setReplaceTerm(event.currentTarget.value)}
+      />
+      <label>
+        <input
+          type="checkbox"
+          checked={state.caseSensitive}
+          onChange={(event) => editor.commands.setCaseSensitive(event.currentTarget.checked)}
+        />
+        Match case
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={state.wholeWord}
+          disabled={state.useRegex}
+          onChange={(event) => editor.commands.setWholeWord(event.currentTarget.checked)}
+        />
+        Whole word
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={state.useRegex}
+          onChange={(event) => editor.commands.setUseRegex(event.currentTarget.checked)}
+        />
+        Regex
+      </label>
+      <button
+        disabled={state.resultCount === 0}
+        onClick={() => editor.commands.goToPreviousResult()}
+      >
+        Previous
+      </button>
+      <button disabled={state.resultCount === 0} onClick={() => editor.commands.goToNextResult()}>
+        Next
+      </button>
+      <button disabled={state.resultCount === 0} onClick={() => editor.commands.replace()}>
+        Replace
+      </button>
+      <button disabled={state.resultCount === 0} onClick={() => editor.commands.replaceAll()}>
+        Replace all
+      </button>
+      <button onClick={() => editor.commands.clearSearch()}>Clear</button>
+      <span>{resultLabel}</span>
+    </div>
+  )
+}
+
+export default function FindAndReplaceEditor() {
+  const editor = useEditor({
+    extensions: [StarterKit, FindAndReplace],
+    content: '<p>Search this document for Tiptap.</p>',
+  })
+
+  if (!editor) {
+    return null
+  }
+
+  return (
+    <>
+      <FindAndReplaceControls editor={editor} />
+      <EditorContent editor={editor} />
+    </>
+  )
+}
+```
+
+## Vue
+
+The same interface can read from the editor storage in the template and call commands from event handlers. This example uses Vue's Options API, but the commands and storage work the same way with the Composition API.
+
+```vue
+<template>
+  <div v-if="editor">
+    <div class="find-and-replace">
+      <input
+        aria-label="Search"
+        placeholder="Search"
+        :value="editor.storage.findAndReplace.searchTerm"
+        @input="(event) => editor.commands.setSearchTerm(event.target.value)"
+        @keydown.enter.exact="editor.commands.goToNextResult()"
+        @keydown.shift.enter="editor.commands.goToPreviousResult()"
+      />
+      <input
+        aria-label="Replace"
+        placeholder="Replace"
+        :value="editor.storage.findAndReplace.replaceTerm"
+        @input="(event) => editor.commands.setReplaceTerm(event.target.value)"
+      />
+      <label>
+        <input
+          type="checkbox"
+          :checked="editor.storage.findAndReplace.caseSensitive"
+          @change="(event) => editor.commands.setCaseSensitive(event.target.checked)"
+        />
+        Match case
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          :checked="editor.storage.findAndReplace.wholeWord"
+          :disabled="editor.storage.findAndReplace.useRegex"
+          @change="(event) => editor.commands.setWholeWord(event.target.checked)"
+        />
+        Whole word
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          :checked="editor.storage.findAndReplace.useRegex"
+          @change="(event) => editor.commands.setUseRegex(event.target.checked)"
+        />
+        Regex
+      </label>
+      <button :disabled="hasNoResults" @click="editor.commands.goToPreviousResult()">
+        Previous
+      </button>
+      <button :disabled="hasNoResults" @click="editor.commands.goToNextResult()">Next</button>
+      <button :disabled="hasNoResults" @click="editor.commands.replace()">Replace</button>
+      <button :disabled="hasNoResults" @click="editor.commands.replaceAll()">Replace all</button>
+      <button @click="editor.commands.clearSearch()">Clear</button>
+      <span>{{ resultLabel }}</span>
+    </div>
+    <editor-content :editor="editor" />
+  </div>
+</template>
+
+<script>
+import FindAndReplace from '@tiptap/extension-find-and-replace'
+import StarterKit from '@tiptap/starter-kit'
+import { Editor, EditorContent } from '@tiptap/vue-3'
+
+export default {
+  components: { EditorContent },
+
+  data() {
+    return { editor: null }
+  },
+
+  computed: {
+    hasNoResults() {
+      return this.editor.storage.findAndReplace.results.length === 0
+    },
+
+    resultLabel() {
+      const { currentIndex, results } = this.editor.storage.findAndReplace
+
+      if (results.length === 0) {
+        return 'No results'
+      }
+
+      return `${(currentIndex ?? 0) + 1} of ${results.length}`
+    },
+  },
+
+  mounted() {
+    this.editor = new Editor({
+      extensions: [StarterKit, FindAndReplace],
+      content: '<p>Search this document for Tiptap.</p>',
+    })
+  },
+
+  beforeUnmount() {
+    this.editor.destroy()
+  },
+}
+</script>
+```
+
+## Adapt the interface
+
+The controls in these examples are only one option. You can render the same commands and storage in a dialog opened with `Cmd/Ctrl+F`, a persistent sidebar, or a compact toolbar.
+
+When you build your own UI, disable or hide whole-word matching when regex mode is enabled. Regex changes how matches are found, but replacement text is always inserted literally.
