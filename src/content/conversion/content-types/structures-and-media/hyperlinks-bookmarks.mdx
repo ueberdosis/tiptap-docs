@@ -10,12 +10,12 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-Hyperlinks convert between DOCX and Tiptap as `link` marks with an `href` attribute. External URLs and email links round-trip cleanly. Internal bookmarks are partially preserved.
+Hyperlinks convert between DOCX and Tiptap as `link` marks with an `href` attribute. External URLs and email links round-trip cleanly. Links that point somewhere else in the same document round-trip too, together with the bookmark targets they point at.
 
 ## What you need
 
-- **Extensions:** `StarterKit` (includes the `Link` extension)
-- **Configuration:** None required. External links work out of the box.
+- **Extensions:** the `Link` extension for hyperlinks, which `StarterKit` includes. For bookmark targets you also need the `Bookmark` node, which [Convert Kit](/conversion/import/docx/convertkit) registers for you.
+- **Configuration:** none required.
 
 ## Support overview
 
@@ -23,15 +23,15 @@ Hyperlinks convert between DOCX and Tiptap as `link` marks with an `href` attrib
 | --- | --- | --- | --- |
 | External hyperlinks (http/https) | Supported | Supported (StarterKit) | Supported |
 | Email links (mailto:) | Supported | Supported | Supported |
-| Internal anchor links | Not supported (text preserved, link lost) | Not applicable (link not imported) | Exported as external hyperlink |
-| Bookmark targets | Dropped | Not supported | Not supported |
+| Internal anchor links | Supported | Supported | Supported |
+| Bookmark targets | Supported | Supported (Convert Kit) | Supported |
 | Inline formatting inside links | Supported | Supported | Supported |
 
 ## Import
 
 Import hyperlinks using the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api). Both produce identical output.
 
-The conversion service detects `<w:hyperlink>` elements and produces text nodes with a `link` mark. External links are resolved through the document's relationship file. Internal bookmark-style hyperlinks (which use `w:anchor` instead of `r:id`) are not imported. The text content is preserved but the link is not applied, because the importer only reads the `r:id` attribute.
+The conversion service detects `<w:hyperlink>` elements and produces text nodes with a `link` mark. External links are resolved through the document's relationship file.
 
 ```json
 {
@@ -43,12 +43,43 @@ The conversion service detects `<w:hyperlink>` elements and produces text nodes 
 }
 ```
 
-<Callout variant="info" title="Inline formatting inside hyperlinks is preserved on import">
-  When a DOCX hyperlink contains multiple runs with different formatting (for example, a bold word followed by a regular word), the importer iterates over each `w:r` independently. Per-run formatting such as bold and italic is preserved alongside the link mark.
+### Links within the document
+
+A link that jumps to another place in the same document, such as a table of contents entry or a "back to top" link, becomes a `link` mark whose `href` is a fragment:
+
+```json
+{
+  "type": "text",
+  "text": "Go to introduction",
+  "marks": [
+    { "type": "link", "attrs": { "href": "#intro" } }
+  ]
+}
+```
+
+Word stores these links in more than one way, and all of them are imported:
+
+- An anchor on the hyperlink element itself, which Word writes as `w:anchor`.
+- A `HYPERLINK` field with the `\l` switch, in both its simple and its complex form.
+
+When a link carries both a web address and an anchor, the two are combined into a single href, such as `https://example.com#intro`.
+
+### Bookmark targets
+
+The place a link jumps to is a Word bookmark. Each one is imported as a zero-width `bookmark` node holding the bookmark's name as its `id`:
+
+```json
+{ "type": "bookmark", "attrs": { "id": "intro" } }
+```
+
+The node sits at the position the bookmark started, so the anchor keeps its place in the document. A link points at it by using `#` followed by the same id. Bookmarks that sit between paragraphs rather than inside one are attached to the start of the following paragraph.
+
+<Callout variant="info" title="Word's own bookmarks are imported too">
+  Word adds bookmarks of its own, such as `_GoBack` for the last edit position and `_Toc` entries behind a table of contents. These are imported like any other bookmark, so you may see `bookmark` nodes whose ids you did not create. They are zero-width and do not render anything, and they keep a generated table of contents working after a round-trip.
 </Callout>
 
-<Callout variant="info" title="Internal anchor links and bookmarks are not supported">
-  Word bookmarks (`<w:bookmarkStart>` and `<w:bookmarkEnd>`) are not converted. Internal anchor hyperlinks (which use `w:anchor` instead of `r:id`) are also not imported. The text content is preserved, but the link is not applied because the importer only resolves relationships via `r:id`.
+<Callout variant="info" title="Inline formatting inside hyperlinks is preserved on import">
+  When a DOCX hyperlink contains multiple runs with different formatting (for example, a bold word followed by a regular word), the importer iterates over each `w:r` independently. Per-run formatting such as bold and italic is preserved alongside the link mark.
 </Callout>
 
 ## Editor rendering
@@ -59,16 +90,22 @@ It renders link marks as `<a>` tags with the `href` attribute.
 
 The extension adds `target` (default `_blank`) and `rel` (default `noopener noreferrer nofollow`) attributes automatically. These are not carried over from the DOCX import and are not included in the DOCX export.
 
+Bookmark targets need the `Bookmark` node, which Convert Kit registers by default. Without it the anchors are dropped when the imported content is loaded into the editor, and links pointing at them stop resolving. The node is an inline atom that renders as an empty `<span data-bookmark-id="...">`, so it takes no space and never clashes with the link's own `<a>` element. Pass `bookmark: false` to Convert Kit to leave it out.
+
 ## Export
 
 Export hyperlinks using the [editor extension](/conversion/export/docx/editor-extension) or the [REST API](/conversion/export/docx/rest-api). Both handle links identically.
 
-The export converter wraps linked text in a DOCX `ExternalHyperlink` element with the Hyperlink style applied. The href becomes an external relationship in the DOCX package.
+Links to a web address, including `mailto:` addresses, are wrapped in a DOCX external hyperlink with the Hyperlink style applied, and the href becomes an external relationship in the DOCX package.
 
-All links are exported as external hyperlinks, including `mailto:` addresses. Internal anchor references (`#section-name`) are exported as-is but will not function as internal navigation in Word because the export does not produce bookmark targets or `InternalHyperlink` elements.
+A link whose href starts with `#` is exported as a Word internal hyperlink pointing at the matching bookmark, so it navigates inside the document just as it does in the editor. `bookmark` nodes are exported back into Word bookmarks, which is what those links point at.
+
+A href of `#` on its own has no target to point at, so that text is exported without a link. A web address that merely contains a fragment, such as `https://example.com#intro`, is still an external link.
 
 ### What round-trips
 
 An external hyperlink with plain link text survives the full import, edit, export cycle. The href and visible text are preserved. The exported link uses the DOCX Hyperlink style (typically blue underlined text).
+
+In-document navigation also survives the full cycle: a link keeps pointing at the same target, and the target keeps its position.
 
 What changes: the `target` and `rel` attributes added by the editor are not carried into the DOCX.
