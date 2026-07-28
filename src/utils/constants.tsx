@@ -1,4 +1,4 @@
-import type { CTABarOptions, VersionData } from '@/types'
+import type { VersionData } from '@/types'
 
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
@@ -15,6 +15,26 @@ export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
 
 export const CURRENT_VERSION = '3.x'
 
+export type CtaBarData = {
+  label: string
+  button: { text: string; href: string }
+  productHunt: { imageSrc: string; href: string; alt: string }
+}
+
+export const CTA_BAR: CtaBarData = {
+  label: 'Empower your AI to directly edit documents in real time. Now production ready.',
+  button: {
+    text: 'Read more',
+    href: 'https://tiptap.dev/blog/release-notes/ai-toolkit-now-in-beta',
+  },
+  productHunt: {
+    imageSrc:
+      'https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196883&theme=light&t=1784096381913',
+    href: 'https://www.producthunt.com/products/tiptap?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-tiptap-ai-toolkit-2',
+    alt: 'Tiptap AI Toolkit - Empower your AI to directly edit documents in real time. | Product Hunt',
+  },
+}
+
 export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
@@ -30,18 +50,3 @@ export const VERSIONS: Array<VersionData> = [
     url: 'https://v1.tiptap.dev/',
   },
 ]
-
-export const CTA_BAR: CTABarOptions | null = {
-  enabled: false,
-  text: (
-    <span className="flex items-center gap-2">
-      <span>Now Available: Notion-like editor template</span>
-      <img
-        src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=998808&theme=light&t=1753774012794"
-        alt="Notion-style editor for Tiptap Cloud"
-        className="block h-8"
-      />
-    </span>
-  ),
-  url: 'https://www.producthunt.com/products/tiptap?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-notion&#0045;style&#0045;editor&#0045;for&#0045;tiptap&#0045;cloud',
-}
