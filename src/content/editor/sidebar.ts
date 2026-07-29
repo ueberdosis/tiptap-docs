@@ -228,6 +228,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Link',
             },
             {
+              href: '/editor/extensions/marks/ruby-text',
+              title: 'Ruby Text',
+            },
+            {
               href: '/editor/extensions/marks/strike',
               title: 'Strike',
             },
@@ -320,6 +324,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'File handler',
             },
             {
+              href: '/editor/extensions/functionality/find-and-replace',
+              title: 'Find and replace',
+            },
+            {
               href: '/editor/extensions/functionality/floatingmenu',
               title: 'Floating menu',
             },
@@ -359,7 +367,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
               tags: ['Start'],
-              releaseTag: "beta",
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/pages',

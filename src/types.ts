@@ -197,12 +197,6 @@ export interface VersionData {
   isLegacy?: boolean
 }
 
-export interface CTABarOptions {
-  enabled?: boolean
-  text: string | JSX.Element
-  url: string
-}
-
 export interface IncidentMeta {
   product: string
   date: string

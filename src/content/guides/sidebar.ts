@@ -34,6 +34,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Performance',
         },
         {
+          href: '/guides/find-and-replace',
+          title: 'Find and replace UI',
+        },
+        {
           href: '/guides/react-composable-api',
           title: 'React Composable API',
         },
