@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import 'dotenv/config'
 
 type RepoConfig = {
   owner: string
@@ -29,11 +30,11 @@ const PRO_CONFIG: RepoConfig = {
   packageDirs: ['packages'],
   additionalPackagePaths: [
     'packages-deprecated/ai-toolkit-ai-sdk',
-    'packages-deprecated/packages-deprecated/ai-toolkit',
-    'packages-deprecated/packages-deprecated/ai-toolkit-openai',
-    'packages-deprecated/packages-deprecated/ai-toolkit-langchain',
-    'packages-deprecated/packages-deprecated/ai-toolkit-tool-definitions',
-    'packages-deprecated/packages-deprecated/ai-toolkit-anthropic',
+    'packages-deprecated/ai-toolkit',
+    'packages-deprecated/ai-toolkit-openai',
+    'packages-deprecated/ai-toolkit-langchain',
+    'packages-deprecated/ai-toolkit-tool-definitions',
+    'packages-deprecated/ai-toolkit-anthropic',
   ],
 }
 
