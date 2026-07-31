@@ -18,20 +18,14 @@ export const CURRENT_VERSION = '3.x'
 export type CtaBarData = {
   label: string
   button: { text: string; href: string }
-  productHunt: { imageSrc: string; href: string; alt: string }
+  productHunt?: { imageSrc: string; href: string; alt: string }
 }
 
 export const CTA_BAR: CtaBarData = {
-  label: 'Empower your AI to directly edit documents in real time. Now production ready.',
+  label: '🎁 100 free AI Toolkit licenses – apply by August 15.',
   button: {
-    text: 'Read more',
+    text: 'Learn more',
     href: 'https://tiptap.dev/blog/release-notes/ai-toolkit-now-in-beta',
-  },
-  productHunt: {
-    imageSrc:
-      'https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1196883&theme=light&t=1784096381913',
-    href: 'https://www.producthunt.com/products/tiptap?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-tiptap-ai-toolkit-2',
-    alt: 'Tiptap AI Toolkit - Empower your AI to directly edit documents in real time. | Product Hunt',
   },
 }
 

@@ -4,7 +4,7 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v2.25.0
+    label: v2.39.1
 meta:
   title: Import DOCX REST API | Tiptap Conversion
   description: Learn how to import .docx files into Tiptap JSON format via the Conversion REST API.
@@ -14,6 +14,7 @@ meta:
 import { Callout } from '@/components/ui/Callout'
 import { Requirements, RequirementItem } from '@/components/Requirements'
 import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
 
 <EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
 
@@ -34,6 +35,8 @@ The REST API is the better choice when you need server-side processing, access t
   You can also experiment with the Document Conversion API by heading over to our [Postman
   Collection](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/collection/33042171-bcc93ecb-8bad-4484-8cb0-d995ee23ae60).
 </Callout>
+
+<RegionalEndpoints />
 
 ## Import DOCX
 
@@ -212,7 +215,6 @@ By default, Word `PAGE` and `NUMPAGES` field codes inside headers and footers ar
 ```bash
 curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
     -H "Authorization: Bearer YOUR_TOKEN" \
-    -H "X-App-Id: YOUR_APP_ID" \
     -F "file=@/path/to/your/file.docx" \
     -F "placeholders={}"
 ```
@@ -222,7 +224,6 @@ Downstream consumers (such as the [Pages extension](/pages/getting-started/overv
 ```bash
 curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
     -H "Authorization: Bearer YOUR_TOKEN" \
-    -H "X-App-Id: YOUR_APP_ID" \
     -F "file=@/path/to/your/file.docx" \
     -F 'placeholders={"page":"page","total":"total"}'
 ```
@@ -297,6 +298,61 @@ Inline references in the document body are represented as `footnoteReference` an
   }
 }
 ```
+
+## Page layout and list numbering in the response
+
+Two more fields describe the document as a whole rather than its content.
+
+| Field              | Type    | Description                                                                                                                                                    |
+| ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pageLayout`       | `Object` | Page size, orientation and margins read from the document's section properties. Values are in twips. See [Applying the page layout](#applying-the-page-layout).                |
+| `numberingFormats` | `Array`  | The numbering definitions behind the document's ordered lists. Each list node carries a `numberingFormat` attribute naming its entry here.                      |
+
+Both are omitted when the document carries nothing to report.
+
+Register `numberingFormats` with the editor so the lists keep their numbering, and pass them to the exporter so a round-trip preserves it. The [ordered list numbering](/conversion/export/docx/ordered-list-numbering) page covers the full cycle.
+
+### Applying the page layout
+
+`pageLayout` reports what Word had, not what the [Pages extension](/pages/getting-started/overview) takes, so it needs converting before you can use it:
+
+```json
+{
+  "width": 12240,
+  "height": 15840,
+  "orientation": "portrait",
+  "margins": { "top": 1440, "right": 1440, "bottom": 1440, "left": 1440, "header": 720, "footer": 720 }
+}
+```
+
+Every measurement is in twips, while Pages' `setPageFormat` expects pixels and an `id`. Use `twipsToPixels` from ConvertKit's OOXML registry rather than writing the conversion yourself, so your numbers match the ones the conversion service uses:
+
+```ts
+import { twipsToPixels } from '@tiptap-pro/extension-convert-kit/ooxml-registry'
+
+// The field is absent for a document with no section properties.
+if (pageLayout) {
+  editor.commands.setPageFormat({
+    id: 'docx-import',
+    width: twipsToPixels(pageLayout.width),
+    height: twipsToPixels(pageLayout.height),
+    margins: {
+      top: twipsToPixels(pageLayout.margins.top),
+      right: twipsToPixels(pageLayout.margins.right),
+      bottom: twipsToPixels(pageLayout.margins.bottom),
+      left: twipsToPixels(pageLayout.margins.left),
+    },
+  })
+}
+```
+
+The `header` and `footer` margins have no `setPageFormat` equivalent, so leave them out.
+
+<Callout variant="info" title="Use the shared unit helpers">
+  The OOXML registry exports the conversions both sides of the pipeline use, including `twipsToPixels`, `pixelsToTwips`, `halfPointsToPixels`, `emuToPixels` and `twipsToPoints`, along with constants such as `TWIPS_PER_PIXEL`. Reaching for them keeps your numbers identical to the importer's and the exporter's. Rolling your own arithmetic is the usual reason a document looks slightly off after a round-trip.
+</Callout>
+
+The [editor extension](/conversion/import/docx/editor-extension) does this conversion for you when the Pages extension is registered, so it is only needed on the REST path.
 
 ## Comments in the response
 
@@ -391,7 +447,6 @@ Pass `extractCssStyles=true` on the request to have the response include a `cssS
 ```bash
 curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
     -H "Authorization: Bearer YOUR_TOKEN" \
-    -H "X-App-Id: YOUR_APP_ID" \
     -F "file=@/path/to/your/file.docx" \
     -F "extractCssStyles=true"
 ```
@@ -466,9 +521,9 @@ Notes on the output:
 
 You can override the default `node/mark` types used during import by specifying them in the body of your request within `prosemirrorNodes` and `prosemirrorMarks` respectively. You would need to provide these if your editor uses custom `nodes/marks` and you want the imported `JSON` to use those.
 
-For example, if your schema uses a custom node type called `textBlock` instead of the default paragraph, you can include `"{\"textBlock\":\"paragraph\"}"` in the request body.
+In each entry the key is the default type name and the value is the name you want in the imported JSON. For example, if your schema calls paragraphs `textBlock`, send `"{\"paragraph\":\"textBlock\"}"` in the request body and every imported paragraph arrives as `textBlock`.
 
-You can similarly adjust headings, lists, marks like bold or italic, and more.
+You can similarly adjust headings, lists, marks like bold or italic, and more. Names are case sensitive, so use them exactly as listed below.
 
 #### Default nodes
 
@@ -477,19 +532,24 @@ You can similarly adjust headings, lists, marks like bold or italic, and more.
 | `paragraph`         | Defines which ProseMirror type is used for paragraph conversion          |
 | `heading`           | Defines which ProseMirror type is used for heading conversion            |
 | `blockquote`        | Defines which ProseMirror type is used for blockquote conversion         |
-| `codeblock`         | Defines which ProseMirror type is used for codeblock conversion          |
-| `bulletlist`        | Defines which ProseMirror type is used for bulletList conversion         |
-| `orderedlist`       | Defines which ProseMirror type is used for orderedList conversion        |
-| `listitem`          | Defines which ProseMirror type is used for listItem conversion           |
-| `hardbreak`         | Defines which ProseMirror type is used for hardbreak conversion          |
-| `horizontalrule`    | Defines which ProseMirror type is used for horizontalRule conversion     |
+| `bulletList`        | Defines which ProseMirror type is used for bulletList conversion         |
+| `orderedList`       | Defines which ProseMirror type is used for orderedList conversion        |
+| `listItem`          | Defines which ProseMirror type is used for listItem conversion           |
+| `hardBreak`         | Defines which ProseMirror type is used for hardBreak conversion          |
+| `horizontalRule`    | Defines which ProseMirror type is used for horizontalRule conversion     |
 | `table`             | Defines which ProseMirror type is used for table conversion              |
-| `tablecell`         | Defines which ProseMirror type is used for tableCell conversion          |
-| `tableheader`       | Defines which ProseMirror type is used for tableHeader conversion        |
-| `tablerow`          | Defines which ProseMirror type is used for tableRow conversion           |
-| `image`             | Defines which ProseMirror mark is used for image conversion              |
+| `tableCell`         | Defines which ProseMirror type is used for tableCell conversion          |
+| `tableHeader`       | Defines which ProseMirror type is used for tableHeader conversion        |
+| `tableRow`          | Defines which ProseMirror type is used for tableRow conversion           |
+| `image`             | Defines which ProseMirror type is used for image conversion              |
 | `footnoteReference` | Defines which ProseMirror type is used for footnote reference conversion |
 | `endnoteReference`  | Defines which ProseMirror type is used for endnote reference conversion  |
+| `tableOfContents`   | Defines which ProseMirror type is used for a table of contents           |
+| `pageBreak`         | Defines which ProseMirror type is used for page breaks                   |
+| `columns`           | Defines which ProseMirror type is used for a multi-column section        |
+| `column`            | Defines which ProseMirror type is used for a single column               |
+| `blockThread`       | Defines which ProseMirror type is used for a block-level comment thread  |
+| `bookmark`          | Defines which ProseMirror type is used for bookmark targets              |
 
 #### Default marks
 
@@ -500,7 +560,19 @@ You can similarly adjust headings, lists, marks like bold or italic, and more.
 | `underline`     | Defines which ProseMirror mark is used for underline conversion     |
 | `strikethrough` | Defines which ProseMirror mark is used for strikethrough conversion |
 | `link`          | Defines which ProseMirror mark is used for link conversion          |
-| `code`          | Defines which ProseMirror mark is used for code conversion          |
+| `superscript`   | Defines which ProseMirror mark is used for superscript conversion   |
+| `subscript`     | Defines which ProseMirror mark is used for subscript conversion     |
+| `inlineThread`  | Defines which ProseMirror mark is used for inline comment threads   |
+
+<Callout variant="info" title="Code blocks and inline code cannot be renamed yet">
+  The code block type and the inline code mark are always imported as `codeBlock` and `code`. Renaming them through `prosemirrorNodes` or `prosemirrorMarks` has no effect at the moment. If your schema uses different names, map them after the import.
+</Callout>
+
+#### Mapping a Word style to a mark
+
+`prosemirrorMarks` accepts a second kind of entry. When the key is the name of a Word character style rather than one of the marks above, any run using that style receives the mark you name. For example, `"{\"Strong\":\"bold\"}"` means every run styled with `Strong` receives a `bold` mark.
+
+This is how you bring custom Word styles into your schema. See [custom mark mapping](/conversion/import/docx/custom-mark-mapping) for a fuller walkthrough.
 
 ## Support & Limitations
 
