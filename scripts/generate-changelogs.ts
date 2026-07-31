@@ -8,6 +8,7 @@ type RepoConfig = {
   slugPrefix: string
   packageScope: string
   packageDirs: string[]
+  additionalPackagePaths?: string[]
 }
 
 const OSS_CONFIG: RepoConfig = {
@@ -26,6 +27,14 @@ const PRO_CONFIG: RepoConfig = {
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
   packageDirs: ['packages'],
+  additionalPackagePaths: [
+    'packages-deprecated/ai-toolkit-ai-sdk',
+    'packages-deprecated/packages-deprecated/ai-toolkit',
+    'packages-deprecated/packages-deprecated/ai-toolkit-openai',
+    'packages-deprecated/packages-deprecated/ai-toolkit-langchain',
+    'packages-deprecated/packages-deprecated/ai-toolkit-tool-definitions',
+    'packages-deprecated/packages-deprecated/ai-toolkit-anthropic',
+  ],
 }
 
 const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
@@ -274,6 +283,19 @@ async function discoverAndFetchPackages(
 
       allDirNames.push({ dirName, packageDir })
     }
+  }
+
+  for (const packagePath of config.additionalPackagePaths ?? []) {
+    const packageDir = path.posix.dirname(packagePath)
+    const dirName = path.posix.basename(packagePath)
+    const packageName = `${config.packageScope}/${dirName}`
+
+    if (OMITTED_PACKAGE_NAMES.has(packageName)) {
+      console.log(`Skipped ${packageName} (omitted from changelog generation)`)
+      continue
+    }
+
+    allDirNames.push({ dirName, packageDir })
   }
 
   const total = allDirNames.length
