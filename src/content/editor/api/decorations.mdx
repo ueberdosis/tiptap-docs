@@ -2,7 +2,7 @@
 title: Decorations API
 meta:
   title: Decorations API | Tiptap Editor Docs
-  description: API reference for addDecorations, the decoration helper, updateDecorations, and React and Vue widget renderers.
+  description: API reference for addDecorations, the Decoration class, updateDecorations, and React and Vue widget renderers.
   category: Editor
 ---
 
@@ -17,14 +17,14 @@ A lifecycle hook on every extension (including nodes and marks). It returns a `D
 `addDecorations()` is bound to `this` (`{ name, options, storage, editor, type, parent }`) like other extension hooks.
 
 ```ts
-import { decoration, Extension } from '@tiptap/core'
+import { Decoration, Extension } from '@tiptap/core'
 
 const MyExtension = Extension.create({
   name: 'myExtension',
 
   addDecorations() {
     return {
-      create: ({ editor, state, view }) => [decoration.inline(1, 5, { class: 'highlight' })],
+      create: ({ editor, state, view }) => [Decoration.Inline(1, 5, { class: 'highlight' })],
     }
   },
 })
@@ -37,58 +37,9 @@ const MyExtension = Extension.create({
 | Property        | Type                                                                   | Description                                                                                                         |
 | --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `update`        | `'document' \| 'changedRanges' \| 'manual'`                            | Controls how decorations update. Defaults to `'document'`.                                                          |
-| `create`        | `(props: { editor; state; view }) => DecorationDescriptor[]`           | **Required.** Builds the full set. Used for initialization and `updateDecorations()`.                               |
+| `create`        | `(props: { editor; state; view }) => Decoration[]`           | **Required.** Builds the full set. Used for initialization and `updateDecorations()`.                               |
 | `shouldUpdate`  | `(props: { editor; tr; oldState; newState }) => boolean`               | Optional for `document` and `changedRanges`. Return `false` to map without rebuilding. Defaults to `tr.docChanged`. |
-| `createInRange` | `(props: { editor; state; view; from; to }) => DecorationDescriptor[]` | Required only for `changedRanges`. Returns decorations anchored within the supplied block-aligned range.            |
-
-```ts
-interface BaseDecorationSpec {
-  // Build the FULL set of this extension's decorations from the current state.
-  // Used for the initial build and for forced updateDecorations().
-  create: (props: {
-    editor: Editor
-    state: EditorState
-    view: EditorView
-  }) => DecorationDescriptor[]
-
-  // Gate recomputation for performance. Return false to keep existing decorations
-  // moved to their new positions instead of rebuilt.
-  // Defaults to recomputing whenever the document changed (tr.docChanged).
-  shouldUpdate?: (props: {
-    editor: Editor
-    tr: Transaction
-    oldState: EditorState
-    newState: EditorState
-  }) => boolean
-}
-
-// Default: every doc change rebuilds the whole set with create(). Always correct.
-interface DocumentDecorationSpec extends BaseDecorationSpec {
-  update?: 'document'
-  createInRange?: never
-}
-
-interface ChangedRangesDecorationSpec extends BaseDecorationSpec {
-  update: 'changedRanges'
-  // Must return ONLY decorations whose anchor lies within [from, to)
-  // (`from` for inline/node decorations, `pos` for widgets).
-  createInRange: (props: {
-    editor: Editor
-    state: EditorState
-    view: EditorView
-    from: number
-    to: number
-  }) => DecorationDescriptor[]
-}
-
-interface ManualDecorationSpec extends BaseDecorationSpec {
-  update: 'manual'
-  shouldUpdate?: never
-  createInRange?: never
-}
-
-type DecorationSpec = DocumentDecorationSpec | ChangedRangesDecorationSpec | ManualDecorationSpec
-```
+| `createInRange` | `(props: { editor; state; view; from; to }) => Decoration[]` | Required only for `changedRanges`. Returns decorations anchored within the supplied block-aligned range.            |
 
 ### `DecorationUpdateStrategy`
 
@@ -111,58 +62,29 @@ You can use `shouldUpdate` with `document` and `changedRanges`. You cannot use i
 
 See [Performance](/editor/core-concepts/decorations#performance) for strategy selection and changed-range correctness constraints.
 
-## `decoration`
+## `Decoration`
 
-Import `decoration` from `@tiptap/core`. Its methods return plain objects that describe what Tiptap should show. Return these objects from `create` and `createInRange`.
+Import `Decoration` from `@tiptap/core`. Its static methods build decoration instances that describe what Tiptap should show. Return these instances from `create` and `createInRange`.
 
-All three return a `DecorationDescriptor` (a member of the `DecorationDescriptor` union).
+All three return a `Decoration` (one of `InlineDecoration`, `NodeDecoration`, or `WidgetDecoration`).
 
-| Method              | Returns                      | Description                                                            |
-| ------------------- | ---------------------------- | ---------------------------------------------------------------------- |
-| `decoration.node`   | `NodeDecorationDescriptor`   | Adds attributes to a single node's DOM wrapper.                        |
-| `decoration.inline` | `InlineDecorationDescriptor` | Wraps a range of inline content in a styled span.                      |
-| `decoration.widget` | `WidgetDecorationDescriptor` | Inserts a widget (a DOM node) at a single position. `key` is required. |
+| Method              | Returns             | Description                                                            |
+| ------------------- | ------------------- | ---------------------------------------------------------------------- |
+| `Decoration.Node`   | `NodeDecoration`    | Adds attributes to a single node's DOM wrapper.                        |
+| `Decoration.Inline` | `InlineDecoration`  | Wraps a range of inline content in a styled span.                      |
+| `Decoration.Widget` | `WidgetDecoration`  | Inserts a widget (a DOM node) at a single position. `key` is required. |
 
-### Descriptor types
+### Decoration classes
 
-```ts
-interface NodeDecorationDescriptor {
-  kind: 'node'
-  from: number
-  to: number
-  attrs: DecorationAttrs
-  spec?: Record<string, any>
-}
+`Decoration` is an abstract base class. `InlineDecoration`, `NodeDecoration`, and `WidgetDecoration` extend it. Every instance has a `kind` (`'inline' | 'node' | 'widget'`), an `anchor` (the start position), and a `toPMDecoration(extensionName?)` method that converts it to a ProseMirror decoration.
 
-interface InlineDecorationDescriptor {
-  kind: 'inline'
-  from: number
-  to: number
-  attrs: DecorationAttrs
-  spec?: Record<string, any>
-}
+Tiptap converts these instances to ProseMirror decorations for you.
 
-interface WidgetDecorationDescriptor {
-  kind: 'widget'
-  pos: number
-  render: (view: EditorView, getPos: () => number | undefined) => HTMLElement
-  key: string
-  spec?: WidgetDecorationOptions & Record<string, any>
-}
-
-type DecorationDescriptor =
-  | NodeDecorationDescriptor
-  | InlineDecorationDescriptor
-  | WidgetDecorationDescriptor
-```
-
-Tiptap converts these objects to ProseMirror decorations for you.
-
-### `decoration.node`
+### `Decoration.Node`
 
 ```ts
-decoration.node(
-  from: number,
+Decoration.Node(
+  pos: number,
   to: number,
   attrs?: DecorationAttrs,
   spec?: Record<string, any>,
@@ -171,19 +93,19 @@ decoration.node(
 
 **Arguments**
 
-- `from` – start position of the node.
+- `pos` – start position of the node.
 - `to` – end position of the node.
 - `attrs` – optional. `DecorationAttrs`: `class`, `style`, `nodeName`, and any other HTML attribute.
 - `spec` – optional ProseMirror decoration spec.
 
 ```ts
-decoration.node(pos, pos + node.nodeSize, { class: 'is-heading' })
+Decoration.Node(pos, pos + node.nodeSize, { class: 'is-heading' })
 ```
 
-### `decoration.inline`
+### `Decoration.Inline`
 
 ```ts
-decoration.inline(
+Decoration.Inline(
   from: number,
   to: number,
   attrs?: DecorationAttrs,
@@ -199,13 +121,13 @@ decoration.inline(
 - `spec` – optional ProseMirror decoration spec.
 
 ```ts
-decoration.inline(matchFrom, matchTo, { class: 'is-match' })
+Decoration.Inline(matchFrom, matchTo, { class: 'is-match' })
 ```
 
-### `decoration.widget`
+### `Decoration.Widget`
 
 ```ts
-decoration.widget(
+Decoration.Widget(
   pos: number,
   render: (view: EditorView, getPos: () => number | undefined) => HTMLElement,
   options: {
@@ -234,7 +156,7 @@ decoration.widget(
 - `options.destroy` – optional. Called with the widget DOM node when ProseMirror removes it or destroys the editor.
 
 ```ts
-decoration.widget(
+Decoration.Widget(
   matchFrom,
   () => {
     const el = document.createElement('span')
@@ -269,26 +191,33 @@ See the [runtime parameters via storage](/editor/core-concepts/decorations#runti
 
 ## `ReactWidgetRenderer`
 
-Import: `import { ReactWidgetRenderer } from '@tiptap/react'`. Returns a `WidgetDecorationDescriptor` you return from `create` or `createInRange`. It reuses Tiptap's `ReactRenderer` portal infrastructure, so the component lives in the editor's React tree (context and hooks work as usual). Your component additionally receives `editor` and `getPos` as props.
+Import: `import { ReactWidgetRenderer } from '@tiptap/react'`. Returns a `WidgetDecoration` you return from `create` or `createInRange`. It reuses Tiptap's `ReactRenderer` portal infrastructure, so the component lives in the editor's React tree (context and hooks work as usual). Your component additionally receives `editor` and `getPos` as props.
 
-```ts
-ReactWidgetRenderer<P>(
-  component: ComponentType<P & { editor: Editor; getPos: () => number | undefined }>,
-  options: {
-    editor: Editor
-    pos: number
-    key: string
-    props?: P
-    as?: string
-    className?: string
-    side?: number
-    relaxedSide?: boolean
-    marks?: readonly Mark[]
-    stopEvent?: (event: Event) => boolean
-    ignoreSelection?: boolean
-    destroy?: (node: Node) => void
+```tsx
+import { Extension } from '@tiptap/core'
+import { ReactWidgetRenderer } from '@tiptap/react'
+
+function CommentMarker({ editor, getPos, label }: { editor: Editor; getPos: () => number | undefined; label: string }) {
+  return <button onClick={() => console.log(getPos())}>{label}</button>
+}
+
+const Comments = Extension.create({
+  name: 'comments',
+
+  addDecorations() {
+    return {
+      create: ({ editor, state }) =>
+        findComments(state.doc).map(c =>
+          ReactWidgetRenderer(CommentMarker, {
+            editor,
+            pos: c.pos,
+            key: `comment-${c.id}`, // stable domain key → component state preserved
+            props: { label: c.label },
+          }),
+        ),
+    }
   },
-): WidgetDecorationDescriptor
+})
 ```
 
 | Option            | Type                        | Description                                                                           |
@@ -319,21 +248,27 @@ Follow the [React decorations tutorial](/guides/decorations-react) for a complet
 Import: `import { VueWidgetRenderer } from '@tiptap/vue-3'` (or `'@tiptap/vue-2'`). Same idea as the React renderer; it reuses Tiptap's `VueRenderer`, so the component shares the editor's app context (`provide`/`inject` work). The component receives `editor` and `getPos` in addition to your `props`.
 
 ```ts
-VueWidgetRenderer(
-  component: Component,
-  options: {
-    editor: Editor
-    pos: number
-    key: string
-    props?: Record<string, any>
-    side?: number
-    relaxedSide?: boolean
-    marks?: readonly Mark[]
-    stopEvent?: (event: Event) => boolean
-    ignoreSelection?: boolean
-    destroy?: (node: Node) => void
+import { Extension } from '@tiptap/core'
+import { VueWidgetRenderer } from '@tiptap/vue-3'
+import CommentMarker from './CommentMarker.vue'
+
+const Comments = Extension.create({
+  name: 'comments',
+
+  addDecorations() {
+    return {
+      create: ({ editor, state }) =>
+        findComments(state.doc).map(c =>
+          VueWidgetRenderer(CommentMarker, {
+            editor,
+            pos: c.pos,
+            key: `comment-${c.id}`,
+            props: { label: c.label },
+          }),
+        ),
+    }
   },
-): WidgetDecorationDescriptor
+})
 ```
 
 | Option            | Type                        | Description                                                                           |
@@ -361,7 +296,9 @@ Follow the [Vue 3 decorations tutorial](/guides/decorations-vue) for a complete 
 Import: `import { liveWidgetKeys } from '@tiptap/core'`.
 
 ```ts
-liveWidgetKeys(editor: Editor): ReadonlySet<string>
+import { liveWidgetKeys } from '@tiptap/core'
+
+const keys = liveWidgetKeys(editor)
 ```
 
 Returns the keys of all widget decorations currently live. The framework widget renderers use it internally to decide whether a widget being torn down is genuinely gone or just being reassigned to a new position (so they don't destroy a renderer whose key is still live).
