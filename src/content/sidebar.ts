@@ -72,6 +72,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/getting-started/overview',
           title: 'Pages',
         },
+        {
+          href: '/compare/getting-started/overview',
+          title: 'Compare',
+        },
       ],
     },
     {
