@@ -1,0 +1,547 @@
+---
+title: 'Highlight Search Terms with Decorations in Vanilla JS'
+meta:
+  title: 'Highlight Search Terms with Decorations in Vanilla JS | Tiptap Editor Docs'
+  description: Build a term highlighter for a vanilla Tiptap editor with inline, node, and widget decorations.
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+In this tutorial, you will build a term highlighter for a Tiptap editor without React, Vue, or any other framework. The user types a search term into an input field, and every match in the document gets highlighted. Nothing about the document itself changes. The highlights are purely visual.
+
+The finished feature uses all three decoration types:
+
+- **Inline decorations** highlight every match with a yellow background.
+- **Node decorations** outline every block that contains at least one match.
+- **Widget decorations** render a small numbered badge after each match.
+
+You will build the widget by hand with plain DOM APIs. No framework widget renderers needed.
+
+## What are decorations?
+
+Decorations are visual markers that sit on top of the document. They change what the user sees, but they do not change the document content. When you save the editor as JSON or HTML, decorations are not included.
+
+Tiptap has three kinds of decoration:
+
+- **Inline** wraps a range of text in a styled span. Use it for highlights.
+- **Node** adds attributes (like a CSS class) to the DOM wrapper of a whole block. Use it to outline paragraphs or headings.
+- **Widget** inserts a DOM element at a single position. Use it for badges, markers, or small UI elements.
+
+You create all three with the `Decoration` class, imported from `@tiptap/core`.
+
+## Set up the editor and search input
+
+Start with a basic HTML page that has a search input and a container for the editor:
+
+```html
+<!-- index.html -->
+<div class="highlight-toolbar">
+  <input id="search-input" type="text" placeholder="Type a word to highlight..." />
+</div>
+<div id="editor"></div>
+```
+
+Then set up the editor in JavaScript. We import `StarterKit` for basic editing features and a `Highlight` extension that we will create in the next step:
+
+```ts
+// main.ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+
+import { Highlight } from './highlight'
+import './styles.css'
+
+// Create the editor inside the #editor div
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, Highlight],
+  content: `
+    <h2>Tiptap decorations tutorial</h2>
+    <p>Tiptap is a headless editor toolkit built on ProseMirror.</p>
+    <p>You can highlight words without changing the document.</p>
+    <p>Try typing "tiptap" in the search box above.</p>
+  `,
+})
+```
+
+The `Highlight` extension does not exist yet. Let us create it.
+
+## Create the highlight extension
+
+Extensions are the building blocks of Tiptap. Every feature, from bold text to code blocks, lives in an extension. We need a custom extension that reads a search term and produces decorations.
+
+Start with an empty extension:
+
+```ts
+// highlight.ts
+import { Extension } from '@tiptap/core'
+
+export const Highlight = Extension.create({
+  name: 'highlight',
+})
+```
+
+Every extension needs a `name`. The name is how Tiptap identifies your extension when you call commands like `setSearchTerm` or `updateDecorations('highlight')`.
+
+Right now the extension does nothing. We will add decorations to it step by step.
+
+## Store the search term
+
+The search term comes from the input field outside the editor. The extension needs a place to store it so the decoration logic can read it later.
+
+Tiptap extensions have a `storage` property for this. Storage is a plain object that lives on the extension instance. You initialize it with `addStorage`:
+
+```ts
+// highlight.ts
+import { Extension } from '@tiptap/core'
+
+// This tells TypeScript what our storage looks like
+interface HighlightStorage {
+  term: string
+}
+
+// Tiptap keeps every extension's storage in one shared object: editor.storage.
+// TypeScript does not know about our "highlight" key by default, so we use
+// declare module to add it. This gives us type checking on editor.storage.highlight.
+declare module '@tiptap/core' {
+  interface Storage {
+    highlight: HighlightStorage
+  }
+}
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  // addStorage returns the initial values for this extension's storage
+  addStorage() {
+    return {
+      term: '',
+    }
+  },
+})
+```
+
+Writing to storage alone does not trigger a decoration rebuild. The caller would need to write to storage and then call `updateDecorations()` every time. That is easy to forget. Instead, we add a custom command that does both in one step:
+
+```ts
+// highlight.ts (add this inside the Extension.create options)
+
+import { Extension } from '@tiptap/core'
+
+// ... HighlightStorage, declare module, and addCommands stay the same ...
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  addStorage() {
+    return { term: '' }
+  },
+
+  // addCommands defines custom commands you can call via editor.commands.
+  // We create one command that stores the term and refreshes decorations.
+  addCommands() {
+    return {
+      // setSearchTerm takes a string and returns a command function.
+      // Tiptap commands always return a function that receives the editor state.
+      setSearchTerm: (term: string) => ({ editor, commands }) => {
+        // Write the term into storage so create() can read it
+        editor.storage.highlight.term = term
+        // Tell Tiptap to rebuild this extension's decorations.
+        // This calls create() again with the new search term.
+        commands.updateDecorations('highlight')
+        return true
+      },
+    }
+  },
+})
+```
+
+Now the caller only needs one call: `editor.commands.setSearchTerm('tiptap')`. The command handles storage and the decoration refresh together. We will use it from the input handler later. First, let us add the decoration logic.
+
+## Find and highlight matches
+
+This is the core of the extension. We add an `addDecorations` hook that scans the document for matches and returns inline decorations for each one.
+
+```ts
+// highlight.ts
+import { Decoration, Extension } from '@tiptap/core'
+
+// ... HighlightStorage, declare module, and addCommands stay the same ...
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  addStorage() {
+    return { term: '' }
+  },
+
+  addDecorations() {
+    return {
+      // 'manual' means Tiptap will not rebuild decorations on every keystroke.
+      // We decide when to rebuild by calling editor.commands.updateDecorations().
+      update: 'manual',
+
+      // create runs on init and every time we call updateDecorations().
+      // It receives { editor, state, view }. We use state to read the document.
+      create: ({ editor, state }) => {
+        // Read the search term from storage and clean it up
+        const term = editor.storage.highlight.term.trim().toLowerCase()
+
+        // If there is no search term, return an empty array (no decorations)
+        if (!term) return []
+
+        // We collect decorations into this array as we find matches
+        const decorations: Decoration[] = []
+
+        // descendants() walks every node in the document.
+        // Each node comes with its starting position (pos).
+        state.doc.descendants((node, pos) => {
+          // We only care about text nodes. Skip headings, paragraphs, etc.
+          if (!node.isText || !node.text) return
+
+          // Search inside this text node (case-insensitive)
+          const text = node.text.toLowerCase()
+          let index = text.indexOf(term)
+
+          // Keep searching until we run out of matches in this text node
+          while (index !== -1) {
+            // pos is where the text node starts.
+            // index is where the match starts inside the text node.
+            // So the match's document position is pos + index.
+            const matchFrom = pos + index
+            const matchTo = matchFrom + term.length
+
+            // Create an inline decoration that wraps the match in a span
+            // with the CSS class "highlight-match"
+            decorations.push(
+              Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+            )
+
+            // Move past this match and look for the next one
+            index = text.indexOf(term, index + term.length)
+          }
+        })
+
+        return decorations
+      },
+    }
+  },
+})
+```
+
+<Callout title="Why use the manual update strategy?" variant="info">
+  The search term comes from outside the document (an input field). When the user types in the
+  editor, the document changes but the search term does not. There is no reason to rebuild
+  decorations on every keystroke. With `update: 'manual'`, Tiptap only maps existing decorations
+  to their new positions (which is fast) and waits for us to call `updateDecorations()` when the
+  search term actually changes.
+</Callout>
+
+At this point, if you call `editor.commands.setSearchTerm('tiptap')`, every occurrence of "tiptap" gets a yellow highlight (once you add the CSS). The command stores the term and triggers a rebuild in one step.
+
+## Outline blocks that contain matches
+
+Inline decorations highlight individual words. Node decorations can outline the entire block (paragraph, heading, etc.) that contains a match. This helps the user spot which paragraphs have results.
+
+We add node decorations inside the same `create` function. To avoid outlining the same block twice, we track which blocks we have already decorated:
+
+```ts
+// Inside create, before the descendants() call:
+
+// Track block start positions we have already outlined
+const decoratedBlocks = new Set<number>()
+
+state.doc.descendants((node, pos) => {
+  if (!node.isText || !node.text) return
+
+  const text = node.text.toLowerCase()
+  let index = text.indexOf(term)
+
+  while (index !== -1) {
+    const matchFrom = pos + index
+    const matchTo = matchFrom + term.length
+
+    // Inline decoration: highlight the match itself
+    decorations.push(
+      Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+    )
+
+    // Node decoration: outline the block that contains this match.
+    // resolve() gives us info about the position, including which block it sits in.
+    const $match = state.doc.resolve(matchFrom)
+
+    // depth tells us how deeply nested the position is.
+    // We want the top-level block (usually depth 1), not the text node itself.
+    const depth = Math.max(1, $match.depth)
+
+    // before() and after() give us the start and end of the containing block
+    const blockStart = $match.before(depth)
+    const blockEnd = $match.after(depth)
+
+    // Only outline each block once, even if it has multiple matches
+    if (!decoratedBlocks.has(blockStart)) {
+      decoratedBlocks.add(blockStart)
+      decorations.push(
+        Decoration.Node(blockStart, blockEnd, { class: 'has-match' }),
+      )
+    }
+
+    index = text.indexOf(term, index + term.length)
+  }
+})
+```
+
+Now every paragraph or heading that contains a match gets a CSS class `has-match`. We will style that with an outline later.
+
+## Add a numbered badge after each match
+
+The last decoration type is the widget. A widget decoration inserts a DOM element at a single position in the document. We will render a small numbered badge after each match so the user can see which match is which.
+
+Unlike the React and Vue guides, we build the widget by hand with `document.createElement`. No framework needed.
+
+First, we need a counter so each match gets a unique number:
+
+```ts
+// Inside create, before the descendants() call:
+
+// Track the match number across all text nodes
+let matchNumber = 0
+
+// Track block start positions we have already outlined
+const decoratedBlocks = new Set<number>()
+
+state.doc.descendants((node, pos) => {
+  if (!node.isText || !node.text) return
+
+  const text = node.text.toLowerCase()
+  let index = text.indexOf(term)
+
+  while (index !== -1) {
+    const matchFrom = pos + index
+    const matchTo = matchFrom + term.length
+
+    // Inline decoration: highlight the match
+    decorations.push(
+      Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+    )
+
+    // Node decoration: outline the containing block (once per block)
+    const $match = state.doc.resolve(matchFrom)
+    const depth = Math.max(1, $match.depth)
+    const blockStart = $match.before(depth)
+    const blockEnd = $match.after(depth)
+
+    if (!decoratedBlocks.has(blockStart)) {
+      decoratedBlocks.add(blockStart)
+      decorations.push(
+        Decoration.Node(blockStart, blockEnd, { class: 'has-match' }),
+      )
+    }
+
+    // Widget decoration: a numbered badge after the match.
+    // The render callback creates the DOM element.
+    // It receives (view, getPos) but we do not need them for a static badge.
+    matchNumber++
+    decorations.push(
+      Decoration.Widget(
+        matchTo,
+        () => {
+          // Create a span element to show the match number
+          const badge = document.createElement('span')
+          badge.className = 'match-badge'
+          // contentEditable must be false so the user cannot type inside the badge
+          badge.contentEditable = 'false'
+          badge.textContent = String(matchNumber)
+          return badge
+        },
+        {
+          // The key identifies this widget across rebuilds.
+          // Position-based keys are fine here because the badge has no state.
+          // If the widget held state (like a counter the user could click),
+          // you would use a stable key like `match-${id}` instead.
+          key: `match-badge-${matchFrom}`,
+          // side: 1 places the widget after the match (right side)
+          side: 1,
+        },
+      ),
+    )
+
+    index = text.indexOf(term, index + term.length)
+  }
+})
+```
+
+<Callout title="Widget keys explained" variant="info">
+  Every widget needs a `key`. ProseMirror uses the key to decide whether to reuse the widget's DOM
+  across redraws or destroy and recreate it. If the key stays the same, the widget stays mounted.
+  If the key changes, the widget is recreated.
+
+  For stateless widgets like this badge, a position-based key (`match-badge-${matchFrom}`) is fine.
+  For stateful widgets (anything that holds data the user changed), use a stable key tied to the
+  item's identity, like `comment-${id}`. See the
+  [widget keys section](/editor/core-concepts/decorations#widget-keys) in the core concepts guide.
+</Callout>
+
+## The complete extension
+
+Here is the full extension with all three decoration types:
+
+```ts
+// highlight.ts
+import { Decoration, Extension } from '@tiptap/core'
+
+interface HighlightStorage {
+  term: string
+}
+
+// Augment Tiptap's Storage interface so editor.storage.highlight is typed
+declare module '@tiptap/core' {
+  interface Storage {
+    highlight: HighlightStorage
+  }
+}
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  addStorage() {
+    return { term: '' }
+  },
+
+  addCommands() {
+    return {
+      setSearchTerm: (term: string) => ({ editor, commands }) => {
+        editor.storage.highlight.term = term
+        commands.updateDecorations('highlight')
+        return true
+      },
+    }
+  },
+
+  addDecorations() {
+    return {
+      update: 'manual',
+      create: ({ editor, state }) => {
+        const term = editor.storage.highlight.term.trim().toLowerCase()
+        if (!term) return []
+
+        const decorations: Decoration[] = []
+        let matchNumber = 0
+        const decoratedBlocks = new Set<number>()
+
+        state.doc.descendants((node, pos) => {
+          if (!node.isText || !node.text) return
+
+          const text = node.text.toLowerCase()
+          let index = text.indexOf(term)
+
+          while (index !== -1) {
+            const matchFrom = pos + index
+            const matchTo = matchFrom + term.length
+
+            // Inline: highlight the match
+            decorations.push(
+              Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+            )
+
+            // Node: outline the containing block once
+            const $match = state.doc.resolve(matchFrom)
+            const depth = Math.max(1, $match.depth)
+            const blockStart = $match.before(depth)
+            const blockEnd = $match.after(depth)
+
+            if (!decoratedBlocks.has(blockStart)) {
+              decoratedBlocks.add(blockStart)
+              decorations.push(
+                Decoration.Node(blockStart, blockEnd, { class: 'has-match' }),
+              )
+            }
+
+            // Widget: numbered badge after the match
+            matchNumber++
+            decorations.push(
+              Decoration.Widget(
+                matchTo,
+                () => {
+                  const badge = document.createElement('span')
+                  badge.className = 'match-badge'
+                  badge.contentEditable = 'false'
+                  badge.textContent = String(matchNumber)
+                  return badge
+                },
+                { key: `match-badge-${matchFrom}`, side: 1 },
+              ),
+            )
+
+            index = text.indexOf(term, index + term.length)
+          }
+        })
+
+        return decorations
+      },
+    }
+  },
+})
+```
+
+## Connect the search input
+
+The extension is ready. Now we wire up the input field so that when the user types, we call our `setSearchTerm` command. The command stores the term and triggers a decoration rebuild in one step.
+
+Add this to `main.ts`, after the editor is created:
+
+```ts
+// main.ts (continued)
+
+// Find the search input we added in the HTML
+const searchInput = document.getElementById('search-input') as HTMLInputElement
+
+// Listen for every keystroke in the input
+searchInput.addEventListener('input', () => {
+  // Our custom command stores the term and rebuilds decorations.
+  // No need to touch storage or call updateDecorations separately.
+  editor.commands.setSearchTerm(searchInput.value)
+})
+```
+
+That is the full flow: the user types, the command stores the term and triggers a rebuild, and Tiptap calls our `create` function which scans the document and returns new decorations.
+
+## Style the decorations
+
+The decorations add CSS classes to the document. Add these styles to make them visible:
+
+```css
+/* styles.css */
+
+/* Inline decoration: yellow highlight on each match */
+.highlight-match {
+  background: #fff3a3;
+  border-radius: 2px;
+}
+
+/* Node decoration: outline blocks that contain matches */
+.has-match {
+  outline: 2px solid #ffc857;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Widget decoration: numbered badge after each match */
+.match-badge {
+  margin-inline-start: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  background: #1f2937;
+  color: white;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+  user-select: none;
+}
+```
+
+## Next steps
+
+- Review [decoration types and update strategies](/editor/core-concepts/decorations) in the core concepts guide.
+- Read the full [Decorations API reference](/editor/api/decorations) for every signature and option.
+- See the [React tutorial](/guides/decorations-react) or [Vue 3 tutorial](/guides/decorations-vue) if you want to render framework components as widgets.

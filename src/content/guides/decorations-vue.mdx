@@ -1,185 +1,47 @@
 ---
-title: 'Build Search & Replace with Decorations in Vue 3'
+title: 'Highlight Search Terms with Decorations in Vue 3'
 meta:
-  title: 'Search & Replace with Decorations in Vue 3 | Tiptap Editor Docs'
-  description: Build find and replace for a Vue 3 Tiptap editor with inline, node, and widget decorations.
+  title: 'Highlight Search Terms with Decorations in Vue 3 | Tiptap Editor Docs'
+  description: Build a term highlighter for a Vue 3 Tiptap editor with inline, node, and widget decorations.
   category: Editor
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-In this tutorial, you will build find and replace without changing the document just to show search results. The finished feature uses all three decoration types:
+In this tutorial, you will build a term highlighter for a Tiptap editor in Vue 3. The user types a search term into an input field, and every match in the document gets highlighted. Nothing about the document itself changes. The highlights are purely visual.
 
-- **Inline decorations** highlight every match.
-- A **node decoration** outlines the block containing the active match.
-- A **widget decoration** renders a Vue replacement button beside the active match.
+The finished feature uses all three decoration types:
 
-The search controls live outside the editor. Extension storage holds their current values, and `updateDecorations()` refreshes the view whenever those values change.
+- **Inline decorations** highlight every match with a yellow background.
+- **Node decorations** outline every block that contains at least one match.
+- **Widget decorations** render a small numbered Vue badge after each match.
 
-## Create the replacement widget
+## What are decorations?
 
-`VueWidgetRenderer` adds `editor` and `getPos` to your component props. Vue decoration components must render a single root element.
+Decorations are visual markers that sit on top of the document. They change what the user sees, but they do not change the document content. When you save the editor as JSON or HTML, decorations are not included.
 
-```vue
-<!-- ReplaceButton.vue -->
-<template>
-  <button class="search-replace-button" contenteditable="false" type="button" @click="replace">
-    Replace
-  </button>
-</template>
+Tiptap has three kinds of decoration:
 
-<script setup lang="ts">
-import type { Editor } from '@tiptap/core'
+- **Inline** wraps a range of text in a styled span. Use it for highlights.
+- **Node** adds attributes (like a CSS class) to the DOM wrapper of a whole block. Use it to outline paragraphs or headings.
+- **Widget** inserts a DOM element at a single position. Use it for badges, markers, or small UI elements.
 
-const props = defineProps<{
-  editor: Editor
-  getPos: () => number | undefined
-  replacement: string
-  searchTerm: string
-}>()
+You create all three with the `Decoration` class, imported from `@tiptap/core`. For widgets that render Vue components, you use `VueWidgetRenderer` from `@tiptap/vue-3`.
 
-const replace = () => {
-  const to = props.getPos()
+## Set up the editor and search input
 
-  if (to === undefined || !props.searchTerm) {
-    return
-  }
-
-  props.editor.commands.insertContentAt(
-    { from: to - props.searchTerm.length, to },
-    props.replacement,
-  )
-  props.editor.commands.updateDecorations('searchAndReplace')
-}
-</script>
-```
-
-<Callout title="Always read the current position" variant="info">
-  Keep the `getPos` function, not its initial result. Tiptap updates the function as edits map the
-  widget to a new document position.
-</Callout>
-
-## Create the search extension
-
-The extension searches through text nodes without changing them. It uses the `manual` update strategy. This means the toolbar decides when to run the search again.
-
-```ts
-// search-and-replace.ts
-import { Decoration, Extension } from '@tiptap/core'
-import { VueWidgetRenderer } from '@tiptap/vue-3'
-
-import ReplaceButton from './ReplaceButton.vue'
-
-interface SearchStorage {
-  activeIndex: number
-  replacement: string
-  searchTerm: string
-}
-
-declare module '@tiptap/core' {
-  interface Storage {
-    searchAndReplace: SearchStorage
-  }
-}
-
-interface Match {
-  from: number
-  to: number
-}
-
-export const SearchAndReplace = Extension.create<{}, SearchStorage>({
-  name: 'searchAndReplace',
-
-  addStorage() {
-    return {
-      activeIndex: 0,
-      replacement: '',
-      searchTerm: '',
-    }
-  },
-
-  addDecorations() {
-    return {
-      update: 'manual',
-      create: ({ editor, state }) => {
-        const { activeIndex, replacement, searchTerm } = editor.storage.searchAndReplace
-        const term = searchTerm.trim().toLocaleLowerCase()
-
-        if (!term) {
-          return []
-        }
-
-        const matches: Match[] = []
-
-        state.doc.descendants((node, pos) => {
-          if (!node.isText || !node.text) {
-            return
-          }
-
-          const text = node.text.toLocaleLowerCase()
-          let index = text.indexOf(term)
-
-          while (index !== -1) {
-            matches.push({
-              from: pos + index,
-              to: pos + index + term.length,
-            })
-            index = text.indexOf(term, index + term.length)
-          }
-        })
-
-        if (!matches.length) {
-          return []
-        }
-
-        const normalizedIndex = ((activeIndex % matches.length) + matches.length) % matches.length
-        const activeMatch = matches[normalizedIndex]
-        const decorations: Decoration[] = matches.map((match, index) =>
-          Decoration.Inline(match.from, match.to, {
-            class: index === normalizedIndex ? 'search-match search-match-active' : 'search-match',
-          }),
-        )
-
-        const $active = state.doc.resolve(activeMatch.from)
-        const blockDepth = Math.max(1, $active.depth)
-
-        decorations.push(
-          Decoration.Node($active.before(blockDepth), $active.after(blockDepth), {
-            class: 'search-active-block',
-          }),
-          VueWidgetRenderer(ReplaceButton, {
-            editor,
-            pos: activeMatch.to,
-            key: 'search-active-match',
-            props: { replacement, searchTerm: term },
-            side: 1,
-          }),
-        )
-
-        return decorations
-      },
-    }
-  },
-})
-```
-
-The widget key is a constant because there is exactly one active-match widget. Its identity stays stable while it moves between results, allowing Vue to reuse the component.
-
-## Add the editor and search controls
-
-Keep the input fields in Vue refs. When a value or the active result changes, copy it into extension storage and force a decoration rebuild. Destroying the editor on unmount also cleans up the widget renderer.
+Start with a basic Vue component that renders a search input and the editor:
 
 ```vue
 <!-- TiptapEditor.vue -->
 <template>
   <div>
-    <div class="search-toolbar">
-      <input v-model="searchTerm" aria-label="Find" />
-      <input v-model="replacement" aria-label="Replace with" />
-      <button type="button" @click="refresh(0)">Find</button>
-      <button type="button" @click="previous">Previous</button>
-      <button type="button" @click="next">Next</button>
-      <button type="button" @click="clear">Clear</button>
+    <div class="highlight-toolbar">
+      <input
+        v-model="searchTerm"
+        aria-label="Search"
+        placeholder="Type a word to highlight..."
+      />
     </div>
     <EditorContent :editor="editor" />
   </div>
@@ -190,36 +52,451 @@ import StarterKit from '@tiptap/starter-kit'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import { onBeforeUnmount, ref } from 'vue'
 
-import { SearchAndReplace } from './search-and-replace'
+import { Highlight } from './highlight'
 import './styles.css'
 
-const replacement = ref('editor')
-const searchTerm = ref('tiptap')
+// We store the search term in a ref so the input stays reactive
+const searchTerm = ref('')
+
 const editor = new Editor({
-  extensions: [StarterKit, SearchAndReplace],
+  extensions: [StarterKit, Highlight],
   content: `
-    <h2>Search this Tiptap document</h2>
-    <p>Tiptap makes editor interfaces approachable.</p>
-    <p>Try replacing either Tiptap match.</p>
+    <h2>Tiptap decorations tutorial</h2>
+    <p>Tiptap is a headless editor toolkit built on ProseMirror.</p>
+    <p>You can highlight words without changing the document.</p>
+    <p>Try typing "tiptap" in the search box above.</p>
   `,
 })
 
-const refresh = (activeIndex = 0) => {
-  Object.assign(editor.storage.searchAndReplace, {
-    activeIndex,
-    replacement: replacement.value,
-    searchTerm: searchTerm.value,
-  })
-  editor.commands.updateDecorations('searchAndReplace')
+// Clean up the editor when the component unmounts
+onBeforeUnmount(() => {
+  editor.destroy()
+})
+</script>
+```
+
+The `Highlight` extension does not exist yet. We will create it next. The input is wired to a Vue ref but not yet connected to the editor. We will do that after the extension is ready.
+
+## Create the highlight extension
+
+Extensions are the building blocks of Tiptap. Every feature, from bold text to code blocks, lives in an extension. We need a custom extension that reads a search term and produces decorations.
+
+Start with an empty extension and a storage field for the search term:
+
+```ts
+// highlight.ts
+import { Extension } from '@tiptap/core'
+
+// This tells TypeScript what our storage looks like
+interface HighlightStorage {
+  term: string
 }
 
-const previous = () => refresh(editor.storage.searchAndReplace.activeIndex - 1)
-const next = () => refresh(editor.storage.searchAndReplace.activeIndex + 1)
-const clear = () => {
-  searchTerm.value = ''
-  editor.storage.searchAndReplace.searchTerm = ''
-  editor.commands.updateDecorations('searchAndReplace')
+// Tiptap keeps every extension's storage in one shared object: editor.storage.
+// TypeScript does not know about our "highlight" key by default, so we use
+// declare module to add it. This gives us type checking on editor.storage.highlight.
+declare module '@tiptap/core' {
+  interface Storage {
+    highlight: HighlightStorage
+  }
 }
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  // addStorage returns the initial values for this extension's storage.
+  // We store the search term here so the decoration logic can read it.
+  addStorage() {
+    return {
+      term: '',
+    }
+  },
+
+  // addCommands defines custom commands callable via editor.commands.
+  // Writing to storage alone does not trigger a decoration rebuild, so we
+  // create one command that stores the term and refreshes decorations together.
+  addCommands() {
+    return {
+      setSearchTerm: (term: string) => ({ editor, commands }) => {
+        editor.storage.highlight.term = term
+        commands.updateDecorations('highlight')
+        return true
+      },
+    }
+  },
+})
+```
+
+Storage is a plain object that lives on the extension instance. Writing to it alone does not trigger a decoration rebuild, so we added a `setSearchTerm` command that stores the term and calls `updateDecorations` in one step. We will call it from the Vue component later. Inside `addDecorations`, we read the term from storage.
+
+## Create the badge widget component
+
+Before we add decorations, let us create the Vue component that the widget will render. It is a small numbered badge that appears after each match.
+
+`VueWidgetRenderer` automatically passes `editor` and `getPos` to your component as props, alongside any props you provide. For this badge we only need the match number:
+
+```vue
+<!-- MatchBadge.vue -->
+<template>
+  <span class="match-badge" contenteditable="false">
+    {{ matchNumber }}
+  </span>
+</template>
+
+<script setup lang="ts">
+// editor and getPos are passed automatically by VueWidgetRenderer.
+// We declare them so Vue does not warn about unknown props,
+// but we do not use them for a static badge.
+defineProps<{
+  matchNumber: number
+}>()
+</script>
+```
+
+The `contenteditable="false"` attribute is important. Without it, the user could type inside the badge, which would confuse ProseMirror's editing logic.
+
+<Callout title="Vue widget components must have a single root element" variant="warning">
+  Vue requires every component to have exactly one root element. The badge uses a single `<span>`,
+  which is fine. If your widget needs multiple elements, wrap them in a container element.
+</Callout>
+
+<Callout title="What are editor and getPos?" variant="info">
+  Every widget component receives `editor` (the Tiptap editor instance) and `getPos` (a function
+  that returns the widget's current document position). We do not need them for a static badge, but
+  they are essential for interactive widgets. For example, a "replace" button would use `getPos()`
+  to know which part of the document to replace. Always call `getPos()` when you need the position,
+  never store its result, because the position changes as the user edits.
+</Callout>
+
+## Find and highlight matches
+
+Now we add the `addDecorations` hook to the extension. This is where we scan the document for matches and return decorations.
+
+We build it up in three steps: inline decorations first, then node decorations, then widget decorations.
+
+### Step 1: Inline decorations for highlighting
+
+```ts
+// highlight.ts
+import { Decoration, Extension } from '@tiptap/core'
+
+// ... HighlightStorage, declare module, addStorage, and addCommands stay the same ...
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  addStorage() {
+    return { term: '' }
+  },
+
+  addDecorations() {
+    return {
+      // 'manual' means Tiptap will not rebuild decorations on every keystroke.
+      // We decide when to rebuild by calling editor.commands.updateDecorations().
+      update: 'manual',
+
+      // create runs on init and every time we call updateDecorations().
+      create: ({ editor, state }) => {
+        // Read the search term from storage and clean it up
+        const term = editor.storage.highlight.term.trim().toLowerCase()
+
+        // If there is no search term, return an empty array (no decorations)
+        if (!term) return []
+
+        const decorations: Decoration[] = []
+
+        // descendants() walks every node in the document.
+        // Each node comes with its starting position (pos).
+        state.doc.descendants((node, pos) => {
+          // We only care about text nodes. Skip headings, paragraphs, etc.
+          if (!node.isText || !node.text) return
+
+          // Search inside this text node (case-insensitive)
+          const text = node.text.toLowerCase()
+          let index = text.indexOf(term)
+
+          // Keep searching until we run out of matches in this text node
+          while (index !== -1) {
+            // pos is where the text node starts.
+            // index is where the match starts inside the text node.
+            // So the match's document position is pos + index.
+            const matchFrom = pos + index
+            const matchTo = matchFrom + term.length
+
+            // Create an inline decoration that wraps the match in a span
+            // with the CSS class "highlight-match"
+            decorations.push(
+              Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+            )
+
+            // Move past this match and look for the next one
+            index = text.indexOf(term, index + term.length)
+          }
+        })
+
+        return decorations
+      },
+    }
+  },
+})
+```
+
+<Callout title="Why use the manual update strategy?" variant="info">
+  The search term comes from outside the document (an input field). When the user types in the
+  editor, the document changes but the search term does not. There is no reason to rebuild
+  decorations on every keystroke. With `update: 'manual'`, Tiptap only maps existing decorations
+  to their new positions (which is fast) and waits for us to call `updateDecorations()` when the
+  search term actually changes.
+</Callout>
+
+### Step 2: Node decorations for outlining blocks
+
+Inline decorations highlight individual words. Node decorations can outline the entire block (paragraph, heading, etc.) that contains a match. We track which blocks we have already decorated to avoid duplicates:
+
+```ts
+// Inside create, before the descendants() call, add a Set to track decorated blocks:
+
+create: ({ editor, state }) => {
+  const term = editor.storage.highlight.term.trim().toLowerCase()
+  if (!term) return []
+
+  const decorations: Decoration[] = []
+  // Track block start positions we have already outlined
+  const decoratedBlocks = new Set<number>()
+
+  state.doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return
+
+    const text = node.text.toLowerCase()
+    let index = text.indexOf(term)
+
+    while (index !== -1) {
+      const matchFrom = pos + index
+      const matchTo = matchFrom + term.length
+
+      // Inline: highlight the match
+      decorations.push(
+        Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+      )
+
+      // Node: outline the block that contains this match.
+      // resolve() gives us info about the position, including which block it sits in.
+      const $match = state.doc.resolve(matchFrom)
+
+      // depth tells us how deeply nested the position is.
+      // We want the top-level block (usually depth 1), not the text node itself.
+      const depth = Math.max(1, $match.depth)
+
+      // before() and after() give us the start and end of the containing block
+      const blockStart = $match.before(depth)
+      const blockEnd = $match.after(depth)
+
+      // Only outline each block once, even if it has multiple matches
+      if (!decoratedBlocks.has(blockStart)) {
+        decoratedBlocks.add(blockStart)
+        decorations.push(
+          Decoration.Node(blockStart, blockEnd, { class: 'has-match' }),
+        )
+      }
+
+      index = text.indexOf(term, index + term.length)
+    }
+  })
+
+  return decorations
+},
+```
+
+### Step 3: Widget decorations for the numbered badge
+
+Now we add the widget. We use `VueWidgetRenderer` to render the `MatchBadge` component we created earlier. We need a counter to number matches across all text nodes:
+
+```ts
+// Add the imports at the top of highlight.ts:
+import { VueWidgetRenderer } from '@tiptap/vue-3'
+import MatchBadge from './MatchBadge.vue'
+
+// Inside create, add a counter before the descendants() call:
+let matchNumber = 0
+
+// Then inside the while loop, after the node decoration:
+
+// Widget: render a numbered Vue badge after the match.
+// VueWidgetRenderer takes the component and an options object.
+// The component receives the props we pass plus editor and getPos.
+matchNumber++
+decorations.push(
+  VueWidgetRenderer(MatchBadge, {
+    editor,
+    // Place the widget right after the match
+    pos: matchTo,
+    // The key identifies this widget across rebuilds.
+    // Position-based keys are fine here because the badge has no state.
+    // For stateful widgets, use a stable key like `match-${id}` instead.
+    key: `match-badge-${matchFrom}`,
+    // These props are passed to the MatchBadge component
+    props: { matchNumber },
+    // side: 1 places the widget after the match (right side)
+    side: 1,
+  }),
+)
+```
+
+<Callout title="Widget keys explained" variant="info">
+  Every widget needs a `key`. ProseMirror uses the key to decide whether to reuse the widget's DOM
+  across redraws or destroy and recreate it. If the key stays the same, the widget stays mounted and
+  Vue preserves its state. If the key changes, the widget is recreated.
+
+  For stateless widgets like this badge, a position-based key (`match-badge-${matchFrom}`) is fine.
+  For stateful widgets (anything that holds data the user changed), use a stable key tied to the
+  item's identity, like `comment-${id}`. See the
+  [widget keys section](/editor/core-concepts/decorations#widget-keys) in the core concepts guide.
+</Callout>
+
+## The complete extension
+
+Here is the full extension with all three decoration types:
+
+```ts
+// highlight.ts
+import { Decoration, Extension } from '@tiptap/core'
+import { VueWidgetRenderer } from '@tiptap/vue-3'
+
+import MatchBadge from './MatchBadge.vue'
+
+interface HighlightStorage {
+  term: string
+}
+
+// Augment Tiptap's Storage interface so editor.storage.highlight is typed
+declare module '@tiptap/core' {
+  interface Storage {
+    highlight: HighlightStorage
+  }
+}
+
+export const Highlight = Extension.create<{}, HighlightStorage>({
+  name: 'highlight',
+
+  addStorage() {
+    return { term: '' }
+  },
+
+  addCommands() {
+    return {
+      setSearchTerm: (term: string) => ({ editor, commands }) => {
+        editor.storage.highlight.term = term
+        commands.updateDecorations('highlight')
+        return true
+      },
+    }
+  },
+
+  addDecorations() {
+    return {
+      update: 'manual',
+      create: ({ editor, state }) => {
+        const term = editor.storage.highlight.term.trim().toLowerCase()
+        if (!term) return []
+
+        const decorations: Decoration[] = []
+        let matchNumber = 0
+        const decoratedBlocks = new Set<number>()
+
+        state.doc.descendants((node, pos) => {
+          if (!node.isText || !node.text) return
+
+          const text = node.text.toLowerCase()
+          let index = text.indexOf(term)
+
+          while (index !== -1) {
+            const matchFrom = pos + index
+            const matchTo = matchFrom + term.length
+
+            // Inline: highlight the match
+            decorations.push(
+              Decoration.Inline(matchFrom, matchTo, { class: 'highlight-match' }),
+            )
+
+            // Node: outline the containing block once
+            const $match = state.doc.resolve(matchFrom)
+            const depth = Math.max(1, $match.depth)
+            const blockStart = $match.before(depth)
+            const blockEnd = $match.after(depth)
+
+            if (!decoratedBlocks.has(blockStart)) {
+              decoratedBlocks.add(blockStart)
+              decorations.push(
+                Decoration.Node(blockStart, blockEnd, { class: 'has-match' }),
+              )
+            }
+
+            // Widget: numbered Vue badge after the match
+            matchNumber++
+            decorations.push(
+              VueWidgetRenderer(MatchBadge, {
+                editor,
+                pos: matchTo,
+                key: `match-badge-${matchFrom}`,
+                props: { matchNumber },
+                side: 1,
+              }),
+            )
+
+            index = text.indexOf(term, index + term.length)
+          }
+        })
+
+        return decorations
+      },
+    }
+  },
+})
+```
+
+## Connect the search input
+
+Now we connect the input to the extension. When the search term changes, we write it into the extension's storage and tell Tiptap to rebuild the decorations:
+
+```vue
+<!-- TiptapEditor.vue -->
+<template>
+  <div>
+    <div class="highlight-toolbar">
+      <input
+        v-model="searchTerm"
+        aria-label="Search"
+        placeholder="Type a word to highlight..."
+      />
+    </div>
+    <EditorContent :editor="editor" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import StarterKit from '@tiptap/starter-kit'
+import { Editor, EditorContent } from '@tiptap/vue-3'
+import { onBeforeUnmount, ref, watch } from 'vue'
+
+import { Highlight } from './highlight'
+import './styles.css'
+
+const searchTerm = ref('')
+const editor = new Editor({
+  extensions: [StarterKit, Highlight],
+  content: `
+    <h2>Tiptap decorations tutorial</h2>
+    <p>Tiptap is a headless editor toolkit built on ProseMirror.</p>
+    <p>You can highlight words without changing the document.</p>
+    <p>Try typing "tiptap" in the search box above.</p>
+  `,
+})
+
+// Watch the search term ref. When it changes, call our custom command
+// which stores the term and rebuilds decorations in one step.
+watch(searchTerm, (value) => {
+  editor.commands.setSearchTerm(value)
+})
 
 onBeforeUnmount(() => {
   editor.destroy()
@@ -227,36 +504,43 @@ onBeforeUnmount(() => {
 </script>
 ```
 
-## Style the three decoration types
+The flow is: the user types, the Vue ref updates, the watcher calls `setSearchTerm` which stores the term and triggers a rebuild, and Tiptap calls our `create` function which scans the document and returns new decorations.
+
+## Style the decorations
+
+The decorations add CSS classes to the document. Add these styles to make them visible:
 
 ```css
-.search-match {
+/* styles.css */
+
+/* Inline decoration: yellow highlight on each match */
+.highlight-match {
   background: #fff3a3;
+  border-radius: 2px;
 }
 
-.search-match-active {
-  background: #ffc857;
-}
-
-.search-active-block {
+/* Node decoration: outline blocks that contain matches */
+.has-match {
   outline: 2px solid #ffc857;
-  outline-offset: 3px;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-.search-replace-button {
+/* Widget decoration: numbered badge after each match */
+.match-badge {
   margin-inline-start: 0.25rem;
-  border: 0;
-  border-radius: 0.25rem;
-  padding: 0.125rem 0.375rem;
+  padding: 0.1rem 0.4rem;
   background: #1f2937;
   color: white;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  vertical-align: middle;
+  user-select: none;
 }
 ```
 
-You now have a view-only search layer and a replacement action that changes content only when the user asks it to. For production use, consider case-sensitivity and whole-word options, keyboard shortcuts, scrolling the active result into view, and searches that span multiple text nodes.
-
 ## Next steps
 
-- Review [decoration types and update strategies](/editor/core-concepts/decorations).
-- Look up every [`VueWidgetRenderer` option](/editor/api/decorations#vuewidgetrenderer).
-- See the parallel [React tutorial](/guides/decorations-react).
+- Review [decoration types and update strategies](/editor/core-concepts/decorations) in the core concepts guide.
+- Read the full [Decorations API reference](/editor/api/decorations) for every signature and option.
+- See the [Vanilla JS tutorial](/guides/decorations-vanilla) if you want to build widgets by hand without a framework, or the [React tutorial](/guides/decorations-react) for React.
