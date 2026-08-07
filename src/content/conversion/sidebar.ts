@@ -72,6 +72,10 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/conversion/import/docx/image-handling',
                 },
                 {
+                  title: 'Tracked changes',
+                  href: '/conversion/import/docx/tracked-changes',
+                },
+                {
                   title: 'Page breaks',
                   href: '/conversion/import/docx/page-breaks',
                 },
@@ -142,6 +146,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   title: 'Ordered list numbering',
                   href: '/conversion/export/docx/ordered-list-numbering',
+                },
+                {
+                  title: 'Tracked changes',
+                  href: '/conversion/export/docx/tracked-changes',
                 },
                 {
                   title: 'Headers & footers',

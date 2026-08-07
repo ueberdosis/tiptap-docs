@@ -1,0 +1,140 @@
+---
+title: Import tracked changes from DOCX
+tags:
+  - type: start
+  - type: beta
+meta:
+  title: Import tracked changes | Tiptap Conversion
+  description: Import Word insertions and deletions as reviewable suggestions, or apply or discard them during the import.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    To install this frontend extension, authenticate to Tiptap's private npm registry by following
+    the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+A Word document that has been reviewed carries a record of who inserted and removed what. On import you decide what happens to that record: keep it as suggestions you can review in the editor, apply it, or discard it.
+
+## Choosing a mode
+
+| Mode       | What happens                                                                      |
+| ---------- | --------------------------------------------------------------------------------- |
+| `preserve` | Insertions and deletions become suggestions, with their original author and date  |
+| `accept`   | Insertions become ordinary text and deletions are removed                         |
+| `reject`   | Deletions are restored as ordinary text and insertions are removed                |
+| `auto`     | Editor extension only. Picks `preserve` or `accept` based on your editor's schema |
+
+## With the editor extension
+
+`ImportDocx` takes a `trackedChanges` option, and defaults to `auto`:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const editor = new Editor({
+  extensions: [
+    ImportDocx.configure({
+      token: 'your-jwt',
+      trackedChanges: 'auto',
+    }),
+  ],
+})
+```
+
+You can also decide per import, which wins over the configured value:
+
+```ts
+editor.commands.importDocx({ file, trackedChanges: 'preserve' })
+```
+
+### What `auto` does
+
+`auto` looks for the tracked changes `suggestion` mark in your editor's schema. If it is there, the mode becomes `preserve`. If it is not, the mode becomes `accept`.
+
+This matters because the editor drops marks its schema does not know while keeping the text they were on. Asking for `preserve` in an editor that cannot render suggestions would therefore turn every deletion back into ordinary content, which silently reverses the reviewer's edit. `auto` avoids that, so leave it alone unless you know which mode you want.
+
+<Callout variant="info" title="Preserving suggestions needs the tracked changes extension">
+  Register [`@tiptap-pro/extension-tracked-changes`](/tracked-changes/getting-started/overview) to
+  keep imported redlines. Without it, use `accept` or `reject` so the document arrives as ordinary
+  text.
+</Callout>
+
+## With the REST API
+
+Send `trackedChanges` as a form field. It accepts `preserve`, `accept` and `reject`, and defaults to `accept`.
+
+```bash
+curl -X POST https://api.tiptap.dev/v2/convert/import/docx \
+  -H "Authorization: Bearer <your-jwt>" \
+  -F "file=@reviewed.docx" \
+  -F "trackedChanges=preserve"
+```
+
+The default is `accept` rather than `preserve` so that callers who send nothing keep receiving plain content, and never receive suggestion marks their editor cannot render.
+
+## What preserved suggestions look like
+
+Text carrying a change gets a `suggestion` mark:
+
+```json
+{
+  "type": "text",
+  "text": "brave ",
+  "marks": [
+    {
+      "type": "suggestion",
+      "attrs": {
+        "id": "docx-suggestion-1",
+        "type": "add",
+        "userId": "ada lovelace",
+        "createdAt": "2026-07-27T10:00:00Z",
+        "updatedAt": "2026-07-27T10:00:00Z",
+        "userMetadata": { "name": "Ada Lovelace" }
+      }
+    }
+  ]
+}
+```
+
+`type` is `add` for an insertion and `delete` for a deletion. A replacement, where the reviewer swapped one piece of text for another, arrives as a deletion followed by an insertion.
+
+Word identifies reviewers by display name only, so `userMetadata.name` holds that name and `userId` is derived from it: trimmed, whitespace collapsed, lower cased. Reviewers who share a display name therefore share a `userId`. A change with no author becomes the `anonymous` user.
+
+Word writes one record per run of text, so a single edit is often split into several. Neighbouring records from the same author with the same type are merged into one suggestion, which keeps a change that spans different formatting as one reviewable unit rather than several.
+
+Inserted or deleted images and other standalone content carry the same information as node attributes instead of a mark: `suggestionId`, `suggestionType`, `suggestionUserId`, `suggestionCreatedAt`, `suggestionUpdatedAt` and `suggestionUserMetadata`.
+
+## Where suggestions are kept
+
+Suggestions are preserved in the body of the document, including inside table cells.
+
+Headers, footers, comments and footnotes are edited separately from the main document, and `preserve` does not reach them. Their changes are applied on the way in instead, so a deletion in a header arrives as removed text rather than as a suggestion. Their content is never lost.
+
+This is deliberate. Those parts usually run on a schema with no `suggestion` mark, and preserving there would strip the mark while leaving the text behind, turning a deletion into real content. Configuring the header and footer editors with the tracked changes extension does not change the import behaviour today.
+
+## What is not imported yet
+
+The text of the document always arrives in full. What can be missing is the record of a particular kind of change:
+
+- **Paragraph splits and joins.** Word records these on the paragraph mark rather than on the text, and they are common in reviewed documents. The paragraphs import correctly, but the fact that the split itself was a tracked change is not kept.
+- **Formatting changes**, such as a word made bold with tracking on. The formatting is imported, the record of it being a change is not.
+- **Moves**, where a reviewer relocated a block of text. The text is imported in its new position.
+
+## Round-trip
+
+Exporting a document whose suggestions came from Word writes them back as Word insertions and deletions, with the author and date intact. See [export tracked changes](/conversion/export/docx/tracked-changes).
+
+Accepting everything in Tiptap gives the same result as accepting everything in Word. Rejecting matches too, apart from text one reviewer deleted after another had inserted it. See [what is not exported](/conversion/export/docx/tracked-changes#what-is-not-exported).
