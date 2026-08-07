@@ -11,7 +11,7 @@ import { CodeDemo } from '@/components/CodeDemo'
 
 Decorations change how content looks inside the editor. They do not change the document itself. They are not included when you save the editor as JSON or HTML.
 
-Extensions add decorations with `addDecorations()`. Use the `decoration` helper to create them. Tiptap takes care of adding them to the editor.
+Extensions add decorations with `addDecorations()`. Use the `Decoration` class to create them. Tiptap takes care of adding them to the editor.
 
 <CodeDemo path="/Examples/Decorations?inline=false&hideSource=false" />
 
@@ -28,7 +28,7 @@ Reach for decorations when the marker is purely visual and lives outside the doc
 
 ## The three kinds of decoration
 
-There are three kinds of decoration, all created through the `decoration` factory:
+There are three kinds of decoration, all created through the `Decoration` class:
 
 - **node** adds attributes, such as a CSS class, to one node.
 - **inline** styles a range of text or other inline content.
@@ -36,17 +36,17 @@ There are three kinds of decoration, all created through the `decoration` factor
 
 ## Declaring decorations
 
-Extensions declare decorations through the `addDecorations()` lifecycle hook, which returns a `DecorationSpec` (or `null` for none). Build the decorations themselves with the `decoration` factory imported from `@tiptap/core`.
+Extensions declare decorations through the `addDecorations()` lifecycle hook, which returns a `DecorationSpec` (or `null` for none). Build the decorations themselves with the `Decoration` class imported from `@tiptap/core`.
 
 ```ts
-import { decoration, Extension } from '@tiptap/core'
+import { Decoration, Extension } from '@tiptap/core'
 
 const MyExtension = Extension.create({
   name: 'myExtension',
 
   addDecorations() {
     return {
-      create: ({ editor, state, view }) => [decoration.inline(1, 5, { class: 'highlight' })],
+      create: ({ editor, state, view }) => [Decoration.Inline(1, 5, { class: 'highlight' })],
     }
   },
 })
@@ -54,21 +54,28 @@ const MyExtension = Extension.create({
 
 Like other extension hooks, `addDecorations()` is bound to `this` (`{ name, options, storage, editor, type, parent }`), so you can read options and storage while declaring decorations.
 
-### The `decoration` factory
+<Callout title="Read state from the state argument, not editor.state" variant="warning">
+  Inside `create()` and `createInRange()`, always read the document from the `state` argument, not
+  `editor.state`. During a transaction, the editor's view state has not been updated yet, so
+  `editor.state` points at the pre-transaction document. The `state` argument is the correct state
+  being built.
+</Callout>
 
-The `decoration` helper returns plain objects that describe what Tiptap should show. Import it from `@tiptap/core`:
+### The `Decoration` class
+
+The `Decoration` class has static methods that return decoration instances describing what Tiptap should show. Import it from `@tiptap/core`:
 
 ```ts
-import { decoration } from '@tiptap/core'
+import { Decoration } from '@tiptap/core'
 
 // Decorate a single node (attrs go on the node's DOM wrapper)
-decoration.node(from, to, attrs, spec)
+Decoration.Node(from, to, attrs, spec)
 
 // Decorate a range of inline content (wraps it in a styled span)
-decoration.inline(from, to, attrs, spec)
+Decoration.Inline(from, to, attrs, spec)
 
 // Insert a widget (a DOM node) at a position; `key` is REQUIRED
-decoration.widget(pos, render, options)
+Decoration.Widget(pos, render, options)
 ```
 
 `attrs` accepts `class`, `style`, `nodeName`, and any other HTML attribute (ProseMirror's `DecorationAttrs`).
@@ -84,7 +91,7 @@ addDecorations() {
       const decorations = []
       state.doc.descendants((node, pos) => {
         if (node.type.name === 'heading') {
-          decorations.push(decoration.node(pos, pos + node.nodeSize, { class: 'is-heading' }))
+          decorations.push(Decoration.Node(pos, pos + node.nodeSize, { class: 'is-heading' }))
         }
       })
       return decorations
@@ -98,7 +105,7 @@ addDecorations() {
 An inline decoration wraps a range of inline content in a styled span. This is ideal for highlights and search results:
 
 ```ts
-decoration.inline(matchFrom, matchTo, { class: 'is-match' })
+Decoration.Inline(matchFrom, matchTo, { class: 'is-match' })
 ```
 
 ### Widget decorations
@@ -106,7 +113,7 @@ decoration.inline(matchFrom, matchTo, { class: 'is-match' })
 A widget decoration inserts a DOM node at a single position. Unlike node and inline decorations, widgets need a `render` callback and a **required, stable `key`**:
 
 ```ts
-decoration.widget(
+Decoration.Widget(
   pos,
   (view, getPos) => {
     const el = document.createElement('span')
@@ -211,10 +218,12 @@ addDecorations() {
 
 <Callout title="createInRange contract" variant="warning">
   `createInRange` must return **only** decorations whose start position lies within `[from, to)`.
-  `from` for inline and node decorations, `pos` for widget decorations. Decorations anchored before
-  `from` or at/after `to` are **not supported** in incremental mode: they belong to a neighbouring
-  block that the manager did not remove, so returning them leaks duplicate decorations that are
-  never cleaned up. If you need such decorations, use a full `create` instead.
+  `from` for inline and node decorations, `pos` for widget decorations. `to` is exclusive: it is
+  the next block's start, and that block rebuilds it, so decorations anchored at `to` are ignored.
+  The last block is the exception, because it owns the end of the document. Decorations anchored
+  before `from` belong to a neighbouring block that the manager did not remove, so returning them
+  leaks duplicate decorations that are never cleaned up. If a decoration depends on content outside
+  the supplied range, use the `document` strategy instead.
 </Callout>
 
 TypeScript enforces the pairing: `update: 'changedRanges'` requires `createInRange`, while the other strategies do not accept it.
@@ -271,7 +280,7 @@ Widget decorations can render React or Vue components. The component stays insid
 
 ### React: `ReactWidgetRenderer`
 
-Import `ReactWidgetRenderer` from `@tiptap/react`. It returns a `WidgetDecorationDescriptor` you return from `create` or `createInRange`, alongside `decoration.node` and `decoration.inline`. Your component additionally receives `editor` and `getPos` as props.
+Import `ReactWidgetRenderer` from `@tiptap/react`. It returns a `WidgetDecoration` you return from `create` or `createInRange`, alongside `Decoration.Node` and `Decoration.Inline`. Your component additionally receives `editor` and `getPos` as props.
 
 ```tsx
 import { Extension } from '@tiptap/core'
@@ -354,8 +363,8 @@ This example uses all three kinds of decoration and incremental mode. It highlig
 Each match and each heading depends only on its own block, so `update: 'changedRanges'` is safe here.
 
 ```ts
-import { decoration, Extension } from '@tiptap/core'
-import type { DecorationDescriptor, Editor } from '@tiptap/core'
+import { Decoration, Extension } from '@tiptap/core'
+import type { Editor } from '@tiptap/core'
 import type { EditorState } from '@tiptap/pm/state'
 
 export interface HighlightOptions {
@@ -382,12 +391,12 @@ export const Highlight = Extension.create<HighlightOptions, HighlightStorage>({
 
   addDecorations() {
     const scan = (editor: Editor, state: EditorState, from: number, to: number) => {
-      const decorations: DecorationDescriptor[] = []
+      const decorations: Decoration[] = []
       const term = editor.storage.highlight.term.trim().toLowerCase()
 
       state.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type.name === 'heading') {
-          decorations.push(decoration.node(pos, pos + node.nodeSize, { class: 'is-heading' }))
+          decorations.push(Decoration.Node(pos, pos + node.nodeSize, { class: 'is-heading' }))
         }
         if (!term || !node.isText || !node.text) return
 
@@ -396,9 +405,9 @@ export const Highlight = Extension.create<HighlightOptions, HighlightStorage>({
         while (index !== -1) {
           const matchFrom = pos + index
           const matchTo = matchFrom + term.length
-          decorations.push(decoration.inline(matchFrom, matchTo, { class: 'is-match' }))
+          decorations.push(Decoration.Inline(matchFrom, matchTo, { class: 'is-match' }))
           decorations.push(
-            decoration.widget(
+            Decoration.Widget(
               matchFrom,
               () => {
                 const el = document.createElement('span')
@@ -433,6 +442,6 @@ editor.commands.updateDecorations('highlight')
 ## Next steps
 
 - Read the full [Decorations API reference](/editor/api/decorations) for every signature and option.
-- Build a stateful widget with the [React tutorial](/guides/decorations-react) or [Vue 3 tutorial](/guides/decorations-vue).
+- Build a term highlighter with the [Vanilla JS tutorial](/guides/decorations-vanilla), [React tutorial](/guides/decorations-react), or [Vue 3 tutorial](/guides/decorations-vue).
 - Learn how the [`addDecorations` hook](/editor/extensions/custom-extensions/create-new/extension#adddecorations) fits into the extension lifecycle.
 - Compare with [node views](/editor/extensions/custom-extensions/node-views) when you need persisted, editable custom content.

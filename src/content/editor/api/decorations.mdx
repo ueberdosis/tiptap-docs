@@ -41,6 +41,20 @@ const MyExtension = Extension.create({
 | `shouldUpdate`  | `(props: { editor; tr; oldState; newState }) => boolean`               | Optional for `document` and `changedRanges`. Return `false` to map without rebuilding. Defaults to `tr.docChanged`. |
 | `createInRange` | `(props: { editor; state; view; from; to }) => Decoration[]` | Required only for `changedRanges`. Returns decorations anchored within the supplied block-aligned range.            |
 
+<Callout title="Read state from the state argument, not editor.state" variant="warning">
+  Inside `create()` and `createInRange()`, always read the document from the `state` argument, not
+  `editor.state`. During a transaction, the editor's view state has not been updated yet, so
+  `editor.state` points at the pre-transaction document. The `state` argument is the correct state
+  being built. Tiptap logs a development warning if it detects `editor.state` being read inside
+  `create()`.
+</Callout>
+
+<Callout title="create and createInRange must not throw" variant="warning">
+  `create()` and `createInRange()` run inside ProseMirror's state update cycle. If they throw, the
+  editor can end up in an inconsistent state. Wrap any fallible logic (regex compilation, external
+  data access) in try/catch and return an empty array on failure.
+</Callout>
+
 ### `DecorationUpdateStrategy`
 
 ```ts
@@ -55,9 +69,10 @@ You can use `shouldUpdate` with `document` and `changedRanges`. You cannot use i
 
 <Callout title="createInRange contract" variant="warning">
   `createInRange` must return **only** decorations whose start position lies within `[from, to)`.
-  Use `from` for inline and node decorations, and `pos` for widget decorations. Decorations outside
-  this range are ignored. If a decoration depends on content outside the supplied range, use the
-  `document` strategy instead.
+  Use `from` for inline and node decorations, and `pos` for widget decorations. `to` is exclusive:
+  it is the next block's start, and that block rebuilds it, so decorations anchored at `to` are
+  ignored. The last block is the exception, because it owns the end of the document. If a decoration
+  depends on content outside the supplied range, use the `document` strategy instead.
 </Callout>
 
 See [Performance](/editor/core-concepts/decorations#performance) for strategy selection and changed-range correctness constraints.
@@ -153,7 +168,7 @@ Decoration.Widget(
 - `options.marks` – optional. Marks applied to the widget.
 - `options.stopEvent` – optional. Return `true` to stop ProseMirror from handling an event originating in the widget.
 - `options.ignoreSelection` – optional. Prevent selection changes inside the widget from being synchronized by ProseMirror.
-- `options.destroy` – optional. Called with the widget DOM node when ProseMirror removes it or destroys the editor.
+- `options.destroy` – optional. Called with the widget DOM node when ProseMirror removes it or destroys the editor. Skipped for widgets created with `ReactWidgetRenderer` or `VueWidgetRenderer`, because the framework renderers handle their own cleanup.
 
 ```ts
 Decoration.Widget(
@@ -241,7 +256,7 @@ const Comments = Extension.create({
   reused so component state survives across edits. The cache is swept when the editor is destroyed.
 </Callout>
 
-Follow the [React decorations tutorial](/guides/decorations-react) for a complete stateful widget.
+Follow the [React decorations tutorial](/guides/decorations-react) for a complete example.
 
 ## `VueWidgetRenderer`
 
@@ -289,7 +304,7 @@ const Comments = Extension.create({
   on purpose. Do not wrap it in reactivity.
 </Callout>
 
-Follow the [Vue 3 decorations tutorial](/guides/decorations-vue) for a complete stateful widget.
+Follow the [Vue 3 decorations tutorial](/guides/decorations-vue) for a complete example.
 
 ## `liveWidgetKeys`
 
@@ -306,4 +321,57 @@ Returns the keys of all widget decorations currently live. The framework widget 
 <Callout title="Advanced use only" variant="hint">
   Most users won't need `liveWidgetKeys`. It exists for advanced authors building custom widget
   renderers.
+</Callout>
+
+## `createWidgetDecoration`
+
+Import: `import { createWidgetDecoration } from '@tiptap/core'`.
+
+A framework-agnostic helper that `ReactWidgetRenderer` and `VueWidgetRenderer` are built on. It owns the per-editor renderer cache, prop diffing, the deferred prop flush, the key reassignment guard, and the ProseMirror option pass-through. Use it when you need a widget backed by a custom renderer that is not React or Vue.
+
+```ts
+import { createWidgetDecoration } from '@tiptap/core'
+import type { WidgetRenderer } from '@tiptap/core'
+
+// A minimal renderer: anything with updateProps and destroy
+class MyRenderer implements WidgetRenderer {
+  updateProps(props: Record<string, any>) { /* ... */ }
+  destroy() { /* ... */ }
+}
+
+const WIDGET_CACHE = Symbol('myWidgetCache')
+
+// Inside addDecorations create():
+createWidgetDecoration<MyRenderer>({
+  editor,
+  pos,
+  key: `my-widget-${id}`,
+  props: { label: 'hello' },
+  cacheKey: WIDGET_CACHE,
+  context: getPos => ({ editor, getPos }),
+  create: renderProps => new MyRenderer(renderProps),
+  materialize: renderer => renderer.element,
+})
+```
+
+| Option         | Type                                              | Description                                                                                                  |
+| -------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `editor`       | `Editor`                                          | The editor instance. The renderer cache is stored on it.                                                     |
+| `pos`          | `number`                                          | The document position to render at.                                                                          |
+| `key`          | `string`                                          | Stable, unique key. See [Widget keys](/editor/core-concepts/decorations#widget-keys).                        |
+| `props`        | `Record<string, any>`                             | Props passed to the renderer, merged with `context` on each render.                                          |
+| `cacheKey`     | `symbol`                                          | The symbol the renderer cache is stored under. Use one per framework so caches never mix.                   |
+| `context`      | `(getPos) => Record<string, any>`                 | Extra props merged into every render, for example `editor` and `getPos`. Called on each materialization.     |
+| `create`       | `(props) => WidgetRenderer`                       | Creates the renderer on first mount. Receives `props` and `context` already merged.                          |
+| `materialize`  | `(renderer) => HTMLElement`                       | Returns the element ProseMirror inserts.                                                                     |
+| `side`         | `number`                                          | ProseMirror widget side bias.                                                                                |
+| `relaxedSide`  | `boolean`                                         | Allow the DOM selection on either side of the widget.                                                        |
+| `marks`        | `readonly Mark[]`                                 | Marks applied to the widget.                                                                                 |
+| `stopEvent`    | `(event: Event) => boolean`                       | Stop selected widget events from reaching ProseMirror.                                                       |
+| `ignoreSelection` | `boolean`                                      | Prevent selection changes inside the widget from syncing.                                                    |
+| `destroy`      | `(node: Node) => void`                            | Run custom cleanup after the renderer is removed.                                                            |
+
+<Callout title="Advanced use only" variant="hint">
+  Most users should use `ReactWidgetRenderer` or `VueWidgetRenderer` instead. `createWidgetDecoration`
+  exists for authors building custom framework renderers (Solid, Svelte, etc.).
 </Callout>
