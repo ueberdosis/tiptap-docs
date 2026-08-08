@@ -67,6 +67,11 @@ export const sidebarConfig: SidebarConfig = {
           tags: ['New'],
         },
         {
+          title: 'Layout participants',
+          href: '/pages/core-concepts/layout-participants',
+          tags: ['New'],
+        },
+        {
           title: 'Limitations',
           href: '/pages/core-concepts/limitations',
         },
