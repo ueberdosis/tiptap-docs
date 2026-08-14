@@ -32,6 +32,10 @@ const PageEditFooter = async () => {
 }
 
 export const LayoutCTABar = () => {
+  if (CTA_BAR.hideAt && CTA_BAR.hideAt <= new Date()) {
+    return null
+  }
+
   return (
     <div
       className={cn(
