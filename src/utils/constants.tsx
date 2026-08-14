@@ -19,6 +19,7 @@ export type CtaBarData = {
   label: string
   button: { text: string; href: string }
   productHunt?: { imageSrc: string; href: string; alt: string }
+  hideAt?: Date
 }
 
 export const CTA_BAR: CtaBarData = {
