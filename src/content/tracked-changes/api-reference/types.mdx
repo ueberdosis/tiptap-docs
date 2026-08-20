@@ -15,7 +15,15 @@ The extension exports TypeScript types for working with suggestions.
 Public-facing suggestion type returned by the query API:
 
 ```ts
-type SuggestionType = 'add' | 'delete' | 'replace' | 'markChange' | 'sink' | 'lift' | 'split'
+type SuggestionType =
+  | 'add'
+  | 'delete'
+  | 'replace'
+  | 'markChange'
+  | 'attributeChange'
+  | 'sink'
+  | 'lift'
+  | 'split'
 ```
 
 - `sink` and `lift` are pending list-item nesting changes (Tab and Shift-Tab)
@@ -34,7 +42,7 @@ type SuggestionMarkType = 'add' | 'delete' | 'replaceDeletion' | 'replaceInserti
 Internal type stored in node attributes. Covers every mark-level type plus the structural variants that can only exist at the node level:
 
 ```ts
-type SuggestionNodeType = SuggestionMarkType | 'sink' | 'lift' | 'blockSplit'
+type SuggestionNodeType = SuggestionMarkType | 'attributeChange' | 'sink' | 'lift' | 'blockSplit'
 ```
 
 `blockSplit` is the node-level counterpart of the public `split` type. It is what you find in `suggestionType` node attributes and in the `data-suggestion-type` DOM attribute, so use `blockSplit` in CSS selectors and `split` when filtering or switching on `suggestion.type`.
@@ -61,6 +69,20 @@ type SuggestionMarkChange = {
 }
 ```
 
+## SuggestionAttributeChange
+
+Describes one attribute mutation stored on an `attributeChange` suggestion:
+
+```ts
+type SuggestionAttributeChange = {
+  attributeName: string
+  oldValue: unknown
+  newValue: unknown
+}
+```
+
+`oldValue` is the value before the suggestion. `newValue` is the proposed value that is present in the document while the suggestion is pending.
+
 ## Suggestion
 
 Represents a suggestion found in the document:
@@ -83,6 +105,9 @@ type Suggestion = {
   replacedText?: string
   // Only present for 'markChange' suggestions:
   markChanges?: SuggestionMarkChange[]
+  // Only present for 'attributeChange' suggestions:
+  attributeChanges?: SuggestionAttributeChange[]
+  nodeType?: string
   // Only present when the suggestion affects block-level nodes:
   insertedNodes?: JSONContent[]
   deletedNodes?: JSONContent[]
@@ -105,16 +130,16 @@ Note that `text` only drops text that a nested suggestion **inserted**. A nested
 
 Author A inserts `"Hello world"`, then author B inserts `"great "` before `"world"` (nested inside A's addition):
 
-| Suggestion        | `text`          | `fullText`            |
-| ----------------- | --------------- | --------------------- |
-| A (add, user-1)   | `"Hello world"` | `"Hello great world"` |
-| B (add, user-2)   | `"great "`      | `"great "`            |
+| Suggestion      | `text`          | `fullText`            |
+| --------------- | --------------- | --------------------- |
+| A (add, user-1) | `"Hello world"` | `"Hello great world"` |
+| B (add, user-2) | `"great "`      | `"great "`            |
 
 ```ts
 import { findSuggestions } from '@tiptap-pro/extension-tracked-changes'
 
 const suggestions = findSuggestions(editor)
-const outer = suggestions.find(s => s.userId === 'user-1')
+const outer = suggestions.find((s) => s.userId === 'user-1')
 
 outer.text // "Hello world"        → show this in a review sidebar
 outer.fullText // "Hello great world"  → use when you need the literal span
@@ -123,16 +148,25 @@ outer.fullText // "Hello great world"  → use when you need the literal span
 Default to `text` when displaying "what this person changed" (review panels, comment threads, activity logs). Reach for `fullText` only when you need the exact contiguous text the mark covers in the document.
 
 For `replace` suggestions:
+
 - `text` contains the **new** (inserted) text
 - `replacedText` contains the **old** (deleted) text
 - `deletionRange` and `insertionRange` give the exact positions of each part
 - `from` and `to` cover the full range of both parts
 
 For `markChange` suggestions:
+
 - `text` contains the affected text content
 - `markChanges` contains the tracked mark operations, including mark names and attrs
 
+For `attributeChange` suggestions:
+
+- `nodeType` is the schema name of the updated node
+- `attributeChanges` lists each attribute's previous and proposed values
+- accepting keeps the proposed values; rejecting restores the previous values
+
 For block-level node suggestions (e.g. inserting or deleting a paragraph or heading):
+
 - `text` always contains the actual text content of the affected node — never a `[nodeName]` placeholder
 - `insertedNodes` contains the full JSON representation of each inserted node
 - `deletedNodes` contains the full JSON representation of each deleted node
@@ -140,6 +174,7 @@ For block-level node suggestions (e.g. inserting or deleting a paragraph or head
 Use `insertedNodes` and `deletedNodes` to inspect node types and attributes when building richer UIs, such as displaying a node type badge alongside the suggestion text.
 
 For `split` suggestions:
+
 - `text` is always empty, because a block split neither adds nor removes text
 - `from` and `to` span the second block, the one created by the split
 
@@ -234,15 +269,16 @@ import {
 } from '@tiptap-pro/extension-tracked-changes'
 
 // Constants
-SUGGESTION_TYPES.ADD              // 'add'
-SUGGESTION_TYPES.DELETE           // 'delete'
-SUGGESTION_TYPES.REPLACE_DELETION  // 'replaceDeletion'
+SUGGESTION_TYPES.ADD // 'add'
+SUGGESTION_TYPES.DELETE // 'delete'
+SUGGESTION_TYPES.REPLACE_DELETION // 'replaceDeletion'
 SUGGESTION_TYPES.REPLACE_INSERTION // 'replaceInsertion'
-SUGGESTION_TYPES.MARK_CHANGE      // 'markChange'
-SUGGESTION_TYPES.SINK             // 'sink'
-SUGGESTION_TYPES.LIFT             // 'lift'
-SUGGESTION_TYPES.BLOCK_SPLIT      // 'blockSplit' (node-level)
-SUGGESTION_TYPES.SPLIT            // 'split' (query API)
+SUGGESTION_TYPES.MARK_CHANGE // 'markChange'
+SUGGESTION_TYPES.ATTRIBUTE_CHANGE // 'attributeChange'
+SUGGESTION_TYPES.SINK // 'sink'
+SUGGESTION_TYPES.LIFT // 'lift'
+SUGGESTION_TYPES.BLOCK_SPLIT // 'blockSplit' (node-level)
+SUGGESTION_TYPES.SPLIT // 'split' (query API)
 
 // Check if a mark type represents added content (matches 'add' and 'replaceInsertion')
 isAddLikeType('add') // true
