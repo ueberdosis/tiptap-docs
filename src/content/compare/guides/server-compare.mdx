@@ -1,0 +1,86 @@
+---
+title: Compare documents on the server
+tags:
+  - type: addon
+  - type: alpha
+meta:
+  title: Compare documents on the server | Tiptap Compare Docs
+  description: Compare Tiptap documents on the server.
+  category: Compare
+---
+
+The Compare package does not need a Tiptap Editor instance to run. Document comparison can run in a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API) or on the server.
+
+First, create the two documents you want to compare:
+
+```ts
+import { Editor } from '@tiptap/core'
+
+const editorA = new Editor()
+const docA = editorA.toJSON()
+
+const editorB = new Editor()
+const docB = editorB.toJSON()
+```
+
+To compare two documents, the Compare package needs the editor schema. To send the schema over the network, serialize it first:
+
+```ts
+import { serializeSchema } from '@tiptap-pro/compare'
+
+const serializedSchema = serializeSchema(editorA.schema)
+
+const response = await fetch('/api/compare', {
+  method: 'POST',
+  body: JSON.stringify({ docA, docB, schema: serializedSchema }),
+})
+```
+
+Then, on the server, deserialize the schema and compare the two documents using the [`compareDocuments`](/compare/api-reference/utilities#comparedocuments) utility.
+
+The [`compareDocuments`](/compare/api-reference/utilities#comparedocuments) utility returns a [`Changeset`](/compare/api-reference/utilities#changeset). A `Changeset` contains two documents and a list of `Change` objects that describe their differences. A `Changeset` is JSON-serializable, so you can store its JSON representation in your database or send it to the client for display.
+
+```ts
+import { compareDocuments, deserializeSchema } from '@tiptap-pro/compare'
+
+export async function POST(request: Request) {
+  const { docA, docB, schema: serializedSchema } = await request.json()
+  const schema = deserializeSchema(serializedSchema)
+  const changeset = compareDocuments({ schema, docA, docB })
+  const changesetJSON = changeset.toJSON()
+
+  return Response.json(changesetJSON)
+}
+```
+
+Back on the client, you can recover the `Changeset` object and display it.
+
+```ts
+import { Editor } from '@tiptap/core'
+import { Changeset } from '@tiptap-pro/compare'
+
+// Get changeset from the server response
+const changesetJSON = await response.json()
+const changeset = Changeset.fromJSON(changesetJSON)
+
+// Display the changeset
+const diffEditor = new Editor()
+diffEditor.commands.displayChangeset({ changeset })
+```
+
+There is also a [`compareVersions` utility](/compare/api-reference/utilities#compareversions) that allows you to compare two versions on the server.
+
+## Performance recommendations
+
+### Run document comparison in a separate process
+
+Comparing large documents is computationally expensive. In addition, document comparison is a synchronous process that blocks the event loop while it is running. For this reason, avoid running document comparison on the main thread on the client or server. Instead, run it in a separate process:
+
+- On the client, use a [Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
+- On the server, use a [worker thread](https://nodejs.org/api/worker_threads.html) or a message queue with a pool of workers.
+
+### Cache diff results
+
+The `compareDocuments` utility returns a [`Changeset`](/compare/api-reference/utilities#changeset). A `Changeset` is a JSON-serializable object you can cache. If your app compares two documents frequently, cache the `Changeset` to avoid repeating the comparison.
+
+The above recommendations also apply to other comparison APIs like [`compareVersions`](/compare/api-reference/utilities#compareversions).
