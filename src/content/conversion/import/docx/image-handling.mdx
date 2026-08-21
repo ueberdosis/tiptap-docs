@@ -84,15 +84,67 @@ See the [Image upload configuration](/conversion/import/docx/editor-extension#im
 ### Callback process
 This endpoint can be implemented with any web framework or cloud function. The key steps you need to integrate are:
 
-1. **Receive the file:** The request will contain the image file data which you will need to parse on your server.
-2. **Store the image:** Save the image to a location that is accessible via URL. This could be an AWS S3 bucket, a storage service like Cloudinary, or a public folder on your server. Generate a public URL or path for the saved file.
-3. **Return the URL:** Send back a JSON response containing the image’s URL. For example: `{ "url": "https://my-cdn.com/uploads/unique-image-name.png" }`. Make sure to send an HTTP 200 status. The converter will use the provided URL in the editor content.
+1. **Receive the file:** Read the raw request body, and take the filename from the `File-Name` header. See [what the request looks like](#what-the-request-looks-like).
+2. **Store the image:** Save the image to a location that is accessible via URL. This could be an AWS S3 bucket, a storage service like Cloudinary, or a public folder on your server. Generate a public URL for the saved file.
+3. **Return the URL:** Send back a `2xx` response with a JSON body containing the image’s absolute URL. For example: `{ "url": "https://my-cdn.com/uploads/unique-image-name.png" }`. See [what the response must contain](#what-the-response-must-contain).
 
 The Tiptap conversion service then takes that URL and inserts it into the Tiptap JSON as the `src` of an image node.
 
+### What the request looks like
+
+You get one request per image, with the image itself as the raw request body.
+
+| Part           | Value                                                                        |
+| -------------- | ---------------------------------------------------------------------------- |
+| Method         | `POST`, or the `method` you configured                                       |
+| Body           | The raw image bytes. Not `multipart/form-data`, and there is no `file` field |
+| `Content-Type` | The MIME type of the image, such as `image/png`                              |
+| `File-Name`    | The filename of the image, such as `image1.png`                              |
+
+So read the body as a blob or a buffer, not as form data. This is the difference from v1, which sent `multipart/form-data` with a `file` field.
+
+Two things worth knowing:
+
+- **Your `headers` and `queryParams` are sent as well**, so you can authenticate the request. `Content-Type` and `File-Name` are set by the conversion service, so you cannot replace them with your own.
+- **`File-Name` comes from inside the DOCX**, where names like `image1.png` are the norm. It is not unique across documents, so generate your own storage key instead of using it as one. Otherwise a second import overwrites the images from the first.
+
+Your endpoint should answer within 10 seconds, and it needs to handle concurrent requests, since several images can be in flight at once.
+
+### What the response must contain
+
+A `2xx` status, and a JSON body with a `url` string:
+
+```json
+{ "url": "https://my-cdn.com/uploads/unique-image-name.png" }
+```
+
+The `url` must be an absolute `http` or `https` URL that includes the host. It is used exactly as you return it: nothing is re-encoded or normalized, apart from whitespace around the value, so a signed URL still validates.
+
+#### Relative URLs are rejected, not resolved
+
+A path like `/uploads/image1.png` is rejected. Conversion runs on our servers rather than in your page, so there is no origin to resolve it against, and guessing one would produce a URL that silently points at the wrong place. Return the full URL yourself. Protocol-relative values like `//my-cdn.com/image1.png` are rejected for the same reason.
+
+#### When a URL cannot be used
+
+That image is skipped and the rest of the document imports normally. The same happens when the upload itself fails, times out, or returns something that is not JSON.
+
+Either way you get a message naming the file in the import's [verbose output](/conversion/import/docx/editor-extension#verbose-output). When your endpoint answered but its `url` could not be used, that message also carries one of these reasons:
+
+| Reason                                                                                   | Typical cause                                                                                        |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| the response did not contain a `url` field                                               | The JSON has no `url` key, uses a different one such as `location` or `src`, or sets `url` to `null` |
+| the `url` field was not a string                                                         | `url` holds a number or an object                                                                    |
+| the `url` field was empty                                                                | `url` is `""`, or only whitespace                                                                    |
+| the URL contains a space or a control character, so it cannot be used as-is              | An unencoded space or newline in the value. Percent-encode it before returning it                    |
+| the URL is relative, and this runs server side so there is no page to resolve it against | A path such as `/uploads/image1.png`, or a protocol-relative `//my-cdn.com/image1.png`               |
+| the URL is not a well-formed absolute http(s) URL                                        | A missing slash, as in `https:/my-cdn.com/image1.png`, or no host at all                             |
+| only http and https URLs can be used                                                     | A scheme such as `s3://` or `data:`                                                                  |
+
+The reported URL is cut off before the query string, so a token in a signed URL is not written to the log.
+
 ### Important considerations
 - **Public accessibility:** The endpoint URL you provide must be reachable from the internet, since Tiptap’s cloud service will call it. It cannot be localhost or behind a firewall. Likewise, the returned image URL should be publicly accessible (or at least accessible to anyone who needs to view the document)
-- **Correct response format:** Your endpoint should return a JSON object with a url field exactly. If the conversion service cannot parse the response or doesn’t find a URL, the image won’t be inserted.
+- **Correct response format:** Your endpoint must return a JSON object with a `url` field holding an absolute `http` or `https` URL. Anything else means that image is skipped, with the reason in the import’s verbose output. See [what the response must contain](#what-the-response-must-contain).
 - **Security:** Tiptap doesn’t restrict what endpoint you use. You can pass custom headers (e.g., `Authorization: Bearer ...`) and query parameters via the `imageUploadConfig` option for authentication. The conversion service will forward these when uploading images. Implement any necessary auth on your side (for instance, verifying a Bearer token or API key in the request headers).
 - **Persistence of images:** The URLs you return will be used in your editor’s content going forward. For example, after import, your editor will have image nodes with src: "https://my-cdn.com/uploads/unique-image-name.png". Anyone who later exports or views that content will attempt to load that URL. Make sure the images remain available at those URLs (don’t delete them immediately)​
 
@@ -139,6 +191,8 @@ This example shows a simple server implementation that accepts image uploads & u
 
    const filename = c.req.header('File-Name')
    const fileType = c.req.header('Content-Type')
+   // `File-Name` repeats across documents, so store under a key of your own
+   const key = `${crypto.randomUUID()}-${filename}`
    // end
    // if you are using v1 import, you need this
    const body = await c.req.parseBody()
@@ -157,7 +211,7 @@ This example shows a simple server implementation that accepts image uploads & u
        client: s3,
        params: {
          Bucket: AWS_S3_BUCKET,
-         Key: filename,
+         Key: key,
          Body: file,
          ContentType: fileType,
        },
@@ -200,6 +254,8 @@ Here is another implementation using bun with no dependencies:
 
        const filename = req.headers.get('File-Name')!
        const fileType = req.headers.get('Content-Type')!
+       // `File-Name` repeats across documents, so store under a key of your own
+       const key = `${crypto.randomUUID()}-${filename}`
        // end
        // if you are using v1 import, you need this
        const body = await req.formData()
@@ -222,7 +278,7 @@ Here is another implementation using bun with no dependencies:
 
        try {
          // The file already has a name and type, so we can use it directly
-         const s3File = s3Client.file(filename, { type: fileType })
+         const s3File = s3Client.file(key, { type: fileType })
          // Write the file to S3
          await s3File.write(file)
 
