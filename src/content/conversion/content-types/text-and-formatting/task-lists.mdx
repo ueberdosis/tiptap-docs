@@ -1,0 +1,116 @@
+---
+title: Task lists
+tags:
+  - type: beta
+meta:
+  title: Task lists | Tiptap Conversion
+  description: How Word checkbox lists convert to Tiptap task lists, which checkbox shapes are recognised, and how to style them.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Word checkbox lists convert to Tiptap `taskList` and `taskItem` nodes, with the ticked state preserved in both directions. Import is opt-in, because an editor without the task nodes cannot render them.
+
+## What you need
+
+- **Extensions:** [`ConvertKit`](/conversion/import/docx/convertkit) bundles `TaskList` and `TaskItem`. `TaskItem` is configured with `nested: true` so imported sublists stay valid.
+- **Configuration:** the editor extension resolves this for you. On the REST API, send `taskLists: "import"`.
+
+## Support overview
+
+|                       | Import            | Editor                 | Export    |
+| --------------------- | ----------------- | ---------------------- | --------- |
+| Checkbox lists        | Supported, opt-in | Supported (ConvertKit) | Supported |
+| Ticked state          | Supported         | Supported              | Supported |
+| Nested checkbox lists | Supported         | Supported              | Supported |
+
+A checkbox outside a list is left as it is today. An exported checkbox stays interactive in Word. Both are covered below.
+
+## Import
+
+Turn it on with the [editor extension](/conversion/import/docx/editor-extension) or the [REST API](/conversion/import/docx/rest-api).
+
+```js
+ImportDocx.configure({
+  token: 'your-jwt',
+  // 'auto' is the default: it imports task lists when your editor can render
+  // them, and leaves them as bullet lists when it cannot.
+  taskLists: 'auto',
+})
+```
+
+`auto` checks your editor schema for both `taskList` and `taskItem`. With `ConvertKit` they are always present, so `auto` imports them. Pass `'import'` to force it, or `'ignore'` to keep the old behaviour of importing checkbox lists as bullet or numbered lists.
+
+<Callout title="The REST API defaults to ignore" variant="info">
+  The editor extension knows your schema, so it can default to `auto`. A direct REST call cannot, so
+  `taskLists` defaults to `"ignore"` there. Send `taskLists: "import"` to get task nodes.
+</Callout>
+
+### Which checkboxes are recognised
+
+Word writes checkboxes in several ways. Three of them convert:
+
+- **Glyph bullets.** A box character used as the list bullet in the document's numbering, for example Wingdings `U+F06F` or the Unicode ballot box `U+2610`. This is the most common checkbox list in real documents. The ticked state comes from the glyph, so a list drawn with a ticked box imports as checked.
+- **Content controls.** A `w14:checkbox` control, which is what modern Word inserts and what Tiptap exports. The ticked state comes from the control.
+- **Legacy form fields.** The older Word form-field checkbox. The state comes from the field, falling back to its default when the current value is absent.
+
+A checkbox only becomes a task item when it is the **only** checkbox in its paragraph and it comes **before** the text. That is what separates a checklist from a form. A row like `Yes ☐ No ☐`, or a tick box placed after a sentence, keeps importing as it does today.
+
+Checkmark glyphs such as Wingdings `U+F0FC` (✔) are deliberately not treated as checkboxes. They are the most common decorative bullet in real documents, so reading them as checkboxes would turn ordinary lists and table tick marks into checklists.
+
+<Callout title="Numbering is dropped when a numbered list holds checkboxes" variant="warning">
+  A numbered list whose items each begin with a single checkbox imports as a task list, so the
+  numbers are lost. The checkbox carries more meaning than the number for a checklist, but if you
+  need the numbering, import with `taskLists: 'ignore'`.
+</Callout>
+
+## Editor rendering
+
+`TaskList` and `TaskItem` come from [`ConvertKit`](/conversion/import/docx/convertkit), so there is nothing to install. See the [`TaskList`](/editor/extensions/nodes/task-list) and [`TaskItem`](/editor/extensions/nodes/task-item) extension pages for their own options and commands.
+
+A task list renders as `<ul data-type="taskList">` with `<li data-type="taskItem" data-checked="true|false">`. Each item holds a `<label>` with the checkbox and a `<div>` with the item's content.
+
+`ConvertKit` ships the layout for these nodes, so the checkbox lines up with where a bullet would sit and item text lines up with bullet and numbered list text. You do not need to add CSS to get a checklist that matches the exported document.
+
+### Customising the look
+
+Style the data attributes rather than replacing the layout, so the alignment `ConvertKit` sets is preserved:
+
+```css
+/* A ticked item */
+.tiptap ul[data-type='taskList'] li[data-checked='true'] > div > p {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+/* The checkbox itself */
+.tiptap ul[data-type='taskList'] li > label input {
+  accent-color: #7c3aed;
+}
+```
+
+To turn the nodes off entirely, or to pass their own options:
+
+```js
+ConvertKit.configure({
+  taskList: false,
+  taskItem: false,
+})
+```
+
+## Export
+
+Export with the [editor extension](/conversion/export/docx/editor-extension) or the [REST API](/conversion/export/docx/rest-api). Both behave the same.
+
+A task item exports as a Word checkbox content control followed by its text. The control stays interactive in Word, so a reader can tick and untick it, and the ticked state you exported is what they see.
+
+Items use Word's List Paragraph style with a hanging indent, so a checkbox list sits at the same indent as a bullet or numbered list in the same document, with the same spacing between rows.
+
+Nested task lists export with the deeper indent Word uses for a nested list. When a task item holds several blocks, the checkbox goes on the first one and the rest are indented to match without a second checkbox.
+
+## Round trip
+
+A Word checkbox list imported and exported again comes back as a Word checkbox list with its ticked states intact. The same holds in the other direction: a task list written in the editor, exported, then imported, keeps its items and their states.
+
+Export always writes a content control, not the glyph-bullet shape most existing Word documents use. Both import correctly, so a document that arrives as glyph bullets leaves as content controls.
