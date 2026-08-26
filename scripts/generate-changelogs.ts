@@ -18,7 +18,7 @@ const OSS_CONFIG: RepoConfig = {
   branch: 'main',
   slugPrefix: '',
   packageScope: '@tiptap',
-  packageDirs: ['packages', 'packages-deprecated'],
+  packageDirs: ['packages'],
 }
 
 const PRO_CONFIG: RepoConfig = {
@@ -28,14 +28,7 @@ const PRO_CONFIG: RepoConfig = {
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
   packageDirs: ['packages'],
-  additionalPackagePaths: [
-    'packages-deprecated/ai-toolkit-ai-sdk',
-    'packages-deprecated/ai-toolkit',
-    'packages-deprecated/ai-toolkit-openai',
-    'packages-deprecated/ai-toolkit-langchain',
-    'packages-deprecated/ai-toolkit-tool-definitions',
-    'packages-deprecated/ai-toolkit-anthropic',
-  ],
+  additionalPackagePaths: [],
 }
 
 const REPO_CONFIGS: RepoConfig[] = [OSS_CONFIG, PRO_CONFIG]
