@@ -4,7 +4,7 @@ tags:
   - type: beta
 meta:
   title: Debugging Conversion Output | Tiptap Conversion
-  description: How to use verbose mode, inspect intermediate JSON, and diagnose why imported content isn't rendering in your editor.
+  description: How to read conversion warnings, inspect intermediate JSON, and diagnose why imported content isn't rendering in your editor.
   category: Conversion
 ---
 
@@ -12,25 +12,11 @@ import { Callout } from '@/components/ui/Callout'
 
 This guide covers the tools and patterns we use ourselves when something is off: failed imports, content that didn't render the way you expected, HTTP errors from the Conversion service, or a paginated editor that suddenly stops responding. It's organised by what you'd actually search for when stuck.
 
-## Verbose import logs
+## Conversion warnings and errors
 
-The DOCX import extension exposes a `verbose` option that controls how much diagnostic information the conversion service returns alongside the converted content. The value is a bitmask: combine levels by adding their values together.
-
-| Value | Level   | What you get                                     |
-| ----- | ------- | ------------------------------------------------ |
-| `1`   | `info`  | Informational messages                           |
-| `2`   | `warn`  | Warnings (e.g. images that couldn't be uploaded) |
-| `4`   | `error` | Errors                                           |
-| `7`   | all     | `info` + `warn` + `error`                        |
-
-```ts
-ImportDocx.configure({
-  token: 'YOUR_JWT',
-  verbose: 7, // info + warn + error
-})
-```
-
-When `verbose` is set, the response shape gains a `logs` field next to `content`:
+Every import returns a `logs` object next to the content, holding `warn` and `error` arrays. A
+warning means content did not make it into the document, which is the first thing to check when a
+document arrives with something missing.
 
 ```json
 {
@@ -38,12 +24,10 @@ When `verbose` is set, the response shape gains a `logs` field next to `content`
     /* Tiptap JSON */
   },
   "logs": {
-    "info": [],
     "warn": [
       {
-        "message": "Image file not found in media files",
-        "fileName": "image1.gif",
-        "availableMediaFiles": []
+        "message": "Image skipped: No imageUploadConfig was provided, so images cannot be imported.",
+        "fileName": "image1.gif"
       }
     ],
     "error": [
@@ -59,7 +43,24 @@ When `verbose` is set, the response shape gains a `logs` field next to `content`
 }
 ```
 
-These logs surface in the `onImport` callback's `context` along with the content. Print them while debugging; turn `verbose` off in production unless you're actively investigating.
+The logs reach the `onImport` callback on `context`, so you can log them or show them to whoever
+uploaded the file:
+
+```ts
+editor
+  .chain()
+  .importDocx({
+    file,
+    onImport(context) {
+      for (const warning of context.logs.warn) {
+        console.warn(warning.message)
+      }
+
+      context.setEditorContent()
+    },
+  })
+  .run()
+```
 
 ## Inspecting the converted content before insertion
 
@@ -96,7 +97,7 @@ Conversion requests that go to the service return one of a small set of response
 
 | Status | What it means                                                                                                                        | What to do                                                                                                                                           |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401`  | Missing or invalid JWT.                                                                                                              | Regenerate the token server-side.                                                                       |
+| `401`  | Missing or invalid JWT.                                                                                                              | Regenerate the token server-side.                                                                                                                    |
 | `403`  | The operation isn't permitted for your app. Most often: a format your plan doesn't include, or `customFonts` against the cloud plan. | Check the [pricing page](https://tiptap.dev/pricing) for plan format coverage. Custom fonts in PDF require an Enterprise plan or on-prem deployment. |
 | `5xx`  | Transient server-side error.                                                                                                         | Retry with exponential backoff. Open a support ticket if it persists.                                                                                |
 
@@ -142,7 +143,7 @@ The corresponding `footer*HTML` properties exist for footers. Each is `null` unt
 If the values are `null` after a DOCX import that you know contained headers and footers, two likely causes:
 
 - **Pages extension isn't registered.** ImportDocx auto-applies only if Pages is present.
-- **The DOCX didn't actually carry headers and footers.** Word can store templates and not commit them. Open the `verbose` output (above) to see what the converter extracted.
+- **The DOCX didn't actually carry headers and footers.** Word can store templates and not commit them. Check the logs (above) to see what the converter extracted.
 
 ## Schema mismatch warnings
 
