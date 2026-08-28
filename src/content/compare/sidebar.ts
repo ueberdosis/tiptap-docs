@@ -22,6 +22,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Server compare',
           href: '/compare/guides/server-compare',
         },
+        { title: 'With Tracked Changes', href: '/compare/guides/with-tracked-changes' },
       ],
     },
     {
