@@ -3,21 +3,21 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronDownIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { NavLink } from './NavLink'
 import { NavLinkButton } from './ui/NavLinkButton'
 import { cn } from '@/utils'
 
 const options = [
-  { label: 'Editor', href: '/editor/getting-started/overview' },
-  { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
+  { label: 'Editor', href: '/editor/getting-started/overview', dividerBelow: true },
   { label: 'AI Toolkit', href: '/ai/ai-toolkit/overview' },
+  { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
   { label: 'Comments', href: '/comments/getting-started/overview' },
-  { label: 'Tracked Changes', href: '/tracked-changes/getting-started/overview' },
-  { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
+  { label: 'Compare', href: '/compare/getting-started/overview' },
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
   { label: 'Pages', href: '/pages/getting-started/overview' },
-  { label: 'Compare', href: '/compare/getting-started/overview' },
+  { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
+  { label: 'Tracked Changes', href: '/tracked-changes/getting-started/overview' },
 ]
 
 export const ProductDropdown = () => {
@@ -51,9 +51,14 @@ export const ProductDropdown = () => {
               Documentations
             </div>
             {options.map((option) => (
-              <DropdownMenu.Item key={option.href} asChild>
-                <NavLink href={option.href}>{option.label}</NavLink>
-              </DropdownMenu.Item>
+              <Fragment key={option.href}>
+                <DropdownMenu.Item asChild>
+                  <NavLink href={option.href}>{option.label}</NavLink>
+                </DropdownMenu.Item>
+                {option.dividerBelow ? (
+                  <DropdownMenu.Separator className="my-2 mx-2.5 h-px bg-grayAlpha-200" />
+                ) : null}
+              </Fragment>
             ))}
           </div>
           <div className="block lg:hidden">
