@@ -17,6 +17,7 @@ export type EnterpriseCalloutProps = {
     | 'doc'
     | 'markdown'
     | 'tracked-changes'
+    | 'compare'
     | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
@@ -94,6 +95,13 @@ const VARIANT_CONFIG: Record<
     showWaitlist: false,
     contactUrl: 'https://cloud.tiptap.dev/v2/billing',
     buttonText: 'Add to plan'
+  },
+  compare: {
+    title: 'Get access to Tiptap Compare',
+    description:
+      'Join the pilot program to get early access to Compare and direct input on how it develops. Integrate it successfully with dedicated engineering support via Slack.',
+    showWaitlist: false,
+    contactUrl: 'https://tiptap.dev/contact-sales?form=pilot-program',
   },
   deprecated: {
     title: 'Migrate to AI Toolkit',
