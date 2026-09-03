@@ -82,6 +82,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
               releaseTag: 'alpha',
             },
+            {
+              title: 'Security',
+              href: '/ai/ai-toolkit/advanced-guides/security',
+            },
           ],
         },
         /*
