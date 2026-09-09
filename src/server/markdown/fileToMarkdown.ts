@@ -43,7 +43,7 @@ function stripHtml(value: string): string {
 }
 
 /** Build the minimal YAML frontmatter block served atop every `.md` response. */
-function buildFrontmatter(fields: {
+export function buildFrontmatter(fields: {
   title?: string
   description?: string
   canonicalUrl?: string
