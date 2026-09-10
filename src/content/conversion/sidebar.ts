@@ -285,6 +285,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/content-types/text-and-formatting/lists',
             },
             {
+              title: 'Task lists',
+              href: '/conversion/content-types/text-and-formatting/task-lists',
+            },
+            {
               title: 'Tabs',
               href: '/conversion/content-types/text-and-formatting/tabs',
             },
