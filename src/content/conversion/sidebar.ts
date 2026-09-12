@@ -144,7 +144,7 @@ export const sidebarConfig: SidebarConfig = {
                   href: '/conversion/export/docx/fonts',
                 },
                 {
-                  title: 'Ordered list numbering',
+                  title: 'List numbering and bullets',
                   href: '/conversion/export/docx/ordered-list-numbering',
                 },
                 {
