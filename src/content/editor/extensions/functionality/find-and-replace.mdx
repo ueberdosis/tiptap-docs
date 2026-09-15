@@ -65,13 +65,16 @@ FindAndReplace.configure({
 
 ### replaceTerm
 
-The initial text used by the replace commands.
+The initial text used by the replace commands. When regex mode is enabled, the replacement can
+reuse the complete match or capture groups.
 
 Default: `''`
 
 ```js
 FindAndReplace.configure({
-  replaceTerm: 'Editor',
+  useRegex: true,
+  searchTerm: '(color|colour)',
+  replaceTerm: '[$1]',
 })
 ```
 
@@ -100,19 +103,30 @@ FindAndReplace.configure({
 })
 ```
 
-Invalid patterns and patterns rejected as unsafe return no results. Regex mode controls matching only: replacement text is inserted literally, so capture references such as `$1` are not expanded.
+Regex mode can be combined with `caseSensitive` and `wholeWord`. Invalid patterns and patterns
+rejected as unsafe return no results. Regex mode uses RE2-compatible syntax, so lookarounds and
+backreferences in the search pattern are not supported.
 
 ### wholeWord
 
-Whether to match complete words only. This option is ignored when `useRegex` is enabled.
+Whether to require matches to have a Unicode word boundary on both sides. This works for literal
+and regex searches. Unicode word characters include letters, combining marks, numbers, and
+connector punctuation such as `_`.
 
 Default: `false`
 
 ```js
 FindAndReplace.configure({
+  caseSensitive: true,
+  useRegex: true,
   wholeWord: true,
+  searchTerm: 'cat|catalog',
 })
 ```
+
+For example, this configuration matches `cat` and `catalog`, but not `cats` or `Catalog`. The regex
+engine can try a later alternative or a longer match when an earlier result does not satisfy the
+whole-word boundary.
 
 ### searchDebounceMs
 
@@ -162,15 +176,50 @@ editor.commands.setSearchTerm('Tiptap')
 
 ### setReplaceTerm()
 
-Set the text used by `replace()` and `replaceAll()`.
+Set the text used by `replace()` and `replaceAll()`. In regex mode, the replacement can include
+capture-group substitutions.
 
 ```js
-editor.commands.setReplaceTerm('Editor')
+editor.commands.setReplaceTerm('[$1]')
+```
+
+#### Regex replacement tokens
+
+When regex mode is enabled, replacement terms support these JavaScript-style tokens:
+
+| Token      | Replacement                              |
+| ---------- | ---------------------------------------- |
+| `$$`       | A literal `$`                            |
+| `$&`       | The complete match                       |
+| `$1`–`$99` | The corresponding numbered capture group |
+| `$<name>`  | The corresponding named capture group    |
+
+Unmatched groups insert an empty string. A one-digit numbered reference that exceeds the pattern's
+capture count remains unchanged. For a two-digit reference, JavaScript-style fallback applies: if
+the complete number does not exist but its first digit names a capture, that capture is inserted
+followed by the second digit. For example, `$12` with one capture inserts capture 1 followed by `2`.
+Zero-padded references such as `$01` also follow JavaScript semantics and address capture 1. An
+unknown named reference inserts an empty string when the pattern contains named groups, and remains
+unchanged when it does not.
+
+Other `$` sequences remain unchanged. The JavaScript before-match token (`$` followed by a
+backtick) and after-match token (`$'`) are not expanded. When regex mode is disabled, every
+replacement term is inserted literally.
+
+In regex mode, escape the leading dollar sign with `$$` to preserve a supported token literally.
+For example, `$$1` inserts `$1`.
+
+```js
+editor.commands.setUseRegex(true)
+editor.commands.setSearchTerm('(color|colour)')
+editor.commands.setReplaceTerm('[$1]')
+editor.commands.replaceAll()
+// "color and colour" becomes "[color] and [colour]"
 ```
 
 ### setCaseSensitive()
 
-Enable or disable case-sensitive matching.
+Enable or disable case-sensitive matching. This works in literal and regex modes.
 
 ```js
 editor.commands.setCaseSensitive(true)
@@ -178,7 +227,8 @@ editor.commands.setCaseSensitive(true)
 
 ### setUseRegex()
 
-Enable or disable regular expression matching.
+Enable or disable regular expression matching. Regex mode can be enabled together with Match case
+and Whole word.
 
 ```js
 editor.commands.setUseRegex(true)
@@ -186,7 +236,7 @@ editor.commands.setUseRegex(true)
 
 ### setWholeWord()
 
-Enable or disable whole-word matching. This has no effect while regex mode is enabled.
+Enable or disable Unicode-aware whole-word matching for literal or regex searches.
 
 ```js
 editor.commands.setWholeWord(true)
@@ -281,6 +331,11 @@ editor.storage.findAndReplace.currentIndex
 ## Search behavior
 
 Matches update when the document or a search option changes. A match can span text nodes with different marks, but never crosses a textblock or a non-text inline node such as a hard break or mention.
+
+Match case, Regex, and Whole word are independent options and can be enabled together. In regex
+whole-word mode, the boundary is checked around the final regex result. This allows alternatives and
+quantifiers to continue until they produce a complete word. Consecutive matches can share a
+punctuation boundary, so a whole-word regex for `cat` finds all three matches in `cat-cat.cat`.
 
 `replaceAll()` replaces the matches that exist when the command runs. If the replacement text also matches the search, those new matches remain in storage after the transaction.
 
