@@ -39,7 +39,7 @@ The feature is opt-in. Consumers who don't supply `numberingFormats` see no beha
 
 | Export                                                                         | Package                             | Purpose                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OrderedListNumbering`                                                         | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and `bulletList` and exposes the `setOrderedListNumberingFormat(id)`, `toggleOrderedListWithFormat(format?)`, `setBulletListNumberingFormat(id)` and `toggleBulletListWithFormat(format?)` commands, and tracks the active format of each list kind at the selection via `editor.storage.orderedListNumbering`. Registered by `ConvertKit` (opt in via `orderedListNumbering: true`, or an options object with `defaultFormat` / `defaultBulletFormat` / `formats`). Enforces outermost-only numbering on paste, JSON, collaborative sync, and programmatic edits. |
+| `OrderedListNumbering`                                                         | `@tiptap-pro/extension-convert-kit` | Tiptap extension that adds the `numberingFormat` attribute to `orderedList` and `bulletList` and exposes the `setOrderedListNumberingFormat(id)`, `toggleOrderedListWithFormat(format?)`, `setBulletListNumberingFormat(id)`, `toggleBulletListWithFormat(format?)` and `registerNumberingFormats(formats)` commands, and tracks the active format of each list kind at the selection via `editor.storage.orderedListNumbering`. Registered by `ConvertKit` (opt in via `orderedListNumbering: true`, or an options object with `defaultFormat` / `defaultBulletFormat` / `formats`). Enforces outermost-only numbering on paste, JSON, collaborative sync, and programmatic edits. |
 | `generateNumberingFormatCss(formats, options?)`                                | `@tiptap-pro/extension-convert-kit` | Pure, dependency-free function that returns CSS text for the editor preview: same registry, same visual result.                                                                                                                                                                                                                          |
 | `NumberingFormatDefinition`, `NumberingLevelDefinition`, `NumberingMarkerFont` | `@tiptap-pro/extension-convert-kit` | The data shape your registry follows. Structurally compatible with `ExportDocx`'s `numberingFormats` config.                                                                                                                                                                                                                              |
 | `ExportDocx.configure({ numberingFormats })`                                   | `@tiptap-pro/extension-export-docx` | Pass the registry to the exporter so the `.docx` carries the matching definitions.                                                                                                                                                                                                                                                        |
@@ -204,6 +204,24 @@ Everything above holds for the bullet pair, with `defaultBulletFormat` in place 
 
 `toggleBulletListWithFormat` has the same reach as its ordered twin: from inside a checklist it converts the whole checklist into a plain bullet list, losing the checkboxes.
 
+### Adding formats after the editor is running
+
+`formats` is read once, when the editor is created. A registry that only exists later, the usual case being the one a DOCX import reconstructs from the file, goes in with `registerNumberingFormats(formats)`. The command merges by id and refreshes the injected preview stylesheet, so lists already in the document pick up their markers straight away:
+
+```ts
+editor.commands.registerNumberingFormats(formatsFromTheImport)
+```
+
+Merging by id means repeating the call is safe: re-registering an id replaces that entry rather than adding a second one, so importing the same file twice leaves one definition behind. An id you configured in `formats` is replaced the same way, which lets an imported document override a house format of the same name.
+
+The full registry, your configured formats plus everything registered since, is on the extension's storage. Hand it to the exporter to close the round trip:
+
+```ts
+ExportDocx.configure({ numberingFormats: editor.storage.orderedListNumbering.numberingFormats })
+```
+
+The `ImportDocx` extension calls `registerNumberingFormats` for you when `orderedListNumbering` is on, so an imported document renders its own markers without any wiring. Call it yourself when you load content some other way.
+
 ### Reading the active format
 
 To reflect the active format in a toolbar, read it from the extension's storage, which stays in sync as the selection and document change:
@@ -254,9 +272,9 @@ ConvertKit's types use plain string literals so the package does not pull in `do
 | `baseStyle`    | (required)               | The counter glyph, or the literal `'bullet'` for a [bullet ladder](#bullet-ladders). Otherwise equivalent to the matching docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value. The Latin/numeric styles (`'decimal'`, `'decimalZero'`, `'upperLetter'`, `'lowerLetter'`, `'upperRoman'`, `'lowerRoman'`, `'none'`) and many locale styles (e.g. `'hebrew1'`, `'thaiNumbers'`, `'hindiNumbers'`, `'japaneseCounting'`, `'koreanDigital'`, `'chineseCounting'`, `'ideographDigital'`) map to a matching CSS counter style so the preview renders their native glyph. Styles with no faithful CSS equivalent (e.g. `'chicago'`, `'ordinal'`, `'cardinalText'`), and any unrecognized string, fall back to `decimal` **in the editor preview only**; the exported `.docx` always carries the exact `LevelFormat` you set. |
 | `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar (see below). On a `'bullet'` level it is the glyph itself.                                                                                                                                             |
 | `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                                                                                                    |
-| `alignment`    | `'left'`                 | Marker text alignment within the number area. A `suffix` of `'space'` or `'nothing'` shrinks that area to the marker itself, leaving nothing to align in.                                                                                                                  |
+| `alignment`    | `'left'`                 | Where the marker is justified against `numberIndent`. See [Marker alignment](#marker-alignment).                                                                                                                                                                           |
 | `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or a docx-style measure string (`'0.63cm'`, `'0.25in'`, `'18pt'`).                                                                                                                                              |
-| `textIndent`   | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`.                                                                                                                                                                                    |
+| `textIndent`   | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`. A single item can sit somewhere else; see [Indents on a single item](#indents-on-a-single-item).                                                                                   |
 | `markerFont`   | None                     | Marker-only run formatting (see [`NumberingMarkerFont`](#numberingmarkerfont) below). Survives DOCX export and is reflected by `generateNumberingFormatCss` in the editor preview. On a `'bullet'` level, `font` is what a Word symbol-font bullet needs.                  |
 | `suffix`       | `'tab'`                  | Word's "Follow number with" (`w:suff`). A tab pads the marker out to `textIndent`; `'space'` draws one non-breaking space after the marker and `'nothing'` draws none, so the body text follows the marker directly. Honoured by the editor preview. |
 | `isLegalNumbering` | `false`              | Word's "Legal style numbering" (`w:isLgl`): a `%N` pointing at a roman or letter level is redrawn in arabic, so `Article IV.2` becomes `Article 4.2`. An arabic level keeps the form it counts in, so `decimalZero` stays zero-padded (`01.1`, not `1.1`), and a level that counts nothing still draws nothing. Honoured by the editor preview. |
@@ -371,6 +389,62 @@ When `numberIndent` / `textIndent` are omitted, the exporter and the CSS helper 
 | 7     | `2940` (2.04″) | `2580` (1.79″) | `360`   |
 | 8     | `3240` (2.25″) | `2880` (2.00″) | `360`   |
 
+## Marker alignment
+
+`alignment` says where the marker sits in relation to `numberIndent`, the position its level gives it. Word justifies the marker against that single point, and the editor preview does the same.
+
+| `alignment`        | Where the marker lands                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `'left'` (default) | Starts at `numberIndent` and grows to the right.                                                             |
+| `'right'`          | Ends at `numberIndent` and grows to the left, so markers of different widths line up on their right edge.   |
+| `'center'`         | Straddles `numberIndent`, half its width on each side.                                                       |
+
+Body text sits at `textIndent` whichever you pick, so a right-aligned marker leaves a wider gap between itself and the text than a left-aligned marker of the same width. Under `'left'` and `'center'`, a marker wider than that gap pushes the body text of its own item further right; a right-aligned marker grows into the space before `numberIndent` instead and never moves the text. Either way only that one item's text moves: a list nested inside the item still starts at the position its own level gives it.
+
+```ts
+// Roman numerals get wider as they count up. Right alignment keeps their
+// periods in one column and the text in another.
+levels: [{ baseStyle: LevelFormat.UPPER_ROMAN, textTemplate: '%1.', alignment: 'right' }]
+```
+
+A `suffix` of `'space'` or `'nothing'` drops the padded marker column, so under `'left'` and `'center'` the body text follows the marker directly instead of waiting for `textIndent`. Combined with `'right'` the marker still ends at `numberIndent`, which leaves the body text starting there as well.
+
+<Callout variant="info" title="An imported format carries no alignment">
+  The registry a DOCX import hands back does not report the alignment the source document used, so
+  an imported ladder draws left-aligned even where Word right-aligned it. Set `alignment` on the
+  formats you define in code.
+</Callout>
+
+## Indents on a single item
+
+A level places every item that belongs to it, but a single item can sit somewhere else. When the paragraph inside a list item carries an `indent` attribute, that item's marker and body text both move to it and the level's `textIndent` no longer applies to that item. A negative `firstLineIndent` on the same paragraph sets that item's gap between marker and text, in place of the level's distance from `numberIndent` to `textIndent`. A heading inside a list item is read the same way.
+
+```ts
+// Sits further right than its level puts it, with a 24px gap for the marker.
+{
+  type: 'listItem',
+  content: [
+    {
+      type: 'paragraph',
+      attrs: { indent: 96, firstLineIndent: -24 },
+      content: [{ type: 'text', text: 'Positioned by the item, not by the level' }],
+    },
+  ],
+}
+```
+
+Imported documents rely on this. The import writes each list paragraph's own Word indent onto the paragraph node as `indent` and `firstLineIndent` (see [ConvertKit](/conversion/import/docx/convertkit)), so the items land where the source document drew them rather than on the level's ladder.
+
+Conditions and limits:
+
+- It applies only to a list that names a format the editor knows about, whether from `formats` or from [`registerNumberingFormats`](#adding-formats-after-the-editor-is-running). Without one nothing positions the item, so the paragraph keeps rendering the indent itself as `padding-left` and `text-indent`, exactly as a paragraph outside a list does. The same holds when `orderedListNumbering` is off.
+- A task list is not part of a numbering ladder, so an item in a checklist keeps its indent on the paragraph.
+- A **positive** `firstLineIndent` is an ordinary first-line indent rather than a marker gap. It stays on the paragraph and indents the first line of the item's text.
+- `indentRight` is left alone. A list positions the left edge of its items, not the right.
+- A list item holding more than one block takes its position from the first block. The later blocks line up with it and do not render an indent of their own.
+- The attributes stay on the node, so `ExportDocx` writes the same indent back out and a DOCX round trip keeps it.
+- The editor positions the item and clears the paragraph's own `padding-left` and `text-indent` with an inline style. A rule of your own on that paragraph needs `!important` to take the block back.
+
 ## `generateNumberingFormatCss(formats, options?)`
 
 Returns the CSS text, and you choose how to inject it (a `<style>` tag, a CSS-in-JS layer, a stylesheet served by your build pipeline, etc.). The function is pure and dependency-free, safe to call at boot or whenever your registry changes.
@@ -387,7 +461,9 @@ generateNumberingFormatCss(formats, {
 | `scope`    | `'.tiptap.ProseMirror'` | CSS selector prefix scoping every emitted rule. Pass an empty string for unscoped output (handy if you inject inside Shadow DOM or a CSS layer of your own). |
 | `maxDepth` | `9`                     | Maximum nesting depth to emit rules for. Lower values produce smaller stylesheets.                                                                           |
 
-The generated CSS positions each list marker and its body text to match the absolute positions Word renders, including the stair-step indents at every nesting depth. If you need to override anything for theming (dark mode, RTL, font scaling), wrap the output in your own selector or scope and rely on the cascade.
+The generated CSS positions each list marker and its body text to match the absolute positions Word renders, including the stair-step indents at every nesting depth. Its rules set the left margin and padding on the list and on each of its items, so a lower-specificity rule of your own on a `ul`, `ol` or `li` inside a formatted list loses to them; vertical spacing is left to you. If you need to override anything for theming (dark mode, RTL, font scaling), wrap the output in your own selector or scope and rely on the cascade.
+
+List items need `box-sizing: border-box`. The item rules pair a percentage width with a padding, so without it an item sitting to the right of its level widens past the list's right edge. ConvertKit's CSS reset sets it inside `.tiptap`, which covers the default scope; add it yourself if you inject this CSS anywhere else.
 
 Every format emits both `ul[data-numbering-format="…"]` and `ol[data-numbering-format="…"]` rules, because a format applies to whichever list names it. Each chain then steps to the next depth with `> li >` through its own element (`ul:not([data-type="taskList"])` or `ol`), so a checklist keeps its checkboxes, and a ladder stops at a list of the other kind rather than reaching through it.
 
@@ -406,8 +482,8 @@ Word features the exporter intentionally does not model:
 | Per-level counter-restart (Word's "restart list after level N", `w:lvlRestart`) | Word's default behavior (sub-levels restart when the parent advances) is always used. |
 | Picture bullets (`w:lvlPicBulletId`)       | Use a symbol font through `markerFont.font` instead.                                  |
 | Continuing numbering across separate lists | Each list starts at its `startAt` independently.                                      |
-| Per-item marker overrides                  | Use a separate list to start at a different counter value.                            |
-| DOCX → editor import                       | Handled separately by `@tiptap-pro/extension-import-docx`.                            |
+| Per-item marker overrides (a different glyph or counter value on one item) | Use a separate list to start at a different counter value. Where an item *sits* is a separate matter; see [Indents on a single item](#indents-on-a-single-item). |
+| DOCX → editor import                       | Handled by `@tiptap-pro/extension-import-docx`, which feeds the formats it reconstructs to the editor. See [Adding formats after the editor is running](#adding-formats-after-the-editor-is-running). |
 
 ## See also
 
