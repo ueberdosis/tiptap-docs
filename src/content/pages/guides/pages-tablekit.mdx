@@ -155,21 +155,64 @@ These extras activate automatically when your document content was produced by t
 - **Floating tables.** DOCX `w:tblpPr` (tables positioned relative to an anchor with text wrap) is not converted by the importer; floats render as regular stacked tables.
 - **Pixel-perfect parity with Microsoft Word's table layout.** Word uses a proprietary layout algorithm that blends fixed and proportional sizing with content measurement. Expect small differences on tables authored with Word's "AutoFit to contents" setting.
 
+## Rows that span a page break
+
+By default a row that does not fit on the current page moves to the next page whole, which leaves a gap. Turn on row fragmentation and the row continues on the next page instead, the way Word splits a row:
+
+```ts
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+TableKit.configure({ experimentalRowFragmentation: true })
+```
+
+If you wire the nodes in yourself instead of using `TableKit`, `TableRow` carries the whole feature:
+
+```ts
+import { TableRow } from '@tiptap-pro/extension-pages-tablekit'
+
+TableRow.configure({ experimentalRowFragmentation: true })
+```
+
+<Callout title="Experimental and off by default" variant="warning">
+  The option name carries `experimental` on purpose. Turn it on deliberately, and test it against
+  your own documents before you ship it.
+</Callout>
+
+The row stays a single row in the document. Fragmentation is view-only: it emits no steps, so collaboration, DOCX export and printing are untouched, and a fragmented row still exports as one row.
+
+### What a cell may hold
+
+Whether a row can split is read from how its content renders, not from a list of node types, so your own custom nodes work without being registered anywhere.
+
+A break can land inside any box that stays in the normal flow. In practice that covers paragraphs, headings, bullet and ordered lists, nested lists, blockquotes, code blocks, and inline content such as images. The break falls between two lines, never through one. List numbering carries on across it, and an image moves to the next page whole rather than being cut.
+
+A row is left alone when a cell holds a box that lays itself out independently, because a page break cannot pass through one:
+
+- a nested table
+- anything rendered with `display: flex`, `grid`, `flow-root` or `inline-block`
+- clipped overflow, multiple columns, `contain: layout`, or absolute positioning
+
+Task list items are the case worth knowing about: the document sees an ordinary list item, but they render as flex containers, so a row holding one is left alone.
+
+As in Word, a row is also left alone when it sets an exact height or when one of its cells spans rows.
+
+### Styling the break
+
+This package paints no cell borders, so a fragmented row draws no line where it crosses a break either. If your tables have borders and you want them carried across, set `--pages-tablekit-border-color` on the table.
+
+Cell padding is read from ConvertKit's `--cell-margin-left` and `--cell-margin-right`. If something else pads your cells, set `--pages-tablekit-cell-padding-x` so the slice edges line up with the column borders.
+
 ## Known issues
 
-### Rows must fit on a single page
+### Rows that cannot be split must fit on a page
 
-When a table row does not fit on the current page, Pages moves the **entire row** to the next page as an atomic unit. This differs from Microsoft Word, which visually splits a tall row across pages. PagesTableKit does not currently support mid-row page splits.
+With row fragmentation off, or on a row it cannot split, a row that does not fit moves to the next page whole. If the row is taller than the page content area, moving it does not help: it will not fit there either, and Pages keeps trying to move it forward. Pages detects this and stops, but the page count then stops following the document.
 
-If a row is taller than the page content area, moving it to the next page doesn't help: it won't fit there either, and the editor will keep trying to move it forward indefinitely. The result is an infinite pagination loop and a broken editor.
-
-**How to avoid it.** Keep row heights below the page content area. Be especially careful with:
+**How to avoid it.** Either turn row fragmentation on, for rows it can split, or keep row heights below the page content area. Be especially careful with:
 
 - `heightRule: "atLeast"` rows whose content can grow unbounded.
 - DOCX imports that carry very tall exact-height rows authored for larger paper than your target page format.
-- Nested tables inside cells, which can force the outer row taller than the page.
-
-Mid-row page splitting is on the roadmap. ETA: TBD.
+- Nested tables inside cells, which can force the outer row taller than the page and which fragmentation cannot split.
 
 ## What to expect
 
@@ -222,7 +265,18 @@ TableKit.configure({
 })
 ```
 
-There are no configuration options unique to PagesTableKit; each key forwards to the underlying extension's standard options.
+Every key above forwards to the underlying extension's standard options. One option is unique to PagesTableKit:
+
+| Option                         | Default | What it does                                                                                                                                 |
+| ------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `experimentalRowFragmentation` | `false` | Lets a row taller than the space left on its page continue on the next one. See [Rows that span a page break](#rows-that-span-a-page-break). |
+
+```ts
+TableKit.configure({
+  experimentalRowFragmentation: true,
+  table: { resizable: true },
+})
+```
 
 ## Related
 
