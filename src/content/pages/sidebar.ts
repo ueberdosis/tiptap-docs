@@ -115,6 +115,11 @@ export const sidebarConfig: SidebarConfig = {
           tags: ['Experimental'],
         },
         {
+          title: 'Rows that span a page break',
+          href: '/pages/guides/row-fragmentation',
+          tags: ['Experimental'],
+        },
+        {
           title: 'PageKit',
           href: '/pages/guides/pagekit-usage',
         },
