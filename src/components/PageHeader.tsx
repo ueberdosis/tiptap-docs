@@ -204,13 +204,20 @@ export const PageHeaderTag = ({
   if (tag.type === 'restricted') {
     return (
       <Tag
-        variant="hint"
+        asChild
+        variant="info"
         tooltip={
           tag.tooltip ||
-          'This is a restricted release only available to our enterprise customers at the moment.'
+          'Compare is part of a pilot program for Business and Enterprise customers. Pilot participants get early access and give direct input on how the feature develops. Contact our team to join.'
         }
       >
-        Restricted Release
+        <Link
+          href="https://tiptap.dev/contact-sales?form=pilot-program"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {tag.label || 'Pilot program'}
+        </Link>
       </Tag>
     )
   }

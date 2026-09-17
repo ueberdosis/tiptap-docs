@@ -79,6 +79,21 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/conversion',
+      title: 'DOCX conversion',
+      children: [
+        {
+          title: 'Import tracked changes',
+          href: '/conversion/import/docx/tracked-changes',
+        },
+        {
+          title: 'Export tracked changes',
+          href: '/conversion/export/docx/tracked-changes',
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/tracked-changes/api-reference',
       title: 'API Reference',
       children: [

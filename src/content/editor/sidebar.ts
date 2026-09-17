@@ -266,7 +266,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
               tags: ['Add-on'],
-              releaseTag: "beta",
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -317,7 +317,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
               tags: ['Start'],
-              releaseTag: "beta",
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/filehandler',
@@ -530,6 +530,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/core-concepts/schema',
           title: 'Schema',
+        },
+        {
+          href: '/editor/core-concepts/decorations',
+          title: 'Decorations',
         },
         {
           href: '/editor/core-concepts/keyboard-shortcuts',
@@ -924,6 +928,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/node-positions',
           title: 'Node Positions',
+        },
+        {
+          href: '/editor/api/decorations',
+          title: 'Decorations',
         },
         {
           title: 'Resizable Node views',

@@ -37,6 +37,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/agents/comments',
             },
             {
+              title: 'Selection awareness',
+              href: '/ai/ai-toolkit/agents/selection-awareness',
+            },
+            {
               title: 'Streaming',
               href: '/ai/ai-toolkit/agents/streaming',
               releaseTag: 'alpha',
@@ -77,6 +81,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Tiptap Shorthand',
               href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
               releaseTag: 'alpha',
+            },
+            {
+              title: 'Security',
+              href: '/ai/ai-toolkit/advanced-guides/security',
             },
           ],
         },

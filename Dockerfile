@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 ARG BASE_PATH
 
@@ -23,8 +23,8 @@ ARG NEXT_TELEMETRY_DISABLED
 
 RUN apk add --no-cache curl
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm on pinned version (see package.json)
+RUN npm install -g pnpm@11.24.0
 
 # 1. Install dependencies only when needed
 FROM base AS deps
@@ -34,7 +34,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml* ./
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
