@@ -8,125 +8,134 @@ meta:
 
 import { Callout } from '@/components/ui/Callout'
 
-A Tiptap document has no real pages. Pages creates the look of paper pages by measuring your content and drawing headers, footers, and gaps at the right positions. In these docs we call those drawn parts the **page chrome**.
+A Tiptap document has no real pages. Pages measures your content and draws headers, footers and the gap between pages on top of it. The result looks like paper.
 
-Some content needs to know where the pages are before it can render itself correctly. For example:
+Some content has to know where the pages are before it can render itself. For example:
 
-- a block that must not be cut in half by a page break,
-- an embed whose height is only known after its data loads,
-- an overlay that must line up with page boundaries.
+- a block that must not be cut in half by a page break
+- an embed whose height is only known after it loads
+- an overlay that has to line up with a page edge
 
-The layout participant API is the official way to build this kind of content. A participant registers its DOM element with Pages. After every pagination refresh, Pages calls the participant back, so it can measure the pages and adjust itself. The built-in [PageBreak node](/pages/core-concepts/page-break-node) and the experimental [PagesTableKit row fragmentation](/pages/guides/pages-tablekit) are both built on this same API. They use no private access — your own code has the same power.
+A layout participant is how you build that content. You give Pages one DOM element and one callback. After every pagination update, Pages calls you back. You measure, then you adjust your own element.
 
-<Callout title="Availability" variant="hint">
-  The API lives on `editor.storage.pages`. It exists when your installed
-  `@tiptap-pro/extension-pages` provides it. Always guard your calls with optional chaining
-  (`editor.storage.pages?.registerLayoutParticipant?.(…)`). With that guard, your extension also
-  works in editors without Pages, or with an older Pages version — it simply does nothing there.
+The built-in [PageBreak node](/pages/core-concepts/page-break-node) and the experimental row fragmentation in [PagesTableKit](/pages/guides/pages-tablekit) both use this API. They get no special access. Your code can do the same things.
+
+<Callout title="Check that the API is there" variant="hint">
+  The API lives on `editor.storage.pages`. Always call it with optional chaining, like
+  `editor.storage.pages?.registerLayoutParticipant?.(…)`. Your extension then also works in an
+  editor without Pages, or with an older version of Pages. It simply does nothing there.
 </Callout>
 
 ## How the layout cycle works
 
-After each layout change (typing, a page format change, new content), Pages runs a refresh:
+After a change in the document, Pages runs a layout cycle:
 
-1. Pages updates the editor's minimum height from the last page footer.
-2. Pages calls every registered participant, **in document order** — top of the document first. The order matters: when a block near the top changes its height, everything below it moves. So participants lower in the document must measure after the ones above them.
-3. If any participant reports a change, the whole round runs again. This lets later participants measure against the new positions. Rounds repeat until nothing changes anymore. The number of rounds is limited (5 to 50, based on how many participants exist), so a broken participant can never freeze the editor.
-4. Only after the cycle is stable does Pages count the pages and redraw the page chrome.
+1. Pages calls every participant, one after another, **in document order**. Participants near the top of the document come first.
+2. If a participant reports a change, Pages runs the whole cycle again. Participants lower in the document can then measure the new positions.
+3. The cycle repeats until no participant reports a change.
+4. Only then does Pages count the pages and redraw the headers and footers.
 
-Your job inside the callback is small and strict: measure, update **only DOM that belongs to your participant**, and report honestly whether you changed anything.
+Document order matters. When a block near the top becomes taller, everything below it moves down. So a participant lower in the document has to measure after the ones above it.
+
+Your work inside the callback is small and strict. Measure. Change only your own element. Then say honestly whether you changed anything.
 
 ## API reference
 
-### `registerLayoutParticipant(options)`
+### registerLayoutParticipant(options)
 
 ```ts
-const registration = editor.storage.pages.registerLayoutParticipant({
+const registration = editor.storage.pages?.registerLayoutParticipant?.({
   element: nodeViewDom,
   layout: (context) => {
-    // measure page geometry, adjust your own DOM
+    // Measure the pages, then adjust your own element.
     return changedSomething
   },
 })
 ```
 
-| option    | description                                                                                             |
-| --------- | ------------------------------------------------------------------------------------------------------- |
-| `element` | Your stable root element. It identifies the participant and sets its place in the document-order cycle. |
-| `layout`  | Called during each cycle round. Receives a `PageLayoutContext`. Returns a `boolean`, or nothing.        |
+| Option    | What it is                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------ |
+| `element` | Your root element. Pages uses it to identify you and to find your place in document order. |
+| `layout`  | Your callback. Pages calls it on every pass and passes it a `PageLayoutContext`.           |
 
-The call returns a registration handle with one method: `dispose()`. Call it when your NodeView is destroyed. Calling it twice is safe, and it never removes a newer registration made later for the same element.
+You get back a registration object with one method, `dispose()`. Call it when your NodeView is destroyed. Calling it twice is safe. It never removes a newer registration for the same element.
 
-### The `layout` callback contract
+### What your callback returns
 
-| you return | meaning                                                                                                                                                         |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `true`     | "I changed something." Pages runs another round, so participants below you can measure again. In a scoped pass (see below) it means "run a full cycle instead." |
-| `false`    | "Nothing changed for me."                                                                                                                                       |
-| nothing    | Pages compares your element's inline `style` before and after the call, and decides for you. An explicit boolean is more precise.                               |
+| Return value | What it means                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| `true`       | "I changed something." Pages runs another pass, so participants below you can measure again.               |
+| `false`      | "Nothing changed for me."                                                                                  |
+| nothing      | Pages compares the inline styles on your element before and after the call. Returning a boolean is better. |
 
-If your callback throws an error, Pages logs one console warning and skips you for that round. The editor keeps working.
+In a scoped pass, see [requestParticipantLayout](#requestparticipantlayoutelement), `true` means something different: "please run a full cycle instead".
 
-### `PageLayoutContext`
+### PageLayoutContext
 
-| field       | description                                                                                                                                                                                                                                                                           |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `passToken` | An object that is unique for each round. Use it as a cache key, so an expensive measurement (for example the page chrome positions) runs once per round, even when many participants need it.                                                                                         |
-| `defer()`   | Call this when your update is applied through a ProseMirror transaction that arrives _after_ the current round. Pages then waits before counting pages, instead of measuring a state where your update is only half visible. Participants that write styles directly never need this. |
-| `scope`     | `'document'` in a normal full cycle, `'participant'` in a scoped pass. Missing on older Pages versions.                                                                                                                                                                               |
+| Field       | What it is                                                                                                                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `passToken` | A new object for every pass. Use it as a cache key, so one expensive measurement is shared by every participant in that pass.                                          |
+| `defer()`   | Say that your update arrives later, through a ProseMirror transaction. Pages then waits before it counts the pages. You do not need this if you write styles directly. |
+| `scope`     | `'document'` in a full cycle, `'participant'` in a scoped pass. Older versions of Pages do not set it.                                                                 |
 
-### `requestPageLayout()`
+### requestPageLayout()
 
-Call this when your participant's own geometry changed, so pagination can update. Examples: an image finished loading, a section collapsed, an embed resized. It schedules one full cycle for the next animation frame. Any number of requests in the same frame become one cycle.
+Call this when your own size changed and pagination has to catch up. For example when an image finished loading, a section was collapsed, or an embed resized itself.
 
-### `requestParticipantLayout(element)`
+It schedules one full cycle for the next animation frame. Several calls in the same frame become one cycle.
 
-A cheaper alternative for changes that happen many times per second and stay **inside your own element** — nothing becomes taller or shorter, so no page boundary can move. The typical case is a drag interaction that fires on every frame.
+Call it when something really changed, not on every pass. A participant that asks for a new cycle every time it runs would keep the editor busy, so Pages stops the repeat and warns you. To ask for one more pass from inside your callback, return `true` instead.
 
-Pages then runs a single pass over only the signaled participants: no document-wide cycle, no page counting, no footnote sync. The work depends on how many participants you signal, not on how large the document is. If your callback finds out the change was bigger than expected, return `true` (or throw) and Pages runs a full cycle instead. When a full cycle is already scheduled, it replaces any waiting scoped requests.
+### requestParticipantLayout(element)
+
+This is the cheaper option for changes that happen many times per second and stay **inside your own element**, so nothing becomes taller or shorter and no page edge can move. A drag interaction is the typical case.
+
+Pages then runs your callback on its own. It does not walk the document, count pages or sync footnotes. The cost depends on how many participants you signal, not on the size of the document.
+
+If your callback finds out the change was bigger than expected, return `true` or throw. Pages then runs a full cycle. If a full cycle is already scheduled, it replaces any waiting scoped requests.
 
 ## Minimal example
 
 ```ts
-// In a NodeView constructor:
+// In your NodeView constructor:
 const registration = editor.storage.pages?.registerLayoutParticipant?.({
   element: dom,
   layout: () => {
-    const changed = adjustMyOwnDom(dom) // measure pages, update own styles
+    const changed = adjustMyOwnDom(dom)
     return changed
   },
 })
 
-// When this node's own size changes:
+// When your own size changes:
 editor.storage.pages?.requestPageLayout?.()
 
 // In NodeView.destroy():
 registration?.dispose()
 ```
 
-## Complete example: a block that is never cut by a page break
+## Full example: a block that is never cut by a page break
 
-A callout box that moves itself below the next page break whenever it would sit across one. This is `break-inside: avoid` behavior for your own node:
+This callout box moves itself below the next page break when it would otherwise sit across one. It is `break-inside: avoid` for your own node.
 
 ```ts
 import { mergeAttributes, Node } from '@tiptap/core'
 
-// Browsers return fractional pixels, so never compare positions with ===.
+// Browsers report fractional pixels, so never compare positions with ===.
 const PIXEL_TOLERANCE = 0.5
 
-// Cache the chrome measurements per cycle round, shared by all callouts.
-const chromeRectsPerPass = new WeakMap<object, DOMRect[]>()
+// One measurement per pass, shared by every callout in the document.
+const breakRectsPerPass = new WeakMap<object, DOMRect[]>()
 
-function getPageChromeRects(editorDom: HTMLElement, passToken: object): DOMRect[] {
-  const cached = chromeRectsPerPass.get(passToken)
+function getPageBreakRects(editorDom: HTMLElement, passToken: object): DOMRect[] {
+  const cached = breakRectsPerPass.get(passToken)
   if (cached) return cached
 
-  // `.breaker` is the chrome block Pages draws between two pages.
+  // `.breaker` is the block Pages draws between two pages.
   const rects = Array.from(
     editorDom.querySelectorAll('[data-tiptap-pagination] .breaker'),
     (element) => element.getBoundingClientRect(),
   )
-  chromeRectsPerPass.set(passToken, rects)
+  breakRectsPerPass.set(passToken, rects)
   return rects
 }
 
@@ -148,8 +157,8 @@ export const KeepTogetherCallout = Node.create({
       const dom = document.createElement('aside')
       dom.setAttribute('data-keep-together', '')
 
-      // The push we currently apply. We remember it, so we can compute
-      // where the box would sit WITHOUT the push.
+      // How far we push the box down right now. We keep it so we can work out
+      // where the box would sit without the push.
       let appliedPush = 0
 
       const registration = editor.storage.pages?.registerLayoutParticipant?.({
@@ -160,16 +169,16 @@ export const KeepTogetherCallout = Node.create({
           const naturalBottom = naturalTop + box.height
 
           // Does the box sit across a page break?
-          const chrome = getPageChromeRects(editor.view.dom, context.passToken)
-          const crossed = chrome.find(
+          const breaks = getPageBreakRects(editor.view.dom, context.passToken)
+          const crossed = breaks.find(
             (rect) => naturalTop < rect.top - PIXEL_TOLERANCE && naturalBottom > rect.top,
           )
 
           const neededPush = crossed ? crossed.bottom - naturalTop : 0
 
-          // Only write when the value really changed. Writing the same value
-          // on every round would look like a new change each time, and the
-          // cycle would never stop.
+          // Write only when the value really changed. Writing the same value on
+          // every pass looks like a new change every time, and the cycle would
+          // never end.
           if (Math.abs(neededPush - appliedPush) <= PIXEL_TOLERANCE) {
             return false
           }
@@ -186,9 +195,9 @@ export const KeepTogetherCallout = Node.create({
         dom,
         contentDOM: dom,
 
-        // We change our own style from outside ProseMirror. Without this,
-        // ProseMirror thinks the DOM is broken, redraws the node, and
-        // removes our push again.
+        // We change our own style outside of ProseMirror. Without this,
+        // ProseMirror treats the DOM as broken, redraws the node, and removes
+        // the push again.
         ignoreMutation: (mutation) =>
           mutation.type === 'attributes' &&
           mutation.target === dom &&
@@ -203,39 +212,71 @@ export const KeepTogetherCallout = Node.create({
 })
 ```
 
-<Callout title="Blocks taller than a page" variant="warning">
-  A block that is taller than one page can never be kept together — moving it to the next page does
-  not help. Production code must detect this case and apply no push, or you recreate the
-  [oversized-block layout
+<Callout title="Blocks taller than one page" variant="warning">
+  A block taller than a page can never be kept together. Moving it to the next page does not help.
+  Your code has to notice this and push nothing, or you create the [oversized block layout
   loop](/pages/core-concepts/limitations#oversized-non-splittable-blocks-cause-an-infinite-layout-loop).
-  Pages' guards will stop the loop and log a warning, but your block will not be where you want it.
+  Pages stops the loop and warns, but your block will not be where you want it.
 </Callout>
 
-## Measuring page geometry
+## Measuring the pages
 
-Inside a callback you usually need to know where the pages are. You can measure them in three ways:
+Inside your callback you usually need to know where the pages are. There are three ways.
 
-- The rendered page chrome in the DOM: the pagination container `[data-tiptap-pagination]`, the between-page blocks `.breaker`, and the `.tiptap-page-footer` / `.tiptap-page-header` elements inside it.
-- The CSS variable `--page-max-height` — the tallest content area of one page.
-- The storage helpers `getPageCount()`, `getPageForPosition(pos)`, `getDistanceToNextPagebreak(pos)`, and `getDistanceToPrevPagebreak(pos)`.
+The simplest way is to ask Pages:
 
-Remember that Pages supports a `zoom` option. If your integration uses it, divide measured rectangles by the zoom factor.
+```ts
+const pages = editor.storage.pages
+const position = editor.state.selection.from
 
-## Advanced: participant transactions
+const count = pages?.getPageCount?.()
+const pageNumber = pages?.getPageForPosition?.(position)
+const spaceLeftBelow = pages?.getDistanceToNextPagebreak?.(position)
+```
 
-Some participants apply their updates through ProseMirror transactions instead of direct style writes. They coordinate with Pages through two transaction metas:
+`getDistanceToNextPagebreak(pos)` and `getDistanceToPrevPagebreak(pos)` return the distance in pixels from a document position to the page edge below or above it, or `null` when there is no edge. They already take the `zoom` option into account.
 
-- Set `'pages-layout-participant-change'` on your transaction. Pages then runs a follow-up cycle after your decorations render, and waits with page counting until then. Combine it with `defer()` in the round that queued the transaction.
-- Also set `'pages-layout-participant-scoped-change'` to promise that your change moved nothing vertically. Pages then skips the document-wide follow-up completely. Only set it when you have verified the promise — a wrong promise leaves the page count outdated until the next real change.
+The second way is the CSS variable `--page-max-height`. It is the tallest content area one page can have.
 
-This is the pattern PagesTableKit's row fragmentation uses. Most participants write styles directly and never need it.
+The third way is to measure the rendered parts yourself: the container `[data-tiptap-pagination]`, the block between two pages `.breaker`, and `.tiptap-page-header` and `.tiptap-page-footer` inside it. Use this when you need exact rectangles, as the example above does.
+
+<Callout title="Two things to watch" variant="warning">
+  Pages draws headers and footers with a solid background. Content behind them is hidden, not drawn
+  on top. So a participant whose content would cross a page edge has to move it, or leave space for
+  it. If you theme that background through your own `--background` token, set
+  `--pages-page-background-color` instead.
+
+Pages also supports a `zoom` option. Rectangles you measure yourself are in zoomed pixels, so
+divide them by your zoom factor. Take that factor from your own configuration. Do not try to work
+it out by comparing a rectangle with `offsetWidth`. `offsetWidth` is a whole number, so the result
+is slightly wrong, and the error grows the further down the document you measure.
+
+</Callout>
+
+## Advanced: updates through transactions
+
+Some participants apply their update with a ProseMirror transaction instead of writing styles. Set one or both of these on that transaction:
+
+- `'pages-layout-participant-change'` tells Pages to run one more cycle after your change is rendered, and to wait with counting the pages until then. Use it together with `defer()` in the pass that created the transaction.
+- `'pages-layout-participant-scoped-change'` promises that your change moved nothing up or down. Pages then skips the extra cycle. Set it only when you have checked that the promise is true. A wrong promise leaves the page count out of date until the next real change.
+
+Row fragmentation in PagesTableKit works this way. Most participants write styles directly and never need it.
 
 ## Rules that keep the cycle healthy
 
-1. **Only touch DOM you own.** Changing other elements from a callback makes participants work against each other.
-2. **Only write when the value changed.** Compare with a small tolerance first, because browsers return fractional pixels. Writing on every round is the most common reason a cycle never stops.
-3. **Return honest booleans.** `true` costs one more round for everyone. Return it only when you really changed something.
-4. **Cache per round with `passToken`.** One chrome measurement per round, no matter how many participants exist.
-5. **Dispose on destroy.** A registration for a removed NodeView is skipped automatically once its element is disconnected, but disposing keeps the registry clean.
+1. **Touch only your own element.** Changing other elements makes participants fight each other.
+2. **Write only when the value changed.** Compare with a small tolerance first, because browsers report fractional pixels. Writing on every pass is the most common reason a cycle never ends.
+3. **Return an honest boolean.** `true` costs one more pass for everyone. Return it only when you really changed something.
+4. **Cache with `passToken`.** Measure the pages once per pass, however many participants you have.
+5. **Dispose on destroy.** Pages skips a participant whose element has left the document, but disposing keeps things clean.
 
-If a participant keeps reporting changes until the round limit is reached, Pages logs `[Pages] A registered layout participant did not stabilize` and pauses participant processing for that editor until the next real document or configuration change. Pages protects the editor by turning your feature off — treat the warning as a bug in your callback.
+## When something goes wrong
+
+Pages protects the editor and writes a warning in the browser console. Treat each of these as a bug in your callback.
+
+| What happens                                                | What Pages does                                                                                                                        |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Your callback throws                                        | Skips you for that pass and carries on. The editor keeps working.                                                                      |
+| Your callback reports a change every time and never settles | Pauses your participant only. Every other participant keeps running. Pages calls you again after the next real change in the document. |
+| You ask for a new cycle, or a scoped pass, on every pass    | Stops the repeat. A real edit such as typing clears it, so normal editing never triggers this.                                         |
+| You call `defer()` but your transaction never arrives       | Counts the pages anyway after a while, so the page count keeps following the document.                                                 |
