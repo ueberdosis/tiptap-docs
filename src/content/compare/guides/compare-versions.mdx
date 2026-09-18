@@ -1,0 +1,241 @@
+---
+title: Compare versions
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Compare versions | Tiptap Compare Docs
+  description: Compare two Tiptap Collaboration version updates and display their differences.
+  category: Compare
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Use the [`compareVersions` command](/compare/api-reference/commands#compareversions) to compare two Yjs version updates and display the changes.
+
+<CodeDemo isPro path="/Extensions/CompareVersions" />
+
+## Get the versions
+
+First, retrieve the versions using the [`getVersions` method](/compare/api-reference/utilities#getversions). If you're using the [Snapshot extension](/collaboration/documents/snapshot), you can access the available versions from `editor.storage.snapshot.versions`. Each item in this array includes a `version` property containing the version ID. Pass these version IDs to `getVersions`.
+
+To learn how to save snapshots and retrieve version data, see the [Snapshot guide](/collaboration/documents/snapshot#access-version-data-directly-from-storage).
+
+```ts
+import { getVersions } from '@tiptap-pro/compare'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+
+const provider = new TiptapCollabProvider()
+
+const { prevSnapshot: versionA, snapshot: versionB } = await getVersions({
+  provider,
+  // Version IDs, obtained from the Snapshot extension
+  fromVersion: 1,
+  toVersion: 2,
+})
+```
+
+## Compare versions
+
+Add the `Compare` extension to the editor where you want to display the changes. Then call `compareVersions` with the two Yjs versions.
+
+```ts
+import { Editor } from '@tiptap/core'
+import { Compare } from '@tiptap-pro/compare'
+
+// The editor where the changes are displayed
+const editor = new Editor({
+  extensions: [
+    Compare,
+    // ...other extensions
+  ],
+})
+
+editor.commands.compareVersions({
+  versionA,
+  versionB,
+})
+```
+
+The [`compareVersions` command](/compare/api-reference/commands#compareversions) compares the two versions and immediately displays the changes.
+
+## Style the changes
+
+`compareVersions` adds the user ID to each change's metadata when it is available. Use `renderDecorations` to give each user a color.
+
+```ts
+const colors = [
+  '#FAF594',
+  '#958DF1',
+  '#F98181',
+  '#70CFF8',
+  '#FBBC88',
+  '#94FADB',
+  '#B9F18D',
+  '#6EE7B7',
+]
+const colorMapping = new Map()
+
+const getUserColor = (userId) => {
+  if (!colorMapping.has(userId)) {
+    colorMapping.set(userId, colors[(userId || '').length % colors.length])
+  }
+
+  return colorMapping.get(userId)
+}
+
+const getDiffUserColor = ({ userId, diffType }) =>
+  `${getUserColor(userId)}${diffType === 'removed' ? '50' : 'B0'}`
+
+const getDecorationAttributes = ({ userId, backgroundColor, textColor }) => {
+  if (!userId) {
+    return {}
+  }
+
+  return {
+    'data-diff-user-id': userId,
+    style: `--diff-background-color: ${backgroundColor}; --diff-text-color: ${textColor}`,
+  }
+}
+
+const getAddedDecorationAttributes = (userId) =>
+  getDecorationAttributes({
+    userId,
+    backgroundColor: getDiffUserColor({ userId, diffType: 'added' }),
+    textColor: '#000',
+  })
+
+const renderDecorations = ({ suggestion, defaultRenderDecorations }) => {
+  const userId = suggestion.metadata?.userId
+  const removedAttributes = getDecorationAttributes({
+    userId,
+    backgroundColor: getDiffUserColor({ userId, diffType: 'removed' }),
+    textColor: '#777',
+  })
+  const addedAttributes = getAddedDecorationAttributes(userId)
+
+  return defaultRenderDecorations({
+    attributes: addedAttributes,
+    subChangeAttributes: addedAttributes,
+    replacementAttributes: removedAttributes,
+    replacementSubChangeAttributes: removedAttributes,
+  })
+}
+
+const getNestedChangeAttributes = ({ nestedChange }) =>
+  getAddedDecorationAttributes(nestedChange.metadata?.userId)
+```
+
+Pass the custom renderer to `compareVersions`.
+
+```ts
+editor.commands.compareVersions({
+  versionA,
+  versionB,
+  displayOptions: { getNestedChangeAttributes, renderDecorations },
+})
+```
+
+Add these styles to your stylesheet. They use the CSS variables set by `renderDecorations` and show the user ID on hover.
+
+```css
+[data-diff-user-id] {
+  cursor: pointer;
+  display: inline-block;
+  position: relative;
+}
+
+[data-diff-user-id]::before {
+  background-color: #fff;
+  border: 1px solid var(--black);
+  border-radius: 6px;
+  color: var(--black);
+  content: attr(data-diff-user-id);
+  font-size: 0.75rem;
+  font-weight: normal;
+  left: 0;
+  line-height: normal;
+  padding: 3px;
+  position: absolute;
+  text-align: center;
+  top: 105%;
+  visibility: hidden;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+[data-diff-user-id]:hover::before {
+  visibility: visible;
+}
+
+/* Current, added, and nested content */
+.diff-suggestion,
+.diff-suggestion-nested-change {
+  background-color: var(--diff-background-color, rgb(226 255 232 / 69%));
+  color: var(--diff-text-color, var(--black));
+}
+
+strong .diff-suggestion-diff {
+  font-weight: normal;
+}
+
+em .diff-suggestion-diff {
+  font-style: normal;
+}
+
+code:not(pre code) .diff-suggestion-diff {
+  font-family: sans-serif;
+}
+
+.diff-suggestion-diff strong {
+  font-weight: bold;
+}
+
+.diff-suggestion-diff em {
+  font-style: italic;
+}
+
+.diff-suggestion-diff code:not(pre code) {
+  font-family: monospace;
+}
+
+.diff-suggestion.diff-suggestion--change-group,
+.diff-suggestion-nested-change--block {
+  background-color: var(--diff-background-color, rgb(226 255 232 / 69%));
+}
+
+.diff-suggestion-sub-change,
+.diff-suggestion-nested-change--inline {
+  background-color: var(--diff-background-color, rgb(226 255 232 / 69%));
+}
+
+/* Replacement content from the previous version */
+.diff-suggestion-diff {
+  background-color: var(--diff-background-color, rgb(255 226 226 / 31%));
+  color: var(--diff-text-color, var(--black));
+  text-decoration: line-through;
+}
+
+.diff-suggestion-diff.diff-suggestion-diff--change-group {
+  background-color: var(--diff-background-color, rgb(255 226 226 / 31%));
+}
+
+.diff-suggestion-diff-sub-change {
+  background-color: var(--diff-background-color, rgb(255 226 226 / 31%));
+}
+
+.tiptap li:has(.diff-suggestion, .diff-suggestion-nested-change) {
+  display: list-item;
+}
+
+.diff-suggestion-diff:has(> :is(blockquote, h1, h2, h3, h4, h5, h6, hr, ol, p, pre, ul)) {
+  display: block;
+  width: 100%;
+}
+
+.diff-suggestion:is(blockquote, h1, h2, h3, h4, h5, h6, hr, ol, p, pre, ul),
+.diff-suggestion-nested-change--block:is(blockquote, h1, h2, h3, h4, h5, h6, hr, ol, p, pre, ul) {
+  display: block;
+  width: 100%;
+}
+```

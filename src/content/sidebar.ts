@@ -45,6 +45,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Editor',
         },
         {
+          href: '/ai/ai-toolkit/overview',
+          title: 'AI Toolkit',
+        },
+        {
           href: '/collaboration/getting-started/overview',
           title: 'Collaboration',
         },
@@ -53,16 +57,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
-          href: '/tracked-changes/getting-started/overview',
-          title: 'Tracked Changes',
-        },
-        {
-          href: '/ai/ai-toolkit/overview',
-          title: 'AI Toolkit',
-        },
-        {
-          href: '/collaboration/documents/snapshot',
-          title: 'Snapshots',
+          href: '/compare/getting-started/overview',
+          title: 'Compare',
         },
         {
           href: '/conversion/getting-started/overview',
@@ -71,6 +67,14 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/pages/getting-started/overview',
           title: 'Pages',
+        },
+        {
+          href: '/collaboration/documents/snapshot',
+          title: 'Snapshots',
+        },
+        {
+          href: '/tracked-changes/getting-started/overview',
+          title: 'Tracked Changes',
         },
       ],
     },

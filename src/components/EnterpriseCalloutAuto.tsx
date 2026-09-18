@@ -17,6 +17,7 @@ export type EnterpriseCalloutAutoProps = {
     | 'doc'
     | 'markdown'
     | 'tracked-changes'
+    | 'compare'
     | 'deprecated'
   renderMode?: 'inline' | 'sidebar'
   disableWaitlist?: boolean

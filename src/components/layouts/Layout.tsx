@@ -32,6 +32,10 @@ const PageEditFooter = async () => {
 }
 
 export const LayoutCTABar = () => {
+  if (CTA_BAR.hideAt && CTA_BAR.hideAt <= new Date()) {
+    return null
+  }
+
   return (
     <div
       className={cn(
@@ -40,16 +44,16 @@ export const LayoutCTABar = () => {
       )}
     >
       <span className="leading-none">{CTA_BAR.label}</span>
-      <div className="flex items-center gap-4">
-        <Link href={CTA_BAR.button.href} target="_blank" className={styles.notificationBarButton}>
-          <span className={styles.notificationBarButtonArrow} aria-hidden="true">
-            <ArrowRightIcon />
-          </span>
-          <span className={styles.notificationBarButtonLabel}>{CTA_BAR.button.text}</span>
-          <span className={styles.notificationBarButtonArrow} aria-hidden="true">
-            <ArrowRightIcon />
-          </span>
-        </Link>
+      <Link href={CTA_BAR.button.href} target="_blank" className={styles.notificationBarButton}>
+        <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+          <ArrowRightIcon />
+        </span>
+        <span className={styles.notificationBarButtonLabel}>{CTA_BAR.button.text}</span>
+        <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+          <ArrowRightIcon />
+        </span>
+      </Link>
+      {CTA_BAR.productHunt && (
         <Link href={CTA_BAR.productHunt.href} target="_blank">
           <img
             src={CTA_BAR.productHunt.imageSrc}
@@ -57,7 +61,7 @@ export const LayoutCTABar = () => {
             className="block h-8"
           />
         </Link>
-      </div>
+      )}
     </div>
   )
 }
