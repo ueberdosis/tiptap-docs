@@ -1,0 +1,124 @@
+---
+title: Rows that span a page break
+tags:
+  - type: experiment
+meta:
+  title: Row fragmentation | Tiptap Pages
+  description: Let a tall table row continue on the next page instead of moving down whole, the way Word splits a row. Experimental feature of PagesTableKit.
+  category: Pages
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+A table row that does not fit in the space left on its page moves down whole. That leaves a gap at the bottom of the page. A row taller than a full page cannot be placed at all.
+
+Word does not do this. It splits the row and continues it on the next page. Row fragmentation gives you the same result. Documents imported from DOCX often contain rows like this, so the gap shows up on real content.
+
+<Callout title="Experimental" variant="warning">
+  Row fragmentation is experimental and off by default. The option name starts with `experimental`
+  because the behaviour and the option may still change.
+</Callout>
+
+## Turn it on
+
+```ts
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+TableKit.configure({ experimentalRowFragmentation: true })
+```
+
+With the option off, nothing changes. The plugin is not loaded at all.
+
+If you build your own table kit and do not use `TableKit`, configure `TableRow` directly. It carries the whole feature:
+
+```ts
+import { TableRow } from '@tiptap-pro/extension-pages-tablekit'
+
+TableRow.configure({ experimentalRowFragmentation: true })
+```
+
+You can also pass the option through [PageKit](/pages/guides/pagekit-usage):
+
+```ts
+PageKit.configure({
+  table: { experimentalRowFragmentation: true },
+})
+```
+
+## Your document does not change
+
+The row stays one row. Fragmentation only changes how the row is drawn.
+
+- `editor.getJSON()` returns the same single row, before and after a split.
+- No ProseMirror steps are created, so collaboration sees nothing.
+- DOCX export and printing get an ordinary row.
+
+You can type in a fragmented row, select across a page break, and resize its columns. The row splits and re-joins while you work.
+
+## Which rows can split
+
+A split has to fall between two lines. Whether that is possible is read from how a cell's content renders, not from a list of node types, so your own custom nodes work without being registered anywhere.
+
+In practice a row splits when its cells hold paragraphs, headings, bullet or ordered lists, nested lists, blockquotes, code blocks, or inline content such as images. Numbering carries on across the break, and an image moves to the next page whole rather than being cut.
+
+Pages leaves a row alone when:
+
+- the row has `heightRule: "exact"`
+- any cell has a `rowspan` other than `1`
+- a cell from an earlier row reaches into it through a `rowspan`
+- any cell holds a box that lays itself out independently, because a page break cannot pass through one
+
+That last case covers a nested table, anything rendered with `display: flex`, `grid`, `flow-root` or `inline-block`, and anything with clipped overflow, multiple columns, `contain: layout` or absolute positioning.
+
+A row that cannot split behaves exactly as it does today. It moves to the next page as a whole.
+
+<Callout title="Task lists are the surprising case" variant="hint">
+  A task item looks like an ordinary list item in the document, but it renders as a flex container,
+  which a page break cannot pass through. A row holding one is left alone. This is why the rule is
+  read from the rendered box rather than the node type: the node type would get this wrong.
+</Callout>
+
+## Styling a split row
+
+PagesTableKit draws layout only. It paints no borders, so a split row draws no line where it crosses a page break either.
+
+If your tables have borders and you want them carried across the break, set one custom property on the table:
+
+```css
+.my-document table {
+  --pages-tablekit-border-color: #d5d5d5;
+}
+```
+
+Cell padding comes from ConvertKit, which publishes each cell's real padding as `--cell-margin-left` and `--cell-margin-right`. If something else pads your cells, set `--pages-tablekit-cell-padding-x` to override both sides.
+
+## The row element belongs to the extension
+
+While a row is split, its NodeView owns these attributes on the `<tr>` element:
+
+- `style`
+- `data-height-rule`
+- `data-pages-row-fragmentation`
+
+Do not write them from your own code. The NodeView writes them again on the next layout pass, and the two writes fight each other. Under the pointer this shows up as flicker.
+
+You can read them. A split row carries `data-pages-row-fragmentation="fragmented"`, and each of its cells carries `data-row-fragmentation-cell="fragmented"`, so you can target them in CSS.
+
+## Limits
+
+- A row splits only between lines. A cell holding a box that lays itself out on its own, such as a nested table, keeps the row whole. See the rules above.
+- A table whose column widths were saved in a collapsed state, for example a width of one pixel, can render past the right edge of its row, and that row then does not split. This comes from column resizing, not from fragmentation. It happens with the option off as well.
+- The feature needs the Pages [layout participant](/pages/core-concepts/layout-participants) cycle, so it needs a Pages version that provides it.
+
+## How it works
+
+The row registers as a [layout participant](/pages/core-concepts/layout-participants). After each pagination update it measures where the page edges are, then places empty blocks inside its own cells at those positions. The browser's own line breaking moves the text around them, which is what produces the split.
+
+Everything it writes lives in the editor view, not in the document. That is why collaboration and export are unaffected.
+
+## Related
+
+- [PagesTableKit](/pages/guides/pages-tablekit): install and set up tables for Pages.
+- [Pages with tables](/pages/guides/table-with-pages): general guide for tables inside Pages.
+- [Layout participants](/pages/core-concepts/layout-participants): the API this feature is built on.
+- [Limitations](/pages/core-concepts/limitations): what Pages can and cannot lay out.
