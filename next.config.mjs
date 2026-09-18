@@ -6,12 +6,13 @@ const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  // Raw `.mdx` files are read at runtime via fs (markdown endpoint, llms.txt,
-  // and the page route). Node File Trace can't detect these dynamic reads, so
-  // include the whole content tree in the standalone output explicitly.
+  // Content files are read at runtime via fs (markdown endpoint, llms.txt,
+  // changelogs, and the page route). Node File Trace can't detect these dynamic
+  // reads, so include them in the standalone output explicitly.
   outputFileTracingIncludes: {
     '/api/md/[...path]': [
       './src/content/**/*.mdx',
+      './src/content/resources/changelog/_data/*.json',
       './src/server/markdown/contentDates.generated.json',
     ],
     '/llms.txt': ['./src/content/**/*.mdx'],
