@@ -1,0 +1,318 @@
+---
+title: Types
+tags:
+  - type: addon
+meta:
+  title: Types | Tiptap Tracked Changes Docs
+  description: TypeScript type definitions for the Tiptap Tracked Changes extension.
+  category: Tracked Changes
+---
+
+The extension exports TypeScript types for working with suggestions.
+
+## SuggestionType
+
+Public-facing suggestion type returned by the query API:
+
+```ts
+type SuggestionType =
+  | 'add'
+  | 'delete'
+  | 'replace'
+  | 'markChange'
+  | 'attributeChange'
+  | 'sink'
+  | 'lift'
+  | 'split'
+```
+
+- `sink` and `lift` are pending list-item nesting changes (Tab and Shift-Tab)
+- `split` is a suggested [block split](/tracked-changes/usage/advanced-usage#block-splits). Use `splitKind` to tell an end split from a middle split.
+
+## SuggestionSplitKind
+
+Describes how a `split` suggestion changed the document:
+
+```ts
+type SuggestionSplitKind = 'insertion' | 'structural'
+```
+
+- `insertion` is created when Enter adds a new block at the end of an existing block. Rejecting removes the new block.
+- `structural` is created when Enter splits existing content. Rejecting merges the two blocks again.
+
+## SuggestionMarkType
+
+Internal mark-level type stored on suggestion marks. Replace suggestions use separate mark types for their deletion and insertion parts:
+
+```ts
+type SuggestionMarkType = 'add' | 'delete' | 'replaceDeletion' | 'replaceInsertion' | 'markChange'
+```
+
+## SuggestionNodeType
+
+Internal type stored in node attributes. Covers every mark-level type plus the structural variants that can only exist at the node level:
+
+```ts
+type SuggestionNodeType = SuggestionMarkType | 'attributeChange' | 'sink' | 'lift' | 'blockSplit'
+```
+
+`blockSplit` is the node-level counterpart of the public `split` type. It is what you find in `suggestionType` node attributes and in the `data-suggestion-type` DOM attribute, so use `blockSplit` in CSS selectors and `split` when filtering or switching on `suggestion.type`.
+
+Use `nodeSuggestionTypeToSuggestionType` to convert (see [Type helpers](#type-helpers)).
+
+## SuggestionMarkChangeOperation
+
+Operation stored in a mark-change suggestion:
+
+```ts
+type SuggestionMarkChangeOperation = 'added' | 'removed'
+```
+
+## SuggestionMarkChange
+
+Describes one mark mutation stored on a `markChange` suggestion:
+
+```ts
+type SuggestionMarkChange = {
+  operation: SuggestionMarkChangeOperation
+  markName: string
+  markAttrs: Record<string, unknown> | null
+}
+```
+
+## SuggestionAttributeChange
+
+Describes one attribute mutation stored on an `attributeChange` suggestion:
+
+```ts
+type SuggestionAttributeChange = {
+  attributeName: string
+  oldValue: unknown
+  newValue: unknown
+}
+```
+
+`oldValue` is the value before the suggestion. `newValue` is the proposed value that is present in the document while the suggestion is pending.
+
+## Suggestion
+
+Represents a suggestion found in the document:
+
+```ts
+type Suggestion = {
+  id: string
+  type: SuggestionType
+  // Only present for 'split' suggestions:
+  splitKind?: SuggestionSplitKind
+  userId: string
+  createdAt: string
+  updatedAt: string
+  userMetadata: Record<string, unknown> | null
+  from: number
+  to: number
+  text: string
+  fullText: string
+  // Only present for 'replace' suggestions:
+  deletionRange?: { from: number; to: number }
+  insertionRange?: { from: number; to: number }
+  replacedText?: string
+  // Only present for 'markChange' suggestions:
+  markChanges?: SuggestionMarkChange[]
+  // Only present for 'attributeChange' suggestions:
+  attributeChanges?: SuggestionAttributeChange[]
+  // Only present for 'attributeChange' and 'split' suggestions:
+  nodeType?: string
+  // Only present when the suggestion affects block-level nodes:
+  insertedNodes?: JSONContent[]
+  deletedNodes?: JSONContent[]
+}
+```
+
+- `createdAt` — ISO 8601 timestamp of when the suggestion was first created
+- `updatedAt` — ISO 8601 timestamp of the most recent edit within the suggestion. Falls back to `createdAt` for legacy data that predates this field.
+
+### `text` vs `fullText`
+
+- `text` — the text authored by this suggestion **alone**, excluding text inserted by nested (stacked) suggestions layered on top of it. For `replace` suggestions, this is the new (inserted) text.
+- `fullText` — the complete, continuous text spanned by this suggestion's marks, **including** any text inserted by nested suggestions from other authors. For `replace` suggestions, this is the new (inserted) text.
+
+For the vast majority of suggestions (no stacking) `text === fullText`. They diverge only when another author has **inserted** text via a [nested suggestion](/tracked-changes/usage/advanced-usage#nested-and-stacked-suggestions) inside this one.
+
+Note that `text` only drops text that a nested suggestion **inserted**. A nested delete or mark-change does not insert content, so it never reduces the outer author's `text`. For example, if author A inserts `"hello"` and author B deletes `"ll"` inside it, A's `text` is still `"hello"` — B's deletion didn't add any text that belongs to B.
+
+#### Worked example
+
+Author A inserts `"Hello world"`, then author B inserts `"great "` before `"world"` (nested inside A's addition):
+
+| Suggestion      | `text`          | `fullText`            |
+| --------------- | --------------- | --------------------- |
+| A (add, user-1) | `"Hello world"` | `"Hello great world"` |
+| B (add, user-2) | `"great "`      | `"great "`            |
+
+```ts
+import { findSuggestions } from '@tiptap-pro/extension-tracked-changes'
+
+const suggestions = findSuggestions(editor)
+const outer = suggestions.find((s) => s.userId === 'user-1')
+
+outer.text // "Hello world"        → show this in a review sidebar
+outer.fullText // "Hello great world"  → use when you need the literal span
+```
+
+Default to `text` when displaying "what this person changed" (review panels, comment threads, activity logs). Reach for `fullText` only when you need the exact contiguous text the mark covers in the document.
+
+For `replace` suggestions:
+
+- `text` contains the **new** (inserted) text
+- `replacedText` contains the **old** (deleted) text
+- `deletionRange` and `insertionRange` give the exact positions of each part
+- `from` and `to` cover the full range of both parts
+
+For `markChange` suggestions:
+
+- `text` contains the affected text content
+- `markChanges` contains the tracked mark operations, including mark names and attrs
+
+For `attributeChange` suggestions:
+
+- `nodeType` is the schema name of the updated node
+- `attributeChanges` lists each attribute's previous and proposed values
+- accepting keeps the proposed values; rejecting restores the previous values
+
+For block-level node suggestions (e.g. inserting or deleting a paragraph or heading):
+
+- `text` always contains the actual text content of the affected node — never a `[nodeName]` placeholder
+- `insertedNodes` contains the full JSON representation of each inserted node
+- `deletedNodes` contains the full JSON representation of each deleted node
+
+Use `insertedNodes` and `deletedNodes` to inspect node types and attributes when building richer UIs, such as displaying a node type badge alongside the suggestion text.
+
+For `split` suggestions:
+
+- `splitKind` is `'insertion'` for an end split and `'structural'` for a middle split
+- `nodeType` is the name of the affected block, such as `paragraph`, `heading`, or `listItem`
+- `text` contains the current text in the affected block. Text typed after an end split is included in this field.
+- `fullText` contains the complete current text in the affected block. It normally matches `text` for split suggestions.
+- `from` and `to` span the block after the split
+
+Use `splitKind` and `nodeType` to render a label such as `new paragraph` or `split heading`. Do not use a generic label that makes insertion and structural splits look the same.
+
+## SuggestionMarkAttrs
+
+Attributes stored on the suggestion mark:
+
+```ts
+type SuggestionMarkAttrs = {
+  id: string
+  type: SuggestionMarkType
+  userId: string
+  createdAt: string
+  updatedAt: string
+  userMetadata: Record<string, unknown> | null
+  markChanges?: SuggestionMarkChange[] | null
+}
+```
+
+## SuggestionChangedEventPayload
+
+Payload for the `trackedChanges:suggestionChanged` event. Fires whenever any content-bearing field of a suggestion changes, including range positions, text, mark changes, or type.
+
+```ts
+type SuggestionChangedEventPayload = {
+  suggestionId: string
+  oldSuggestion: Suggestion
+  suggestion: Suggestion
+  transaction: Transaction
+}
+```
+
+- `oldSuggestion` — snapshot of the suggestion before the change
+- `suggestion` — the current (updated) suggestion
+- `transaction` — the ProseMirror transaction that caused the change
+
+## SuggestionRangeChangedEventPayload
+
+Payload for the `trackedChanges:suggestionRangeChanged` event. Fires only when a suggestion's document positions shift.
+
+```ts
+type SuggestionRangeChangedEventPayload = {
+  suggestionId: string
+  oldRange: { from: number; to: number }
+  newRange: { from: number; to: number }
+  suggestion: Suggestion
+  transaction: Transaction
+}
+```
+
+## BlockSplitMarkerRenderer
+
+Builds the marker element shown at a block split. Called once per marker, so it must return a new element every time:
+
+```ts
+type BlockSplitMarkerRenderer = () => HTMLElement
+```
+
+## TrackedChangesOptions
+
+Configuration options for the extension:
+
+```ts
+type TrackedChangesOptions = {
+  enabled: boolean
+  userId: string
+  userMetadata?: Record<string, unknown> | null
+  ignoredTrackingMarks: string[]
+  onSuggestionCreate?: (suggestion: Suggestion) => void
+  onSuggestionAccept?: (id: string) => void
+  onSuggestionReject?: (id: string) => void
+  blockSplitMarker?: string | HTMLElement | BlockSplitMarkerRenderer | null
+}
+```
+
+- `blockSplitMarker` — the marker rendered at a suggested block split. Defaults to `'¶'`. Set it to `null` to render no marker. See [blockSplitMarker](/tracked-changes/getting-started/install#blocksplitmarker).
+
+## Type helpers
+
+The extension exports constants and helper functions for working with suggestion types:
+
+```ts
+import {
+  SUGGESTION_TYPES,
+  isAddLikeType,
+  isDeleteLikeType,
+  isReplaceMarkType,
+  markTypeToSuggestionType,
+  nodeSuggestionTypeToSuggestionType,
+} from '@tiptap-pro/extension-tracked-changes'
+
+// Constants
+SUGGESTION_TYPES.ADD // 'add'
+SUGGESTION_TYPES.DELETE // 'delete'
+SUGGESTION_TYPES.REPLACE_DELETION // 'replaceDeletion'
+SUGGESTION_TYPES.REPLACE_INSERTION // 'replaceInsertion'
+SUGGESTION_TYPES.MARK_CHANGE // 'markChange'
+SUGGESTION_TYPES.ATTRIBUTE_CHANGE // 'attributeChange'
+SUGGESTION_TYPES.SINK // 'sink'
+SUGGESTION_TYPES.LIFT // 'lift'
+SUGGESTION_TYPES.BLOCK_SPLIT // 'blockSplit' (node-level)
+SUGGESTION_TYPES.SPLIT // 'split' (query API)
+
+// Check if a mark type represents added content (matches 'add' and 'replaceInsertion')
+isAddLikeType('add') // true
+isAddLikeType('replaceInsertion') // true
+
+// Check if a mark type represents deleted content (matches 'delete' and 'replaceDeletion')
+isDeleteLikeType('delete') // true
+isDeleteLikeType('replaceDeletion') // true
+
+// Check if a mark type is one of the replace sub-types
+isReplaceMarkType('replaceDeletion') // true
+
+// Convert a mark-level type to the public-facing suggestion type
+markTypeToSuggestionType('replaceDeletion') // 'replace'
+markTypeToSuggestionType('add') // 'add'
+
+// Convert a node-level type to the public-facing suggestion type
+nodeSuggestionTypeToSuggestionType('blockSplit') // 'split'
+nodeSuggestionTypeToSuggestionType('replaceInsertion') // 'replace'
+```

@@ -2,9 +2,243 @@
 title: Upgrade Guide
 meta:
   title: Upgrade Guide | Tiptap Collaboration Docs
-  description: Upgrade to 3.0 from 2.x
+  description: Upgrade to 4.0 from 3.x and 3.0 from 2.x
   category: Hocuspocus
 ---
+
+## Upgrading to 4.0 from 3.x
+
+Hocuspocus v4 brings cross-runtime support (Bun, Deno, Cloudflare Workers, Node with uWebSockets), improved type safety via a generic `Context` type, and structured transaction origins.
+
+The wire protocol is backward compatible in both directions: v3 providers can connect to v4 servers and vice versa. See the [v4 release notes](https://github.com/ueberdosis/hocuspocus/releases) for full details.
+
+### 1. Update dependencies
+
+```bash
+npm install @hocuspocus/server@^4.0.0 @hocuspocus/provider@^4.0.0
+```
+
+**Node.js requirement:** v4 requires Node.js 22 or later.
+
+If you use the SQLite extension, replace `sqlite3` with `better-sqlite3`:
+
+```bash
+npm uninstall sqlite3
+npm install @hocuspocus/extension-sqlite@^4.0.0 better-sqlite3
+npm install -D @types/better-sqlite3
+```
+
+Existing SQLite database files are fully compatible — no data migration needed.
+
+### 2. Web-standard Request and Headers (Breaking)
+
+All hook payloads now use the web-standard `Request` and `Headers` objects instead of Node.js `IncomingMessage` and `IncomingHttpHeaders`.
+
+**Before (v3):**
+
+```typescript
+async onAuthenticate({ request, requestHeaders }) {
+  const token = requestHeaders['authorization']
+  const ip = requestHeaders['x-forwarded-for']
+  const url = request.url
+}
+```
+
+**After (v4):**
+
+```typescript
+async onAuthenticate({ request, requestHeaders }) {
+  const token = requestHeaders.get('authorization')
+  const ip = requestHeaders.get('x-forwarded-for')
+  const url = request.url
+}
+```
+
+`request.socket.remoteAddress` is no longer available — use `x-forwarded-for` or `x-real-ip` headers from your reverse proxy instead.
+
+The `onUpgrade` and `onRequest` hooks still use Node.js `IncomingMessage`/`ServerResponse` because they operate at the HTTP level before the WebSocket upgrade.
+
+### 3. `onStoreDocument` payload (Breaking)
+
+The `onStoreDocument` and `afterStoreDocument` payloads have been restructured. Fields tied to a specific connection have been removed since store hooks can now be triggered by non-connection sources.
+
+**Before (v3):**
+
+```typescript
+async onStoreDocument({ context, requestHeaders, requestParameters, socketId, transactionOrigin, document, documentName, clientsCount, instance }) {
+  // ...
+}
+```
+
+**After (v4):**
+
+```typescript
+async onStoreDocument({ lastContext, lastTransactionOrigin, document, documentName, clientsCount, instance }) {
+  // `context` → `lastContext`
+  // `transactionOrigin` → `lastTransactionOrigin`
+  // `requestHeaders`, `requestParameters`, `socketId` — removed. Access via `lastContext` if needed.
+}
+```
+
+### 4. `onAwarenessUpdate` payload (Breaking)
+
+Connection-specific fields are removed and replaced with the source of the update.
+
+**After (v4):**
+
+```typescript
+async onAwarenessUpdate({
+  transactionOrigin, // new: structured origin
+  connection,        // new: optional, the connection that triggered the update
+  document,
+  documentName,
+  added, updated, removed,
+  awareness,         // new: the Awareness instance
+  states,
+}) {
+  // Access context through the connection if needed
+  const context = connection?.context
+}
+```
+
+### 5. Transaction origin (Breaking)
+
+Transaction origins are now structured objects rather than raw values.
+
+**Before (v3):**
+
+```typescript
+async onChange({ transactionOrigin }) {
+  if (transactionOrigin === '__hocuspocus__redis__origin__') {
+    // came from Redis
+  }
+  if (transactionOrigin instanceof Connection) {
+    // came from a client connection
+  }
+}
+```
+
+**After (v4):**
+
+```typescript
+import { isTransactionOrigin } from '@hocuspocus/server'
+
+async onChange({ transactionOrigin }) {
+  if (isTransactionOrigin(transactionOrigin)) {
+    switch (transactionOrigin.source) {
+      case 'redis':
+        // came from Redis
+        break
+      case 'connection':
+        // transactionOrigin.connection is available
+        break
+      case 'local':
+        // came from server-side code (e.g. DirectConnection)
+        break
+    }
+  }
+}
+```
+
+### 6. WebSocket options (Breaking)
+
+WebSocket options are now passed inside the configuration object instead of as a separate parameter.
+
+**Before (v3):**
+
+```typescript
+const server = new Server(
+  { port: 8080, extensions: [...] },
+  { maxPayload: 1024 * 1024 }, // ws options as 2nd arg
+)
+```
+
+**After (v4):**
+
+```typescript
+const server = new Server({
+  port: 8080,
+  extensions: [...],
+  websocketOptions: { maxPayload: 1024 * 1024 },
+})
+```
+
+### 7. WebSocket type changes (Breaking)
+
+If your code references the `WebSocket` type from the `ws` package, update to `WebSocketLike`:
+
+```typescript
+import type { WebSocketLike } from '@hocuspocus/server'
+
+const ws: WebSocketLike = connection.webSocket
+```
+
+`WebSocketLike` is a minimal interface with `send`, `close`, and `readyState` — compatible with all supported runtimes.
+
+### 8. Custom `handleConnection` integrations (Breaking)
+
+If you call `handleConnection()` directly (e.g. for Express/Koa integration), the signature has changed:
+
+**After (v4):**
+
+```typescript
+wss.on('connection', (ws, request: Request) => {
+  const clientConnection = hocuspocus.handleConnection(ws, request, context)
+  // clientConnection is now returned for programmatic access
+})
+```
+
+- `request` must be a web-standard `Request` (not `IncomingMessage`)
+- The method now returns a `ClientConnection` instance
+- The WebSocket no longer needs to be from the `ws` package — any `WebSocketLike` works
+- If you are not using the built-in `Server` class, you are responsible for calling `clientConnection.handleMessage(data)` and `clientConnection.handleClose(event)`
+
+### 9. Provider `CloseEvent` shape (Breaking)
+
+The `CloseEvent` passed to `onClose` callbacks no longer includes `target` and `type`. Only `code` and `reason` remain.
+
+```typescript
+onClose({ event }) {
+  console.log(event.code, event.reason)
+  // event.target and event.type are no longer available
+}
+```
+
+### 10. Provider `ws` package types removed (TypeScript only)
+
+The provider no longer re-exports `Event`, `MessageEvent`, or `CloseEvent` from the `ws` package. Import them from `@hocuspocus/common` or use web-standard types instead.
+
+### 11. Timeout change (Non-breaking)
+
+The default connection timeout has increased from 30 seconds to 60 seconds. To keep the old behavior:
+
+```typescript
+const server = new Server({
+  timeout: 30_000,
+})
+```
+
+### Summary checklist
+
+**Server**
+
+- [ ] Update to Node.js 22+
+- [ ] Update all `@hocuspocus/*` packages to v4
+- [ ] Replace `requestHeaders['key']` with `requestHeaders.get('key')` in all hooks
+- [ ] Replace `request.socket.remoteAddress` with proxy headers (`x-forwarded-for`)
+- [ ] Update `onStoreDocument` handlers: `context` → `lastContext`, remove `requestHeaders`/`requestParameters`/`socketId`
+- [ ] Update `onAwarenessUpdate` handlers if used
+- [ ] Replace `WebSocket` type imports from `ws` with `WebSocketLike` from `@hocuspocus/server`
+- [ ] Move `websocketOptions` into the `Server` configuration object
+- [ ] Update transaction origin checks to use `isTransactionOrigin()` and `.source`
+- [ ] If using SQLite: replace `sqlite3` with `better-sqlite3`
+- [ ] If using custom `handleConnection`: update to new signature and `Request` type
+
+**Provider**
+
+- [ ] Update `@hocuspocus/provider` to v4
+- [ ] Remove references to `event.target` / `event.type` in `onClose` handlers
+- [ ] Update TypeScript imports that relied on `ws` types from the provider
 
 ## Upgrading to 3.0 from 2.x (Provider)
 

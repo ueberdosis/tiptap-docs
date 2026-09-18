@@ -1,12 +1,12 @@
 import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
-import dynamic from 'next/dynamic'
-import { Suspense, cache } from 'react'
+import { cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader } from '@/components/PageHeader'
+import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
 import { FULL_DOMAIN } from '@/utils/constants'
@@ -16,27 +16,20 @@ import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { AskAi } from '@/components/AskAi'
 
-const CopyMarkdownButton = dynamic(
-  () => import('@/components/CopyMarkdownButton').then((mod) => mod.CopyMarkdownButton),
-  {
-    ssr: false,
-  },
-)
-
 type Props = {
-  params: {
+  params: Promise<{
     markdownPath: string[]
-  }
-  searchParams: URLSearchParams
+  }>
+  searchParams: Promise<URLSearchParams>
 }
 
 /**
  * Helper function to load MDX file for a given path.
  * Cached per-request to avoid duplicate file checks and imports between generateMetadata and page component.
  */
-const loadPageMdx = cache(async (markdownPath: string[]) => {
-  const directPath = `${markdownPath.join('/')}.mdx`
-  const indexPath = `${markdownPath.join('/')}/index.mdx`
+const loadPageMdx = cache(async (markdownPath: string) => {
+  const directPath = `${markdownPath}.mdx`
+  const indexPath = `${markdownPath}/index.mdx`
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
@@ -54,8 +47,9 @@ const loadPageMdx = cache(async (markdownPath: string[]) => {
 })
 
 export async function generateMetadata({ params }: Props) {
-  const canonicalUrl = createCanonicalUrl(params.markdownPath)
-  const pageMdx = await loadPageMdx(params.markdownPath)
+  const { markdownPath } = await params
+  const canonicalUrl = createCanonicalUrl(markdownPath)
+  const pageMdx = await loadPageMdx(markdownPath.join('/'))
 
   if (!pageMdx) {
     return {}
@@ -67,13 +61,15 @@ export async function generateMetadata({ params }: Props) {
     category: pageMdx.frontmatter?.meta?.category,
     ogTitle: pageMdx.frontmatter?.title ?? '',
     canonicalUrl,
+    markdownUrl: `${canonicalUrl}.md`,
   })
 }
 
 export default async function MarkdownPage({ params }: Props) {
-  const canonicalUrl = createCanonicalUrl(params.markdownPath)
-  const sidebar = await importSidebarConfigFromMarkdownPath(params.markdownPath)
-  const pageMdx = await loadPageMdx(params.markdownPath)
+  const { markdownPath } = await params
+  const canonicalUrl = createCanonicalUrl(markdownPath)
+  const sidebar = await importSidebarConfigFromMarkdownPath(markdownPath)
+  const pageMdx = await loadPageMdx(markdownPath.join('/'))
 
   if (!pageMdx) {
     notFound()
@@ -111,12 +107,10 @@ export default async function MarkdownPage({ params }: Props) {
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <Suspense>
-                      <CopyMarkdownButton
-                        title={pageMdx.frontmatter?.title}
-                        content={pageMdx.default()}
-                      />
-                    </Suspense>
+                    <CopyMarkdownButton
+                      title={pageMdx.frontmatter?.title}
+                      content={pageMdx.default()}
+                    />
                     <AskAi />
                   </div>
                 </div>
@@ -137,7 +131,7 @@ export default async function MarkdownPage({ params }: Props) {
               {pageMdx.frontmatter?.tags ? (
                 <PageHeader.Tags
                   tags={pageMdx.frontmatter.tags}
-                  isTemplate={params.markdownPath.includes('templates')}
+                  isTemplate={markdownPath.includes('templates')}
                 />
               ) : null}
               {pageMdx.frontmatter.description ? (
@@ -152,7 +146,7 @@ export default async function MarkdownPage({ params }: Props) {
           <div className="mdx-content">{pageMdx.default()}</div>
           <PrevNextTiles
             config={sidebar.sidebarConfig}
-            currentPath={`/${params.markdownPath.join('/')}`}
+            currentPath={`/${markdownPath.join('/')}`}
             isFullWidth={!!pageMdx.frontmatter?.sidebars?.hideSecondary}
           />
         </Layout.Content>

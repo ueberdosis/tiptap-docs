@@ -66,15 +66,16 @@ If you don't have it installed, run `npm install yjs` in your project. This shou
 
 The autoversioning feature automatically creates new versions of your document at regular intervals. This ensures that you have a comprehensive change history without manual intervention.
 
-You can toggle this feature using the `toggleVersioning` command (default: disabled).
+You can enable this feature using the `enableAutoVersioning` command (default: disabled).
 
 When you enable autoversioning, Tiptap creates new versions at regular intervals (30 seconds by default, only if the document has changed). This can create many versions, so you may want to increase the interval.
 To customize the interval, you can do the following:
 
 ```typescript
 // Set the interval (in seconds) between autoversions
-const ydoc = provider.configuration.document
-ydoc.getMap<number>('__tiptapcollab__config').set('intervalSeconds', 900)
+provider.setAutoVersioningInterval(900)
+provider.enableAutoVersioning()
+provider.disableAutoVersioning()
 ```
 
 ## Revert to a version
@@ -100,15 +101,17 @@ You can integrate the [compare snapshots](/collaboration/documents/snapshot-comp
 | status            | `string`               | The status of the provider - can be `connecting`, `connected` or `disconnected` |
 | synced            | `boolean`              | Is the version history synced with the server                                   |
 | versioningEnabled | `boolean`              | Is versioning enabled                                                           |
-| versions          | `array<Version>`       | The array of versions that are stored in the history.                           |
+| versions          | `array<Version>`       | The array of versions that are stored in the history. Each version has `version` (number), `date` (number), `name` (optional string), and `meta` (optional object). See [automatic version metadata](#automatic-version-metadata) for details on the `meta` field. |
 
 ## Commands
 
-| Command          | Description                                                                       |
-| ---------------- | --------------------------------------------------------------------------------- |
-| saveVersion      | Creates a new version with a given title                                          |
-| toggleVersioning | Toggles autoversioning for this document                                          |
-| revertToVersion  | Revert to a specific version, can create a new revert version with optional title |
+| Command           | Description                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| saveVersion       | Creates a new version with an optional name, force flag, and metadata             |
+| fetchVersions     | Fetches the list of versions from the server and updates the storage              |
+| enableVersioning  | Enables autoversioning for this document                                          |
+| disableVersioning | Disables autoversioning for this document                                         |
+| revertToVersion   | Revert to a specific version, can create a new revert version with optional title |
 
 ## Examples
 
@@ -154,7 +157,7 @@ const editor = new Editor({
         currentVersion = payload.currentVersion
         latestVersion = payload.version
         versions = payload.versions
-        autoversioningEnabled = payload.autoVersioning
+        autoversioningEnabled = payload.versioningEnabled
       },
     }),
   ],
@@ -190,10 +193,76 @@ const autoversioningEnabled = editor.storage.snapshot.versioningEnabled
 editor.commands.saveVersion('My new custom version')
 ```
 
-### Toggle autoversioning on document
+### Create a version with metadata
+
+You can attach arbitrary metadata to a version. This is useful for storing additional context like the author, tags, or any custom data.
 
 ```js
-editor.commands.toggleVersioning()
+editor.commands.saveVersion('Release v1.0', false, {
+  author: 'Jane Doe',
+  tags: ['release', 'stable'],
+})
+```
+
+The `saveVersion` command accepts three parameters:
+
+| Parameter | Type                        | Default     | Description                                              |
+| --------- | --------------------------- | ----------- | -------------------------------------------------------- |
+| name      | `string`                    | `undefined` | An optional name for the version                         |
+| force     | `boolean`                   | `false`     | Create the version even if no changes were detected      |
+| meta      | `Record<string, unknown>`   | `undefined` | Arbitrary metadata to attach to the version              |
+
+### Automatic version metadata
+
+Every version automatically includes a `__tiptap` key inside the `meta` object. This metadata is added by the server and provides context about how the version was created and who contributed to it.
+
+A version's `meta` field looks like this:
+
+```json
+{
+  "__tiptap": {
+    "trigger": "websocket",
+    "changesBy": ["#user1"],
+    "triggeredBy": "user1"
+  },
+  "wordCount": 81624434
+}
+```
+
+The `__tiptap` object contains the following fields:
+
+| Field       | Type       | Description                                                                                              |
+| ----------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| trigger     | `string`   | How the version was created. Possible values: `"websocket"` (via the editor/provider), `"api"` (via the REST API), `"autoVersioning"` (created automatically by the autoversioning feature), or `"revert"` (created when reverting to a previous version). |
+| changesBy   | `string[]` | A list of user identifiers who made changes included in this version. The identifiers are the `user` values set on the `TiptapCollabProvider` of the contributing clients. |
+| triggeredBy | `string`   | The user identifier of the person who triggered the version creation. For `"websocket"` versions this is the authenticated JWT `sub`; for `"api"` versions it is the `user` query parameter supplied by your backend. |
+
+Any custom metadata you pass to `saveVersion` or the REST API is stored alongside the `__tiptap` key at the top level of `meta`. The `__tiptap` key is reserved and cannot be overwritten by custom metadata.
+
+<Callout title="Securing editing attribution" variant="warning">
+  By default, `changesBy` reflects the `user` value each client sets on its `TiptapCollabProvider`. This is a client-supplied value and is **not** verified against the authenticated JWT, so a client could record changes under another user's identity.
+
+  To make attribution trustworthy, enable the [`user_mapping_authenticator`](/collaboration/operations/configure) setting. When enabled, the server rejects any attempt to register, overwrite, or delete a user identity that does not match the connection's JWT `sub`. With this setting on, **every client must set `TiptapCollabProvider.user` equal to its JWT `sub`**, otherwise its connection is rejected. This requires JWT authentication to be enabled.
+</Callout>
+
+### Fetch versions from the server
+
+You can manually refresh the list of versions from the server using the `fetchVersions` command. This updates the extension storage with the latest version data.
+
+```js
+editor.commands.fetchVersions()
+```
+
+### Enable autoversioning on document
+
+```js
+editor.commands.enableVersioning()
+```
+
+### Disable autoversioning on document
+
+```js
+editor.commands.disableVersioning()
 ```
 
 ### Revert with version ID
@@ -218,9 +287,55 @@ In this example, when you revert to version 4 of your document, the editor autom
 editor.commands.revertToVersion(4, 'Revert to version', 'Unversioned changes before revert')
 ```
 
+### Using provider-level version methods
+
+The `TiptapCollabProvider` exposes methods for working with versions directly, without the Snapshot extension.
+
+#### List versions
+
+Fetch the full list of versions from the server:
+
+```js
+const versions = await provider.listVersions()
+// versions: Array<{ version: number, date: number, name?: string, meta?: Record<string, unknown> }>
+```
+
+#### Get cached versions
+
+Get the locally cached list of versions (no server request):
+
+```js
+const versions = provider.getVersions()
+```
+
+#### Watch for version changes
+
+Subscribe to version list updates using callbacks:
+
+```js
+const onVersionsChange = (versions) => {
+  console.log('Versions updated:', versions)
+}
+
+// Start watching
+provider.watchVersions(onVersionsChange)
+
+// Stop watching
+provider.unwatchVersions(onVersionsChange)
+```
+
+#### Create a version with metadata
+
+```js
+provider.createVersion('My version', false, {
+  author: 'Jane Doe',
+  tags: ['draft'],
+})
+```
+
 ### Implementing version previews for your editor
 
-The examples above directly modify the document and do not provide local-only previews of the version. Therefore, you must create your own frontend solution for this requirement. You can leverage the stateless messaging system of the `TiptapCloudProvider` to request a specific version from the server.
+The examples above directly modify the document and do not provide local-only previews of the version. Therefore, you must create your own frontend solution for this requirement. You can use the `previewVersion` method on the `TiptapCollabProvider` to request a specific version from the server.
 
 Start by attaching a listener to the provider:
 
@@ -250,24 +365,13 @@ const unbindWatchContent = watchPreviewContent(provider, (content) => {
 unbindWatchContent()
 ```
 
-Following this setup, you can trigger `version.preview` requests like so:
+Following this setup, you can trigger `version.preview` requests like so:
 
 ```js
-// Define a function that sends a version.preview request to the provider
-const requestVersion = (version) => {
-  provider.sendStateless(
-    JSON.stringify({
-      action: 'version.preview',
-      // Include your version number here
-      version,
-    }),
-  )
-}
+// Request a specific version preview from the server
+provider.previewVersion(1)
 
-// Trigger the request
-requestVersion(1)
-
-// You can then link this function to button clicks or other UI elements to trigger the request.
+// You can link this to button clicks or other UI elements to trigger the request.
 ```
 
 To go beyond previews and compare different versions visually, the [compare snapshots](/collaboration/documents/snapshot-compare) extension provides an easy way to see the changes between any two versions within the editor.
@@ -315,55 +419,54 @@ Here is a list of payloads that can be sent or received from the provider:
 Request a document revert to a given version with optional title settings.
 
 ```js
-provider.sendStateless(
-  JSON.stringify({
-    action: 'document.revert',
-    version: 1,
-    currentVersionName: 'Before reverting to version 1',
-    newVersionName: 'Revert to version 1',
-  }),
-)
+provider.revertToVersion(1, {
+  currentVersionName: 'Before reverting to version 1',
+  newVersionName: 'Revert to version 1',
+})
 ```
 
 #### `version.create`
 
-Creates a new version with an optional title.
+Creates a new version with an optional name and metadata.
 
 ```js
-this.options.provider.sendStateless(
-  JSON.stringify({ action: 'version.create', name: 'My custom version' }),
-)
+provider.createVersion('My custom version', false, { author: 'Jane Doe' })
+```
+
+#### `versions.list`
+
+Requests the full list of versions from the server.
+
+```js
+const versions = await provider.listVersions()
 ```
 
 ### Incoming
 
-#### `saved`
+#### `version.created`
 
-This stateless message can be used to retrieve the last saved timestamp.
+This stateless message includes information about newly created versions, including any metadata that was attached.
 
 ```js
 provider.on('stateless', (data) => {
   const payload = JSON.parse(data.payload)
 
-  if (payload.action === 'saved') {
-    const lastSaved = new Date()
+  if (payload.event === 'version.created') {
+    const latestVersion = payload.version
+    const name = payload.name // optional version name
+    const date = payload.date // creation timestamp
+    const meta = payload.meta // optional metadata object
   }
 })
 ```
 
-#### `version.created`
+#### `versions.list`
 
-This stateless message includes information about newly created versions.
+The `listVersions` method returns the full list of versions. Each version includes `version`, `date`, and optional `name` and `meta` fields.
 
 ```js
-provider.on('stateless', (data) => {
-  const payload = JSON.parse(data.payload)
-
-  if (payload.action === 'version.created') {
-    const latestVersion = payload.version
-    const currentVersion = payload.version
-  }
-})
+const versions = await provider.listVersions()
+// versions is an array of { version: number, date: number, name?: string, meta?: object }
 ```
 
 #### `document.reverted`
@@ -374,7 +477,7 @@ This stateless message includes information about a document revert.
 provider.on('stateless', (data) => {
   const payload = JSON.parse(data.payload)
 
-  if (payload.action === 'document.reverted') {
+  if (payload.event === 'document.reverted') {
     const currentVersion = payload.version
   }
 })

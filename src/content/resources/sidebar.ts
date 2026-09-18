@@ -1,4 +1,35 @@
+import fs from 'fs'
+import path from 'path'
 import { SidebarConfig } from '@/types'
+
+function isSidebarItem(value: unknown): value is { href: string; title: string } {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const item = value as Record<string, unknown>
+
+  return (
+    typeof item.href === 'string' &&
+    typeof item.title === 'string'
+  )
+}
+
+function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
+  try {
+    const filePath = path.join(
+      process.cwd(),
+      'src/content/resources/changelog/_data/sidebar-items.json',
+    )
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+
+    return Array.isArray(data) ? data.filter(isSidebarItem) : []
+  } catch {
+    return []
+  }
+}
+
+const changelogChildren = loadChangelogSidebarItems()
 
 export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
@@ -17,6 +48,21 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/resources/whats-new',
           title: "What's new in 3.0",
+        },
+        {
+          href: '/authentication',
+          title: 'Authentication',
+          tags: ['New'],
+          children: [
+            {
+              href: '/authentication/migrate',
+              title: 'Migrate from legacy',
+            },
+            {
+              href: '/authentication/legacy',
+              title: 'Legacy authentication',
+            },
+          ],
         },
       ],
     },
@@ -38,8 +84,12 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
-          href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
+          href: '/tracked-changes/getting-started/overview',
+          title: 'Tracked Changes',
+        },
+        {
+          href: '/ai/ai-toolkit/overview',
+          title: 'AI Toolkit',
         },
         {
           href: '/collaboration/documents/snapshot',
@@ -52,10 +102,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/pages/getting-started/overview',
           title: 'Pages',
-        },
-        {
-          href: '/collaboration/documents/semantic-search',
-          title: 'Semantic Search',
         },
       ],
     },
@@ -73,6 +119,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Examples',
         },
         {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
+        },
+        {
           href: '/resources/tiptap-trial',
           title: 'Tiptap trial',
         },
@@ -83,6 +133,11 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/resources/changelog',
           title: 'Editor changelog',
+          children: changelogChildren,
+        },
+        {
+          href: '/resources/incidents',
+          title: 'Incidents',
         },
         {
           href: 'https://tiptap.dev/pro-license',

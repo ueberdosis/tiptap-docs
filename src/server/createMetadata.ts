@@ -8,12 +8,15 @@ export async function createMetadata({
   category,
   ogTitle,
   canonicalUrl,
+  markdownUrl,
 }: {
   title: string
   description: string
   ogTitle: string
   category?: string
   canonicalUrl: string
+  /** When set, advertise a `text/markdown` alternate (the page's `.md` URL). */
+  markdownUrl?: string
 }): Promise<Metadata> {
   return {
     title,
@@ -43,6 +46,7 @@ export async function createMetadata({
     },
     alternates: {
       canonical: !IS_NEXT ? canonicalUrl : '',
+      ...(markdownUrl ? { types: { 'text/markdown': markdownUrl } } : {}),
     },
   }
 }

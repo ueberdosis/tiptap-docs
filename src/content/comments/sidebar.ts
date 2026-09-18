@@ -37,6 +37,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Configure',
           href: '/comments/core-concepts/configure',
         },
+        {
+          title: 'Thread authentication',
+          href: '/comments/core-concepts/thread-authentication',
+        },
       ],
     },
     {
@@ -51,6 +55,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'REST API',
           href: '/comments/integrate/rest-api',
+        },
+        {
+          title: 'Create threads via API',
+          href: '/comments/integrate/create-thread-via-api',
         },
         {
           title: 'Webhook',

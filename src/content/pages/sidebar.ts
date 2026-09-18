@@ -1,4 +1,4 @@
-import { SidebarConfig } from '@/types'
+import type { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'pages',
@@ -17,6 +17,11 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Install',
           href: '/pages/getting-started/install',
+        },
+        {
+          title: 'Live demo',
+          href: '/pages/getting-started/live-demo',
+          tags: ['New'],
         },
       ],
     },
@@ -38,8 +43,28 @@ export const sidebarConfig: SidebarConfig = {
           href: '/pages/core-concepts/page-header-footer',
         },
         {
-          title: 'Page break',
-          href: '/pages/core-concepts/page-break',
+          title: 'Footnotes',
+          href: '/pages/core-concepts/footnotes',
+          tags: ['New'],
+        },
+        {
+          title: 'Endnotes',
+          href: '/pages/core-concepts/endnotes',
+          tags: ['New'],
+        },
+        {
+          title: 'Page gap & background',
+          href: '/pages/core-concepts/page-gap',
+        },
+        {
+          title: 'Zoom',
+          href: '/pages/core-concepts/zoom',
+          tags: ['New'],
+        },
+        {
+          title: 'PageBreak node',
+          href: '/pages/core-concepts/page-break-node',
+          tags: ['New'],
         },
         {
           title: 'Limitations',
@@ -78,6 +103,11 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Pages with tables',
           href: '/pages/guides/table-with-pages',
+        },
+        {
+          title: 'PagesTableKit',
+          href: '/pages/guides/pages-tablekit',
+          tags: ['Experimental'],
         },
         {
           title: 'PageKit',

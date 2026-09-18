@@ -31,9 +31,18 @@ The REST API is exposed directly from your Document server at your custom URL:
 ```bash
 https://YOUR_APP_ID.collab.tiptap.cloud/
 ```
+
+Replace `YOUR_APP_ID` with your document server ID, which is labeled "Document server ID" in the [Cloud dashboard](https://cloud.tiptap.dev/v2/configuration/document-server).
+
 ### Authentication
-Authenticate your API requests by including your API secret in the `Authorization` header. You can find your API secret in
-the [settings](https://cloud.tiptap.dev/v2/configuration/document-server) of your Tiptap Cloud dashboard.
+
+Authenticate your API requests with a signed token carrying the `Documents:Api:All` permission, sent as `Authorization: Bearer <jwt>`. See [Authentication](/authentication) for how to sign a token.
+
+<Callout title="Keep this token server-side" variant="warning">
+  `Documents:Api:All` grants access to every Document Server API endpoint, including managed settings. Treat a token carrying it like an admin credential. Sign it on your server, keep it short-lived, and never expose it to clients.
+</Callout>
+
+The previous API secret still works and is documented under [Legacy authentication](/authentication/legacy).
 
 ### Document identifiers
 If your document identifier contains a slash (`/`), encode it as `%2F`, e.g., using `encodeURIComponent`.
@@ -50,10 +59,19 @@ Access the Collaboration Management API to manage your documents efficiently. Fo
 | List Documents     | GET        | `/api/documents`                             | Retrieve a list of all documents with pagination options.                                    |
 | Duplicate Document | POST + GET | `/api/documents/:identifier` (GET then POST) | Duplicate a document by retrieving it and then creating it with a new identifier.            |
 | Encrypt Document   | POST       | `/api/documents/:identifier/encrypt`         | Encrypt a document using Base64.                                                             |
-| Revert to Version  | POST       | `/api/documents/:identifier/versions`        | Revert a document to an older version.                                                                     |
+| List Versions      | GET        | `/api/documents/:identifier/versions`        | Get all versions of a document.                                                              |
+| Get Version        | GET        | `/api/documents/:identifier/versions/:versionId` | Get a specific version.                                                                  |
+| Create Version     | POST       | `/api/documents/:identifier/versions`        | Create a new version with optional name and metadata.                                        |
+| Update Version     | PATCH      | `/api/documents/:identifier/versions/:versionId` | Update a version's name or metadata.                                                     |
+| Revert to Version  | POST       | `/api/documents/:identifier/versions/:versionId/revertTo` | Revert a document to an older version.                                        |
 | Update Document    | PATCH      | `/api/documents/:identifier`                 | Apply a Yjs update message to an existing document.                                          |
+| Update Document (PUT alias) | PUT | `/api/documents/:identifier`                | Alias of the `PATCH` endpoint&mdash;applies a Yjs update message with identical behavior.    |
+| Check Document Exists | HEAD    | `/api/documents/:identifier`                 | Check whether a document exists (no response body).                                          |
 | Delete Document    | DELETE     | `/api/documents/:identifier`                 | Delete a document from the server.                                                           |
-| Search Documents     | POST     | `/api/search`                                | Execute a search on all documents.                                                           |
+| Delete Version     | DELETE     | `/api/documents/:identifier/versions/:versionId` | Delete a specific version of a document.                                                 |
+| Export Document    | GET        | `/api/documents/:identifier/export`          | Export a document and all its versions as a `.zip` archive.                                  |
+| Import Document    | POST       | `/api/documents/:identifier/import`          | Import a document (and its versions) from an exported `.zip` archive.                        |
+| Send Stateless Message | POST   | `/api/documents/:identifier/stateless`       | Broadcast a stateless message to all connected clients of a document.                        |
 
 Take a look at the [metrics and statistics endpoints](/collaboration/operations/metrics) as well!
 
@@ -72,7 +90,7 @@ if the document already exists. To overwrite an existing document, you must [del
 
 ```bash
 curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Authorization: Bearer YOUR_JWT' \
 --data '@yjsUpdate.binary'
 ```
 
@@ -80,7 +98,7 @@ curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_
 
 ```bash
 curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME?format=json' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Authorization: Bearer YOUR_JWT' \
 --header 'Content-Type: application/json' \
 --data '{
     "type": "doc",
@@ -148,7 +166,7 @@ curl --location --request PUT 'https://YOUR_APP_ID.collab.tiptap.cloud/api/admin
 ## Get a document
 
 ```bash
-GET /api/documents/:identifier?format=:format&fragment=:fragment
+GET /api/documents/:identifier?format=:format&fragment=:fragment&version=:version
 ```
 
 This call lets you export the specified document with all fragments in JSON or Yjs format. If the document is currently open on your
@@ -161,9 +179,11 @@ with `Y.encodeStateAsUpdate`.
 export. By default, we only export the `default` fragment. This parameter is only applicable when using
 the `json` or `text`format; with `yjs`, you'll always get the entire Yjs document.
 
+- `version` (`string`, optional): the version of the Y.js document to retrieve. Defaults to the latest version.
+
 ```bash
 curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+--header 'Authorization: Bearer YOUR_JWT'
 ```
 
   When using `axios`, you need to specify `responseType: arraybuffer` in the request options.
@@ -177,7 +197,7 @@ const axiosResult = await axios.get(
   'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME?format=yjs',
   {
     headers: {
-      Authorization: 'YOUR_SECRET_FROM_SETTINGS_AREA',
+      Authorization: 'Bearer YOUR_JWT',
     },
     responseType: 'arraybuffer',
   },
@@ -197,7 +217,7 @@ const fetchResult = await fetch(
   'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME?format=yjs',
   {
     headers: {
-      Authorization: 'YOUR_SECRET_FROM_SETTINGS_AREA',
+      Authorization: 'Bearer YOUR_JWT',
     },
   },
 )
@@ -216,7 +236,7 @@ This call returns a paginated list of all documents in storage. By default, we r
 
 ```bash
 curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+--header 'Authorization: Bearer YOUR_JWT'
 ```
 
 
@@ -230,7 +250,7 @@ const docUpdateAsBinaryResponse = await axios.get(
   'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME?format=yjs',
   {
     headers: {
-      Authorization: 'YOUR_SECRET_FROM_SETTINGS_AREA',
+      Authorization: 'Bearer YOUR_JWT',
     },
     responseType: 'arraybuffer',
   },
@@ -241,7 +261,7 @@ await axios.post(
   docUpdateAsBinaryResponse.data,
   {
     headers: {
-      Authorization: 'YOUR_SECRET_FROM_SETTINGS_AREA',
+      Authorization: 'Bearer YOUR_JWT',
     },
   },
 )
@@ -262,7 +282,7 @@ The endpoint returns HTTP status `204` if the document is successfully encrypted
 ```bash
 curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/encrypt' \
 --header 'Content-Type: application/json' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Authorization: Bearer YOUR_JWT' \
 --data '{
     "type": "doc",
     "content": [
@@ -283,21 +303,53 @@ curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_
   }'
 ```
 
-## Revert to version
+## Version management
+
+Versions capture the state of a document at a point in time. Each version has a `version` number, `date`, and optionally a `name` and `meta` (arbitrary metadata object).
+
+Every version's `meta` object automatically includes a `__tiptap` key with server-generated metadata about who contributed changes and how the version was created. See [automatic version metadata](/collaboration/documents/snapshot#automatic-version-metadata) for details.
+
+For a full interactive reference of all version endpoints, see the [Postman Collection](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/folder/33042171-a6e8aa7e-c077-46ee-a2a3-241f8efd5d25?action=share&creator=33042171&active-environment=33042171-378cfb31-9c16-40f0-95b8-b9f0d3c7d2ab).
+
+### Revert to version
 
 ```bash
-POST /api/documents/:identifier/versions
+POST /api/documents/:identifier/versions/:versionId/revertTo
 ```
 
-This call lets you revert a document to a specific previous version by applying an update that corresponds to a prior state of the document. You must specify the version to revert to in the request body.
+This call lets you revert a document to a specific previous version by applying an update that corresponds to a prior state of the document.
 
-The endpoint returns HTTP status `204` if the document is successfully reverted, or `404` if the document or version is not found.
+The endpoint returns HTTP status `200` if the document is successfully reverted, or `404` if the document or version is not found.
 
 ```bash
 curl --location --request POST 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/versions/VERSION_ID/revertTo' \
 --header 'Content-Type: application/json' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+--header 'Authorization: Bearer YOUR_JWT'
+```
 
+### Update a version
+
+```bash
+PATCH /api/documents/:identifier/versions/:versionId
+```
+
+This call lets you update a version's name or metadata. You can use this to rename versions or attach additional context after creation.
+
+For available request body parameters and examples, see the [Postman Collection](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/folder/33042171-a6e8aa7e-c077-46ee-a2a3-241f8efd5d25?action=share&creator=33042171&active-environment=33042171-378cfb31-9c16-40f0-95b8-b9f0d3c7d2ab).
+
+### Delete a version
+
+```bash
+DELETE /api/documents/:identifier/versions/:versionId
+```
+
+This call deletes a single version of a document. The `:versionId` is the version number returned by the list/get version endpoints.
+
+The endpoint returns HTTP status `204` if the version was deleted successfully, or `404` if the document or version is not found.
+
+```bash
+curl --location --request DELETE 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/versions/VERSION_ID' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
 ```
 
 
@@ -309,12 +361,14 @@ PATCH /api/documents/:identifier
 
 This call accepts a Yjs update message and applies it to the existing document on the server.
 
+The same endpoint is also available as `PUT /api/documents/:identifier`, which behaves identically to `PATCH` (same body and query parameters).
+
 The endpoint returns the HTTP status `204` if the document was updated successfully, `404` if
 the document does not exist, or `422` if the payload is invalid or the update cannot be applied.
 
 ```bash
 curl --location --request PATCH 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Authorization: Bearer YOUR_JWT' \
 --data '@yjsUpdate.binary'
 ```
 
@@ -335,45 +389,79 @@ document was not found.
 
 ```bash
 curl --location --request DELETE 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
---header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+--header 'Authorization: Bearer YOUR_JWT'
 ```
 
 <Callout title="Document persists after deletion" variant="hint">
   If the endpoint returns `204` but the document still exists, make sure that no user is re-creating the document from the provider. We close all connections before deleting a document, but your error handling might recreate the provider, thus creating the document again.
 </Callout>
 
-
-## Search documents
-
-```bash
-POST /api/search
-```
-
-When [Tiptap Semantic Search](/collaboration/documents/semantic-search) is enabled, you can perform contextually aware searches across all your documents.
-
-<Callout title="Keeping your API key secret" variant="hint">
-  Please handle the search requests in your backend to keep your API
-  key secret. Consider enforcing rate limits in your application as necessary.
-</Callout>
-
-### Query parameters
-
-You can use the following query parameters to adjust the search results:
-
-| Query parameter | Type  | Default | Description                                                                       |
-| --------------- | ----- | ------- | --------------------------------------------------------------------------------- |
-| `threshold`     | float | `0.5`   | Describes the similarity factor of documents. The value can be between `0` an `1`. |
-| `limit`         | int   | `20`    | Limit the number of results. The value can be between `1` an `100`.                |
-
-### Body parameters
-
-| Body parameter | Type   | Default | Description      |
-| -------------- | ------ | ------- | ---------------- |
-| `content`      | string | -       | Your search terms. |
+## Check if a document exists
 
 ```bash
-curl -X POST https://YOUR_APP_ID.collab.tiptap.cloud/api/search \
-  -H "Authorization: YOUR_SECRET_FROM_SETTINGS_AREA" \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Your search terms"}'
+HEAD /api/documents/:identifier
 ```
+
+This call checks whether a document with the given identifier exists, without transferring its content. The response has no body.
+
+It returns HTTP status `200` if the document exists, or `404` if it does not. Existence is independent of the document's active/inactive state.
+
+```bash
+curl --location --head 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA'
+```
+
+## Export and import a document
+
+Use these endpoints to move a document&mdash;together with all of its versions&mdash;between servers or to create a portable backup. Unlike [duplicating a document](#duplicate-a-document), the export archive preserves the document's version history.
+
+### Export a document
+
+```bash
+GET /api/documents/:identifier/export
+```
+
+This call exports the current document and all of its versions as a `.zip` archive (`Content-Type: application/zip`). The archive can later be imported again with the import endpoint.
+
+It returns HTTP status `200` with the archive as the response body, or `404` if the document does not exist.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/export' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--output export.zip
+```
+
+### Import a document
+
+```bash
+POST /api/documents/:identifier/import
+```
+
+This call imports a document (and its versions) from an archive previously created with the export endpoint. Send the archive as the raw request body&mdash;the server reads the raw bytes and does not require a specific `Content-Type` header. The target `:identifier` must not already exist.
+
+Requests that fail validation are rejected with a regular HTTP status before the import starts: `409` if a document with the target identifier already exists, `413` if the archive exceeds the maximum allowed body size, or `400` if the archive is malformed.
+
+Once the import starts, the endpoint responds with HTTP status `200` (`Content-Type: application/x-ndjson`) and streams newline-delimited JSON (NDJSON) progress events while it works. The stream finishes with a `done` event whose `status` field reports the final result: `201` on success, or `409` if a conflicting document was created while the import was running. If the import fails midway, the stream ends with an `error` event carrying status `422`.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/import' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Content-Type: application/zip' \
+--data-binary '@export.zip'
+```
+
+## Send a stateless message
+
+```bash
+POST /api/documents/:identifier/stateless
+```
+
+This call broadcasts a custom payload to all clients currently connected to the document. Clients receive it as a [stateless message](/collaboration/provider/events), which you can handle with the provider's `onStateless` callback or by listening to the `stateless` event.
+
+The request body is sent verbatim as the stateless payload. The endpoint returns HTTP status `204` once the message has been broadcast.
+
+```bash
+curl --location 'https://YOUR_APP_ID.collab.tiptap.cloud/api/documents/DOCUMENT_NAME/stateless' \
+--header 'Authorization: YOUR_SECRET_FROM_SETTINGS_AREA' \
+--header 'Content-Type: application/json' \
+--data '{ "type": "ping", "payload": "hello" }'

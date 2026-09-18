@@ -34,6 +34,14 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Performance',
         },
         {
+          href: '/guides/find-and-replace',
+          title: 'Find and replace UI',
+        },
+        {
+          href: '/guides/react-composable-api',
+          title: 'React Composable API',
+        },
+        {
           href: '/guides/invalid-schema',
           title: 'Invalid schema handling',
         },
@@ -52,10 +60,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/guides/offline-support',
           title: 'Offline Collaboration',
-        },
-        {
-          href: '/guides/legacy-conversion',
-          title: 'Legacy conversion',
         },
         {
           href: '/guides/upgrade-tiptap-v1',
@@ -79,6 +83,22 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/guides/typescript',
           title: 'Extend with TypeScript',
+        },
+        {
+          href: '/guides/nested-node-view-content',
+          title: 'Nested node views',
+        },
+        {
+          href: '/guides/decorations-vanilla',
+          title: 'Highlight Terms with Decorations in Vanilla JS',
+        },
+        {
+          href: '/guides/decorations-react',
+          title: 'Highlight Terms with Decorations in React',
+        },
+        {
+          href: '/guides/decorations-vue',
+          title: 'Highlight Terms with Decorations in Vue 3',
         },
       ],
     },

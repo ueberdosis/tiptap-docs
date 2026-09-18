@@ -8,94 +8,88 @@ export const sidebarConfig: SidebarConfig = {
     {
       type: 'group',
       href: '/conversion/getting-started',
-      title: 'get started',
+      title: 'Get started',
       children: [
         {
           title: 'Overview',
           href: '/conversion/getting-started/overview',
         },
         {
-          title: 'Authenticate',
+          title: 'Install',
           href: '/conversion/getting-started/install',
+        },
+        {
+          title: 'Live demo',
+          href: '/conversion/getting-started/demo',
+        },
+        {
+          title: 'Supported features',
+          href: '/conversion/getting-started/feature-support-matrix',
         },
       ],
     },
     {
       type: 'group',
-      href: '/conversion/import-export',
-      title: 'Import & Export',
+      href: '/conversion/import',
+      title: 'Import',
       children: [
         {
           title: 'DOCX',
-          href: '/conversion/import-export/docx',
-          beta: true,
-          tags: ['Start'],
+          href: '/conversion/import/docx/editor-extension',
           children: [
             {
-              title: 'Editor import',
-              href: '/conversion/import-export/docx/editor-import',
+              title: 'Editor extension',
+              href: '/conversion/import/docx/editor-extension',
             },
             {
-              title: 'Editor export',
-              href: '/conversion/import-export/docx/editor-export',
+              title: 'ConvertKit',
+              href: '/conversion/import/docx/convertkit',
+              tags: ['Beta'],
+            },
+            {
+              title: 'CSS injection',
+              href: '/conversion/import/docx/css-injection',
+              tags: ['Beta'],
             },
             {
               title: 'REST API',
-              href: '/conversion/import-export/docx/rest-api',
+              href: '/conversion/import/docx/rest-api',
             },
             {
-              title: 'Headers & Footers',
-              href: '/conversion/import-export/docx/headers-footers',
-              tags: ['Team', 'New'],
-            },
-            {
-              title: 'Custom page layout',
-              href: '/conversion/import-export/docx/custom-page-layout',
-              tags: ['New'],
-            },
-            {
-              title: 'Convert custom nodes',
-              href: '/conversion/import-export/docx/custom-node-conversion',
-            },
-            {
-              title: 'Convert custom marks',
-              href: '/conversion/import-export/docx/custom-mark-conversion',
-            },
-            {
-              title: 'Export styles',
-              href: '/conversion/import-export/docx/export-styles',
-            },
-            {
-              title: 'Preserve images',
-              href: '/conversion/import-export/docx/preserve-images',
+              title: 'Customize',
+              href: '/conversion/import/docx/custom-node-mapping',
+              children: [
+                {
+                  title: 'Node mapping',
+                  href: '/conversion/import/docx/custom-node-mapping',
+                },
+                {
+                  title: 'Mark mapping',
+                  href: '/conversion/import/docx/custom-mark-mapping',
+                },
+                {
+                  title: 'Image handling',
+                  href: '/conversion/import/docx/image-handling',
+                },
+                {
+                  title: 'Tracked changes',
+                  href: '/conversion/import/docx/tracked-changes',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/import/docx/page-breaks',
+                },
+              ],
             },
           ],
         },
         {
-          href: '/conversion/import-export/odt',
-          title: 'ODT',
-          children: [
-            {
-              title: 'Editor extensions',
-              href: '/conversion/import-export/odt/editor-extensions',
-            },
-            {
-              title: 'REST API',
-              href: '/conversion/import-export/odt/rest-api',
-            },
-          ],
-        },
-        {
-          href: '/conversion/import-export/markdown',
           title: 'Markdown',
+          href: '/conversion/import/markdown/rest-api',
           children: [
             {
-              title: 'Editor extensions',
-              href: '/conversion/import-export/markdown/editor-extensions',
-            },
-            {
               title: 'REST API',
-              href: '/conversion/import-export/markdown/rest-api',
+              href: '/conversion/import/markdown/rest-api',
             },
           ],
         },
@@ -103,12 +97,321 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/resources',
-      title: 'Resources',
+      href: '/conversion/export',
+      title: 'Export',
       children: [
         {
-          title: 'Legacy extensions',
-          href: '/guides/legacy-conversion',
+          title: 'DOCX',
+          href: '/conversion/export/docx/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/docx/editor-extension',
+            },
+            {
+              title: 'CSS to DOCX',
+              href: '/conversion/export/docx/css-to-docx',
+              tags: ['Beta'],
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/docx/rest-api',
+            },
+            {
+              title: 'Customize',
+              href: '/conversion/export/docx/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/docx/custom-nodes',
+                },
+                {
+                  title: 'Custom nodes DSL',
+                  href: '/conversion/export/docx/custom-nodes-dsl',
+                  tags: ['Beta'],
+                },
+                {
+                  title: 'Custom nodes DSL builder',
+                  href: '/conversion/export/docx/custom-nodes-dsl-builder',
+                  tags: ['Beta'],
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/docx/styles',
+                },
+                {
+                  title: 'Fonts',
+                  href: '/conversion/export/docx/fonts',
+                },
+                {
+                  title: 'Ordered list numbering',
+                  href: '/conversion/export/docx/ordered-list-numbering',
+                },
+                {
+                  title: 'Tracked changes',
+                  href: '/conversion/export/docx/tracked-changes',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/docx/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/docx/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/docx/page-layout',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          title: 'PDF',
+          href: '/conversion/export/pdf/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/pdf/editor-extension',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/pdf/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'ODT',
+          href: '/conversion/export/odt/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/odt/editor-extension',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/odt/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'EPUB',
+          href: '/conversion/export/epub/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/epub/editor-extension',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/epub/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'DOC',
+          href: '/conversion/export/doc/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/doc/editor-extension',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/doc/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'Markdown',
+          href: '/conversion/export/markdown/editor-extension',
+          children: [
+            {
+              title: 'Editor extension',
+              href: '/conversion/export/markdown/editor-extension',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/export/markdown/rest-api',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/content-types/overview',
+      title: 'Content reference',
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/content-types/overview',
+        },
+        {
+          title: 'Text and formatting',
+          href: '/conversion/content-types/text-and-formatting/paragraphs',
+          children: [
+            {
+              title: 'Paragraphs',
+              href: '/conversion/content-types/text-and-formatting/paragraphs',
+            },
+            {
+              title: 'Headings',
+              href: '/conversion/content-types/text-and-formatting/headings',
+            },
+            {
+              title: 'Text alignment',
+              href: '/conversion/content-types/text-and-formatting/text-alignment',
+            },
+            {
+              title: 'Bold, italic, underline, strike',
+              href: '/conversion/content-types/text-and-formatting/bold-italic-underline-strike',
+            },
+            {
+              title: 'Subscript and superscript',
+              href: '/conversion/content-types/text-and-formatting/subscript-superscript',
+            },
+            {
+              title: 'Text color and highlight',
+              href: '/conversion/content-types/text-and-formatting/text-color-highlight',
+            },
+            {
+              title: 'Font family and size',
+              href: '/conversion/content-types/text-and-formatting/font-family-size',
+            },
+            {
+              title: 'Lists',
+              href: '/conversion/content-types/text-and-formatting/lists',
+            },
+            {
+              title: 'Tabs',
+              href: '/conversion/content-types/text-and-formatting/tabs',
+            },
+          ],
+        },
+        {
+          title: 'Structures and media',
+          href: '/conversion/content-types/structures-and-media/tables',
+          children: [
+            {
+              title: 'Tables',
+              href: '/conversion/content-types/structures-and-media/tables',
+            },
+            {
+              title: 'Images',
+              href: '/conversion/content-types/structures-and-media/images',
+            },
+            {
+              title: 'Hyperlinks and bookmarks',
+              href: '/conversion/content-types/structures-and-media/hyperlinks-bookmarks',
+            },
+            {
+              title: 'Block elements',
+              href: '/conversion/content-types/structures-and-media/block-elements',
+            },
+            {
+              title: 'Math and equations',
+              href: '/conversion/content-types/structures-and-media/math-equations',
+            },
+            {
+              title: 'Footnotes and endnotes',
+              href: '/conversion/content-types/structures-and-media/footnotes-endnotes',
+            },
+            {
+              title: 'Comments',
+              href: '/conversion/content-types/structures-and-media/comments',
+            },
+            {
+              title: 'Word styles',
+              href: '/conversion/content-types/structures-and-media/word-styles',
+            },
+          ],
+        },
+        {
+          title: 'Page layout',
+          href: '/conversion/content-types/page-layout/headers-footers',
+          children: [
+            {
+              title: 'Headers and footers',
+              href: '/conversion/content-types/page-layout/headers-footers',
+            },
+            {
+              title: 'Page breaks',
+              href: '/conversion/content-types/page-layout/page-breaks',
+            },
+            {
+              title: 'Page structure',
+              href: '/conversion/content-types/page-layout/page-structure',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/getting-started/guides',
+      title: 'Guides',
+      children: [
+        {
+          title: 'End-to-end walkthrough',
+          href: '/conversion/getting-started/guides/end-to-end-walkthrough',
+        },
+        {
+          title: 'Styling converted content',
+          href: '/conversion/getting-started/guides/styling-converted-content',
+        },
+        {
+          title: 'Custom extensions',
+          href: '/conversion/getting-started/guides/custom-extensions',
+        },
+        {
+          title: 'Debugging',
+          href: '/conversion/getting-started/guides/debugging',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/conversion/legacy/overview',
+      title: 'Legacy',
+      tags: ['Deprecated'],
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/legacy/overview',
+        },
+        {
+          title: 'Migration guide',
+          href: '/conversion/legacy/migration-guide',
+        },
+        {
+          title: 'Markdown (legacy)',
+          href: '/conversion/legacy/markdown/editor-extensions',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/markdown/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/markdown/rest-api',
+            },
+          ],
+        },
+        {
+          title: 'ODT (legacy)',
+          href: '/conversion/legacy/odt/editor-extensions',
+          children: [
+            {
+              title: 'Editor extensions',
+              href: '/conversion/legacy/odt/editor-extensions',
+            },
+            {
+              title: 'REST API',
+              href: '/conversion/legacy/odt/rest-api',
+            },
+          ],
         },
       ],
     },

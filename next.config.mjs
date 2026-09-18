@@ -1,497 +1,60 @@
 import createMdx from '@next/mdx'
-import remarkFrontmatter from 'remark-frontmatter'
-import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
-import rehypeShiki from '@shikijs/rehype'
-import remarkGfm from 'remark-gfm'
+import { redirects } from './src/server/redirects.mjs'
+
+const svgComponentPattern = /^src\/assets\/icons\/.*\.svg$/
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  webpack(config) {
-    // Grab the existing rule that handles SVG imports
-    const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'))
-
-    config.module.rules.push(
-      // Reapply the existing rule, but only for svg imports ending in ?url
-      {
-        ...fileLoaderRule,
-        test: /\.svg$/i,
-        resourceQuery: /url/, // *.svg?url
+  // Raw `.mdx` files are read at runtime via fs (markdown endpoint, llms.txt,
+  // and the page route). Node File Trace can't detect these dynamic reads, so
+  // include the whole content tree in the standalone output explicitly.
+  outputFileTracingIncludes: {
+    '/api/md/[...path]': [
+      './src/content/**/*.mdx',
+      './src/server/markdown/contentDates.generated.json',
+    ],
+    '/llms.txt': ['./src/content/**/*.mdx'],
+    '/[...markdownPath]': ['./src/content/**/*.mdx'],
+  },
+  turbopack: {
+    rules: {
+      '*.svg': {
+        condition: {
+          all: [{ not: 'foreign' }, { path: svgComponentPattern }],
+        },
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
-      // Convert all other *.svg imports to React components
-      {
-        test: /\.svg$/i,
-        issuer: fileLoaderRule.issuer,
-        resourceQuery: { not: [...fileLoaderRule.resourceQuery.not, /url/] }, // exclude if *.svg?url
-        use: ['@svgr/webpack'],
-      },
-    )
-
-    // Modify the file loader rule to ignore *.svg, since we have it handled now.
-    fileLoaderRule.exclude = /\.svg$/i
-
-    return config
+    },
   },
   pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
   images: { unoptimized: true },
   basePath: process.env.BASE_PATH ?? '',
-  async redirects() {
+  async headers() {
+    const commitSha = process.env.GIT_COMMIT_SHA || 'unknown'
+    const shortSha = commitSha.substring(0, 7)
     return [
       {
-        source: '/content-ai/capabilities/text-generation',
-        destination: '/content-ai/capabilities/text-generation/built-in-commands',
-        permanent: true,
-      },
-      {
-        source: '/feed',
-        destination: '/',
-        permanent: true,
-      },
-      {
-        source: '/docsassets/images/tiptap-logo.png',
-        destination: '/assets/images/tiptap-logo.png',
-        permanent: true,
-      },
-      {
-        source: '/docs/resources/pricing',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/editor/install',
-        destination: '/editor/getting-started/install',
-        permanent: true,
-      },
-      {
-        source: '/editor/getting-started/install/cdn',
-        destination: '/editor/getting-started/install/vanilla-javascript',
-        permanent: true,
-      },
-      {
-        source: '/editor/markdown/getting-started',
-        destination: '/editor/markdown/getting-started/installation',
-        permanent: true,
-      },
-      {
-        source: '/editor/markdown/advanced-usage',
-        destination: '/editor/markdown/advanced-usage/custom-tokenizer',
-        permanent: true,
-      },
-      {
-        source: '/editor/markdown/guides',
-        destination: '/editor/markdown/guides/integrate-markdown-in-your-extension',
-        permanent: true,
-      },
-      {
-        source: '/editor/markdown/api',
-        destination: '/editor/markdown/api/editor',
-        permanent: true,
-      },
-      {
-        source: '/editor/extensions/functionality/mathematics',
-        destination: '/editor/extensions/nodes/mathematics',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/tiptap-cloud',
-        destination: '/content-ai/capabilities/agent/use-with-content-ai-cloud',
-        permanent: true,
-      },
-      {
-        source: '/conversion/import-export/odt',
-        destination: '/conversion/import-export/odt/editor-extensions',
-        permanent: true,
-      },
-      {
-        source: '/conversion/import-export/markdown',
-        destination: '/conversion/import-export/markdown/editor-extensions',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/generation',
-        destination: '/content-ai/capabilities/generation/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/custom-llms/integrate',
-        destination: '/content-ai/custom-llms',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/generation/text-generation',
-        destination: '/content-ai/capabilities/generation/text-generation/built-in-commands',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/suggestion',
-        destination: '/content-ai/capabilities/suggestion/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/suggestion',
-        destination: '/content-ai/capabilities/suggestion/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/suggestion/features',
-        destination: '/content-ai/capabilities/suggestion/features/define-rules',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/changes',
-        destination: '/content-ai/capabilities/changes/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/changes/features',
-        destination: '/content-ai/capabilities/changes/features/review-changes',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/text-generation',
-        destination: '/content-ai/capabilities/generation/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent',
-        destination: '/content-ai/capabilities/agent/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/features',
-        destination: '/content-ai/capabilities/agent/features/state',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/configure',
-        destination: '/content-ai/capabilities/agent/configure/options',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/custom-llms',
-        destination: '/content-ai/capabilities/agent/custom-llms/overview',
-        permanent: true,
-      },
-      {
-        source: '/collaboration/documents/conversion',
-        destination: '/conversion/getting-started/overview',
-        permanent: true,
-      },
-      {
-        source: '/collaboration/documents/history',
-        destination: '/collaboration/documents/snapshot',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/node-components',
-        destination: '/ui-components/node-components/blockquote-node',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/utils-components',
-        destination: '/ui-components/utils-components/floating-element',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/components',
-        destination: '/ui-components/components/ai-ask-button',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/primitives',
-        destination: '/ui-components/primitives/avatar',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/getting-started',
-        destination: '/ui-components/getting-started/overview',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/components/highlight-popover',
-        destination: '/ui-components/components/color-highlight-popover',
-        permanent: true,
-      },
-      {
-        source: '/ui-components/components/node-button',
-        destination: '/ui-components/components/blockquote-button',
-        permanent: true,
-      },
-      // The redirects below are temporary and should be moved to the reverse proxy
-      // TODO: add these redirects to the reverse proxy
-      {
-        source: '/content-ai/capabilities/agent/features/state-management',
-        destination: '/content-ai/capabilities/agent/features/state',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/features/runs',
-        destination: '/content-ai/capabilities/agent/features/lifecycle',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/features/reading-the-document',
-        destination: '/content-ai/capabilities/agent/features/large-documents',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/features/add-context',
-        destination: '/content-ai/capabilities/agent/features/context',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/agent/features/review',
-        destination: '/content-ai/capabilities/agent/review',
-        permanent: true,
-      },
-      {
-        source: '/editor/api/extensions/collaboration-caret',
-        destination: '/editor/extensions/functionality/collaboration-caret',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit',
-        destination: '/content-ai/capabilities/ai-toolkit/overview',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/changelog',
-        destination: '/content-ai/capabilities/ai-toolkit/changelog/ai-toolkit',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/multi-document',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/ai-engineering',
-        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/ai-engineering',
-        permanent: true,
-      },
-      // Guides section moved to Agents
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/ai-agent-chatbot',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/ai-agent-chatbot',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/review-changes',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/review-changes-as-summary',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/review-changes-as-summary',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/tool-streaming',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tool-streaming',
-        permanent: true,
-      },
-      // Live demo moved to advanced-guides
-      {
-        source: '/content-ai/capabilities/ai-toolkit/live-demo',
-        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/live-demo',
-        permanent: true,
-      },
-      // Advanced guides moved to agents
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/comments',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/comments',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/multi-document',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/multi-document',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/selection-awareness',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/selection-awareness',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/schema-awareness',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/schema-awareness',
-        permanent: true,
-      },
-      // Tools section moved under agents
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/available-tools',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/ai-sdk',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/ai-sdk',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/langchain-js',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/langchain-js',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/openai',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/openai',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/anthropic',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/anthropic',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/mastra',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/mastra',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/tools/other-providers',
-        destination: '/content-ai/capabilities/ai-toolkit/agents/tools/other-providers',
-        permanent: true,
-      },
-      // Primitives renamed to API reference
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/execute-tool',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/execute-tool',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/read-the-document',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/read-the-document',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/edit-the-document',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/edit-the-document',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/schema-awareness',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/schema-awareness',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/display-suggestions',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/display-suggestions',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/compare-documents',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/compare-documents',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/diff-utility',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/diff-utility',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/primitives/workflows',
-        destination: '/content-ai/capabilities/ai-toolkit/api-reference/workflows',
-        permanent: true,
-      },
-      // Migration guides moved under advanced-guides
-      {
-        source: '/content-ai/capabilities/ai-toolkit/migration-guides',
-        destination: '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-generation',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-generation',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-suggestion',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-suggestion',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-changes',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-changes',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/migration-guides/ai-assistant',
-        destination:
-          '/content-ai/capabilities/ai-toolkit/advanced-guides/migration-guides/ai-assistant',
-        permanent: true,
-      },
-      // END AI Toolkit redirects
-      // Server AI Toolkit redirects
-      {
-        source: '/content-ai/capabilities/server-ai-toolkit/advanced-guides',
-        destination: '/content-ai/capabilities/server-ai-toolkit/advanced-guides/tiptap-shorthand',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/server-ai-toolkit',
-        destination: '/content-ai/capabilities/server-ai-toolkit/overview',
-        permanent: true,
-      },
-      // END Server AI Toolkit redirects
-      {
-        source: '/hocuspocus/introduction',
-        destination: '/hocuspocus/getting-started/overview',
-        permanent: true,
-      },
-      {
-        source: '/editor/ai/advanced-usage/custom-llm',
-        destination: 'content-ai/custom-llms',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/content-ai/custom-llms',
-        destination: '/content-ai/custom-llms',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/advanced-guides/proofreader',
-        destination: '/content-ai/capabilities/ai-toolkit/workflows/proofreader',
-        permanent: true,
-      },
-      {
-        source: '/content-ai/capabilities/ai-toolkit/guides/inline-edits',
-        destination: '/content-ai/capabilities/ai-toolkit/workflows/insert-content',
-        permanent: true,
+        source: '/:path*',
+        headers: [
+          { key: 'X-Git-Commit', value: shortSha },
+          { key: 'X-Git-Branch', value: process.env.GIT_COMMIT_REF_NAME || 'unknown' },
+        ],
       },
     ]
+  },
+  async redirects() {
+    return redirects
   },
 }
 
 const withMDX = createMdx({
   options: {
-    remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm],
+    remarkPlugins: ['remark-frontmatter', 'remark-mdx-frontmatter', 'remark-gfm'],
     rehypePlugins: [
       [
-        rehypeShiki,
+        '@shikijs/rehype',
         {
           theme: 'github-dark-high-contrast',
         },

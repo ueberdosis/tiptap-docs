@@ -32,24 +32,37 @@ const PageEditFooter = async () => {
 }
 
 export const LayoutCTABar = () => {
-  if (!CTA_BAR || !CTA_BAR.enabled) {
+  if (CTA_BAR.hideAt && CTA_BAR.hideAt <= new Date()) {
     return null
   }
 
-  const target = CTA_BAR.url.startsWith('/') ? '' : '_blank'
-
   return (
-    <Link
-      href={CTA_BAR.url}
-      target={target}
+    <div
       className={cn(
         styles.notificationBar,
-        'flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold text-center text-white group',
+        'flex flex-col items-center justify-center gap-3 px-2 py-3 text-sm font-semibold text-center text-white lg:flex-row lg:gap-6',
       )}
     >
-      <span className="leading-none">{CTA_BAR.text}</span>
-      <ArrowRightIcon className="transition size-4 group-hover:translate-x-1" />
-    </Link>
+      <span className="leading-none">{CTA_BAR.label}</span>
+      <Link href={CTA_BAR.button.href} target="_blank" className={styles.notificationBarButton}>
+        <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+          <ArrowRightIcon />
+        </span>
+        <span className={styles.notificationBarButtonLabel}>{CTA_BAR.button.text}</span>
+        <span className={styles.notificationBarButtonArrow} aria-hidden="true">
+          <ArrowRightIcon />
+        </span>
+      </Link>
+      {CTA_BAR.productHunt && (
+        <Link href={CTA_BAR.productHunt.href} target="_blank">
+          <img
+            src={CTA_BAR.productHunt.imageSrc}
+            alt={CTA_BAR.productHunt.alt}
+            className="block h-8"
+          />
+        </Link>
+      )}
+    </div>
   )
 }
 
@@ -245,7 +258,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
                 Changelog
               </Link>
             </div>
-            <div className="flex-none">Copyright © 2025 Tiptap</div>
+            <div className="flex-none">Copyright © {new Date().getFullYear()} Tiptap</div>
           </div>
         </footer>
       </main>

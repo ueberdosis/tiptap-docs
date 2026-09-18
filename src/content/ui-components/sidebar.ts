@@ -15,6 +15,36 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/getting-started/overview',
         },
         {
+          title: 'Install',
+          href: '/ui-components/install/next',
+          children: [
+            {
+              title: 'Next.js',
+              href: '/ui-components/install/next',
+            },
+            {
+              title: 'Vite',
+              href: '/ui-components/install/vite',
+            },
+            {
+              title: 'React Router',
+              href: '/ui-components/install/react-router',
+            },
+            {
+              title: 'Laravel',
+              href: '/ui-components/install/laravel',
+            },
+            {
+              title: 'Astro',
+              href: '/ui-components/install/astro',
+            },
+            {
+              title: 'Manual',
+              href: '/ui-components/install/manual',
+            },
+          ],
+        },
+        {
           title: 'Style',
           href: '/ui-components/getting-started/style',
         },
@@ -43,36 +73,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/ui-components/templates/notion-like-editor',
           tags: ['Start'],
         },
-      ],
-    },
-    {
-      type: 'group',
-      href: '/ui-components/install',
-      title: 'Install',
-      children: [
         {
-          title: 'Next.js',
-          href: '/ui-components/install/next',
-        },
-        {
-          title: 'Vite',
-          href: '/ui-components/install/vite',
-        },
-        {
-          title: 'React Router',
-          href: '/ui-components/install/react-router',
-        },
-        {
-          title: 'Laravel',
-          href: '/ui-components/install/laravel',
-        },
-        {
-          title: 'Astro',
-          href: '/ui-components/install/astro',
-        },
-        {
-          title: 'Manual',
-          href: '/ui-components/install/manual',
+          title: 'DOCX Editor',
+          href: '/ui-components/templates/docx-editor',
+          tags: ['Team'],
         },
       ],
     },
@@ -154,6 +158,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/emoji-trigger-button',
             },
             {
+              title: 'Font family combobox',
+              href: '/ui-components/components/font-family-combobox',
+            },
+            {
               title: 'Heading button',
               href: '/ui-components/components/heading-button',
             },
@@ -202,8 +210,16 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/components/move-node-button',
             },
             {
+              title: 'Numbering format dropdown menu',
+              href: '/ui-components/components/numbering-format-dropdown-menu',
+            },
+            {
               title: 'Reset all formatting button',
               href: '/ui-components/components/reset-all-formatting-button',
+            },
+            {
+              title: 'Search and replace',
+              href: '/ui-components/components/search-and-replace',
             },
             {
               title: 'Slash trigger button',
@@ -229,19 +245,9 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Undo redo button',
               href: '/ui-components/components/undo-redo-button',
             },
-          ],
-        },
-        {
-          title: 'Utils components',
-          href: '/ui-components/utils-components',
-          children: [
             {
-              title: 'Floating element',
-              href: '/ui-components/utils-components/floating-element',
-            },
-            {
-              title: 'Suggestion menu',
-              href: '/ui-components/utils-components/suggestion-menu',
+              title: 'Zoom dropdown menu',
+              href: '/ui-components/components/zoom-dropdown-menu',
             },
           ],
         },
@@ -358,6 +364,20 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Tooltip',
               href: '/ui-components/primitives/tooltip',
+            },
+          ],
+        },
+        {
+          title: 'Utilities',
+          href: '/ui-components/utils-components',
+          children: [
+            {
+              title: 'Floating element',
+              href: '/ui-components/utils-components/floating-element',
+            },
+            {
+              title: 'Suggestion menu',
+              href: '/ui-components/utils-components/suggestion-menu',
             },
           ],
         },

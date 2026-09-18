@@ -3,8 +3,9 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
-  beta?: boolean
+  releaseTag?: "beta" | "alpha"
   external?: boolean
+  disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
   /**
    * Whether to show the link as active. If undefined, the link will be active
@@ -47,7 +48,9 @@ export type GeneralPageTag = {
     | 'mit'
     | 'business'
     | 'deprecated'
+    | 'version'
   tooltip?: string
+  label?: string
 }
 
 export type ImagePageTag = {
@@ -71,6 +74,7 @@ export type PageFrontmatter = {
   meta?: FrontmatterMeta
   sidebars?: FrontmatterSidebar
   extension?: ExtensionMeta
+  component?: UIComponentMeta
   incident?: IncidentMeta
   tags?: PageTag[]
 }
@@ -192,12 +196,6 @@ export interface VersionData {
   isAlpha?: boolean
   isRc?: boolean
   isLegacy?: boolean
-}
-
-export interface CTABarOptions {
-  enabled?: boolean
-  text: string | JSX.Element
-  url: string
 }
 
 export interface IncidentMeta {

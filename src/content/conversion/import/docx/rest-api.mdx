@@ -1,0 +1,579 @@
+---
+title: Import DOCX via REST API
+tags:
+  - type: start
+  - type: beta
+  - type: version
+    label: v2.39.1
+meta:
+  title: Import DOCX REST API | Tiptap Conversion
+  description: Learn how to import .docx files into Tiptap JSON format via the Conversion REST API.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Configure Convert app">
+    Authenticate REST calls with a signed token carrying `aud: "Convert"`. See
+    [Authentication](/authentication).
+  </RequirementItem>
+</Requirements>
+
+The DOCX import API converts `.docx` files into Tiptap's JSON format. It uses the same conversion service as the [editor extension](/conversion/import/docx/editor-extension) and produces identical content output.
+
+The REST API is the better choice when you need server-side processing, access to footnote or endnote data (which the extension does not surface), or raw JSON without schema filtering. If you want the content loaded directly into a Tiptap editor with headers and footers auto-applied, use the [editor extension](/conversion/import/docx/editor-extension) instead.
+
+<Callout title="Review the postman collection" variant="hint">
+  You can also experiment with the Document Conversion API by heading over to our [Postman
+  Collection](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/collection/33042171-bcc93ecb-8bad-4484-8cb0-d995ee23ae60).
+</Callout>
+
+<RegionalEndpoints />
+
+## Import DOCX
+
+`POST /v2/convert/import/docx`
+
+The `/v2/convert/import/docx` endpoint converts `docx` files into Tiptap's JSON format. Users can `POST` documents to this endpoint and use various parameters to customize how different document elements are handled during the conversion process.
+
+### Example (cURL)
+
+```bash
+curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -F "file=@/path/to/your/file.docx" \
+    -F 'imageUploadConfig={"url":"https://your-image-upload-endpoint.com","headers":{"Authorization":"Bearer your-upload-token"}}' \
+    -F "prosemirrorNodes={\"nodeKey\":\"nodeValue\"}" \
+    -F "prosemirrorMarks={\"markKey\":\"markValue\"}"
+```
+
+<Callout title="Subscription required" variant="warning">
+  This endpoint requires a valid Tiptap subscription. For more details review our [pricing
+  page](https://tiptap.dev/pricing).
+</Callout>
+
+### Required headers
+
+| Name            | Description                                                                 |
+| --------------- | --------------------------------------------------------------------------- |
+| `Authorization` | The JWT token to authenticate the request. Example: `Bearer your-jwt-token` |
+
+### Body
+
+| Name                | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `file`              | `File`              | The file to convert                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `imageUploadConfig` | `JSON string`       | A JSON object configuring image uploads. Contains `url` (required), and optionally `headers`, `method`, and `queryParams`. See the [editor extension docs](/conversion/import/docx/editor-extension#image-upload-configuration) for the full schema.                                                                                                                                                                                                                                                                                                                                                         |
+| `prosemirrorNodes`  | `Object string`     | Custom node mapping for the conversion, [see more info](/conversion/import/docx/custom-node-mapping).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `prosemirrorMarks`  | `Object string`     | Custom mark mapping for the conversion, [see more info](/conversion/import/docx/custom-mark-mapping)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `extractCssStyles`  | `"true" \| "false"` | **Experimental.** When `"true"`, the response includes a `cssStyles` field with the DOCX style catalog translated to CSS-compatible key/value pairs. Defaults to `"false"`. See [CSS style extraction](#css-style-extraction-experimental) for the output shape and caveats.                                                                                                                                                                                                                                                                                                                                 |
+| `placeholders`      | `JSON string`       | Opt-in translation of Word `PAGE` / `NUMPAGES` field codes in headers and footers to canonical `{page}` / `{numpages}` text tokens. Send `{}` (empty object) to enable with wire defaults, `{ "page"?: string, "total"?: string }` to enable with a rename map (e.g. `{"total":"pages"}` makes `NUMPAGES` come back as `{pages}`), or `false` to explicitly disable. Omitted (default) keeps Word's cached display value as plain text. Mirrors the editor's `Pages.configure({ placeholders })` option; the editor extension forwards it here automatically. See [Page-number fields](#page-number-fields). |
+| `documentName`      | `String`            | Target Tiptap Collaboration document name. When provided on a request whose token grants `Documents:Write` on it, the service reconciles imported comment threads against the Document Server so they are live on import. See [Comments](#comments-in-the-response). Optional; ignored when the token lacks the permission or the environment has no Document Server.                                                                                                                                                                                                                                        |
+| `trackedChanges`    | `String`            | What to do with Word insertions and deletions: `preserve` keeps them as suggestions, `accept` applies them, `reject` discards them. Defaults to `accept`. See [Tracked changes](/conversion/import/docx/tracked-changes).                                                                                                                                                                                                                                                                                                                                                                                    |
+
+### Warnings and errors in the response
+
+Every response carries a `logs` object next to `data`, holding `warn` and `error` arrays. A warning
+means content did not make it into the document, so it is worth surfacing to whoever uploaded the
+file.
+
+```js
+{
+  "data": {
+    "content": {
+        // Tiptap JSON
+    }
+  },
+  "logs": {
+    "warn": [
+      {
+        "message": "Image skipped: No imageUploadConfig was provided, so images cannot be imported.",
+        "fileName": "image1.gif"
+      }
+    ],
+    "error": [
+      {
+        "message": "Image upload failed: General error",
+        "fileName": "image1.gif",
+        "url": "https://your-image-upload-endpoint.com",
+        "error": "Unable to connect. Is the computer able to access the url?",
+        "context": "uploadImage general error"
+      }
+    ]
+  }
+}
+```
+
+## Headers & Footers in the response
+
+The import API extracts headers and footers from `.docx` files. When the document contains header or footer content, additional fields are included in the `data` object of the response.
+
+### Response fields
+
+| Field             | Type             | Description                                                             |
+| ----------------- | ---------------- | ----------------------------------------------------------------------- |
+| `content`         | `Object`         | The main document body as Tiptap JSON                                   |
+| `header`          | `Object \| null` | Default header content as Tiptap JSON                                   |
+| `footer`          | `Object \| null` | Default footer content as Tiptap JSON                                   |
+| `headerFirstPage` | `Object \| null` | First page header (when "Different First Page" is enabled in Word)      |
+| `footerFirstPage` | `Object \| null` | First page footer (when "Different First Page" is enabled in Word)      |
+| `headerOdd`       | `Object \| null` | Odd page header (when "Different Odd & Even Pages" is enabled in Word)  |
+| `footerOdd`       | `Object \| null` | Odd page footer (when "Different Odd & Even Pages" is enabled in Word)  |
+| `headerEven`      | `Object \| null` | Even page header (when "Different Odd & Even Pages" is enabled in Word) |
+| `footerEven`      | `Object \| null` | Even page footer (when "Different Odd & Even Pages" is enabled in Word) |
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Document body content..." }]
+        }
+      ]
+    },
+    "header": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Default Header" }]
+        }
+      ]
+    },
+    "footer": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Page " },
+            { "type": "text", "text": "{page}" },
+            { "type": "text", "text": " of " },
+            { "type": "text", "text": "{numpages}" }
+          ]
+        }
+      ]
+    },
+    "headerFirstPage": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Title Page Header",
+              "marks": [{ "type": "bold" }]
+            }
+          ]
+        }
+      ]
+    },
+    "footerFirstPage": null,
+    "headerOdd": null,
+    "footerOdd": null,
+    "headerEven": null,
+    "footerEven": null
+  }
+}
+```
+
+Fields that are `null` indicate the document does not define content for that specific header or footer slot.
+
+### Page-number fields
+
+By default, Word `PAGE` and `NUMPAGES` field codes inside headers and footers are imported as the cached display value Word stored when the document was last opened (e.g. the literal text `1`). Pass `placeholders={}` on the request to translate those fields into canonical text tokens instead: `{page}` for `PAGE` and `{numpages}` for `NUMPAGES`. The cached numeric values are dropped when the field instruction is recognized.
+
+```bash
+curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -F "file=@/path/to/your/file.docx" \
+    -F "placeholders={}"
+```
+
+Downstream consumers (such as the [Pages extension](/pages/getting-started/overview)) substitute `{page}` and `{numpages}` based on whatever token names they're configured to recognize. To make the wire format match a custom token registry, pass `placeholders` as a JSON object with `page` and/or `total` keys:
+
+```bash
+curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -F "file=@/path/to/your/file.docx" \
+    -F 'placeholders={"page":"page","total":"total"}'
+```
+
+The example above maps `NUMPAGES` to `{total}` (Pages' default name for the total-pages field), so the editor preview substitutes natively without any config. The wire field mirrors `Pages.configure({ placeholders })` directly, and the [editor extension](/conversion/import/docx/editor-extension) forwards it here automatically when the Pages extension is installed.
+
+## Footnotes & Endnotes in the response
+
+The import API extracts footnotes and endnotes from `.docx` files. When the document contains footnote or endnote content, additional fields are included in the `data` object of the response.
+
+### Response fields
+
+| Field       | Type     | Description                                                                                                    |
+| ----------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `footnotes` | `Object` | An object keyed by footnote ID, where each value is a Tiptap JSON document (`{ type: "doc", content: [...] }`) |
+| `endnotes`  | `Object` | An object keyed by endnote ID, where each value is a Tiptap JSON document (`{ type: "doc", content: [...] }`)  |
+
+Documents without footnotes or endnotes return empty objects (`{}`), so existing integrations are unaffected.
+
+Inline references in the document body are represented as `footnoteReference` and `endnoteReference` nodes, each carrying a `noteId` attribute that links to the corresponding entry in `footnotes` or `endnotes`.
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "This sentence has a footnote" },
+            { "type": "footnoteReference", "attrs": { "noteId": "1" } },
+            { "type": "text", "text": " and an endnote" },
+            { "type": "endnoteReference", "attrs": { "noteId": "1" } },
+            { "type": "text", "text": "." }
+          ]
+        }
+      ]
+    },
+    "footnotes": {
+      "1": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": "This is the footnote content." }]
+          }
+        ]
+      }
+    },
+    "endnotes": {
+      "1": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": "This is the endnote content." }]
+          }
+        ]
+      }
+    },
+    "header": null,
+    "footer": null,
+    "headerFirstPage": null,
+    "footerFirstPage": null,
+    "headerOdd": null,
+    "footerOdd": null,
+    "headerEven": null,
+    "footerEven": null
+  }
+}
+```
+
+## Page layout and list numbering in the response
+
+Two more fields describe the document as a whole rather than its content.
+
+| Field              | Type     | Description                                                                                                                                                     |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pageLayout`       | `Object` | Page size, orientation and margins read from the document's section properties. Values are in twips. See [Applying the page layout](#applying-the-page-layout). |
+| `numberingFormats` | `Array`  | The numbering definitions behind the document's ordered lists. Each list node carries a `numberingFormat` attribute naming its entry here.                      |
+
+Both are omitted when the document carries nothing to report.
+
+Register `numberingFormats` with the editor so the lists keep their numbering, and pass them to the exporter so a round-trip preserves it. The [ordered list numbering](/conversion/export/docx/ordered-list-numbering) page covers the full cycle.
+
+### Applying the page layout
+
+`pageLayout` reports what Word had, not what the [Pages extension](/pages/getting-started/overview) takes, so it needs converting before you can use it:
+
+```json
+{
+  "width": 12240,
+  "height": 15840,
+  "orientation": "portrait",
+  "margins": {
+    "top": 1440,
+    "right": 1440,
+    "bottom": 1440,
+    "left": 1440,
+    "header": 720,
+    "footer": 720
+  }
+}
+```
+
+Every measurement is in twips, while Pages' `setPageFormat` expects pixels and an `id`. Use `twipsToPixels` from ConvertKit's OOXML registry rather than writing the conversion yourself, so your numbers match the ones the conversion service uses:
+
+```ts
+import { twipsToPixels } from '@tiptap-pro/extension-convert-kit/ooxml-registry'
+
+// The field is absent for a document with no section properties.
+if (pageLayout) {
+  editor.commands.setPageFormat({
+    id: 'docx-import',
+    width: twipsToPixels(pageLayout.width),
+    height: twipsToPixels(pageLayout.height),
+    margins: {
+      top: twipsToPixels(pageLayout.margins.top),
+      right: twipsToPixels(pageLayout.margins.right),
+      bottom: twipsToPixels(pageLayout.margins.bottom),
+      left: twipsToPixels(pageLayout.margins.left),
+    },
+  })
+}
+```
+
+The `header` and `footer` margins have no `setPageFormat` equivalent, so leave them out.
+
+<Callout variant="info" title="Use the shared unit helpers">
+  The OOXML registry exports the conversions both sides of the pipeline use, including
+  `twipsToPixels`, `pixelsToTwips`, `halfPointsToPixels`, `emuToPixels` and `twipsToPoints`, along
+  with constants such as `TWIPS_PER_PIXEL`. Reaching for them keeps your numbers identical to the
+  importer's and the exporter's. Rolling your own arithmetic is the usual reason a document looks
+  slightly off after a round-trip.
+</Callout>
+
+The [editor extension](/conversion/import/docx/editor-extension) does this conversion for you when the Pages extension is registered, so it is only needed on the REST path.
+
+## Comments in the response
+
+The import API extracts comment threads from `.docx` files. When the document contains comments, the response `data` object includes a `commentThreads` array. The document body carries `inlineThread` marks (and `blockThread` nodes) whose `data-thread-id` matches each thread's `id`, so you can wire each thread back to the text it annotates.
+
+### Response fields
+
+| Field                        | Type      | Description                                                                                          |
+| ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| `commentThreads`             | `Array`   | One entry per comment thread. Empty (or omitted) when the document has no comments.                  |
+| `commentThreads[].id`        | `String`  | Thread id. Matches the `data-thread-id` on the thread's `inlineThread` / `blockThread` in `content`. |
+| `commentThreads[].durableId` | `String`  | Word-stable durable id, when present.                                                                |
+| `commentThreads[].resolved`  | `Boolean` | Whether the thread is resolved.                                                                      |
+| `commentThreads[].messages`  | `Array`   | The thread's messages, root first, then replies by date ascending.                                   |
+| `messages[].wId`             | `String`  | Raw DOCX `w:id` of the comment.                                                                      |
+| `messages[].id`              | `String`  | Document Server-minted comment id. Present only after reconciliation (see below).                    |
+| `messages[].durableId`       | `String`  | Normalized durable id, when present.                                                                 |
+| `messages[].body`            | `Object`  | The message body as Tiptap JSON.                                                                     |
+| `messages[].data`            | `Object`  | Author and date metadata: `author`, `initials?`, `providerId?`, `userId?`, `dateIso?`, `dateUtc?`.   |
+
+Documents without comments return an empty `commentThreads` array, so existing integrations are unaffected. Both `/import/docx` and the generic `/import` return the same data.
+
+### Reconciliation against the Document Server
+
+By default the returned thread and message ids are derived from the DOCX, and the thread `id` lines up with the `data-thread-id` markers in `content` so a client can persist the threads itself.
+
+Pass `documentName` on a request whose token grants `Documents:Write` on that document to have the service reconcile the imported comments against the Document Server: it creates or updates the threads there, then rewrites both the returned `commentThreads` and the body markers to the server-minted ids. The result is live comments on import, with `messages[].id` populated. Reconciliation is skipped (and the DOCX-derived ids returned unchanged) when `documentName` is absent, the token lacks `Documents:Write`, or the environment exposes no Document Server.
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Reviewed text",
+              "marks": [{ "type": "inlineThread", "attrs": { "data-thread-id": "abc123" } }]
+            }
+          ]
+        }
+      ]
+    },
+    "commentThreads": [
+      {
+        "id": "abc123",
+        "resolved": false,
+        "messages": [
+          {
+            "wId": "0",
+            "body": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Please cite a source." }]
+                }
+              ]
+            },
+            "data": {
+              "author": "Ada Lovelace",
+              "initials": "AL",
+              "dateIso": "2026-01-01T10:30:00Z",
+              "dateUtc": "2026-01-01T10:30:00Z"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## CSS style extraction (experimental)
+
+<Callout title="Experimental feature" variant="warning">
+  `extractCssStyles` is opt-in and experimental. The shape of the response may change without
+  notice. Pin exact client versions if you depend on it, and read the [CSS injection
+  documentation](/conversion/import/docx/css-injection) for the full list of supported selectors,
+  CSS properties, and known limitations.
+</Callout>
+
+Pass `extractCssStyles=true` on the request to have the response include a `cssStyles` field. The field contains the DOCX default-style catalog translated to CSS-compatible key/value pairs, keyed by CSS selector.
+
+### Request
+
+```bash
+curl -X POST "https://api.tiptap.dev/v2/convert/import/docx" \
+    -H "Authorization: Bearer YOUR_TOKEN" \
+    -F "file=@/path/to/your/file.docx" \
+    -F "extractCssStyles=true"
+```
+
+### Response field
+
+| Field       | Type     | Description                                                                                                                                                                                                                                             |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cssStyles` | `Object` | An object keyed by CSS selector, where each value is an object of CSS properties. Empty (`{}`) when the document has no extractable default styles. The field is omitted from the response entirely when `extractCssStyles` is not set or is `"false"`. |
+
+### Supported selectors
+
+The extractor maps DOCX named styles to this fixed set of CSS selectors. Styles that don't match the map are not converted.
+
+`p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `blockquote`, `ul li`, `ol li`, `strong`, `em`, `u`, `s`, `a`, `code`
+
+### Supported CSS properties
+
+Each selector above can carry any subset of the following, depending on what the DOCX style defined.
+
+`color`, `fontSize`, `fontFamily`, `fontWeight`, `fontStyle`, `textDecoration`, `backgroundColor`, `textAlign`, `marginTop`, `marginBottom`, `lineHeight`
+
+### Example response
+
+```json
+{
+  "data": {
+    "content": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Document body..." }]
+        }
+      ]
+    },
+    "cssStyles": {
+      "p": {
+        "fontSize": "16px",
+        "fontFamily": "Calibri",
+        "lineHeight": 1.15,
+        "marginBottom": "8pt"
+      },
+      "h1": {
+        "fontSize": "28px",
+        "fontWeight": "bold",
+        "color": "#1F3864",
+        "marginTop": "24pt",
+        "marginBottom": "6pt"
+      },
+      "a": {
+        "color": "#0563C1",
+        "textDecoration": "underline"
+      },
+      "blockquote": {
+        "fontStyle": "italic",
+        "color": "#595959"
+      }
+    }
+  }
+}
+```
+
+Notes on the output:
+
+- **Values are strings or numbers.** Pixel-based properties (`fontSize`) are emitted as `"Npx"` strings; point-based spacing (`marginTop`, `marginBottom`) is emitted as `"Npt"`; unitless multipliers (`lineHeight` under the `auto` line rule) are emitted as plain numbers.
+- **Style inheritance is resolved.** Child DOCX styles include everything they inherit from their parents (via `basedOn`); the output is flattened and you do not have to walk a chain.
+- **Localized documents are supported.** Named styles in non-English Word builds are mapped back to their canonical selector before emission.
+- **Missing fields mean "not defined".** A selector only appears when at least one property could be extracted. If the DOCX has no style catalog (or every named style falls outside the 16-selector map), `cssStyles` is `{}`.
+
+### Custom node and mark mapping
+
+You can override the default `node/mark` types used during import by specifying them in the body of your request within `prosemirrorNodes` and `prosemirrorMarks` respectively. You would need to provide these if your editor uses custom `nodes/marks` and you want the imported `JSON` to use those.
+
+In each entry the key is the default type name and the value is the name you want in the imported JSON. For example, if your schema calls paragraphs `textBlock`, send `"{\"paragraph\":\"textBlock\"}"` in the request body and every imported paragraph arrives as `textBlock`.
+
+You can similarly adjust headings, lists, marks like bold or italic, and more. Names are case sensitive, so use them exactly as listed below.
+
+#### Default nodes
+
+| Name                | Description                                                              |
+| ------------------- | ------------------------------------------------------------------------ |
+| `paragraph`         | Defines which ProseMirror type is used for paragraph conversion          |
+| `heading`           | Defines which ProseMirror type is used for heading conversion            |
+| `blockquote`        | Defines which ProseMirror type is used for blockquote conversion         |
+| `bulletList`        | Defines which ProseMirror type is used for bulletList conversion         |
+| `orderedList`       | Defines which ProseMirror type is used for orderedList conversion        |
+| `listItem`          | Defines which ProseMirror type is used for listItem conversion           |
+| `hardBreak`         | Defines which ProseMirror type is used for hardBreak conversion          |
+| `horizontalRule`    | Defines which ProseMirror type is used for horizontalRule conversion     |
+| `table`             | Defines which ProseMirror type is used for table conversion              |
+| `tableCell`         | Defines which ProseMirror type is used for tableCell conversion          |
+| `tableHeader`       | Defines which ProseMirror type is used for tableHeader conversion        |
+| `tableRow`          | Defines which ProseMirror type is used for tableRow conversion           |
+| `image`             | Defines which ProseMirror type is used for image conversion              |
+| `footnoteReference` | Defines which ProseMirror type is used for footnote reference conversion |
+| `endnoteReference`  | Defines which ProseMirror type is used for endnote reference conversion  |
+| `tableOfContents`   | Defines which ProseMirror type is used for a table of contents           |
+| `pageBreak`         | Defines which ProseMirror type is used for page breaks                   |
+| `columns`           | Defines which ProseMirror type is used for a multi-column section        |
+| `column`            | Defines which ProseMirror type is used for a single column               |
+| `blockThread`       | Defines which ProseMirror type is used for a block-level comment thread  |
+| `bookmark`          | Defines which ProseMirror type is used for bookmark targets              |
+
+#### Default marks
+
+| Name            | Description                                                         |
+| --------------- | ------------------------------------------------------------------- |
+| `bold`          | Defines which ProseMirror mark is used for bold conversion          |
+| `italic`        | Defines which ProseMirror mark is used for italic conversion        |
+| `underline`     | Defines which ProseMirror mark is used for underline conversion     |
+| `strikethrough` | Defines which ProseMirror mark is used for strikethrough conversion |
+| `link`          | Defines which ProseMirror mark is used for link conversion          |
+| `superscript`   | Defines which ProseMirror mark is used for superscript conversion   |
+| `subscript`     | Defines which ProseMirror mark is used for subscript conversion     |
+| `inlineThread`  | Defines which ProseMirror mark is used for inline comment threads   |
+
+<Callout variant="info" title="Code blocks and inline code cannot be renamed yet">
+  The code block type and the inline code mark are always imported as `codeBlock` and `code`.
+  Renaming them through `prosemirrorNodes` or `prosemirrorMarks` has no effect at the moment. If
+  your schema uses different names, map them after the import.
+</Callout>
+
+#### Mapping a Word style to a mark
+
+`prosemirrorMarks` accepts a second kind of entry. When the key is the name of a Word character style rather than one of the marks above, any run using that style receives the mark you name. For example, `"{\"Strong\":\"bold\"}"` means every run styled with `Strong` receives a `bold` mark.
+
+This is how you bring custom Word styles into your schema. See [custom mark mapping](/conversion/import/docx/custom-mark-mapping) for a fuller walkthrough.
+
+## Support & Limitations
+
+For a detailed breakdown of which document features are supported at each stage of the pipeline, see the [Supported features](/conversion/getting-started/feature-support-matrix) matrix.

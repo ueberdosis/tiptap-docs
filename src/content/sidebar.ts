@@ -18,6 +18,21 @@ export const sidebarConfig: SidebarConfig = {
           href: '/resources/whats-new',
           title: "What's new in 3.0",
         },
+        {
+          href: '/authentication',
+          title: 'Authentication',
+          tags: ['New'],
+          children: [
+            {
+              href: '/authentication/migrate',
+              title: 'Migrate from legacy',
+            },
+            {
+              href: '/authentication/legacy',
+              title: 'Legacy authentication',
+            },
+          ],
+        },
       ],
     },
     {
@@ -30,6 +45,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Editor',
         },
         {
+          href: '/ai/ai-toolkit/overview',
+          title: 'AI Toolkit',
+        },
+        {
           href: '/collaboration/getting-started/overview',
           title: 'Collaboration',
         },
@@ -38,12 +57,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Comments',
         },
         {
-          href: '/content-ai/getting-started/overview',
-          title: 'Content AI',
-        },
-        {
-          href: '/collaboration/documents/snapshot',
-          title: 'Snapshots',
+          href: '/compare/getting-started/overview',
+          title: 'Compare',
         },
         {
           href: '/conversion/getting-started/overview',
@@ -54,8 +69,12 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Pages',
         },
         {
-          href: '/collaboration/documents/semantic-search',
-          title: 'Semantic Search',
+          href: '/collaboration/documents/snapshot',
+          title: 'Snapshots',
+        },
+        {
+          href: '/tracked-changes/getting-started/overview',
+          title: 'Tracked Changes',
         },
       ],
     },
@@ -71,6 +90,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/examples',
           title: 'Examples',
+        },
+        {
+          href: '/resources/agent-skill',
+          title: 'Agent skill',
         },
         {
           href: '/resources/tiptap-trial',

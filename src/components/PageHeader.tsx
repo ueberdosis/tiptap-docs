@@ -127,7 +127,7 @@ export const PageHeaderTag = ({
   }
 
   if (tag.type === 'addon') {
-    return <Tag tooltip={tag.tooltip || 'Add AI Toolkit to your subscription'}>Paid add-on</Tag>
+    return <Tag tooltip={tag.tooltip || 'Add this add-on to your subscription'}>Paid add-on</Tag>
   }
 
   if (tag.type === 'mit') {
@@ -158,7 +158,7 @@ export const PageHeaderTag = ({
   }
 
   if (tag.type === 'ai') {
-    return <Tag tooltip={tag.tooltip}>Content AI</Tag>
+    return <Tag tooltip={tag.tooltip}>AI Toolkit</Tag>
   }
 
   if (tag.type === 'collaboration') {
@@ -204,13 +204,20 @@ export const PageHeaderTag = ({
   if (tag.type === 'restricted') {
     return (
       <Tag
-        variant="hint"
+        asChild
+        variant="info"
         tooltip={
           tag.tooltip ||
-          'This is a restricted release only available to our enterprise customers at the moment.'
+          'Compare is part of a pilot program for Business and Enterprise customers. Pilot participants get early access and give direct input on how the feature develops. Contact our team to join.'
         }
       >
-        Restricted Release
+        <Link
+          href="https://tiptap.dev/contact-sales?form=pilot-program"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {tag.label || 'Pilot program'}
+        </Link>
       </Tag>
     )
   }
@@ -225,6 +232,14 @@ export const PageHeaderTag = ({
         }
       >
         Deprecated
+      </Tag>
+    )
+  }
+
+  if (tag.type === 'version') {
+    return (
+      <Tag variant="gray" tooltip={tag.tooltip}>
+        {tag.label || 'Version'}
       </Tag>
     )
   }

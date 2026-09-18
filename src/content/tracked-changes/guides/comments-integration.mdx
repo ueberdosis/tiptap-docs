@@ -1,0 +1,356 @@
+---
+title: Tracked Changes with Comments
+tags:
+  - type: addon
+meta:
+  title: Tracked Changes with Comments | Tiptap Tracked Changes Docs
+  description: Build a full editor combining Tracked Changes and Comments for a complete document review workflow.
+  category: Tracked Changes
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+Learn how to build a full document review experience by combining Tracked Changes with the Comments extension. Users can discuss suggestions through comment threads, and accepting or rejecting suggestions automatically syncs with the thread state.
+
+<Callout title="Framework note" variant="hint">
+  This guide uses React, but the same concepts apply to Vue and any other framework supported by
+  Tiptap.
+</Callout>
+
+## Prerequisites
+
+- A working editor with [Tracked Changes](/tracked-changes/guides/editor-setup)
+- The [Comments extension](/comments/getting-started/install) installed and configured
+- A [collaboration provider](/collaboration/getting-started/overview) set up (required for comments persistence)
+
+## Set up the editor
+
+Both extensions need to be registered together. Since comments require a collaboration provider for persistence, you'll also need to set up Yjs and the `TiptapCollabProvider`.
+
+```jsx
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { Collaboration } from '@tiptap/extension-collaboration'
+import { CommentsKit } from '@tiptap-pro/extension-comments'
+import { TrackedChanges } from '@tiptap-pro/extension-tracked-changes'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import { useMemo } from 'react'
+import * as Y from 'yjs'
+
+function ReviewEditor({ user }) {
+  const { ydoc, provider } = useMemo(() => {
+    const doc = new Y.Doc()
+    const collabProvider = new TiptapCollabProvider({
+      appId: 'your-app-id',
+      name: 'your-document-name',
+      document: doc,
+    })
+    return { ydoc: doc, provider: collabProvider }
+  }, [])
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        undoRedo: false,
+      }),
+      Collaboration.configure({
+        document: ydoc,
+      }),
+      CommentsKit.configure({
+        provider,
+        onClickThread: (threadId) => {
+          // Handle thread selection in your UI
+        },
+      }),
+      TrackedChanges.configure({
+        enabled: true,
+        userId: user.id,
+        userMetadata: {
+          name: user.name,
+        },
+      }),
+    ],
+  })
+
+  if (!editor) {
+    return null
+  }
+
+  return <EditorContent editor={editor} />
+}
+```
+
+<Callout title="Undo/Redo" variant="hint">
+  When using collaboration, disable the built-in `undoRedo` from StarterKit. Undo/redo is handled
+  natively by Yjs in collaborative environments.
+</Callout>
+
+## Subscribe to comment threads
+
+Use the `subscribeToThreads` hook from the Comments extension to keep your UI in sync with thread state changes.
+
+```jsx
+import { subscribeToThreads } from '@tiptap-pro/extension-comments'
+import { useState, useEffect } from 'react'
+
+function useThreads(provider) {
+  const [threads, setThreads] = useState([])
+
+  useEffect(() => {
+    if (!provider) return
+
+    const unsubscribe = subscribeToThreads({
+      provider,
+      callback: (currentThreads) => {
+        setThreads(currentThreads)
+      },
+    })
+
+    return () => unsubscribe()
+  }, [provider])
+
+  return threads
+}
+```
+
+## Create comment threads
+
+Allow users to create comment threads on selected text. This works the same as the standard Comments extension:
+
+```jsx
+const createThread = () => {
+  const content = window.prompt('Add a comment')
+  if (!content || !editor) return
+
+  editor
+    .chain()
+    .focus()
+    .setThread({
+      content,
+      commentData: {
+        userName: user.name,
+      },
+    })
+    .run()
+}
+```
+
+```jsx
+<button
+  onClick={createThread}
+  disabled={!editor?.state.selection || editor.state.selection.empty}
+>
+  Add comment
+</button>
+```
+
+## Bidirectional sync between suggestions and threads
+
+When both extensions are active, the Tracked Changes extension automatically synchronizes suggestion and thread states. This means:
+
+- **Resolving** a comment thread linked to a suggestion → **accepts** the suggestion
+- **Deleting** a comment thread linked to a suggestion → **rejects** the suggestion
+- **Accepting** a suggestion → **resolves** its linked comment thread
+- **Rejecting** a suggestion → **deletes** its linked comment thread
+
+This happens automatically — no additional wiring is needed. Users can review changes from either the suggestion list or the comments panel and both stay consistent.
+
+## Build a threads sidebar
+
+Create a sidebar that displays comment threads. Threads linked to suggestions include metadata you can use to render a suggestion preview.
+
+```jsx
+function ThreadsSidebar({ threads, provider, editor }) {
+  const [showResolved, setShowResolved] = useState(false)
+
+  const filteredThreads = threads.filter((t) =>
+    showResolved ? !!t.resolvedAt : !t.resolvedAt,
+  )
+
+  return (
+    <div style={{ width: 320, padding: '1rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button onClick={() => setShowResolved(false)}>
+          Open
+        </button>
+        <button onClick={() => setShowResolved(true)}>
+          Resolved
+        </button>
+      </div>
+
+      {filteredThreads.length === 0 ? (
+        <p>No threads</p>
+      ) : (
+        filteredThreads.map((thread) => (
+          <ThreadItem
+            key={thread.id}
+            thread={thread}
+            provider={provider}
+            editor={editor}
+          />
+        ))
+      )}
+    </div>
+  )
+}
+```
+
+## Render suggestion-linked threads
+
+Threads linked to suggestions store metadata in `thread.data`. Use this to show a suggestion preview with accept/reject actions directly in the thread card.
+
+```jsx
+function ThreadItem({ thread, provider, editor }) {
+  const comments = provider.getThreadComments(thread.id, true)
+  const firstComment = comments?.[0]
+
+  // Check if this thread is linked to a suggestion
+  const isSuggestionThread = thread.data?.source === 'suggestion'
+  const suggestionType = thread.data?.suggestionType
+  const suggestionText = thread.data?.suggestionText
+  const suggestionId = thread.data?.suggestionId
+
+  return (
+    <div style={{
+      padding: '0.75rem',
+      marginBottom: '0.5rem',
+      border: '1px solid #e2e8f0',
+      borderRadius: '0.375rem',
+    }}>
+      {/* Suggestion preview for linked threads */}
+      {isSuggestionThread && (
+        <div style={{
+          padding: '0.5rem',
+          marginBottom: '0.5rem',
+          borderRadius: '0.25rem',
+          backgroundColor: suggestionType === 'add' ? '#f0fdf4' : '#fef2f2',
+        }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+            {suggestionType === 'add' ? '+ Addition' : '− Deletion'}
+          </div>
+          <div style={{ fontSize: '0.875rem' }}>
+            "{suggestionText}"
+          </div>
+          {!thread.resolvedAt && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button onClick={() => editor.commands.acceptSuggestion({ id: suggestionId })}>
+                Accept
+              </button>
+              <button onClick={() => editor.commands.rejectSuggestion({ id: suggestionId })}>
+                Reject
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Comment content */}
+      {firstComment && (
+        <div>
+          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+            {firstComment.data?.userName}
+            {' · '}
+            {new Date(firstComment.createdAt).toLocaleTimeString()}
+          </div>
+          <p style={{ fontSize: '0.875rem' }}>{firstComment.content}</p>
+        </div>
+      )}
+
+      {/* Thread actions */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+        {!thread.resolvedAt ? (
+          <button onClick={() => editor.commands.resolveThread({ id: thread.id })}>
+            {isSuggestionThread ? 'Accept & Resolve' : 'Resolve'}
+          </button>
+        ) : (
+          <button onClick={() => editor.commands.unresolveThread({ id: thread.id })}>
+            Unresolve
+          </button>
+        )}
+        <button onClick={() => editor.commands.removeThread({ id: thread.id, deleteThread: true })}>
+          {isSuggestionThread ? 'Reject & Delete' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+## Put it all together
+
+Combine the editor, toolbar, and threads sidebar into a complete review layout.
+
+```jsx
+function ReviewApp() {
+  const user = { id: 'user-123', name: 'John Doe' }
+  const { ydoc, provider } = useMemo(() => {
+    const doc = new Y.Doc()
+    const collabProvider = new TiptapCollabProvider({
+      appId: 'your-app-id',
+      name: 'your-document-name',
+      document: doc,
+    })
+    return { ydoc: doc, provider: collabProvider }
+  }, [])
+
+  const [isEnabled, setIsEnabled] = useState(true)
+  const threads = useThreads(provider)
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      Collaboration.configure({ document: ydoc }),
+      CommentsKit.configure({ provider }),
+      TrackedChanges.configure({
+        enabled: true,
+        userId: user.id,
+        userMetadata: { name: user.name },
+      }),
+    ],
+  })
+
+  if (!editor) return null
+
+  return (
+    <div style={{ display: 'flex' }}>
+      <div style={{ flex: 1 }}>
+        <div className="toolbar">
+          <button onClick={() => {
+            editor.commands.toggleTrackedChanges()
+            setIsEnabled(!isEnabled)
+          }}>
+            {isEnabled ? 'Disable' : 'Enable'} Track Changes
+          </button>
+          <button
+            onClick={() => {
+              const content = window.prompt('Add a comment')
+              if (content) {
+                editor.chain().focus().setThread({
+                  content,
+                  commentData: { userName: user.name },
+                }).run()
+              }
+            }}
+            disabled={editor.state.selection.empty}
+          >
+            Add comment
+          </button>
+        </div>
+        <EditorContent editor={editor} />
+      </div>
+
+      <ThreadsSidebar
+        threads={threads}
+        provider={provider}
+        editor={editor}
+      />
+    </div>
+  )
+}
+```
+
+## Next steps
+
+- Learn about the [bidirectional sync behavior](/tracked-changes/usage/advanced-usage#comments-integration) in detail
+- Explore the [Comments documentation](/comments/getting-started/overview) for more thread management options
+- See the [Events API](/tracked-changes/api-reference/events) to listen for suggestion and thread state changes

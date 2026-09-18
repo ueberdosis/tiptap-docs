@@ -47,7 +47,7 @@ export const PageHeaderBreadcrumbs = forwardRef<HTMLDivElement, PageHeaderBreadc
       <>
         <Component className={wrapperClass} {...props} ref={ref}>
           {crumbs.map((crumb, i) => (
-            <div key={crumb.href}>
+            <div key={`${crumb.href ?? crumb.text}-${i}`}>
               {crumb.href ? (
                 <Link data-breadcrumb={i} className={clickableBreadcrumbClass} href={crumb.href}>
                   {crumb.text}

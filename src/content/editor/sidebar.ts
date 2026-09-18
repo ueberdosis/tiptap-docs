@@ -228,6 +228,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Link',
             },
             {
+              href: '/editor/extensions/marks/ruby-text',
+              title: 'Ruby Text',
+            },
+            {
               href: '/editor/extensions/marks/strike',
               title: 'Strike',
             },
@@ -255,14 +259,14 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             {
               href: '/editor/extensions/functionality/ai-generation',
-              title: 'AI Generation',
+              title: 'Basic AI Generation',
               tags: ['Start'],
             },
             {
               href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
               tags: ['Add-on'],
-              beta: true,
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -292,7 +296,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/comments',
               title: 'Comments',
               tags: ['Start'],
-              beta: true,
             },
             {
               href: '/editor/extensions/functionality/drag-handle',
@@ -314,11 +317,15 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
               tags: ['Start'],
-              beta: true,
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/filehandler',
               title: 'File handler',
+            },
+            {
+              href: '/editor/extensions/functionality/find-and-replace',
+              title: 'Find and replace',
             },
             {
               href: '/editor/extensions/functionality/floatingmenu',
@@ -360,11 +367,16 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
               tags: ['Start'],
-              beta: true,
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/pages',
               title: 'Pages',
+              tags: ['Team'],
+            },
+            {
+              href: '/editor/extensions/functionality/paste-handler',
+              title: 'Paste Handler',
               tags: ['Team'],
             },
             {
@@ -404,6 +416,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/functionality/textalign',
               title: 'Text align',
+            },
+            {
+              href: '/editor/extensions/functionality/tracked-changes',
+              title: 'Tracked Changes',
+              tags: ['Add-on'],
             },
             {
               href: '/editor/extensions/functionality/trailing-node',
@@ -513,6 +530,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/core-concepts/schema',
           title: 'Schema',
+        },
+        {
+          href: '/editor/core-concepts/decorations',
+          title: 'Decorations',
         },
         {
           href: '/editor/core-concepts/keyboard-shortcuts',
@@ -907,6 +928,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/editor/api/node-positions',
           title: 'Node Positions',
+        },
+        {
+          href: '/editor/api/decorations',
+          title: 'Decorations',
         },
         {
           title: 'Resizable Node views',

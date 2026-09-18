@@ -50,6 +50,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/hocuspocus/provider/events',
         },
         {
+          title: 'React',
+          href: '/hocuspocus/provider/react',
+        },
+        {
           title: 'Examples',
           href: '/hocuspocus/provider/examples',
         },

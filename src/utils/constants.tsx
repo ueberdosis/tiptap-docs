@@ -1,4 +1,4 @@
-import type { CTABarOptions, VersionData } from '@/types'
+import type { VersionData } from '@/types'
 
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
@@ -15,6 +15,22 @@ export const ENVIRONMENT = process.env.NEXT_PUBLIC_ENVIRONMENT || 'development'
 
 export const CURRENT_VERSION = '3.x'
 
+export type CtaBarData = {
+  label: string
+  button: { text: string; href: string }
+  productHunt?: { imageSrc: string; href: string; alt: string }
+  hideAt?: Date
+}
+
+export const CTA_BAR: CtaBarData = {
+  label: '🎁 100 free AI Toolkit licenses – apply by August 15.',
+  button: {
+    text: 'Learn more',
+    href: 'https://tiptap.dev/blog/release-notes/ai-toolkit-now-in-beta',
+  },
+  hideAt: new Date('2026-08-15T23:59:00+01:00'),
+}
+
 export const VERSIONS: Array<VersionData> = [
   {
     version: '3.x',
@@ -30,18 +46,3 @@ export const VERSIONS: Array<VersionData> = [
     url: 'https://v1.tiptap.dev/',
   },
 ]
-
-export const CTA_BAR: CTABarOptions | null = {
-  enabled: false,
-  text: (
-    <span className="flex items-center gap-2">
-      <span>Now Available: Notion-like editor template</span>
-      <img
-        src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=998808&theme=light&t=1753774012794"
-        alt="Notion-style editor for Tiptap Cloud"
-        className="block h-8"
-      />
-    </span>
-  ),
-  url: 'https://www.producthunt.com/products/tiptap?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-notion&#0045;style&#0045;editor&#0045;for&#0045;tiptap&#0045;cloud',
-}

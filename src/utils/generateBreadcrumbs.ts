@@ -59,10 +59,18 @@ export const generateBreadcrumbs = (config: SidebarConfig, pathname: string): Br
     const linkForPart = findItemByPathname(currentUrl, config.items)
 
     if (linkForPart) {
-      breadcrumbs.push({
+      const nextBreadcrumb = {
         href: linkForPart.href,
         text: linkForPart.title,
-      })
+      }
+      const previousBreadcrumb = breadcrumbs[breadcrumbs.length - 1]
+
+      if (
+        previousBreadcrumb?.href !== nextBreadcrumb.href ||
+        previousBreadcrumb?.text !== nextBreadcrumb.text
+      ) {
+        breadcrumbs.push(nextBreadcrumb)
+      }
     }
   }
 
