@@ -43,57 +43,66 @@ This behavior matches user expectations: if you delete text that was only sugges
 
 ## Block splits
 
-When a user presses Enter inside a paragraph, heading, or table cell, only the block boundary is tracked. The text itself is left alone. Pressing Enter between the two sentences in `<p>First sentence.Second sentence.</p>` produces:
+The extension uses `splitKind` to distinguish two kinds of block split:
+
+| Split kind   | When it happens                         | Accept              | Reject                  |
+| ------------ | --------------------------------------- | ------------------- | ----------------------- |
+| `insertion`  | Enter at the end of a block             | Keeps the new block | Removes the new block   |
+| `structural` | Enter in the middle of existing content | Keeps both blocks   | Merges the blocks again |
+
+Both kinds use `suggestion.type: 'split'`. The suggestion panel uses the affected `nodeType` in its label, such as `new paragraph` for an insertion split or `split heading` for a structural split.
+
+Try these cases in the [Tracked Changes playground](/tracked-changes/examples/simple).
+
+### End splits are insertion splits
+
+When you press Enter at the end of a paragraph, the extension creates a new paragraph with one `split` suggestion:
 
 ```html
-<p>First sentence.</p>
-<p data-suggestion data-suggestion-type="blockSplit">Second sentence.</p>
+<p>First paragraph.</p>
+<p data-suggestion data-suggestion-type="blockSplit">Second paragraph.</p>
 ```
 
-`Second sentence.` stays plain in the second block. There is no deletion copy in the first block, so the document stays readable while the split is pending. A `¶` marker is rendered at the end of the first block to show where the break was added. See [`blockSplitMarker`](/tracked-changes/getting-started/install#blocksplitmarker) to configure or remove it.
+The suggestion returned by `findSuggestions()` looks like this:
 
-This matches how word processors show a tracked paragraph break.
+```ts
+{
+  type: 'split',
+  splitKind: 'insertion',
+  nodeType: 'paragraph',
+  text: 'Second paragraph.',
+  fullText: 'Second paragraph.',
+}
+```
 
-### Accept, reject, and cancel
+Text you type after the split stays in the same insertion split. The suggestion text changes with the new block. If you press Enter again at the end of that block, the second split gets its own suggestion and its own ID.
 
-| Action                                              | Result                                                                               |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Accept** the split                                | The suggestion attributes are stripped. Two plain blocks remain.                     |
-| **Reject** the split                                | The second block is merged back into the first, restoring the original single block. |
-| **Backspace** at the start of the split block       | Cancels the split, same as rejecting it.                                             |
-| **Delete** at the end of the block before the split | Cancels the split, same as rejecting it.                                             |
+The same rule applies when you split a heading or a list item at the end. For a list item, the new `<li>` is the inserted block. A split marker appears at the end of the paragraph before it, inside the preceding list item.
 
-Backspace and Delete only cancel a split created by the **current user**. Another author's split is not collapsed by editing around it.
+### Middle splits are structural splits
 
-Splitting a block that is already split creates a second, independent `split` suggestion. Typing inside a split-off block creates a normal `add` suggestion, separate from the split.
+When you press Enter in existing content, the extension tracks the new boundary without treating the second block as newly inserted. For example, splitting `<p>HelloWorld</p>` between `Hello` and `World` creates one structural split:
+
+```html
+<p>Hello</p>
+<p data-suggestion data-suggestion-type="blockSplit">World</p>
+```
+
+The suggestion has `splitKind: 'structural'` and `nodeType: 'paragraph'`. Its `text` and `fullText` contain the text in the second block, which is `"World"` in this example.
+
+For a heading, a middle split uses `nodeType: 'heading'` and gets a label such as `split heading`. A middle split inside a list item keeps the list item's replacement behavior instead of creating a structural `split` suggestion.
+
+### Accept and reject splits independently
+
+Accepting either split kind keeps the two blocks and clears the suggestion. Rejecting an insertion split removes the new block. Rejecting a structural split merges the two blocks back together.
+
+Consecutive end splits stay independent. Accepting or rejecting one split does not accept or reject the others. The extension does not group all consecutive end splits into one suggestion.
+
+A split marker is rendered at the end of the block before the split. See [`blockSplitMarker`](/tracked-changes/getting-started/install#blocksplitmarker) to configure or remove it.
 
 ### `split` vs `blockSplit`
 
-The same change is named differently depending on where you read it:
-
-- `suggestion.type` from the query API is `'split'`
-- the node attribute and the `data-suggestion-type` DOM attribute are `'blockSplit'`
-
-Filter and switch on `'split'`. Write CSS against `'blockSplit'`. See [SuggestionNodeType](/tracked-changes/api-reference/types#suggestionnodetype) for the full mapping.
-
-A `split` suggestion has an empty `text`, because no text was added or removed. Its `from` and `to` span the second block. Give splits their own label in review UIs instead of rendering `suggestion.text`, which would be blank.
-
-### List items
-
-Splitting a list item keeps the earlier behavior instead of creating a `split` suggestion:
-
-- Pressing Enter at the **end** of an item marks the new `<li>` as an `add`
-- Pressing Enter **mid-item** is tracked as a replacement, so rejecting restores the single item without losing text
-
-A mid-item split is one suggestion with `type: 'replace'`. Filter on `'replace'`. Internally it is stored as a `replaceDeletion` / `replaceInsertion` mark pair, but those are mark-level values that never appear as `suggestion.type` — you only meet them in `data-suggestion-type` when writing CSS.
-
-### Edge cases
-
-Two of these involve deleted content, and which one applies depends on where the cursor is:
-
-- Pressing Enter at the **very start** of a block whose whole content is pending deletion inserts a fresh empty block above it, marked `add`. This gives the user somewhere to type. Rejecting removes only that empty block, leaving the pending deletion alone. This covers both a block node marked `delete` and a block whose every text child carries a delete mark.
-- Pressing Enter **anywhere else inside** deleted text is ignored. Content pending deletion cannot be restructured while the deletion is still open.
-- Splitting inside an inserted wrapper (for example a suggested blockquote) stays covered by that outer suggestion instead of adding a nested split.
+The query API returns `suggestion.type: 'split'`. The node attribute and the `data-suggestion-type` DOM attribute use `'blockSplit'`. Filter and switch on `'split'` when you use `findSuggestions()`. Use `'blockSplit'` only when you target the rendered node with CSS. See [SuggestionNodeType](/tracked-changes/api-reference/types#suggestionnodetype) for the mapping.
 
 ## Nested and stacked suggestions
 

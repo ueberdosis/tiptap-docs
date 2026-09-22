@@ -160,14 +160,50 @@ function get403Warning(config: RepoConfig, dirPath: string, response: Response):
     }
 
     return (
-      `Warning: GitHub API rate limit exceeded while accessing ` +
-      `${config.owner}/${config.repo}/${dirPath} (HTTP 403).${resetHint} Skipping.`
+      `GitHub API rate limit exceeded while accessing ` +
+      `${config.owner}/${config.repo}/${dirPath} (HTTP 403).${resetHint}`
     )
   }
 
   return (
-    `Warning: Cannot access ${config.owner}/${config.repo}/${dirPath} (HTTP 403). ` +
-    `This may be a private repo or a permissions/SSO issue. Skipping.`
+    `Cannot access ${config.owner}/${config.repo}/${dirPath} (HTTP 403). ` +
+    `This may be a private repo or a permissions/SSO issue.`
+  )
+}
+
+async function getGitHubApiError(config: RepoConfig, dirPath: string, response: Response) {
+  const requestId = response.headers.get('X-GitHub-Request-Id')
+  const retryAfter = response.headers.get('Retry-After')
+  const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining')
+  const rateLimitReset = response.headers.get('X-RateLimit-Reset')
+  const resetTimestamp = rateLimitReset ? Number(rateLimitReset) : null
+  let responseMessage = ''
+
+  try {
+    const body: unknown = await response.json()
+
+    if (isRecord(body) && typeof body.message === 'string') {
+      responseMessage = body.message
+    }
+  } catch {
+    // GitHub errors normally have a JSON body, but diagnostics must not hide the original failure.
+  }
+
+  const details = [
+    `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`,
+    responseMessage && `GitHub message: ${responseMessage}`,
+    response.status === 403 && get403Warning(config, dirPath, response),
+    rateLimitRemaining && `rate-limit remaining: ${rateLimitRemaining}`,
+    resetTimestamp &&
+      !Number.isNaN(resetTimestamp) &&
+      `rate-limit reset: ${new Date(resetTimestamp * 1000).toISOString()}`,
+    retryAfter && `retry after: ${retryAfter} second(s)`,
+    requestId && `GitHub request ID: ${requestId}`,
+  ].filter(Boolean)
+
+  return new Error(
+    `Unable to list directories from GitHub for ${config.owner}/${config.repo}/${dirPath}: ` +
+      `${details.join('. ')}. Throwing to avoid a broken deployment.`,
   )
 }
 
@@ -179,7 +215,7 @@ async function listDirectories(config: RepoConfig, dirPath: string): Promise<str
   const response = await fetch(url, { headers: getHeaders() })
 
   if (!response.ok) {
-    throw new Error('Unable to generate release-notes. Throwing to avoid a broken deployment.')
+    throw await getGitHubApiError(config, dirPath, response)
   }
 
   const entries = (await response.json()) as Array<{ name: string; type: string }>

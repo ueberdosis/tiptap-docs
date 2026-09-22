@@ -62,7 +62,7 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
         <link rel="icon" href={`${FULL_DOMAIN}/favicon.png`} sizes="any" />
         <meta name="docsearch:version" content="2.x" />

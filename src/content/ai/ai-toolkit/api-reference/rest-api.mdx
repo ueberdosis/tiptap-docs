@@ -83,7 +83,7 @@ Request body:
 - `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
 - `tools` (`Record<string, boolean | ToolConfig>`, optional, default: `{}`): Enables, disables, or
   configures tools. Tools are disabled by default.
-- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format used by tool
+- `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format used by tool
   definitions and model output. See [Tiptap
   Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 
@@ -95,6 +95,8 @@ Request body:
 - `getThreads` (`boolean`, optional)
 - `editThreads` (`boolean`, optional)
 - `readDocument` (`boolean`, optional)
+- `replaceDocument` (`boolean`, optional)
+- `createDocument` (`boolean`, optional): Alias for `replaceDocument`.
 - `readSelection` (`boolean`, optional)
 - `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
   include an extra metadata field on every proofreading edit, such as a short explanation.
@@ -122,7 +124,7 @@ curl --location 'BASE_URL/v4/ai/toolkit/fetch-tools' \
         "meta": "Briefly explain the edit."
       }
     },
-    "format": "shorthand"
+    "format": "shorthandV2"
   }'
 ```
 
@@ -176,7 +178,8 @@ Request body:
   Tiptap Cloud document. Use
   `{ "type": "inline", "content": { /* Tiptap JSON document */ } }` when you want to provide the
   Tiptap JSON document in the request body.
-- `user` (`string`, optional): Identifier attributed to edits the AI performs.
+- `user` (`string`, optional): Author of the edits in version history. It also sets the user associated with AI-generated comments, threads and Tracked Changes suggestions.
+  use `reviewOptions.trackedChangesOptions.userId`.
 - `field` (`string`, optional, default: `"default"`): Collaborative field to target inside a cloud
   document. Use this when a document stores multiple editable fields, such as a title and body.
 - `tool` (`object`, required): Tool call to execute.
@@ -185,7 +188,7 @@ Request body:
     schema and the tool definition for that tool. The schemas and tool definitions of each tool are obtained from
     the `/v4/ai/toolkit/fetch-tools` endpoint.
   - `config` (`unknown`, optional): Tool-specific configuration provided by the developer.
-- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format for tool input and
+- `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 
@@ -195,7 +198,10 @@ Response:
   - `name` (`string`): Tool name.
   - `output` (`object`): Tool output for the AI.
 - `docChanged` (`boolean`): Whether the document changed.
-- `document` (`object | null`): Updated document, or `null` when the document did not change.
+- `before` (`JSONContent`): The Tiptap JSON document before the tool was executed.
+- `document` (`JSONContent | null`): The Tiptap JSON document after the tool was executed, or `null` when the document did not
+  change. Changes may involve modifications in document content and also modifications in the `_hash` attributes of the nodes,
+  which are used as unique identifiers and allow the AI to select the nodes of the document.
 
 Example:
 
@@ -216,7 +222,7 @@ curl --location 'BASE_URL/v4/ai/toolkit/execute-tool' \
         "from": 0
       }
     },
-    "format": "shorthand"
+    "format": "shorthandV2"
   }'
 ```
 
@@ -298,13 +304,15 @@ The request is sent in parts. The first part contains:
 - `document` (`object`, required): Cloud document to stream the edit into:
   `{ "type": "cloud", "id": "your-document-id" }`. Inline documents are not supported for
   streaming.
-- `user` (`string`, optional): Identifier attributed to edits the AI performs.
+- `user` (`string`, optional): Author of the edits in version history, comments and threads (for example with
+  `editThreads`). It does not set the author of Tracked Changes suggestions, for Tracked Changes authorship
+  use `reviewOptions.trackedChangesOptions.userId`.
 - `field` (`string`, optional, default: `"default"`): Collaborative field to target inside a cloud
-  document.
+  document. Streaming supports only the `default` field; any other value is rejected.
 - `tool` (`object`, required): Tool call to execute, without `tool.input`.
   - `name` (`string`, required): Tool name, for example `"tiptapEdit"`.
   - `config` (`unknown`, optional): Tool-specific configuration provided by the developer.
-- `format` (`'json' | 'shorthand'`, optional, default: `'json'`): Document format for tool input and
+- `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 - `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
@@ -393,6 +401,11 @@ You can also call these tools directly from your application code to build custo
 
 Reads the document in chunks to avoid overflowing the context window.
 
+Tool input (`tool.input`):
+
+- `from` (`number`, required): Zero-based index of the first top-level node to read. Must be a
+  non-negative integer.
+
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
@@ -405,7 +418,7 @@ Success response:
 - `totalNodeCount` (`number`): Total number of top-level nodes in the document.
 - `nodeRange` (`[number, number]`): Top-level node range that was read.
 - `content` (`JSONContent[] | string`): Document content for the returned range. When `format` is
-  `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand
+  `json`, this is a Tiptap JSON fragment. When `format` is `shorthand` or `shorthandV2`, this is a Tiptap Shorthand
   string.
 
 Error response:
@@ -417,6 +430,17 @@ Error response:
 ### `tiptapEdit`
 
 Edits document content.
+
+Tool input (`tool.input`):
+
+- `operations` (`array`, required): One or more edit operations, applied sequentially.
+  - `type` (`'replace' | 'insertBefore' | 'insertAfter'`, required): Edit to perform.
+  - `target` (`string`, required): Selects a node of the document where the operation will be applied, or the entire document. It is the value of the `_hash` attribute of the selected node, or `"doc"` to target the entire document.
+  - `content` (`JSONContent[] | string`, required): Replacement or inserted content. Use a Tiptap
+    JSON fragment when `format` is `json`, or a Tiptap Shorthand string when `format` is
+    `shorthand` or `shorthandV2`. To delete a node, use an empty fragment.
+  - `meta` (`string`, optional): Metadata for the operation. This field is required when the
+    `tiptapEdit.meta` option passed to `fetch-tools` is set.
 
 Tool config (`tool.config`):
 
@@ -439,11 +463,44 @@ Error response:
 - `reason` (`'validationError' | 'unexpectedError'`): Error category.
 - `error` (`string`): Error message.
 
+### `replaceDocument`
+
+Replaces the entire document with new content.
+
+Tool input (`tool.input`):
+
+- `content` (`JSONContent | string`, required): The replacement document content. Use a Tiptap JSON
+  document when `format` is `json`, or a Tiptap Shorthand string when `format` is `shorthand` or
+  `shorthandV2`.
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the document was replaced successfully.
+
+Error response:
+
+- `success` (`false`): Indicates that the document could not be replaced.
+- `error` (`string`): Error message.
+
+### `createDocument`
+
+Alias for `replaceDocument`. It accepts the same input and returns the same output.
+
 ### `readSelection`
 
 Reads the user's current editor selection.
 
 This tool is only compatible with Tiptap Cloud collaborative documents. In [multi-field documents](/editor/extensions/functionality/collaboration#field), only the `default` field is supported.
+
+Tool input (`tool.input`):
+
+This tool does not take any input. Pass an empty object (`{}`).
 
 Tool config (`tool.config`):
 
@@ -467,6 +524,11 @@ Success response (empty selection):
 
 Reads comment threads from a cloud document.
 
+Tool input (`tool.input`):
+
+- `from` (`number`, required): Zero-based index of the first thread to read. Must be a non-negative
+  integer.
+
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
@@ -483,7 +545,7 @@ Success response:
   - `nodeRange` (`[number, number] | null`): Node range where the thread is located, or `null` if
     the thread is not annotated in the document.
   - `content` (`JSONContent[] | string | null`): Content marked by the thread. When `format` is
-    `json`, this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand
+    `json`, this is a Tiptap JSON fragment. When `format` is `shorthand` or `shorthandV2`, this is a Tiptap Shorthand
     string. `null` means the thread is not annotated in the document.
   - `comments` (`array`): Comments in the thread.
     - `id` (`string`): Unique comment identifier.
@@ -506,6 +568,24 @@ Error response:
 ### `editThreads`
 
 Creates and updates comment threads.
+
+Tool input (`tool.input`):
+
+- `operations` (`array`, required): One or more thread operations, applied sequentially. Each
+  operation has one of these shapes:
+  - `createThread`: `type` (`'createThread'`, required), `nodeHash` (`string`, required), and
+    `content` (`JSONContent[] | string`, required). `content` is the node content with
+    `inlineThread` marks added, as a Tiptap JSON fragment when `format` is `json` or a Tiptap
+    Shorthand string when `format` is `shorthand` or `shorthandV2`.
+  - `createComment`: `type` (`'createComment'`, required), `threadId` (`string`, required), and
+    `content` (`string`, required).
+  - `updateComment`: `type` (`'updateComment'`, required), `threadId` (`string`, required),
+    `commentId` (`string`, required), and `content` (`string`, required).
+  - `removeComment`: `type` (`'removeComment'`, required), `threadId` (`string`, required), and
+    `commentId` (`string`, required).
+  - `removeThread`: `type` (`'removeThread'`, required) and `threadId` (`string`, required).
+  - `resolveThread`: `type` (`'resolveThread'`, required) and `threadId` (`string`, required).
+  - `unresolveThread`: `type` (`'unresolveThread'`, required) and `threadId` (`string`, required).
 
 Tool config (`tool.config`):
 
@@ -536,6 +616,10 @@ Reads the entire document.
   `readDocument` returns the full document. For large documents, use `tiptapRead` instead.
 </Callout>
 
+Tool input (`tool.input`):
+
+This tool does not take any input. Pass an empty object (`{}`).
+
 Tool config (`tool.config`):
 
 `null`
@@ -546,11 +630,23 @@ Success response:
 
 - `success` (`true`): Indicates that the document was read successfully.
 - `content` (`JSONContent[] | string`): Whole effective document content. When `format` is `json`,
-  this is a Tiptap JSON fragment. When `format` is `shorthand`, this is a Tiptap Shorthand string.
+  this is a Tiptap JSON fragment. When `format` is `shorthand` or `shorthandV2`, this is a Tiptap Shorthand string.
 
 ### `proofread`
 
 Applies proofreading edits.
+
+This tool supports `format: "shorthand"` and `format: "shorthandV2"`.
+
+Tool input (`tool.input`):
+
+- `operations` (`array`, required): One or more proofreading operations, applied sequentially.
+  - `target` (`string`, required): Selects a node of the document where the operation will be applied, or the entire document. It is the value of the `_hash` attribute of the selected node, or `"doc"` to target the entire document.
+  - `delete` (`string`, required): Exact text to remove. Only its first occurrence in the target
+    node is replaced.
+  - `insert` (`string`, required): Corrected text to insert in place of `delete`.
+  - `meta` (`string`, optional): Metadata for the operation. This field is required when the
+    `proofread.meta` option passed to `fetch-tools` is set.
 
 Tool config (`tool.config`):
 

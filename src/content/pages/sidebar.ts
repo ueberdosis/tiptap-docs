@@ -67,6 +67,11 @@ export const sidebarConfig: SidebarConfig = {
           tags: ['New'],
         },
         {
+          title: 'Layout participants',
+          href: '/pages/core-concepts/layout-participants',
+          tags: ['New'],
+        },
+        {
           title: 'Limitations',
           href: '/pages/core-concepts/limitations',
         },
@@ -107,6 +112,11 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'PagesTableKit',
           href: '/pages/guides/pages-tablekit',
+          tags: ['Experimental'],
+        },
+        {
+          title: 'Rows that span a page break',
+          href: '/pages/guides/row-fragmentation',
           tags: ['Experimental'],
         },
         {
