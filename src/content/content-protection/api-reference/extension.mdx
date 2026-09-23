@@ -1,0 +1,367 @@
+---
+title: Content Protection API reference
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Content Protection API reference | Tiptap Docs
+  description: Developer reference for content protection api reference.
+  category: Content Protection
+---
+
+Exports from `@tiptap-pro/extension-content-protection`.
+The [policy grammar](/content-protection/api-reference/policy#json-grammar) defines exported
+`ContentProtectionPolicy`, `ProtectionRule`, `ProtectionSelector`, `NodeMatch`,
+`MarkMatch`, `AttributePredicate` and `JsonValue` types.
+
+## Extension
+
+`ContentProtection` has extension/storage name `contentProtection`. It installs
+the transaction guard, view concealment, clipboard integration, history
+integration and permission queries. It adds no persisted Node, Mark or attribute
+to the Schema. Hosts use existing Nodes/Marks/attributes, or define their own
+classification Mark for author-selected passages.
+
+```ts
+import { ContentProtection } from '@tiptap-pro/extension-content-protection'
+
+const extension = ContentProtection.configure({
+  policy: { version: 1, rules: [] },
+  onRejected: (event) => showRefusal(event.violations),
+})
+```
+
+Installing or replacing a policy does not validate Slot content. Changing roles
+means the application supplies another policy, not that the extension knows a
+user's identity. There is no actor ID, JWT, server client or collaboration option.
+
+## Extension options
+
+| Option            | Type                                                  | Default and consequence                                                                             |
+| ----------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `policy`          | `ContentProtectionPolicy`                             | `{ version: 1, rules: [] }`; everything readable/editable                                           |
+| `redactionText`   | `string`                                              | `"[Hidden content]"`; default view text and neutral clipboard/text output, independent of custom UI |
+| `redactionLabel`  | `string`                                              | `"Hidden content"`; default accessible name, also supplied to custom renderers                      |
+| `renderRedaction` | `RedactionRenderer \| null`                           | `null`; default placeholder. Supply a factory for complete custom DOM or framework UI.              |
+| `onRejected`      | `(event: ContentProtectionRejectedEvent) => void`     | No-op; convenience listener for `contentProtectionRejected`                                         |
+| `onPolicyUpdate`  | `(event: ContentProtectionPolicyUpdateEvent) => void` | No-op; convenience listener for `contentProtectionPolicyUpdate`                                     |
+| `onPolicyError`   | `(event: ContentProtectionPolicyErrorEvent) => void`  | No-op; convenience listener for `contentProtectionPolicyError`                                      |
+
+Invalid initial options throw `ProtectionConfigurationError` before an editable
+view is created. An empty redaction text/label is invalid. Strings render as text,
+never HTML. Redaction appearance can be styled with
+`[data-content-protection="redacted"]`; the element must have no attributes
+containing the concealed content, original ID or length. The package supplies
+functional concealment without requiring a host stylesheet.
+
+`renderRedaction` replaces the complete default placeholder UI, not just its
+text. [Redaction UI customization](/content-protection/guides/custom-redaction) defines the exported
+`RedactionRenderer`, `RedactionViewProps` and `RedactionView` types, lifecycle,
+interaction and examples. It is a view-only factory with no original Node or
+editable content container; no redaction Node is added to the Schema.
+
+Every notification callback also corresponds to a typed Tiptap Editor event.
+Callbacks and listeners receive the same payloads, including `editor`; see
+[Editor events](/composable-documents/slots/events) for the complete mapping and delivery contract.
+`renderRedaction` is a behavior provider, not an event callback.
+
+No bypass option, trusted Transaction metadata, or callback that automatically
+exempts programmatic writes is provided. A host may replace the policy explicitly;
+it is already trusted code holding the complete Document.
+
+## Query and result types
+
+```ts
+interface PolicyIssue {
+  path: string
+  code:
+    | 'invalidFormat'
+    | 'unsupportedVersion'
+    | 'duplicateRuleId'
+    | 'unknownNodeType'
+    | 'unknownMarkType'
+    | 'unknownAttribute'
+  message: string
+}
+
+interface ProtectionConfigurationError extends Error {
+  issues: PolicyIssue[]
+}
+
+type ProtectionOperationKind =
+  | 'insertNode'
+  | 'removeNode'
+  | 'changeNodeType'
+  | 'moveNode'
+  | 'changeChildren'
+  | 'insertText'
+  | 'removeText'
+  | 'changeAttribute'
+  | 'addMark'
+  | 'removeMark'
+  | 'changeMarkAttribute'
+
+interface ProtectionOperation {
+  kind: ProtectionOperationKind
+  from: number
+  to: number
+  nodeType?: string
+  markType?: string
+  attribute?: string
+}
+
+interface ProtectionViolation {
+  code: 'editDenied' | 'readDenied' | 'unsupportedStep'
+  operation: ProtectionOperation | null
+  ruleIds: string[]
+  ruleIndexes: number[]
+  reasons: string[]
+}
+
+interface ProtectionCheck {
+  allowed: boolean
+  violations: ProtectionViolation[]
+  documentRevision: number | null
+  policyRevision: number | null
+}
+
+interface ProtectionRejection extends ProtectionCheck {
+  allowed: false
+}
+
+interface PolicyUpdate {
+  policy: ContentProtectionPolicy
+  policyRevision: number
+}
+
+interface PermissionDecision {
+  allowed: boolean
+  ruleIds: string[]
+  ruleIndexes: number[]
+  reasons: string[]
+}
+
+interface PermissionSummary {
+  read: 'all' | 'some' | 'none'
+  edit: 'all' | 'some' | 'none'
+  ruleIds: string[]
+  ruleIndexes: number[]
+}
+
+type ProtectionSubject =
+  | { target: 'node' | 'content' | 'children'; pos: number }
+  | { target: 'attribute'; pos: number; name: string }
+  | { target: 'mark' | 'markedContent'; from: number; to: number; type: string }
+  | { target: 'markAttribute'; from: number; to: number; type: string; name: string }
+
+interface ProtectionExplanation {
+  subject: ProtectionSubject
+  read: PermissionDecision | null
+  edit: PermissionDecision
+  concealedBy: string[]
+}
+```
+
+Subjects are concrete existing targets, not selectors. For the root Document,
+`pos` is `-1`; other Nodes use their opening ProseMirror position. Mark subjects
+require the named Mark to cover the whole supplied range; heterogeneous Mark
+attributes are partitioned and deny wins for the aggregate decision. Invalid
+positions, absent Marks, text positions used as Node positions, and invalid
+attribute names throw `ProtectionInputError` with `issues: PolicyIssue[]` whose
+code is `invalidFormat`.
+
+An explanation's `ruleIds` are the winning priority tier in declaration order,
+with matching reasons in that order, omitting absent reasons. Anonymous rules are identified by zero-based `ruleIndexes`. `concealedBy`
+lists winning read-deny rule IDs for enclosing concealed regions; it explains
+why an individually readable child is still hidden. `read` is null for a
+`children` subject. The `edit` answer includes effective read restrictions.
+
+Summaries aggregate possible mutation categories, not just typing. An existing
+Node with editable words but protected attributes is `edit: 'some'`. A summary
+is suitable for a lock badge; it is not a replacement for checking a specific
+Command. A numeric range with `from === to` asks about inserting text at that
+caret, using its parent content and active Mark context. Range summaries inspect
+all affected content and insertion points, so partial protection cannot report
+`all` merely because the start is editable.
+
+Operation positions in rejection events refer to the pre-Transaction Document;
+an insertion uses its mapped insertion point. Introduced-only content maps to
+that point. Values/text and Transaction objects are deliberately excluded from
+callbacks. A diagnostic can identify a rule without exposing hidden content.
+
+## Commands
+
+### setContentProtectionPolicy
+
+```ts
+editor.commands.setContentProtectionPolicy({ policy })
+```
+
+Validate and atomically replace the policy. Returns true when valid (including
+an identical policy), false on invalid input. An identical policy is a no-op and
+does not increment revisions or emit an update. An invalid replacement leaves
+the old policy active and emits `contentProtectionPolicyError`, also delivered
+to the configured `onPolicyError` listener.
+
+Policy is copied on installation. Later mutation of the caller's object has no
+effect. Updates are immediate and not undoable. A chain with any content Steps
+and a policy replacement refuses as an invalid update, in either command order;
+selection-only chaining is allowed. `can()` validates without mutation or events.
+
+There are no package Commands to assign roles, write policies into the Document,
+or toggle a special protection Mark. The demo's Protect/Hide buttons write its
+classification Marks/attributes through its own Commands; policy decides who
+may change those classifications.
+
+## Storage and editor-bound functions
+
+```ts
+interface ContentProtectionStorage {
+  policy: ContentProtectionPolicy
+  policyRevision: number
+  documentRevision: number
+  checkTransaction(options: { transaction: Transaction }): ProtectionCheck
+  isReadable(options: { document: Node; range: { from: number; to: number } }): boolean
+}
+
+function checkProtectedTransaction(options: {
+  editor: Editor
+  transaction: Transaction
+}): ProtectionCheck
+
+function getProtection(options: {
+  editor: Editor
+  range?: { from: number; to: number }
+}): PermissionSummary
+
+function explainProtection(options: {
+  editor: Editor
+  subject: ProtectionSubject
+}): ProtectionExplanation
+```
+
+All storage properties are read-only. Revisions start at 0; document revision
+increments for each applied content-changing Transaction, independently of policy
+revision. Functions require ContentProtection to be installed and throw
+`ProtectionInputError` otherwise. `getProtection` defaults to current selection.
+
+The transaction check must be pure: no events, dispatch, history writes or state
+updates. The Transaction must have been constructed against the current State;
+a mismatched `before` Document throws `ProtectionInputError`. Dry-run checks
+return all violations with deterministic ordering by position, operation kind,
+then rule ID. Dispatch emits one `contentProtectionRejected` event, also delivered
+to `onRejected`, with that check data and the Editor reference if the
+write is refused; Slot's command-specific event may also fire for that Slot
+Command. Hosts should choose one feedback channel to avoid duplicate messages.
+
+`checkTransaction` is the optional composition interface used by Slot Commands.
+It is equivalent to `checkProtectedTransaction` for the same Editor. Calling
+either does not apply the proposed write. A later write must be checked again
+against current state.
+
+## Pure policy utilities
+
+`Schema` and `Node` come from `@tiptap/pm/model`, `Transaction` from
+`@tiptap/pm/state`, and `Editor`/`JSONContent` from `@tiptap/core`.
+
+```ts
+interface CompiledProtectionPolicy {
+  // Opaque immutable executable form; not serializable or user-constructible.
+}
+
+function validateContentProtectionPolicy(options: { policy: unknown; schema?: Schema }): {
+  valid: boolean
+  issues: PolicyIssue[]
+}
+
+function compileContentProtectionPolicy(options: {
+  policy: ContentProtectionPolicy
+  schema: Schema
+}): CompiledProtectionPolicy
+
+function checkContentProtectionTransaction(options: {
+  policy: CompiledProtectionPolicy
+  transaction: Transaction
+}): ProtectionCheck
+
+function explainContentProtection(options: {
+  policy: CompiledProtectionPolicy
+  document: Node
+  subject: ProtectionSubject
+}): ProtectionExplanation
+
+function summarizeContentProtection(options: {
+  policy: CompiledProtectionPolicy
+  document: Node
+  range: { from: number; to: number }
+}): PermissionSummary
+```
+
+Compilation throws `ProtectionConfigurationError` on invalid input and does not
+mutate the source policy. Syntax validation without a Schema omits checks for
+installed type/attribute names; successful compilation always checks those.
+Compiled policies are bound to their Schema. A Node or Transaction from another
+Schema is an input error. Pure checks return null revisions and use the
+Transaction's `before` and proposed Documents, not an Editor or DOM.
+
+The pure APIs implement the same rules as the editor guard. They enable unit
+tests and host preflight; they do not constitute a server authorization product.
+
+## Readable projection
+
+```ts
+interface ReadableMark {
+  type: string
+  attrs?: Record<string, JsonValue>
+}
+
+type ReadableNode =
+  | {
+      kind: 'node'
+      type: string
+      attrs?: Record<string, JsonValue>
+      marks?: ReadableMark[]
+      content: ReadableNode[]
+    }
+  | { kind: 'text'; text: string; marks: ReadableMark[] }
+  | { kind: 'redacted'; inline: boolean; label: string }
+
+interface ReadableContent {
+  content: ReadableNode[]
+  text: string
+}
+
+function getReadableContent(options: {
+  document: Node
+  policy: CompiledProtectionPolicy
+  range?: { from: number; to: number }
+  redactionText?: string
+}): ReadableContent
+```
+
+Default range is the whole Document content; default redaction text is
+`"[Hidden content]"`. `content` is a presentation tree of selected content,
+retaining partial ancestor wrappers as needed. It deliberately uses `kind` and
+a redaction variant instead of pretending to be Tiptap JSON. Visible Nodes
+retain their attributes and Marks; concealed regions retain only `inline` and
+the supplied neutral label. No concealed type name, ID, attributes, Marks, text,
+or content length survives in that variant.
+
+Text uses literal visible text, newlines between textblocks and for hard breaks,
+U+FFFC for visible non-text leaves, and the redaction text for concealed regions.
+No trailing newline is added. Visible external Variables are Nodes, not resolved
+values; the demo's renderer may resolve them after applying its own policy.
+
+Clipboard HTML is serialized from this same projection using the Schema's DOM
+serializers for visible Nodes and neutral `span`/`div` elements for redaction.
+It do not use an original hidden Node's serializer. A Node lacking an HTML
+serializer falls back to readable text, not to a NodeView DOM scrape. Projected
+HTML do not duplicate raw Slot configuration into clipboard attributes;
+clipboard Slot metadata is included only when the complete Slot subtree is
+readable. A partially concealed Slot is copied as readable ordinary content,
+so a placeholder can never masquerade as its actual saved value.
+
+`getReadableContent` does not inspect editor options; callers supplying custom
+redaction text must pass it explicitly. It does not return HTML or mutate the
+Document. HTML and third-party converter integrations are host-owned beyond the
+built-in clipboard contract.

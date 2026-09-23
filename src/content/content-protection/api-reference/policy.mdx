@@ -1,0 +1,372 @@
+---
+title: Content protection policy
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Content protection policy | Tiptap Docs
+  description: Developer reference for content protection policy.
+  category: Content Protection
+---
+
+## Purpose and default
+
+A Content Protection Policy (CPP) is a versioned JSON object containing rules.
+The host supplies the policy for this client. It contains no executable
+predicates, users, roles, JWTs, numerical position ranges or external lookups.
+An application can build different policies for different actors.
+
+Without a matching rule, `read` and `edit` are both allowed. An empty policy is
+equivalent to an ordinary editor. Slot validation cannot grant or deny permission.
+
+```json
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "keep-summary",
+      "selector": {
+        "target": "node",
+        "node": {
+          "types": ["blockSlot"],
+          "attributes": [{ "name": "id", "operator": "eq", "value": "summary" }]
+        }
+      },
+      "permissions": { "edit": false },
+      "reason": "The summary field must stay in the document."
+    }
+  ]
+}
+```
+
+This rule preserves the summary's existence. Its words and configuration remain
+editable unless separately restricted. The Slot package's
+[`createSlotFillingPolicy`](/composable-documents/slots/api-reference#createslotfillingpolicy) produces a complete
+filling policy that also protects configuration and surrounding prose. It is a
+helper over this generic language; the evaluator has no special Slot syntax.
+
+## JSON grammar
+
+```ts
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | {
+      [key: string]: JsonValue
+    }
+
+interface ContentProtectionPolicy {
+  version: 1
+  rules: ProtectionRule[]
+}
+
+interface ProtectionRule {
+  id?: string
+  selector: ProtectionSelector
+  permissions: { read?: boolean; edit?: boolean }
+  priority?: number
+  reason?: string
+}
+
+type AttributePredicate =
+  | { name: string; operator: 'exists' }
+  | { name: string; operator: 'eq'; value: JsonValue }
+  | { name: string; operator: 'in'; values: JsonValue[] }
+
+interface NodeMatch {
+  types?: string[]
+  attributes?: AttributePredicate[]
+  within?: NodeMatch
+}
+
+interface MarkMatch {
+  types?: string[]
+  attributes?: AttributePredicate[]
+  within?: NodeMatch
+}
+
+type ProtectionSelector =
+  | { target: 'node' | 'children'; node: NodeMatch }
+  | { target: 'content'; node: NodeMatch; stopAt?: NodeMatch }
+  | { target: 'attribute'; node: NodeMatch; names?: string[] }
+  | { target: 'mark' | 'markedContent'; mark: MarkMatch }
+  | { target: 'markAttribute'; mark: MarkMatch; names: string[] }
+```
+
+This grammar is shared by the policy format and
+[Content Protection API](/content-protection/api-reference/extension). `JsonValue` is exported by both
+packages as the same structural type; neither package depends on the other.
+
+## Matching
+
+- `types` is an OR of exact, case-sensitive Schema names. Omitted means all
+  types in that category, including types a host adds later. `[]` matches none.
+  There are no CSS selectors, regular expressions, wildcards inside names, or
+  JavaScript callbacks.
+- Attribute predicates are ANDed. `eq` uses structural JSON equality, independent
+  of object-key order and preserving array order. `in` is OR over that equality.
+  No type coercion occurs. Missing and `null` are different. `exists` means the
+  key exists, even if its value is `null`. Schema defaults count as values.
+- An attribute name names one entire attribute. Dotted paths are not supported;
+  `config` is protected as a whole. An application may add its own classification
+  attribute or Mark to create meaningful policy selectors.
+- `within` requires a matching strict ancestor Node. Its own `within` can express
+  another ancestor. For Marks it is an ancestor of the marked inline Node.
+- `{}` matches every Node or Mark in the relevant category. The root Document
+  is selectable by its Schema type (normally `doc`), and `content` on it covers
+  the entire Document. The root itself cannot be removed or moved.
+- Marks are matched on each marked inline Node. Adjacent runs of equal type and
+  attributes are a single presentation range, but overlapping Mark types are
+  evaluated independently.
+- All selectors are evaluated against the Document, never the rendered DOM or
+  decoration classes. A policy cannot target an arbitrary substring by words;
+  the host represents an addressable passage using a Mark or Node attribute.
+
+Rule IDs are optional. Diagnostics always include zero-based rule indexes and include IDs when supplied. Policies reject duplicate/empty supplied rule IDs, non-integer priorities, empty
+permissions, unknown keys/targets/operators, invalid values, and attributes or
+types explicitly named but not declared by the supplied Schema. `names: []`
+matches no attributes. An absent `priority` is `0`; negative integers are legal.
+`reason` is plain text for a host to display safely. It do not contain sensitive
+content because it may be returned for an unreadable target.
+
+## Permission targets
+
+For an `attribute` selector, omitting `names` selects all attributes of the
+matched Node, including attributes added by other extensions. An explicit empty
+array selects none. This permits protecting all root Document attributes without
+requiring a policy generator to inspect the host's Schema.
+
+### Boundaries within a content selector
+
+`stopAt` limits an edit rule's reach inside a matching Node. Descendant Nodes
+matching `stopAt`, including their own attributes and whole subtrees, are
+excluded from that rule's scope. The matched owner is never excluded. Separate
+rules can still match excluded descendants directly. A boundary-crossing edit
+is partitioned and every affected part must be allowed as usual.
+
+For example, a content allow on a block Slot with
+`stopAt: { types: ['blockSlot', 'inlineSlot'] }` permits its own content without
+also granting access to nested Slots. A nested Slot needs its own matching
+allow. This works for any Node types, not only Slots, and does not change rule
+priority or add implicit specificity. Without `stopAt`, content rules keep
+their existing recursive behavior.
+
+`stopAt` is available only on `content` rules that specify `edit` alone. A rule
+combining it with `read` is invalid; read concealment keeps the presentation
+target contract described below. Match boundaries are evaluated against both
+before and proposed Documents, so removing or retyping a boundary cannot escape
+source-side protection.
+
+### Target behavior
+
+| Target          | What `edit: false` protects                                                                            | What `read: false` conceals                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `node`          | Insertion, deletion, retyping, splitting, joining and movement of the matching Node itself             | The Node and its whole subtree                                                    |
+| `content`       | Mutations strictly inside the matching Node: text, descendant Nodes, descendant attributes and Marks   | The Node's children; its non-sensitive outer representation may remain            |
+| `children`      | The ordered sequence of direct child Node occurrences while the owner survives                         | Not supported; use `content`                                                      |
+| `attribute`     | Changes to listed attributes on the matching Node                                                      | The whole owning Node, because an arbitrary NodeView may display those attributes |
+| `mark`          | Adding/removing the matching Mark or changing any of its attributes                                    | The entire marked content, not just formatting                                    |
+| `markedContent` | Editing/replacing/removing the content carrying the Mark, including other Marks and descendant content | The entire marked content                                                         |
+| `markAttribute` | Changes to listed attributes on the matching Mark                                                      | The entire marked content                                                         |
+
+Reject `read` on `children` rather than accepting a field with no effect.
+
+`node` protection does not freeze its attributes or its descendants. `content`
+does not protect the owner's own attributes or existence, but deleting an owner
+with nonempty protected content also deletes that content and is therefore
+subject to the content rule. Use both targets to preserve an empty field and
+permit only its contents to change.
+
+`children` distinguishes structure from text. A row's direct cell sequence can
+be fixed while text inside each cell changes. Editing a direct text child or its
+Marks is a content edit, not a sequence change; splitting/coalescing adjacent
+text Nodes solely because Marks changed is ignored by the sequence comparison.
+Deleting the owner itself is not a `children` mutation; use `node` to keep it.
+Introducing a wholly new owner has no old child sequence to preserve.
+
+A `mark` rule can preserve a citation while allowing its wording to change;
+removing the whole marked passage removes the Mark and therefore requires
+permission. A `markedContent` rule also governs the removal or alteration of
+the Mark that selects that content. An explicit higher-priority Mark rule is
+needed to permit unlocking without permitting text edits.
+
+Mark continuity is evaluated over marked runs, not separately for every
+character. Typing with the same inherited Mark or replacing words while
+retaining that Mark is a text edit, not creation of a new protected Mark.
+Shortening a run while leaving marked content preserves it; deleting its last
+content removes it. Replacing the entire wording with nonempty content carrying
+the same Mark and attributes preserves the run at that mapped location. Adding
+or removing a Mark on existing text, or changing its attributes, remains a Mark
+mutation. These distinctions must hold for both keyboard and programmatic edits.
+
+An unchanged Node shifted to another position by an edit before it was not
+moved. An actual move is removal at the source plus insertion at the destination;
+both must be permitted. There is no implicit privilege for drag/drop or an
+application's move Command.
+
+## Conflict resolution
+
+Evaluate `read` and `edit` separately for each affected operation or readable
+target:
+
+1. Gather applicable rules that explicitly state the permission being checked.
+2. If none apply, allow.
+3. Keep the rules with the highest numeric `priority`.
+4. If any remaining rule denies, deny. Otherwise allow.
+
+List order never changes permission. There is no implicit specificity from
+selector length, tree depth or range size. A rule missing `edit` has no opinion
+about editing. More than one applicable target can govern a single mutation:
+an ancestor `content` rule and a specific `attribute` rule compete using this
+same algorithm for that attribute mutation.
+
+Every operation affected by a Transaction must be allowed. An allow for one
+field cannot authorize the part of a selection outside it. Cross-boundary edits
+are partitioned by affected content before rules are resolved.
+
+Examples:
+
+| Rules affecting the same edit                               | Result                              |
+| ----------------------------------------------------------- | ----------------------------------- |
+| No rule                                                     | Allow                               |
+| Document content deny at 0; chosen Slot content allow at 10 | Allow within the Slot, deny outside |
+| Two opposite rules at 10                                    | Deny                                |
+| Attribute deny at 20; enclosing Slot content allow at 10    | Deny attribute change               |
+| Read allow at 50; edit deny at 0                            | Readable, not editable              |
+
+Explicit priority makes composition predictable: applications reserve bands,
+for example 0 for a document baseline, 10 for editable regions, and 20 for
+immutable fields within them. These numbers are examples, not magic levels.
+The package must expose all winning rule IDs and the denied operation; hosts
+do not have to reverse-engineer why a toolbar action is disabled.
+
+### Read denial and containment
+
+Resolve read permission on each selected presentation target first. Each denied
+target produces a concealed region. Concealed regions are unioned; an enclosing
+concealed region conceals its children regardless of a child's separate allow.
+To reveal a child, narrow the parent's denying selector or override the rule on
+that parent target itself. A child allow does not reveal the rest of a hidden
+paragraph through a NodeView.
+
+Content in a concealed region is effectively non-editable even when an edit
+rule allows it. This prevents an invisible editable area or a blind batch write.
+Changing a concealed attribute also requires read permission. Read denial is not
+stored as another edit rule and cannot be bypassed by higher edit priority.
+
+For a denied attribute, the whole owner is concealed intentionally. Selective
+sanitization of arbitrary custom NodeViews is outside the contract. If a host
+wants a visible image with a hidden caption, it should model the caption as
+separate content rather than deny reading the image's `src` attribute.
+
+## Enforcement
+
+The extension validates proposed Transactions before applying them. It must
+understand semantic changes, not only changed text ranges or `docChanged`.
+Attribute and Mark Steps may have empty maps and still require permission.
+
+The implementation must account for before and proposed Documents, mappings,
+and intermediate Steps. Removal is checked against the source, insertion against
+the destination, and modifications against both old and new selector matches.
+An edit that changes the attribute used by a selector is governed by the old
+match as well as the new one. It cannot remove a classification and edit its
+protected content in the same Transaction to evade the original rule.
+
+For each mutation, before-side and after-side decisions must both allow when
+both sides exist. They are resolved independently: a high-priority allow that
+matches only the proposed new classification cannot cancel a deny on the old
+classification. Existing protected regions remain tracked through all Steps of
+the Transaction. An explicitly permitted unlock can take effect for content
+editing in a subsequent Transaction, not earlier in the same chain.
+
+Replacing an ancestor must inspect affected descendants. Recreating protected
+content with the same JSON is not proof of continuity. Existing Nodes preserved
+by Step mappings/retained gaps keep their identity; replaced occurrences are
+removal and insertion. Attribute-only replacements such as `setNodeMarkup`
+must be classified as attribute mutations when type, position and retained
+content establish continuity. Unknown custom Step classes that cannot be
+analyzed are refused as `unsupportedStep` when a nonempty policy is active.
+An empty policy does not interfere with custom Steps.
+
+Selection-only Transactions are allowed, although the extension may move a caret
+out of concealed content. Every content path is governed: typing, composition,
+paste, cut, drop, input rules, table Commands, programmatic Commands, appended
+Transactions, undo/redo and `setContent`. `setContent` is not a bypass and may
+be rejected as replacement of protected occurrences. Loading another document
+is a host lifecycle action, usually creating another Editor.
+
+All-or-nothing is required. A forbidden deletion does not trim around protected
+pieces. A batch fill or chain writes everything or nothing. Commands from these
+two packages preflight against the active protection evaluator and return false
+on refusal. Other extensions' boolean Command results are not a guarantee that
+a later filter applied the Transaction; `checkProtectedTransaction` and
+`onRejected` exist for reliable preflight and feedback.
+
+An appended Transaction is checked separately against its actual starting State.
+It cannot roll back an already applied earlier Transaction. The originating
+Command must include all required writes in one Transaction if it promises
+atomicity; the guard do not promise atomicity across arbitrary plugins.
+
+## Runtime policy and history
+
+The policy is installed through options, then changed with
+`setContentProtectionPolicy`. A valid update atomically replaces it, recomputes
+presentation and queries, and increments the policy revision. It does not write
+Document content, enter undo history, or call `onRejected`. Invalid updates
+leave the previous policy active and report configuration diagnostics.
+
+Policy updates are trusted host actions, not document edits subject to the old
+policy. Document JSON or clipboard content cannot update the runtime policy.
+Undo/redo apply the policy currently active, even if an edit was allowed when
+recorded. Refused history operations must leave both Document and history
+cursor unchanged; widening the policy lets the operation be retried. This is an
+implementation acceptance criterion, not something a filter alone guarantees.
+
+All query results are snapshots. Policy/document revisions must accompany checks
+intended for later application. A preflight is advisory until dispatch checks
+the actual current State. A policy update in a content chain is refused; host
+code updates policy in a separate call before issuing content Commands.
+
+## Presentation, clipboard and export
+
+Concealed content is replaced in the editable view by a neutral inline or block
+placeholder appropriate to its location. The original content do not remain
+rendered underneath CSS, in accessible labels, tooltips, data attributes,
+image URLs or custom NodeView descendants. It remains in the Document and memory.
+The placeholder contains no IDs, rule reasons or original-length indicator.
+
+NodeViews for concealed Nodes do not mount their original content or load
+hidden resources. This is a required implementation feasibility check for custom
+NodeViews before release. Drawing an opaque decoration over them is insufficient.
+Configuration can supply a complete custom redaction UI through
+`renderRedaction`, with placeholder text and an accessible label as defaults.
+The renderer receives no concealed content; its lifecycle and independent
+clipboard/export behavior are defined in
+[Redaction UI customization](/content-protection/guides/custom-redaction).
+Adjacent concealed regions coalesce where
+their inline/block contexts permit it.
+
+Copy serializes the readable projection for both plain text and HTML, including
+selections that cross concealed regions. It includes a neutral placeholder in
+place of each concealed region. Cut checks deletion first: if any selected
+content cannot be deleted, it neither deletes nor writes a clipboard payload.
+Internal drag serialization follows the same rules, and drag movement still
+checks source deletion and destination insertion. Paste never trusts clipboard
+policy declarations, and Slot paste rules cannot bypass protection.
+
+`editor.getJSON()`, `editor.getHTML()` and ordinary persistence remain complete
+Document APIs. The new `getReadableContent` utility returns explicit presentation
+JSON/text for a host's renderer or export path. Presentation JSON has no claim
+to satisfy the editor Schema and do not be passed to `setContent` or saved in
+place of the original Document. Redaction therefore needs no carrier Node in
+the Schema. Custom export integrations must deliberately use the readable API;
+this release does not intercept unrelated converters or server APIs.
+
+Indexes, validators and extension storage can read the full Document. Hosts must
+use protection queries before putting labels, validation messages, Slot values,
+counts or custom sidebar content on screen. The core cannot sanitize arbitrary
+application UI. No client-side behavior in this specification provides security
+against someone with access to the complete client state.

@@ -61,6 +61,14 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Compare',
         },
         {
+          href: '/content-protection/getting-started/overview',
+          title: 'Content Protection',
+        },
+        {
+          href: '/composable-documents/getting-started/overview',
+          title: 'Composable Documents',
+        },
+        {
           href: '/conversion/getting-started/overview',
           title: 'Conversion',
         },

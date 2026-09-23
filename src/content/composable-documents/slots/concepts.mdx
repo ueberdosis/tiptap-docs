@@ -1,0 +1,313 @@
+---
+title: Slot contract
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Slot contract | Tiptap Docs
+  description: Developer reference for slot contract.
+  category: Composable Documents
+---
+
+## What a Slot is
+
+A Slot is a named place whose Node persists when its content is filled or cleared.
+Its embedded configuration describes valid content and instructions for a person
+or application. Dissolving removes the Slot wrapper and keeps its content.
+Removing deletes the wrapper and its content. These are different Commands.
+
+The Slot extension provides both Nodes, without a configuration switch that
+changes the Schema at runtime:
+
+| Property                 | `blockSlot`         | `inlineSlot`    |
+| ------------------------ | ------------------- | --------------- |
+| Group                    | `block`             | `inline`        |
+| Inline                   | `false`             | `true`          |
+| Content expression       | `block+`            | `inline*`       |
+| Attributes               | `id`, `config`      | `id`, `config`  |
+| `defining` / `isolating` | `true` / `true`     | `true` / `true` |
+| Empty content            | One empty paragraph | No children     |
+
+The block Node requires `paragraph` in the Schema. Its empty paragraph is a
+caret location, not default business content. It can violate a configuration
+that requests an image or a table; that is a valid draft state. Slot Nodes must
+not become the Schema's default block filler through extension priority.
+
+## Persisted format
+
+```json
+{
+  "type": "blockSlot",
+  "attrs": {
+    "id": "summary",
+    "config": {
+      "version": 1,
+      "label": "Summary",
+      "instructions": "Summarize the proposed work.",
+      "required": true,
+      "allowedBlocks": [{ "type": "paragraph" }],
+      "constraints": { "maxLength": 600 }
+    }
+  },
+  "content": [{ "type": "paragraph" }]
+}
+```
+
+`id` is a nonempty, case-sensitive string. No format beyond that is imposed.
+`config` is a JSON object, never a configuration ID. Its default is
+`{ "version": 1 }`. Node kind comes from the Node type, not a second attribute.
+Neither validation status nor resolved external values are stored on the Slot.
+
+Default HTML uses `div[data-slot-kind="block"]` or
+`span[data-slot-kind="inline"]`, `data-slot-id`, and `data-slot-config` containing
+HTML-escaped JSON. Parsing do not execute values or merge object prototypes.
+JSON and HTML round trips preserve IDs, configuration and content. Unknown or
+malformed configuration must be retained as JSON where possible and diagnosed;
+it do not silently become a successful validation under defaults. Malformed
+HTML attribute JSON becomes `config: null` and an `invalidConfiguration` issue.
+
+## Configuration
+
+See [public types](/composable-documents/slots/api-reference#configuration-types) for the exact shape.
+
+| Field             | Default and consequence                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `version`         | Required `1`; another version makes validation unavailable                                           |
+| `label`           | Absent; UI may display the Slot ID                                                                   |
+| `instructions`    | Absent; no author or caller brief                                                                    |
+| `placeholder`     | Absent; no placeholder text; if supplied it is presentation, never content                           |
+| `defaultContent`  | Absent; new Slots start empty. When supplied, used only at creation if no explicit content is passed |
+| `required`        | `false`; an empty Slot is allowed                                                                    |
+| `allowedBlocks`   | Absent; any installed non-Slot block type is valid                                                   |
+| `allowedInline`   | Absent; any installed non-text, non-Slot inline type is valid                                        |
+| `allowText`       | `true`; text is valid                                                                                |
+| `allowedMarks`    | Absent; any installed Mark is valid                                                                  |
+| `constraints`     | `{}`; no length, cardinality, pattern or enumeration constraints                                     |
+| `nesting`         | `{ allowed: false }`; nested Slots are reported as invalid                                           |
+| `validators`      | `[]`; no application validators                                                                      |
+| `crossFieldRules` | `[]`; no relationships to other Slots                                                                |
+| `metadata`        | `{}`; optional application-owned JSON, with no package semantics                                     |
+
+An empty allow list allows none of that kind. Entries match an exact type name
+and, optionally, permitted values of attributes. Entries are ORed; attribute
+tests within an entry are ANDed. Missing attributes compare as JSON `null`.
+Unknown installed-type names produce `unknownNodeType` or `unknownMarkType`
+when validating against a supplied Schema. Unknown configuration keys and
+inapplicable fields (such as `allowedBlocks` on an inline Slot) are configuration
+errors. `metadata` is the explicit extension point.
+
+`allowedBlocks` governs direct non-Slot block children. Thus a Slot allowing a
+bullet list does not also need to list its internal list items and paragraphs.
+`allowedInline`, `allowText` and `allowedMarks` govern descendants, stopping at
+nested Slot boundaries. A nested Slot is governed by its own configuration;
+the parent's nesting rule controls whether that nested Slot is valid there.
+These are validation boundaries, not permission boundaries.
+
+`defaultContent` is a JSON content array, not placeholder text. It is copied
+into a newly created Slot as real content, participates in history, and counts
+toward validation and completion. It must fit the Node kind's Schema. Its own
+Slot validity may fail, like any other draft. Nested default Slots are cloned
+with new IDs and internally referenced IDs remapped. Changing the default does
+not replace existing content; clearing produces empty content, not the default.
+Loading an empty Slot does not refill it. Explicit insertion content, including
+an empty array, wins over the default.
+
+Examples include a heading with `level` in `[1]`, a paragraph-only summary, or
+inline content allowing text and links but no images. They describe validity:
+they never alter the installed Schema or disable editing Commands.
+
+## Nesting
+
+`nesting.allowed` enables nested Slots. `kinds`, when present, limits descendants
+to `block` and/or `inline`. `maxDepth`, when present, counts Slot edges below the
+owner: direct child Slot depth is 1 even if paragraphs or lists intervene.
+Both restrictions apply to all descendant Slots. Each ancestor's nesting rule
+must pass; a child cannot relax its parent's maximum depth. `allowed: false`
+is equivalent to permitting no descendant Slot.
+
+An inline Slot can contain inline Slots but never block Slots, because its
+Schema forbids blocks. Block Slots can contain block Slots or inline Slots
+inside textblocks. Ordinary Schema rules still determine insertion positions.
+
+All Slots have document-wide unique IDs, including nested ones. Validation
+returns one entry per Slot in document order with parent ID and depth.
+Parent structural/nesting issues belong to the parent; a child's invalid text
+belongs to the child. The document result fails if either fails. A UI may
+aggregate child status without duplicating the issues or counting a field twice.
+
+## Non-blocking validation
+
+Every Slot validity constraint is report-only, including allowed types, Marks,
+nesting, length, requiredness, patterns and custom rules. Filling, pasting,
+changing configuration and ordinary typing do not await or require validation.
+No invalid content is trimmed, coerced, dropped or automatically repaired.
+
+An operation can still fail because it is not Schema-valid, has an ambiguous
+target, or is forbidden by Content Protection. These failures are not Slot
+validation enforcement. A toolbar can show warnings for invalid choices, but
+`editor.can()` do not claim such choices are forbidden by the Slot definition.
+
+Initial documents and documents made invalid by new configuration stay editable.
+Validation describes the current snapshot. It does not require a sequence of
+edits to preserve validity, nor freeze unrelated fields while one is invalid.
+
+### Emptiness and measurements
+
+`empty` is independent of `required` and validation status. A Slot is empty when
+it contains only whitespace text and empty textblock/container structure, with
+no meaningful leaf/atom content. Non-text leaf or atom Nodes other than
+`hardBreak` count as content, even when an image has an empty `src`. Applications
+can validate required attributes using a named validator. Nested Slots are
+recursively inspected: an empty nested field alone does not fill its parent.
+
+For text constraints, descend into nested Slots, concatenate inline text,
+represent `hardBreak` and boundaries between textblocks as `\n`, and represent
+other leaf/atom Nodes as U+FFFC. Do not include labels, placeholders, resolved
+Variable values, or decoration text. Do not add a final newline. Length counts
+Unicode code points, including whitespace and these separators, not UTF-16
+code units or visual graphemes. This projection is also exposed as `text`.
+
+`minChildren` and `maxChildren` count direct child Nodes, including nested Slot
+Nodes and the empty paragraph in an empty block Slot. They are supported only
+on block Slots. Inline Nodes are not counted by these fields.
+
+An empty optional Slot skips value constraints (`minLength`, `maxLength`,
+`pattern`, `values`, `minChildren`, `maxChildren`). An empty required Slot gets
+one `required` issue, and also skips these value constraints. Content-type,
+nesting, identity and configuration checks always run. Application validators
+and cross-field rules always run, including on empty Slots; their code receives
+`empty` explicitly.
+
+`pattern` contains JSON strings `source` and optional `flags`; supported flags
+are `i`, `m`, `s`, `u`. Validation uses JavaScript regular-expression `test` on
+the complete text projection. Authors add `^`/`$` when they require a full match.
+Stateful flags `g`/`y`, unsupported flags and invalid expressions are configuration
+errors. The host owns the cost of its expressions; cancellation cannot interrupt
+a synchronously running expression. `values` compares the exact text projection
+against a list of strings without trimming or case folding.
+
+### Custom and cross-field rules
+
+Configuration names validators; extension options or utility arguments supply
+their functions. Functions may be synchronous or asynchronous and receive an
+immutable snapshot, JSON parameters, application context and an AbortSignal.
+No function or external data is serialized in Slot configuration.
+
+Each cross-field rule has an optional ID, a validator name, parameters, and a list
+of Slot IDs including its owner. All referenced fields are passed to the
+validator. For example, a rule owned by `justification` references `decision`
+and `justification`, and returns an issue on `justification` when a deviation
+has no explanation. A rule is evaluated once at its owner, not once per field.
+A supplied ID must be unique within its owner. Results always include a zero-based
+`ruleIndex`, and also include `ruleId` when supplied. Rules may reference each other’s fields; there is no evaluation
+dependency because all read the same snapshot and cannot write it.
+
+Missing/duplicate target IDs, absent validator functions, thrown errors and
+invalid validator outputs make the affected validation **unavailable**, never
+successful. Exceptions become diagnostic issues without embedding stack traces
+or exception messages automatically. The host may log the underlying exception
+through `onValidationError`. A validator may return issues only for the Slots
+given to it. Cross-field issues carry the owner and rule IDs in addition to
+their target Slot ID.
+
+Rules requiring absent fields can explicitly report missing fields through
+`validateSlots({ expectedIds })`. Removing a Slot also removes its owned rules;
+use protection to prevent removal where required. Embedded rules are not an
+external guarantee that every mandated field or rule still exists.
+
+### Results and lifecycle
+
+`validateSlots` validates the whole snapshot. `validateSlot` validates the
+selected Slot, its descendants, and cross-field rules anywhere in that snapshot
+whose declared field lists intersect those IDs. It does not imply the rest of
+the Document is ready for submission.
+
+Each result reports `valid`, `invalid`, or `unavailable`; `unavailable` takes
+precedence when validation could not be completed, even if other known issues
+are also present. `valid` is true only when there are no error issues and no
+unavailable checks. Warnings do not fail validation. Result order is stable:
+document order, then built-in checks in configuration-field order, then declared
+validator order, irrespective of async completion order.
+
+Results include an opaque snapshot ID. Editor snapshots also carry a monotonic
+document revision and an application-validation-context revision. Any document
+change invalidates the current result conservatively; changing external records
+requires `invalidateSlotValidation()`. Selection changes do neither. A newer
+validation request supersedes an older one. Aborted requests reject with
+`AbortError`; results for old snapshots may be returned to callers but do not
+replace the current editor result. Submission checks that the result is current
+and persists exactly the snapshot it validated.
+
+The package does not persist `complete` or `pending review`. A host can call an
+entry complete when it is nonempty and valid. An optional empty field can be
+valid without being filled. A progress counter's denominator and whether groups
+count are application choices, using the index's parent/child relationships.
+
+## Authoring, clipboard and identity
+
+Commands generate IDs with the configured generator and reject collisions. A
+supplied ID must be unique. An incoming Document with missing or duplicate IDs
+is preserved and reports identity issues; ID-targeted Commands refuse ambiguous
+targets. `repairSlotIds` is an explicit, undoable repair and reports ambiguities
+that cannot be inferred. No silent normalization runs on initial load.
+
+Copy/paste clones Slots with fresh IDs, including descendants, and rewrites
+cross-field references between cloned Slots. References outside the copied
+fragment remain unchanged and may become missing in another Document. A local
+cut/paste may retain IDs if they are no longer in use in the destination;
+otherwise it follows the copy rule. An internal drag move retains IDs. A failed
+cut leaves the clipboard and Document unchanged. Foreign HTML with missing IDs
+gets generated IDs at paste; ambiguous duplicate source IDs cannot safely remap
+references and produce diagnostics rather than guessed relationships.
+
+Filling replaces the addressed Slot's content, never its ID/configuration.
+Filling a parent can remove its descendants; this is explicit and atomic and
+must be refused if any removed descendant is protected. Batch fill cannot name
+both an ancestor and its descendant because replacement order would be
+ambiguous. Other failures also reject the whole batch.
+
+Dissolving keeps child content, including nested Slots and their IDs/configuration.
+Dissolving an empty block Slot leaves its empty paragraph. Dissolving an empty
+inline Slot leaves no content. If unwrapping violates the parent's Schema, the
+Command refuses instead of silently converting content. Cross-field references
+to the dissolved Slot become missing and are reported on next validation.
+
+Updating configuration replaces the whole configuration object in one undoable
+Transaction. It does not update other Slots. Invalid configuration supplied to
+this Command is refused as malformed API input; a well-formed configuration
+that makes existing content invalid is accepted. Node kind cannot be changed
+through configuration.
+
+### Keyboard and pointer behavior
+
+- Carets must be reachable and visible inside empty inline and block Slots and
+  on both sides of inline Slots. View-only caret aids do not enter JSON or
+  copied text, and do not remain visible after blur.
+- Arrow keys follow ordinary text navigation. Boundaries do not skip a
+  character, duplicate input, or join neighboring content into a Slot.
+- Clicking Slot padding focuses its nearest valid content position. Nested Slot
+  content selects the innermost Slot as the active field.
+- Backspace/Delete directly outside a Slot first selects its Node; the next
+  deletion removes it if permitted. Deletion at an inside boundary do not
+  merge the Slot with its neighbor. Ordinary deletion inside stays ordinary.
+- Clearing is explicit; deleting a selection is not silently changed into
+  clearing or partial deletion. A protected portion rejects the entire edit.
+- Selecting across Slots, browser copy, undo and redo retain ordinary document
+  behavior, subject to protection. There is no default selection confinement.
+- `selectSlotContent`, `focusNextSlot` and `focusPreviousSlot` support forms.
+  Tab and Shift-Tab are not claimed by default; they must remain available for
+  list/table editing. No default keyboard shortcut is added for clearing.
+- Optional delimiters invoke the same insertion/wrapping Commands. If refused,
+  typed characters stay as text. Conversion is one undoable edit; immediate
+  Backspace restores the literal input. Composition/IME input is not converted
+  until composition ends. No conversion runs over pasted text.
+
+Accessible labels come from `label`, falling back to ID. Placeholders do not
+be mistaken for Document content by assistive technology. The extension supplies
+semantic data attributes and mechanics; host CSS supplies borders, labels,
+colors, menus and explanatory copy.
+
+Hosts may replace the default editor presentation and serialized markup through
+the exported `BlockSlot` and `InlineSlot` extensions. Custom views preserve the
+Slot Schema, editable content container and accessibility requirements. See
+[Rendering and customization](/composable-documents/slots/rendering) for the supported contracts.
