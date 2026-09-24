@@ -65,7 +65,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Content Protection',
         },
         {
-          href: '/compose/getting-started/overview',
+          href: '/compose/slots/getting-started/overview',
           title: 'Compose',
         },
         {

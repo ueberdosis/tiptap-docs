@@ -3,14 +3,14 @@ import type { SidebarConfig } from '@/types'
 export const sidebarConfig: SidebarConfig = {
   id: 'compose',
   title: 'Compose',
-  rootHref: '/compose/getting-started/overview',
+  rootHref: '/compose/slots/getting-started/overview',
   items: [
     {
       type: 'group',
       title: 'Slots',
       href: '/compose/slots',
       children: [
-        { title: 'Overview', href: '/compose/getting-started/overview' },
+        { title: 'Overview', href: '/compose/slots/getting-started/overview' },
         {
           title: 'Guides',
           href: '/compose/slots/guides/create-fields',
