@@ -1,186 +1,71 @@
 ---
-title: Redaction rendering
+title: Redacted content
 tags:
   - type: beta
   - type: restricted
 meta:
-  title: Redaction UI customization | Tiptap Docs
-  description: Developer reference for redaction ui customization.
+  title: Redacted content | Tiptap Content Protection Docs
+  description: Customize hidden-content placeholders and their clipboard and export behavior.
   category: Content Protection
 ---
 
-`ContentProtection.configure({ renderRedaction })` lets a developer replace the
-entire visual placeholder with their own DOM or framework component: an icon,
-badge, explanation, popover, access-request button or another design. The default
-text options remain useful fallbacks; they do not limit the customized UI.
-
-This is a view-only renderer, not a Node extension. Redaction has no persisted
-Node, no `contentDOM`, and no original content to render. Adding a redaction Node
-to the Schema would reintroduce the carrier model excluded from this deliverable.
-
-## Public types
-
-The protection package exports:
+Unreadable content is replaced with a placeholder. Use `renderRedaction` to control its appearance and interactions.
 
 ```ts
-interface RedactionViewProps {
-  key: string
-  inline: boolean
-  text: string
-  label: string
-}
-
-interface RedactionView {
-  dom: HTMLElement
-  update?: (props: RedactionViewProps) => boolean
-  destroy?: () => void
-}
-
-type RedactionRenderer = (props: RedactionViewProps) => RedactionView
-```
-
-| Property | Contract                                                                                                                                                                                                 |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `key`    | Opaque identity for this mounted concealed region; not a document ID, position or hash of content. Stable through mapped updates while that region survives, renewed after removal or splitting/merging. |
-| `inline` | Whether the view must fit an inline context. The extension handles structurally valid placement in textblocks, block containers and tables.                                                              |
-| `text`   | Configured `redactionText`, for default visible text or a host-selected fallback.                                                                                                                        |
-| `label`  | Configured `redactionLabel`, for accessible identification.                                                                                                                                              |
-
-Props contain no original Node, text, attributes, Marks, JSON, positions,
-lengths, reason strings, rule IDs, Editor or EditorView. The renderer is trusted
-host code and can close over application services; restricting its arguments is
-an API discipline that avoids accidental disclosure, not a security sandbox.
-The opaque key identifies only this UI instance and cannot retrieve its content.
-
-## Extension option
-
-`renderRedaction: RedactionRenderer | null` defaults to `null`, which uses the
-package's neutral text placeholder. A renderer replaces that default view; the
-package does not draw another placeholder beside it. `redactionText` still
-supplies clipboard/plain-text output and default UI text. `redactionLabel`
-supplies the default accessible name. Custom views may choose their own visible
-words and accessible structure, but must offer an equivalent accessible name.
-
-The factory is synchronous and returns a fresh, initially detached element for
-each region. The extension sets `contenteditable="false"` and
-`data-content-protection="redacted"` on its root and supplies an accessible name
-if the renderer supplied none. The developer controls the root's classes,
-children, styles, controls and event listeners. It do not be an editable
-content surface. Inline roots and descendants must be inline-compatible.
-The extension may place the supplied element in a structural shell where a
-table or another Schema context requires one; it does not force a visual design.
-
-## Plain JavaScript example
-
-```ts
-import { ContentProtection } from '@tiptap-pro/extension-content-protection'
-
 ContentProtection.configure({
   policy,
-  redactionText: '[Restricted]',
-  redactionLabel: 'Restricted content',
   renderRedaction: ({ inline, label }) => {
     const dom = document.createElement(inline ? 'span' : 'div')
     dom.className = 'restricted-content'
-    dom.setAttribute('aria-label', label)
-
-    const icon = document.createElement('span')
-    icon.className = 'restricted-content-icon'
-    icon.setAttribute('aria-hidden', 'true')
-    icon.textContent = '🔒'
-
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.textContent = 'Request access'
-    const request = () => openAccessRequestDialog()
-    button.addEventListener('click', request)
-    dom.append(icon, button)
-
-    return {
-      dom,
-      destroy() {
-        button.removeEventListener('click', request)
-      },
-    }
+    dom.textContent = `🔒 ${label}`
+    return { dom }
   },
 })
 ```
 
-`openAccessRequestDialog` belongs to the application. Clicking it neither grants
-access nor changes the Document. If the application later authorizes another
-view, it installs a new CPP using `setContentProtectionPolicy`.
+## Options
 
-## React and other frameworks
+- `renderRedaction` (`RedactionRenderer | null`): Placeholder factory. Default: `null`, using the built-in view.
+- `redactionText` (`string`): Default visible text and neutral clipboard output. Default: `'[Hidden content]'`; must be nonempty.
+- `redactionLabel` (`string`): Default accessible name, supplied to custom renderers. Default: `'Hidden content'`; must be nonempty.
 
-A renderer can mount a normal React component into its element and unmount it in
-`destroy`. This does not use `ReactNodeViewRenderer`, which is for an actual
-Tiptap NodeView. The protection package stays framework-neutral.
+## `RedactionRenderer`
 
-```tsx
-import { createRoot } from 'react-dom/client'
-import type { RedactionRenderer } from '@tiptap-pro/extension-content-protection'
-import { RestrictedContent } from './RestrictedContent'
+Synchronous factory with type `(props: RedactionViewProps) => RedactionView`.
 
-const renderRedaction: RedactionRenderer = (props) => {
-  const dom = document.createElement(props.inline ? 'span' : 'div')
-  const root = createRoot(dom)
+### Parameters (`RedactionViewProps`)
 
-  root.render(<RestrictedContent {...props} />)
+- `key` (`string`): Opaque identity for the mounted region. Not a document ID, position or content lookup key.
+- `inline` (`boolean`): `true` when the view must fit inside a text line.
+- `text` (`string`): Configured `redactionText`.
+- `label` (`string`): Configured `redactionLabel`.
 
-  return {
-    dom,
-    update(nextProps) {
-      root.render(<RestrictedContent {...nextProps} />)
-      return true
-    },
-    destroy() {
-      root.unmount()
-    },
-  }
-}
-```
+Props contain no original content, Nodes, positions, lengths, rule IDs or Editor instance.
 
-`RestrictedContent` is application-owned and follows the inline/block and
-accessibility requirements above. Vue and other frameworks use their normal
-mount/update/unmount lifecycle in the same way. If mounting needs layout, the
-component schedules that after attachment through its framework's lifecycle.
-No content can become visible while an async component or access request loads.
+### Returns (`RedactionView`)
 
-## Lifecycle, interaction and fallback
+- `dom` (`HTMLElement`): A fresh, detached root. Inline views must contain inline-compatible elements.
+- `update?` (`(props: RedactionViewProps) => boolean`): Updates an existing view. Return `true` to reuse it; `false` to recreate it. Without this method, updates recreate the view.
+- `destroy?` (`() => void`): Cleans up listeners, framework roots and portals when the view is removed, replaced or the editor is destroyed.
 
-- Only the replacement renderer mounts for concealed content. The original
-  NodeView is not called and is destroyed if a policy update conceals it.
-- The extension creates a view for each coalesced concealed region, not each
-  original character or child Node. Concealed text changes alone do not recreate
-  the view or call `update`; props do not depend on those words or their length.
-- If safe props change and the inline/block context is unchanged, the extension
-  calls `update`. A true result retains the view. False or an absent method
-  destroys/recreates it. A context change always recreates it.
-- Removal, reveal, replacement or Editor destruction calls `destroy` once for
-  each successfully created view. The renderer cleans up framework roots,
-  listeners and portals; the extension owns attachment/removal of the root.
-- If creation/update fails or returns an invalid view, the extension uses the
-  default placeholder and reports the renderer error through the host runtime's
-  normal error reporting. It never falls back to original content. Factories
-  must clean up allocations if they throw before returning a view.
-- Buttons and other controls may receive focus and handle their own UI events.
-  The extension must keep them usable without allowing an editor caret into the
-  redaction or intercepting their clicks as document-edit gestures. Selection
-  and deletion around the region continue to follow protection rules.
-- Rendering callbacks cannot release protection. No `reveal()` or mutation
-  capability is passed in props. The trusted host may replace the CPP explicitly.
+## Rendering behavior
 
-## Clipboard, persistence and export
+- The extension attaches the root and sets `contenteditable="false"` and `data-content-protection="redacted"`.
+- Supply an accessible name, or the extension uses `redactionLabel`.
+- The root may contain buttons and other interactive controls. It must not provide editable document content or `contentDOM`.
+- Hidden Nodes do not mount their original NodeViews. Concealing a visible Node destroys its original view.
+- An inline/block context change recreates the placeholder.
+- Invalid views or renderer failures fall back to the default placeholder, never the original content.
+- Framework renderers use their normal mount/update/unmount APIs. Clean up in `destroy`; this is not a `ReactNodeViewRenderer`.
+- Access-request controls belong to the application. Change access with [`setContentProtectionPolicy`](/content-protection/api-reference/commands#setcontentprotectionpolicy).
 
-Custom UI is never scraped for clipboard or export. Its buttons, icons, tooltips,
-portal content and labels are not document content. Clipboard plain text and
-default clipboard HTML use `redactionText` and a neutral element; accessibility
-labels describe the editor UI only.
+## Clipboard and export
 
-`getReadableContent` continues to return the framework-neutral presentation tree
-and text. A host building a web preview, PDF or another export can render its
-`kind: 'redacted'` entries however that output requires. It does not run the
-live-editor renderer or persist a placeholder into Tiptap JSON.
+- Copy uses `redactionText` and neutral HTML, not the custom view's DOM, labels or controls.
+- Cut is refused if any selected content cannot be deleted; the clipboard is left unchanged.
+- Dragging checks source and destination permissions and uses readable clipboard output.
+- [`getReadableContent`](/content-protection/api-reference/utilities#getreadablecontent) returns a presentation tree and text. It does not call `renderRedaction`; pass custom `redactionText` explicitly.
+- Partially hidden Slots omit their configuration from clipboard output.
+- `editor.getJSON()` and `editor.getHTML()` still include the complete document. Use the readable projection for outputs that must omit hidden content.
 
-Neither custom redaction UI nor the default placeholder changes the fact that
-the complete Document remains available to this client.
+Custom rendering changes the view only. The complete source document remains in client memory; application sidebars and exports must apply the same read permissions.

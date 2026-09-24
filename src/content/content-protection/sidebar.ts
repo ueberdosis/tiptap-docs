@@ -28,11 +28,14 @@ export const sidebarConfig: SidebarConfig = {
       href: '/content-protection/api-reference',
       children: [
         {
-          title: 'Extension, commands and utilities',
+          title: 'Extension',
           href: '/content-protection/api-reference/extension',
         },
+        { title: 'Commands', href: '/content-protection/api-reference/commands' },
+        { title: 'Utilities', href: '/content-protection/api-reference/utilities' },
+        { title: 'Types', href: '/content-protection/api-reference/types' },
         { title: 'Policy language', href: '/content-protection/api-reference/policy' },
-        { title: 'Redaction rendering', href: '/content-protection/api-reference/rendering' },
+        { title: 'Redacted content', href: '/content-protection/api-reference/rendering' },
       ],
     },
   ],
