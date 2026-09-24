@@ -1,0 +1,173 @@
+---
+title: Split view
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Split view | Tiptap Compare Docs
+  description: Review tracked changes in two editable, aligned panes and switch back to a single editor.
+  category: Compare
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
+
+Show tracked changes side by side: deletions in **Before**, additions in **After**, and unchanged content in both. Both panes are editable and keep matching blocks aligned.
+
+<Callout title="Beta · Pilot program" variant="info">
+  Split view is in beta and available through the Compare pilot program for Business and Enterprise
+  customers. [Contact our team](https://tiptap.dev/contact-sales?form=pilot-program) for access.
+  [Tracked Changes](/tracked-changes/getting-started/overview) is required and sold separately.
+</Callout>
+
+<CodeDemo isPro path="/Extensions/SplitView" />
+
+## Install
+
+Set up the [private registry](/guides/pro-extensions), then install:
+
+```bash
+npm install @tiptap-pro/extension-split-view @tiptap-pro/extension-tracked-changes
+```
+
+## Connect the editors
+
+Keep your main editor and create two panes with the same schema. Add `TrackedChanges` to all three and `SplitView` to the panes.
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { TrackedChanges } from '@tiptap-pro/extension-tracked-changes'
+import { SplitView, createSplitView } from '@tiptap-pro/extension-split-view'
+
+const extensions = [StarterKit, TrackedChanges.configure({ enabled: false })]
+
+const mainEditor = new Editor({
+  element: document.querySelector('#main'),
+  extensions,
+  content, // Your document, including tracked changes.
+})
+
+const beforeEditor = new Editor({
+  element: document.querySelector('#before'),
+  extensions: [...extensions, SplitView],
+})
+
+const afterEditor = new Editor({
+  element: document.querySelector('#after'),
+  extensions: [...extensions, SplitView],
+})
+
+let manager = createSplitView({ mainEditor, beforeEditor, afterEditor })
+```
+
+The main document fills both panes. Edits and accept/reject actions synchronize across all three editors. Use `enabled: true` to record new edits as suggestions.
+
+To create suggestions from two documents, see [With Tracked Changes](/compare/guides/tracked-changes).
+
+## Arrange the panes
+
+Hide the main editor while split view is open. Give both panes the same top padding and use a shared scrolling container.
+
+```html
+<div id="main" hidden></div>
+<div id="split">
+  <div id="before"></div>
+  <div id="after"></div>
+</div>
+```
+
+```css
+#split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  overflow: auto;
+}
+
+#split[hidden] {
+  display: none;
+}
+```
+
+Gray spacers fill height differences or missing blocks. Their bottom margins use the taller block's distance to its next block, measured from your CSS. Spacers are never saved in the document.
+
+## Switch views
+
+Destroy the manager to stop synchronization and remove pane filtering. The editors stay alive.
+
+```ts
+manager.destroy()
+document.querySelector('#split')?.setAttribute('hidden', '')
+document.querySelector('#main')?.removeAttribute('hidden')
+```
+
+To return to split view, reconnect. Both panes receive the main editor's current document.
+
+```ts
+document.querySelector('#main')?.setAttribute('hidden', '')
+document.querySelector('#split')?.removeAttribute('hidden')
+manager = createSplitView({ mainEditor, beforeEditor, afterEditor })
+```
+
+Destroy all three editors when your component unmounts. Each editor has its own undo history; split view does not provide shared undo.
+
+## API reference
+
+### `SplitView`
+
+Install in both panes alongside `TrackedChanges`. No configuration is needed. It stays inactive until `createSplitView()` connects the editors.
+
+### `createSplitView(options)`
+
+Returns a `SplitViewManager`. Pass three distinct, mounted editors with identical schemas. An editor can belong to only one active manager.
+
+| Option         | Type                                               | Description                            |
+| -------------- | -------------------------------------------------- | -------------------------------------- |
+| `mainEditor`   | `Editor`                                           | Supplies the initial document.         |
+| `beforeEditor` | `Editor`                                           | Shows deletions and unchanged content. |
+| `afterEditor`  | `Editor`                                           | Shows additions and unchanged content. |
+| `createSpacer` | `(options: SplitViewSpacerOptions) => HTMLElement` | Optional custom spacer element.        |
+
+Other suggestion types, such as formatting changes, remain visible in both panes. All three editors retain the full document, including content hidden in a pane.
+
+### Manager methods
+
+| Method              | Description                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `getMainEditor()`   | Returns the main editor.                                                                          |
+| `getBeforeEditor()` | Returns the Before pane.                                                                          |
+| `getAfterEditor()`  | Returns the After pane.                                                                           |
+| `update()`          | Schedules alignment after a custom layout or CSS change.                                          |
+| `destroy()`         | Stops synchronization, removes spacers and filtering, and releases resources. Safe to call twice. |
+
+Getters return `undefined` after destruction. Destroying any connected editor also destroys the manager. Content changes, resizing, image loads, and font loading update alignment automatically.
+
+### Style spacers
+
+Set the background with CSS:
+
+```css
+#split {
+  --tiptap-split-view-spacer-background: #eee;
+}
+```
+
+For a custom element, supply `createSpacer`:
+
+```ts
+manager.destroy()
+manager = createSplitView({
+  mainEditor,
+  beforeEditor,
+  afterEditor,
+  createSpacer({ document }) {
+    const spacer = document.createElement('div')
+    spacer.style.background = '#eee'
+    return spacer
+  },
+})
+```
+
+Destroy an existing manager before connecting the same editors again. Return a fresh, noninteractive element; the manager controls its height, margins, and visibility.
+
+`SplitViewSpacerOptions` contains `document: Document`, `side: 'original' | 'modified'`, and `row: number`. Rows are zero-based alignment indexes, not persistent IDs.
