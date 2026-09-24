@@ -1,0 +1,154 @@
+---
+title: Utilities
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Utilities | Tiptap Slots Docs
+  description: Slot readers, view subscriptions and filling policies.
+  category: Compose
+---
+
+Import these functions from `@tiptap-pro/extension-slot`. Each accepts one options object; `createSlotFillingPolicy` also accepts no arguments.
+
+`Editor` comes from `@tiptap/core`; `Schema` comes from `@tiptap/pm/model`. See [shared types](/compose/slots/api-reference/types).
+
+## `createSlotSnapshot`
+
+Captures an immutable document and Slot index without an editor.
+
+### Parameters
+
+- `document` (`SlotDocument`): Complete document.
+- `schema?` (`Schema`): Schema to check JSON against. For a ProseMirror Node, its schema is used automatically.
+
+### Returns (`SlotSnapshot`)
+
+Document, entries and an opaque snapshot ID. Both revisions are `null`. Throws `SlotInputError` for malformed input.
+
+Without a schema, JSON checks cover structure and Slot data; they do not certify compatibility with an editor's schema.
+
+## `getSlots`
+
+Reads every Slot in document order, including nested Slots.
+
+### Parameters
+
+Pass `{ document, schema? }` or `{ snapshot }`.
+
+- `document` (`SlotDocument`): Complete document.
+- `schema?` (`Schema`): Optional schema for JSON checks; implicit for a ProseMirror Node.
+- `snapshot` (`SlotSnapshot`): Existing snapshot to read instead of creating a new one.
+
+### Returns (`SlotEntry[]`)
+
+Read-only entries. Throws `SlotInputError` for malformed input.
+
+## `getSlot`
+
+Reads one Slot by ID.
+
+### Parameters
+
+Pass `{ document, schema?, id }` or `{ snapshot, id }`.
+
+- `document` (`SlotDocument`): Complete document.
+- `id` (`string`): Exact Slot ID.
+- `schema?` (`Schema`): Optional schema for JSON checks; implicit for a ProseMirror Node.
+- `snapshot` (`SlotSnapshot`): Existing snapshot to search instead of creating a new one.
+
+### Returns (`SlotEntry | null`)
+
+Matching entry, or `null` if absent. Throws `SlotInputError` for duplicate matches or malformed input.
+
+## `subscribeSlotViewUpdates`
+
+Subscribes application UI or NodeViews to editor state changes. Requires `Slot`.
+
+### Parameters
+
+- `editor` (`Editor`): Editor to observe.
+- `onUpdate` (`() => void`): Reads refreshed public storage. Called immediately, then on document, selection, validation and transaction updates.
+
+### Returns (`() => void`)
+
+Idempotent unsubscribe function. Call it when disposing the view. The subscription does not edit content or start validation.
+
+## `createSlotFillingPolicy`
+
+Creates a policy allowing users to fill existing Slots while protecting the surrounding document and field definitions. Requires [Content Protection](/content-protection/getting-started/overview) to enforce it.
+
+```ts
+const policy = createSlotFillingPolicy({ editableSlotIds: ['summary', 'decision'] })
+```
+
+### Parameters (`SlotFillingPolicyOptions`)
+
+- `editableSlotIds?` (`string[]`): Fillable IDs. Omitted: every Slot, including future fields. `[]`: no editable fields.
+- `documentType?` (`string`): Root Node name. Default: `'doc'`.
+- `ruleIdPrefix?` (`string`): Generated rule-ID prefix. Default: `'slotFilling'`.
+
+### Returns (`SlotFillingPolicy`)
+
+Ordinary policy JSON, assignable to `ContentProtectionPolicy`. Does not inspect or change a document. Invalid arguments throw `SlotInputError`; duplicate IDs are deduplicated and sorted. Unknown IDs match nothing.
+
+### Generated rules
+
+IDs use `<ruleIdPrefix>.<suffix>`.
+
+| Suffix               | Priority | Effect                                                                 |
+| -------------------- | -------- | ---------------------------------------------------------------------- |
+| `documentContent`    | `0`      | Deny edits to root content.                                            |
+| `documentAttributes` | `0`      | Deny edits to all root attributes.                                     |
+| `fillableContent`    | `10`     | Allow content edits in selected Slots; stop at nested Slot boundaries. |
+| `slotStructure`      | `20`     | Deny insertion, removal, retyping or movement of Slot Nodes.           |
+| `slotAttributes`     | `20`     | Deny changes to all Slot attributes.                                   |
+
+### Behavior
+
+- Each nested Slot needs its own permission; allowing a parent does not allow unlisted descendants.
+- Clearing or replacing a parent is refused if it would remove nested Slots.
+- Ordinary text and formatting remain editable within allowed Slots. Slot validation remains non-blocking.
+- No read rules are generated. Existing read restrictions still apply.
+- IDs select every matching occurrence. Validate imported identity issues before assigning fields.
+- Replace assignments with `setContentProtectionPolicy({ policy })`; mutating an installed object has no effect.
+- Higher-priority application rules can override these rules. Use unique prefixes when composing policies.
+
+## `SlotFillingPolicy`
+
+### Properties
+
+- `version` (`1`): Policy format version.
+- `rules` (`SlotFillingRule[]`): Five generated rules.
+
+## `SlotFillingRule`
+
+### Properties
+
+- `id` (`string`): Generated unique rule ID.
+- `priority` (`number`): Rule precedence.
+- `selector` (`{ target: 'node'; node: SlotFillingNodeMatch } | { target: 'content'; node: SlotFillingNodeMatch; stopAt?: SlotFillingNodeMatch } | { target: 'attribute'; node: SlotFillingNodeMatch; names?: string[] }`): Target and matching criteria.
+- `permissions` (`{ edit: boolean }`): Whether edits are allowed.
+- `reason?` (`string`): Optional diagnostic explanation.
+
+### Selector properties
+
+- `target` (`'node' | 'content' | 'attribute'`): Protected operation category.
+- `node` (`SlotFillingNodeMatch`): Nodes to match.
+- `stopAt?` (`SlotFillingNodeMatch`): Descendant boundaries for `content` rules. Omitted: recursive content matching.
+- `names?` (`string[]`): Attribute names for `attribute` rules. Omitted: all attributes.
+
+## `SlotFillingNodeMatch`
+
+### Properties
+
+- `types` (`string[]`): Exact Node type names.
+- `attributes?` (`{ name: 'id'; operator: 'in'; values: string[] }[]`): ID filters. Omitted: match every Node of the selected types.
+
+### Attribute filter properties
+
+- `name` (`'id'`): Slot identity attribute.
+- `operator` (`'in'`): Membership comparison.
+- `values` (`string[]`): Accepted exact, case-sensitive IDs.
+
+See the [policy language](/content-protection/api-reference/policy) for precedence and selector behavior. Validation functions are documented separately under [Validation](/compose/slots/api-reference/validation).

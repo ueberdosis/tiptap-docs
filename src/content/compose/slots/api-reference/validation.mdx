@@ -1,0 +1,173 @@
+---
+title: Validation
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Validation | Tiptap Slots Docs
+  description: Validation functions, custom validators and lifecycle.
+  category: Compose
+---
+
+Validation is explicit and does not block edits. Import these functions and types from `@tiptap-pro/extension-slot`; each function accepts one options object.
+
+```ts
+const result = await validateEditorSlots({ editor })
+if (result.valid && isSlotValidationCurrent({ editor, result })) {
+  submit(editor.getJSON())
+}
+```
+
+## `validateSlotConfig`
+
+Checks configuration syntax and optionally schema type names. Does not run validators.
+
+### Parameters
+
+- `config` (`unknown`): Configuration to check.
+- `kind?` (`SlotKind`): Slot kind.
+- `schema?` (`Schema`): Schema for type-name checks. Omitted: syntax checks only.
+
+### Returns (`{ valid: boolean; issues: SlotConfigIssue[] }`)
+
+- `valid` (`boolean`): Whether configuration checks passed.
+- `issues` (`SlotConfigIssue[]`): Diagnostics; empty when valid.
+
+## `validateSlots`
+
+Validates every Slot in an immutable snapshot without an editor.
+
+### Parameters (`ValidateSlotsOptions`)
+
+- `snapshot` (`SlotSnapshot`): Snapshot from `createSlotSnapshot` or editor storage.
+- `validators?` (`Record<string, SlotValidator>`): Field validator registry. Default: `{}`.
+- `crossFieldValidators?` (`Record<string, CrossFieldValidator>`): Cross-field registry. Default: `{}`.
+- `context?` (`unknown`): Application data passed to validators. Default: `undefined`.
+- `expectedIds?` (`string[]`): IDs that must exist. Omitted: no expected-field checks.
+- `signal?` (`AbortSignal`): Cancellation signal. Omitted: no caller-driven cancellation.
+- `onValidationError?` (`(error: SlotValidationError) => void`): Receives validator failures. Omitted: no callback.
+
+`ValidationOptions` is an alias of `ValidateSlotsOptions`.
+
+### Returns (`Promise<SlotValidationResult>`)
+
+Document-scoped results and issues. An empty Slot list is valid unless required by `expectedIds`. Abort rejects with `AbortError`; malformed input rejects with `SlotInputError`. Validator failures resolve with an unavailable result.
+
+## `validateSlot`
+
+Validates one Slot, its descendants and cross-field rules whose declared fields intersect those IDs.
+
+### Parameters (`ValidateSlotsOptions & { id: string }`)
+
+- All [`ValidateSlotsOptions`](#validateslots) properties.
+- `id` (`string`): Slot to validate.
+
+### Returns (`Promise<SlotValidationResult>`)
+
+Slot-scoped result. Missing or ambiguous IDs produce unavailable issues. Does not certify the rest of the document. Cancellation and input errors follow `validateSlots`.
+
+## `validateEditorSlots`
+
+Validates the current editor snapshot using the configured validators and context. Requires `Slot`.
+
+### Parameters
+
+- `editor` (`Editor`): Editor to validate.
+- `expectedIds?` (`string[]`): IDs that must exist. Omitted: no expected-field checks.
+- `signal?` (`AbortSignal`): Caller cancellation signal. Omitted: cancellation is managed by the editor lifecycle.
+
+### Returns (`Promise<SlotValidationResult>`)
+
+Document-scoped result. Sets storage to `pending`, then `current` if the snapshot is still current. A newer request supersedes the previous one. Aborted requests reject with `AbortError`.
+
+## `isSlotValidationCurrent`
+
+Checks whether a result matches the editor's current snapshot and revisions. Requires `Slot`.
+
+### Parameters
+
+- `editor` (`Editor`): Editor to compare.
+- `result` (`SlotValidationResult`): Result to check.
+
+### Returns (`boolean`)
+
+`true` if snapshot ID, document revision and context revision match. Results from standalone snapshots return `false`.
+
+## `SlotValidator`
+
+Type: `(input: SlotValidatorInput) => ValidationFinding[] | Promise<ValidationFinding[]>`.
+
+### Parameters (`SlotValidatorInput`)
+
+- `slot` (`SlotEntry`): Immutable field entry.
+- `params` (`JsonValue`): Configured parameters, or `null`.
+- `context` (`unknown`): Captured application context.
+- `signal` (`AbortSignal`): Cancellation signal.
+
+### Returns (`ValidationFinding[] | Promise<ValidationFinding[]>`)
+
+Findings for this Slot. `[]` means the check passed. Runs even when the Slot is empty.
+
+## `CrossFieldValidator`
+
+Type: `(input: CrossFieldValidatorInput) => CrossFieldFinding[] | Promise<CrossFieldFinding[]>`.
+
+### Parameters (`CrossFieldValidatorInput`)
+
+- `owner` (`SlotEntry`): Slot holding the rule.
+- `fields` (`ReadonlyMap<string, SlotEntry>`): Declared fields indexed by ID.
+- `params` (`JsonValue`): Configured parameters, or `null`.
+- `context` (`unknown`): Captured application context.
+- `signal` (`AbortSignal`): Cancellation signal.
+
+### Returns (`CrossFieldFinding[] | Promise<CrossFieldFinding[]>`)
+
+Findings targeting declared fields only. `[]` means the check passed. Each rule runs once at its owner.
+
+## `ValidationFinding`
+
+### Properties
+
+- `code` (`string`): Application code beginning with `custom.`.
+- `message` (`string`): Display message.
+- `severity?` (`'error' | 'warning'`): Default: `'error'`. Warnings do not fail validation.
+- `details?` (`Record<string, JsonValue>`): Application diagnostic data. Omitted: no details.
+
+## `CrossFieldFinding`
+
+Extends `ValidationFinding` with:
+
+- `slotId` (`string`): Target ID from the rule's declared fields.
+
+## `SlotValidationError`
+
+### Properties
+
+- `snapshotId` (`string`): Snapshot whose check failed.
+- `validator` (`string`): Validator name.
+- `ownerId` (`string | null`): Rule owner; `null` when no valid ID is available.
+- `error` (`unknown`): Original application error or malformed-result error.
+
+## Measurements
+
+- `empty`: Only whitespace, hard breaks and empty containers; meaningful non-text leaves or atoms make a Slot nonempty. Nested content is included.
+- `text`: Text projection including nested Slots. Hard breaks and textblock boundaries become `\n`; other leaf/atom Nodes become `U+FFFC`. No trailing newline.
+- Length: Unicode code points, including whitespace and separators. Labels and placeholders are excluded.
+- Child count: Direct children of block Slots, including nested Slots and empty paragraphs.
+- `values`: Exact text match, without trimming or case folding.
+- `pattern`: JavaScript regular-expression test over the complete text projection.
+
+Empty Slots skip value constraints. Required empty Slots receive a `required` issue. Type, nesting, identity, configuration and custom checks still run.
+
+## Lifecycle and results
+
+- `unavailable` takes precedence over `invalid`; warnings alone remain `valid`.
+- Missing validators, missing or duplicate cross-field targets, exceptions and malformed findings make checks unavailable.
+- Results follow document and declared-validator order, independent of async completion order.
+- Edits invalidate cached results. Selection changes do not.
+- Call `invalidateSlotValidation()` when application-owned records change.
+- Context is captured once per request. Supply a stable snapshot; the package does not fetch or retry records.
+- Pure functions do not emit editor events or update storage. No validation function saves, submits, repairs or edits content.
+- Results and revision tokens are runtime state, not persisted document attributes.
+
+See [result types](/compose/slots/api-reference/types#slotvalidationresult) and [configuration](/compose/slots/concepts).

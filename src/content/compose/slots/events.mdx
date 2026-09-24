@@ -4,176 +4,80 @@ tags:
   - type: beta
   - type: restricted
 meta:
-  title: Editor events | Tiptap Docs
-  description: Developer reference for editor events.
+  title: Editor events | Tiptap Slots Docs
+  description: Slot event payloads and subscription lifecycle.
   category: Compose
 ---
 
-Every notification callback in the extension options is also a typed Tiptap
-Editor event. Developers can use either extension configuration or
-`editor.on(eventName, listener)` / `editor.off(eventName, listener)`, following
-[Tiptap's event API](https://tiptap.dev/docs/editor/api/events). Callback options
-remain convenience subscriptions, not an independent notification mechanism.
-
-## Slot events
-
-| Callback option      | Editor event           | Payload type                | When emitted                                                                        |
-| -------------------- | ---------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
-| `onSlotsUpdate`      | `slotsUpdate`          | `SlotsUpdateEvent`          | Initial index and every applied document change                                     |
-| `onActiveSlotChange` | `activeSlotChange`     | `ActiveSlotChangeEvent`     | Initial active Slot and changes to the active entry                                 |
-| `onValidationUpdate` | `slotValidationUpdate` | `SlotValidationUpdateEvent` | Pending, current, or unvalidated state changes                                      |
-| `onValidationError`  | `slotValidationError`  | `SlotValidationErrorEvent`  | An editor-bound application validator throws, rejects or returns malformed findings |
-| `onCommandRejected`  | `slotCommandRejected`  | `SlotCommandRejectedEvent`  | An actual Slot Command is refused, including a preflight refusal                    |
-
-The Slot package exports these payload types alongside the existing data types:
+Subscribe with `editor.on(name, listener)` or the corresponding `Slot.configure()` callback. Remove listeners with `editor.off(name, listener)`.
 
 ```ts
-interface SlotsUpdateEvent {
-  editor: Editor
-  snapshot: SlotSnapshot
-}
-
-interface ActiveSlotChangeEvent {
-  editor: Editor
-  slot: SlotEntry | null
-}
-
-interface SlotValidationUpdateEvent {
-  editor: Editor
-  state: SlotValidationState
-}
-
-interface SlotValidationErrorEvent extends SlotValidationError {
-  editor: Editor
-}
-
-interface SlotCommandRejectedEvent extends SlotCommandRejection {
-  editor: Editor
-}
-```
-
-The extension option callbacks receive exactly these event payloads. For
-example, `onSlotsUpdate({ snapshot })` receives the same object as a
-`slotsUpdate` listener, not the bare snapshot used by an earlier draft.
-
-## Content Protection events
-
-| Callback option  | Editor event                    | Payload type                         | When emitted                                          |
-| ---------------- | ------------------------------- | ------------------------------------ | ----------------------------------------------------- |
-| `onRejected`     | `contentProtectionRejected`     | `ContentProtectionRejectedEvent`     | A write dispatched to the protection guard is refused |
-| `onPolicyUpdate` | `contentProtectionPolicyUpdate` | `ContentProtectionPolicyUpdateEvent` | Initial policy and successful policy changes          |
-| `onPolicyError`  | `contentProtectionPolicyError`  | `ContentProtectionPolicyErrorEvent`  | An actual runtime policy replacement is invalid       |
-
-The protection package exports:
-
-```ts
-interface ContentProtectionRejectedEvent extends ProtectionRejection {
-  editor: Editor
-}
-
-interface ContentProtectionPolicyUpdateEvent extends PolicyUpdate {
-  editor: Editor
-}
-
-interface ContentProtectionPolicyErrorEvent {
-  editor: Editor
-  issues: PolicyIssue[]
-}
-```
-
-`onPolicyError` receives `{ editor, issues }`, not the bare issue array used in
-an earlier draft. Initial invalid configuration still throws before an Editor
-is ready; it does not depend on delivery of a runtime policy-error event.
-
-## Subscription and typing
-
-```ts
-import type { SlotValidationUpdateEvent } from '@tiptap-pro/extension-slot'
-
-const onValidation = ({ state }: SlotValidationUpdateEvent) => {
-  renderValidation(state)
-}
-
+const onValidation = ({ state }: SlotValidationUpdateEvent) => showValidation(state)
 editor.on('slotValidationUpdate', onValidation)
-editor.on('contentProtectionRejected', ({ violations }) => {
-  showRefusal(violations)
-})
-
-// When the component or host subscription is disposed:
+// When disposing the UI:
 editor.off('slotValidationUpdate', onValidation)
 ```
 
-The corresponding extension configuration is:
+Import payload types from `@tiptap-pro/extension-slot`. `Editor` comes from `@tiptap/core`.
 
-```ts
-Slot.configure({ onValidationUpdate: onValidation })
-```
+## `slotsUpdate`
 
-Both packages augment `EditorEvents` in `@tiptap/core`, so event names and
-listener payloads are checked by TypeScript and available to `.on()`, `.off()`
-and `.once()`. Each package contributes only its own entries; the combined map is:
+Emitted for the initial index and each applied document change. Option: `onSlotsUpdate`.
 
-```ts
-declare module '@tiptap/core' {
-  interface EditorEvents {
-    slotsUpdate: SlotsUpdateEvent
-    activeSlotChange: ActiveSlotChangeEvent
-    slotValidationUpdate: SlotValidationUpdateEvent
-    slotValidationError: SlotValidationErrorEvent
-    slotCommandRejected: SlotCommandRejectedEvent
-    contentProtectionRejected: ContentProtectionRejectedEvent
-    contentProtectionPolicyUpdate: ContentProtectionPolicyUpdateEvent
-    contentProtectionPolicyError: ContentProtectionPolicyErrorEvent
-  }
-}
-```
+### Payload (`SlotsUpdateEvent`)
 
-They do not add top-level Editor options such as
-`new Editor({ onSlotValidationUpdate })`; convenience callbacks stay on their
-own extension options. `Editor` in the payload types is from `@tiptap/core`.
+- `editor` (`Editor`): Source editor.
+- `snapshot` (`SlotSnapshot`): Updated document and index.
 
-## Delivery and lifecycle
+## `activeSlotChange`
 
-- One notification is one Editor event emission. The configured callback is
-  registered as a listener, with the same payload and timing as other listeners.
-  Registering handlers through both mechanisms intentionally subscribes twice;
-  the package does not deduplicate application registrations by function identity.
-- Data in payloads is read-only. The Editor reference is the normal trusted
-  Tiptap instance, not a sanitized or redacted facade. Events do not themselves
-  redact data for display; host UI must apply the protection queries.
-- Initial index, active-Slot and policy notifications run after the Editor is
-  ready and its `create` handlers have run. They do not run against incomplete
-  storage during extension construction. Late listeners receive no replay;
-  read storage for the current state.
-- Update listeners run after the relevant state/storage is committed. Refusal
-  listeners run after the decision, outside transaction-filter evaluation, and
-  observe the unchanged Document. A handler's return value cannot authorize,
-  cancel or reverse a decision. Follow-up writes must be host-scheduled.
-- Every explicit validation-context invalidation emits `slotValidationUpdate`,
-  even if status was already `unvalidated`, so external-data-dependent views
-  refresh. A validation-error notification precedes the final validation-state
-  notification for that request. Listener ordering within an event follows
-  Tiptap's normal subscription ordering; no cross-event order beyond the rules
-  stated here should be assumed.
-- Dry runs (`can()`, explicit transaction checks and pure policy/configuration
-  validation) emit no Editor events or extension-option callbacks. An identical
-  policy replacement emits no update.
-- A Slot Command refused before dispatch emits `slotCommandRejected`. If a
-  dispatched proposal is refused by the protection guard, that refusal emits
-  `contentProtectionRejected`; any associated Slot refusal notification is a
-  distinct domain event, not a second protection event. UI should select its
-  feedback channels to avoid duplicate notices.
-- `validateEditorSlots` emits Slot validation events. Pure `validateSlots` and
-  `validateSlot` have no Editor and emit none; their optional
-  `onValidationError` utility argument still receives `SlotValidationError`
-  directly. Missing named validators produce unavailable results, not thrown
-  application-error events. Abort is not a validation-error event.
-- Unsubscribing stops future notifications. Extension-owned subscriptions are
-  removed on Editor destruction, outstanding requests are aborted, and no
-  completion/error event may fire for that Editor after destruction.
+Emitted initially and when the active entry changes. Option: `onActiveSlotChange`.
 
-`generateId`, `getValidationContext`, validators and rendering factories are
-behavior providers, not notification callbacks; they do not acquire corresponding
-Editor events. `subscribeSlotViewUpdates` is a convenience subscription over
-the public events and Tiptap selection notifications, plus its documented
-immediate notification. It do not create a second event bus.
+### Payload (`ActiveSlotChangeEvent`)
+
+- `editor` (`Editor`): Source editor.
+- `slot` (`SlotEntry | null`): Active Slot, or `null` outside Slots.
+
+## `slotValidationUpdate`
+
+Emitted when validation becomes pending, current or unvalidated, including explicit context invalidation. Option: `onValidationUpdate`.
+
+### Payload (`SlotValidationUpdateEvent`)
+
+- `editor` (`Editor`): Source editor.
+- `state` (`SlotValidationState`): Updated validation storage.
+
+## `slotValidationError`
+
+Emitted when an editor-bound validator throws, rejects or returns malformed findings. Option: `onValidationError`.
+
+### Payload (`SlotValidationErrorEvent`)
+
+Extends [`SlotValidationError`](/compose/slots/api-reference/validation#slotvalidationerror) with:
+
+- `editor` (`Editor`): Source editor.
+
+Missing validators and aborted requests do not emit this event.
+
+## `slotCommandRejected`
+
+Emitted when an actual Slot command is refused, including preflight refusal. Option: `onCommandRejected`.
+
+### Payload (`SlotCommandRejectedEvent`)
+
+Extends [`SlotCommandRejection`](/compose/slots/api-reference/types#slotcommandrejection) with:
+
+- `editor` (`Editor`): Source editor.
+
+## Delivery
+
+- Option callbacks and editor listeners receive the same payload. Registering both creates two subscriptions.
+- Initial index and active-Slot events follow editor creation. Late subscribers read storage; events are not replayed.
+- Update events follow storage updates. Refusal events follow the decision; listener return values do not change it.
+- Payload data is read-only. Application UI must respect read permissions before displaying it.
+- `editor.can()` and pure validation functions emit no editor events.
+- `validateEditorSlots` emits validation events. Validator errors precede the final validation-state update.
+- Follow-up writes should be scheduled by the application.
+- Extension-owned listeners and pending validation are cleaned up on editor destruction.
+
+See [Content Protection events](/content-protection/api-reference/extension#editor-events) for policy updates and protection refusals.
