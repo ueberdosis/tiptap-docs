@@ -1,0 +1,210 @@
+---
+title: Policy language
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Policy language | Tiptap Content Protection Docs
+  description: Policy types, selectors, permissions and rule precedence.
+  category: Content Protection
+---
+
+A policy is a JSON object defining read and edit permissions. All content is allowed unless a matching rule denies access.
+
+## `ContentProtectionPolicy`
+
+### Properties
+
+- `version` (`1`): Policy format version. Only `1` is supported.
+- `rules` (`ProtectionRule[]`): Permission rules. An empty array allows all reads and edits.
+
+```ts
+const policy: ContentProtectionPolicy = {
+  version: 1,
+  rules: [
+    {
+      selector: { target: 'node', node: { types: ['heading'] } },
+      permissions: { edit: false },
+    },
+  ],
+}
+```
+
+## `ProtectionRule`
+
+One selector and the permissions it grants or denies.
+
+### Properties
+
+- `id?` (`string`): Optional diagnostic identifier. Must be nonempty and unique within the policy. Anonymous rules are identified by their array index.
+- `selector` (`ProtectionSelector`): What the rule applies to.
+- `permissions` (`{ read?: boolean; edit?: boolean }`): At least one permission. `true` allows; `false` denies. Omitted permissions have no effect.
+- `priority?` (`number`): Integer precedence. Default: `0`. Higher values win; negative values are allowed.
+- `reason?` (`string`): Plain-text explanation returned in diagnostics. Do not include hidden content.
+
+## `ProtectionSelector`
+
+A union discriminated by `target`. Use `node` for Node targets and `mark` for Mark targets.
+
+### `target: 'node'`
+
+- `node` (`NodeMatch`): Nodes to match.
+- `edit: false`: Prevents inserting, removing, retyping, splitting, joining or moving the Node.
+- `read: false`: Conceals the Node and its subtree.
+
+Does not protect the Node's attributes or contents from edits. Position shifts caused by earlier edits are not moves.
+
+### `target: 'content'`
+
+- `node` (`NodeMatch`): Nodes whose contents are governed.
+- `stopAt?` (`NodeMatch`): Descendants excluded from this rule. Allowed only with `edit`, never with `read`.
+- `edit: false`: Prevents changes to text, descendant Nodes, descendant attributes and Marks.
+- `read: false`: Conceals the Node's children.
+
+Does not protect the owner's attributes or existence. Deleting an owner with protected contents still requires permission to delete those contents.
+
+### Boundaries within a content selector
+
+- `stopAt` excludes each matching descendant, its attributes and its entire subtree.
+- The selected owner is never excluded.
+- Separate rules may grant or deny access inside excluded subtrees.
+- Without `stopAt`, the content rule applies recursively.
+
+For independent nested Slots, use `stopAt: { types: ['blockSlot', 'inlineSlot'] }` and grant each Slot access separately.
+
+### `target: 'children'`
+
+- `node` (`NodeMatch`): Parent Nodes to match.
+- `edit: false`: Preserves the ordered sequence of direct non-text children while the parent survives.
+- `read`: Not supported; use `content` instead.
+
+Text and formatting inside children remain editable. Use `node` to protect the parent's existence.
+
+### `target: 'attribute'`
+
+- `node` (`NodeMatch`): Nodes to match.
+- `names?` (`string[]`): Attributes to govern. Omitted: all attributes. `[]`: none.
+- `edit: false`: Prevents changes to the selected attributes.
+- `read: false`: Conceals the entire owning Node and its subtree.
+
+### `target: 'mark'`
+
+- `mark` (`MarkMatch`): Marks to match.
+- `edit: false`: Prevents adding or removing the Mark, or changing its attributes.
+- `read: false`: Conceals the marked content.
+
+Wording may change while the same Mark is retained. Deleting the last content carrying a Mark removes that Mark and requires permission.
+
+### `target: 'markedContent'`
+
+- `mark` (`MarkMatch`): Marks identifying protected content.
+- `edit: false`: Prevents changes to the marked content, including its Marks and descendant content.
+- `read: false`: Conceals the marked content.
+
+Removing the selecting Mark is also governed by this rule. A higher-priority Mark rule can allow removing it; edit the newly unlocked content in a separate transaction.
+
+### `target: 'markAttribute'`
+
+- `mark` (`MarkMatch`): Marks to match.
+- `names` (`string[]`): Attributes to govern. Required; `[]` selects none.
+- `edit: false`: Prevents changes to the selected Mark attributes.
+- `read: false`: Conceals the marked content.
+
+## `NodeMatch`
+
+Matches Nodes in the document, independent of DOM structure or CSS.
+
+### Properties
+
+- `types?` (`string[]`): Exact, case-sensitive schema names. Omitted: all Node types. `[]`: none. Entries are combined with OR.
+- `attributes?` (`AttributePredicate[]`): Attribute tests combined with AND. Omitted or `[]`: no attribute restriction.
+- `within?` (`NodeMatch`): Requires a matching strict ancestor. Nested `within` values express further ancestors.
+
+`{}` matches every Node. Select the root with its schema name, usually `doc`; `content` on the root covers the entire document.
+
+## `MarkMatch`
+
+Matches Marks on inline Nodes.
+
+### Properties
+
+- `types?` (`string[]`): Exact, case-sensitive Mark names. Omitted: all Mark types. `[]`: none. Entries are combined with OR.
+- `attributes?` (`AttributePredicate[]`): Attribute tests combined with AND. Omitted or `[]`: no attribute restriction.
+- `within?` (`NodeMatch`): Requires a matching ancestor of the marked inline Node.
+
+Different Mark types are evaluated independently, including where they overlap.
+
+## `AttributePredicate`
+
+A union discriminated by `operator`. Attribute names refer to whole attributes; dotted paths are not supported.
+
+### `operator: 'exists'`
+
+- `name` (`string`): Attribute whose key must exist. A value of `null` still counts as present.
+
+### `operator: 'eq'`
+
+- `name` (`string`): Attribute to compare.
+- `value` (`JsonValue`): Required value. Uses structural equality without coercion; object-key order is ignored and array order is preserved.
+
+### `operator: 'in'`
+
+- `name` (`string`): Attribute to compare.
+- `values` (`JsonValue[]`): Accepted values, compared using `eq`. `[]` matches nothing.
+
+Schema defaults count as attribute values. A missing attribute differs from an attribute with value `null`.
+
+## `JsonValue`
+
+Serializable policy data: `null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }`.
+
+Numbers must be finite. Functions, `undefined`, class instances and cyclic values are not supported.
+
+## Rule precedence
+
+Resolve `read` and `edit` independently for each affected operation:
+
+1. Select matching rules that state the permission.
+2. If none match, allow.
+3. Keep only rules with the highest `priority`.
+4. If any remaining rule denies, deny; otherwise allow.
+
+List order and selector specificity do not affect permission. A transaction is allowed only when every affected operation is allowed.
+
+| Matching rules                                          | Result                           |
+| ------------------------------------------------------- | -------------------------------- |
+| Content deny at `0`; content allow at `10`              | Allow within the allowed region. |
+| Allow and deny at `10`                                  | Deny.                            |
+| Attribute deny at `20`; enclosing content allow at `10` | Deny the attribute change.       |
+| Read allow at `50`; edit deny at `0`                    | Readable, not editable.          |
+
+## Read restrictions
+
+- A denied region conceals all its descendants, even if a child has a separate read allow.
+- To reveal a child, narrow the ancestor's deny or override the read decision on that ancestor.
+- Hidden content is not editable. An edit allow cannot override a read denial.
+- Denying an attribute conceals its owner; it does not selectively sanitize a NodeView.
+
+See [Redacted content](/content-protection/api-reference/rendering) for rendering, clipboard and export behavior.
+
+## Validation
+
+[Compile a policy](/content-protection/api-reference/utilities#compilecontentprotectionpolicy) before using it without an editor. The extension compiles its configured policy automatically.
+
+Invalid policies include:
+
+- Unsupported versions, unknown properties, targets or operators.
+- Empty permissions, duplicate or empty IDs, non-integer priorities.
+- Invalid JSON values or explicitly named types/attributes absent from the schema.
+- `read` on `children`, or `read` combined with `stopAt`.
+
+## Edit enforcement
+
+- Applies to typing, paste, cut, drop, commands, undo/redo, `setContent` and appended transactions.
+- Checks both the original and proposed content; changing a selector attribute cannot bypass its original rule in the same transaction.
+- Rejects the entire transaction when any operation is forbidden. Appended transactions are checked separately.
+- Undo/redo use the current policy. Refused history operations preserve the history position.
+- Unknown Step classes are refused as `unsupportedStep` with a nonempty policy. Empty policies do not restrict them.
+- Selection-only transactions are allowed. Policy updates use a [separate command](/content-protection/api-reference/commands#setcontentprotectionpolicy).
+
+For Slot-only editing, use [`createSlotFillingPolicy`](/compose/slots/api-reference#createslotfillingpolicy). It produces ordinary rules in this policy language.

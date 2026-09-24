@@ -18,6 +18,8 @@ const options = [
         href: '/collaboration/getting-started/overview',
       },
       { label: 'Comments', href: '/comments/getting-started/overview' },
+      { label: 'Content Protection', href: '/content-protection/getting-started/overview' },
+      { label: 'Compose', href: '/compose/getting-started/overview' },
       {
         label: 'Tracked Changes',
         href: '/tracked-changes/getting-started/overview',

@@ -1,0 +1,204 @@
+---
+title: Rendering and customization
+tags:
+  - type: beta
+  - type: restricted
+meta:
+  title: Rendering and customization | Tiptap Docs
+  description: Developer reference for rendering and customization.
+  category: Compose
+---
+
+Developers control how Slots look through ordinary Tiptap Node extensions.
+`BlockSlot` and `InlineSlot` are public exports supporting `.configure()` and
+`.extend()`, including `renderHTML`, `parseHTML` and `addNodeView`. The `Slot`
+extension installs default or customized instances and supplies their shared
+Commands, indexing, validation and editing mechanics.
+
+This follows Tiptap's [extension customization](https://tiptap.dev/docs/editor/extensions/custom-extensions/extend-existing)
+and [NodeView model](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views).
+There is no package-specific component format, required visual framework or
+React dependency in the Slot package.
+
+## Default rendering and CSS
+
+The default Nodes render the `div`/`span` and serialized `data-slot-*` attributes
+described in the Slot contract. They work as editable containers without a
+custom NodeView. The package does not inject a toolbar, visible heading,
+business controls, colors or borders. A configured label supplies an accessible
+name, falling back to ID; the host chooses whether to draw that label too.
+
+In the editor, derived attributes on the outer Slot element expose
+`data-slot-empty="true|false"` and `data-slot-active="true|false"` for styling.
+An empty Slot with a configured placeholder also exposes `data-slot-placeholder`.
+Default placeholder presentation uses view-only, non-interactive text that does
+not interfere with caret positioning. These derived attributes and the displayed
+placeholder are not serialized to HTML, Tiptap JSON or clipboard content.
+
+The default rendering supplies editing and accessibility mechanics; the host
+can style each kind separately:
+
+```ts
+import { Slot, BlockSlot, InlineSlot } from '@tiptap-pro/extension-slot'
+
+Slot.configure({
+  blockSlot: BlockSlot.configure({ HTMLAttributes: { class: 'block-field' } }),
+  inlineSlot: InlineSlot.configure({ HTMLAttributes: { class: 'inline-field' } }),
+})
+```
+
+CSS may use those classes, `data-slot-kind`, and the derived state attributes.
+Configuration remains semantic JSON. DOM elements, renderer functions and React
+components are not stored in `config` or `metadata`.
+
+## Custom NodeViews
+
+NodeViews give the host control over the in-editor markup, styling, menus,
+validation messages, placeholders and controls. Customize the two kinds
+independently and pass the resulting Node instances to `Slot`:
+
+```tsx
+import { Slot, BlockSlot, InlineSlot } from '@tiptap-pro/extension-slot'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { MyBlockSlotView } from './MyBlockSlotView'
+import { MyInlineSlotView } from './MyInlineSlotView'
+
+const CustomBlockSlot = BlockSlot.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(MyBlockSlotView)
+  },
+})
+
+const CustomInlineSlot = InlineSlot.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(MyInlineSlotView)
+  },
+})
+
+const slots = Slot.configure({
+  blockSlot: CustomBlockSlot,
+  inlineSlot: CustomInlineSlot,
+})
+```
+
+Register `slots` in the Editor, not `slots` plus both custom Nodes. Both Nodes
+must keep their canonical names, `id`/`config` attributes, inline/block kind,
+content expression, and defining/isolating behavior. Changing these creates a
+different Schema contract and is outside rendering customization. Rendering
+instances are chosen at initialization, not switched on a running Editor.
+
+A React block view can use the normal Tiptap content container and Commands:
+
+```tsx
+import { useEffect, useReducer } from 'react'
+import { NodeViewWrapper, NodeViewContent, type NodeViewProps } from '@tiptap/react'
+import { subscribeSlotViewUpdates } from '@tiptap-pro/extension-slot'
+
+export function MyBlockSlotView({ node, editor }: NodeViewProps) {
+  const [, refresh] = useReducer((revision: number) => revision + 1, 0)
+
+  useEffect(() => subscribeSlotViewUpdates({ editor, onUpdate: refresh }), [editor])
+
+  const { id, config } = node.attrs
+  const canDissolve = editor.can().dissolveSlot({ id })
+
+  return (
+    <NodeViewWrapper className="my-field">
+      <header contentEditable={false}>
+        <strong>{config?.label ?? id}</strong>
+        <button
+          type="button"
+          disabled={!canDissolve}
+          onClick={() => editor.commands.dissolveSlot({ id })}
+        >
+          Dissolve
+        </button>
+      </header>
+      <NodeViewContent className="my-field-content" />
+    </NodeViewWrapper>
+  )
+}
+```
+
+React is illustrative; a JavaScript NodeView returns `dom` and `contentDOM`, and
+Vue uses its normal Tiptap NodeView adapter. Editable content belongs to
+Tiptap through that single content container, not a second editor or a manually
+rendered copy of `node.content`. Chrome is noneditable; its controls write through
+Commands. See [React NodeViews](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views/react).
+
+Inline views must use inline-compatible outer and content elements (for React,
+`NodeViewWrapper as="span"` and `NodeViewContent as="span"`). They do not place
+block elements inside a paragraph. Custom views own their visible labels and
+placeholders; the default visible placeholder is not added beside a custom one.
+Selection mapping, nested content, IME and caret visibility must continue to work.
+NodeView `stopEvent`/`ignoreMutation` overrides do not swallow content editing
+or selection updates required by Tiptap.
+
+The package do not depend on the default wrapper's class names or exact DOM
+nesting to locate editable content. A custom NodeView needs no private DOM
+attributes or imports from package internals. Standard Tiptap NodeView behavior
+and the public content-container contract are sufficient.
+
+## Validation and permission updates
+
+Node attributes alone cannot drive all UI state. Validation can finish after an
+async request, application context can invalidate a result, selection can move,
+and the host can replace a protection policy without changing any Slot content.
+
+`subscribeSlotViewUpdates({ editor, onUpdate })` is a framework-neutral named
+export. It calls `onUpdate` immediately after subscribing and after relevant
+document, selection, validation-lifecycle, context-invalidation or protection-policy
+updates, after public storage reflects the new state. Notifications may be
+coalesced within one completed update; final state do not be missed. It returns
+an idempotent unsubscribe function and cleans up automatically on Editor destroy.
+It does not dispatch content changes, start validation, or enter history.
+
+Subscribers read `editor.storage.slot` for the index, active Slot and validation
+state. Use `getPos()` and the index entry's position to identify the current
+Node when imported IDs are ambiguous. Use the protection package's public
+queries for permission explanations and `can()` for a specific Slot Command.
+The subscription remains usable without ContentProtection installed; there are
+simply no policy notifications. Policy updates use the documented public
+`contentProtectionPolicyUpdate` Editor event, so no import of the protection
+package is required. The helper composes [Editor events](/compose/slots/events) and Tiptap's
+selection notifications; it does not establish another event system.
+
+A component do not present an old result as current or expose messages about
+concealed content. Custom validators do not run merely because a NodeView mounted.
+
+## HTML serialization and import
+
+`addNodeView` controls the editor experience. `renderHTML` controls serialized
+HTML, including ordinary `editor.getHTML()`. Changing one does not implicitly
+change the other. Developers can override `renderHTML` and `parseHTML` on each
+exported Node using `.extend()`.
+
+Custom HTML must preserve the semantic `data-slot-kind`, `data-slot-id` and
+`data-slot-config` attributes and exactly one content hole. The wrapper may
+change, provided it remains valid for its block/inline context. Required
+attributes must be generated from current Node attributes with escaping, not
+copied from an old DOM snapshot. Preserve the default parser as a fallback so
+standard Slot HTML remains importable; add rules for custom markup as needed.
+An overridden parser must preserve complete embedded configuration and identity.
+The JSON contract never changes with markup customization.
+
+Editor-only buttons, labels, placeholders and validation messages belong to the
+NodeView, not the exported content. HTML serialization of a readable Slot uses
+its configured serializer, subject to the protection clipboard contract.
+
+## Interaction with Content Protection
+
+Customization does not bypass protection. ContentProtection must prevent
+original concealed content and its custom NodeView from mounting, and must
+remove an already mounted view when policy starts concealing its owner. A
+readable parent Slot may retain its custom chrome while its content container
+contains concealed children. Its custom code do not independently render those
+children's complete JSON, text or attributes in a header, tooltip or sidebar.
+
+ContentProtection owns concealment and offers a separate
+[custom redaction renderer](/content-protection/api-reference/rendering) for its replacement UI.
+It does not invoke a custom Slot NodeView with a secret-bearing Node and rely
+on that component to hide it.
+When content becomes readable again, the original custom view is recreated with
+ordinary NodeView lifecycle and cleanup. The core data remains on the client;
+this is the client-side presentation contract, not secure delivery.
