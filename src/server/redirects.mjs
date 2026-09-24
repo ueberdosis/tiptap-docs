@@ -5,18 +5,28 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
-    source: '/compose/getting-started/overview',
-    destination: '/compose/slots/getting-started/overview',
+    source: '/compose/:path*',
+    destination: '/blocks/:path*',
     permanent: true,
   },
   {
-    source: '/compose/slots/api-reference',
-    destination: '/compose/slots/api-reference/extension',
+    source: '/content-protection/:path*',
+    destination: '/blocks/content-protection/:path*',
+    permanent: true,
+  },
+  {
+    source: '/blocks/getting-started/overview',
+    destination: '/blocks/slots/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/blocks/slots/api-reference',
+    destination: '/blocks/slots/api-reference/extension',
     permanent: true,
   },
   {
     source: '/composable-documents/:path*',
-    destination: '/compose/:path*',
+    destination: '/blocks/:path*',
     permanent: true,
   },
   {
