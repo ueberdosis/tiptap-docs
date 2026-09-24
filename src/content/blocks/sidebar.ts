@@ -59,14 +59,8 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Overview', href: '/blocks/content-protection/getting-started/overview' },
         {
-          title: 'Examples',
+          title: 'Example Policies',
           href: '/blocks/content-protection/examples/example-policies',
-          children: [
-            {
-              title: 'Example policies',
-              href: '/blocks/content-protection/examples/example-policies',
-            },
-          ],
         },
         {
           title: 'API reference',
