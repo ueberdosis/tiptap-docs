@@ -74,6 +74,7 @@ export type PageFrontmatter = {
   meta?: FrontmatterMeta
   sidebars?: FrontmatterSidebar
   extension?: ExtensionMeta
+  component?: UIComponentMeta
   incident?: IncidentMeta
   tags?: PageTag[]
 }
