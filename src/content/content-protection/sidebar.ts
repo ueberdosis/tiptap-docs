@@ -13,13 +13,10 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      title: 'Guides',
-      href: '/content-protection/guides',
+      title: 'Examples',
+      href: '/content-protection/examples',
       children: [
-        { title: 'Protect a template', href: '/content-protection/guides/protect-template' },
-        { title: 'Change permissions', href: '/content-protection/guides/change-permissions' },
-        { title: 'Protect table structure', href: '/content-protection/guides/protect-tables' },
-        { title: 'Customize hidden content', href: '/content-protection/guides/custom-redaction' },
+        { title: 'Example policies', href: '/content-protection/examples/example-policies' },
       ],
     },
     {
