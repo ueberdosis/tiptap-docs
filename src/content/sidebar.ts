@@ -61,8 +61,8 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Compare',
         },
         {
-          href: '/blocks/slots/getting-started/overview',
-          title: 'Blocks',
+          href: '/composable-docs/slots/getting-started/overview',
+          title: 'Composable Docs',
         },
         {
           href: '/conversion/getting-started/overview',

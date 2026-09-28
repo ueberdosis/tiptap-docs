@@ -5,28 +5,38 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
+    source: '/composable-docs/slots/guides/create-fields',
+    destination: '/composable-docs/slots/guides/add-slots',
+    permanent: true,
+  },
+  {
+    source: '/blocks/:path*',
+    destination: '/composable-docs/:path*',
+    permanent: true,
+  },
+  {
     source: '/compose/:path*',
-    destination: '/blocks/:path*',
+    destination: '/composable-docs/:path*',
     permanent: true,
   },
   {
     source: '/content-protection/:path*',
-    destination: '/blocks/content-protection/:path*',
+    destination: '/composable-docs/content-protection/:path*',
     permanent: true,
   },
   {
-    source: '/blocks/getting-started/overview',
-    destination: '/blocks/slots/getting-started/overview',
+    source: '/composable-docs/getting-started/overview',
+    destination: '/composable-docs/slots/getting-started/overview',
     permanent: true,
   },
   {
-    source: '/blocks/slots/api-reference',
-    destination: '/blocks/slots/api-reference/extension',
+    source: '/composable-docs/slots/api-reference',
+    destination: '/composable-docs/slots/api-reference/extension',
     permanent: true,
   },
   {
     source: '/composable-documents/:path*',
-    destination: '/blocks/:path*',
+    destination: '/composable-docs/:path*',
     permanent: true,
   },
   {
