@@ -39,8 +39,8 @@ One selector and the permissions it grants or denies.
 - `id?` (`string`): Optional diagnostic identifier. Must be nonempty and unique within the policy. Anonymous rules are identified by their array index.
 - `selector` (`ProtectionSelector`): What the rule applies to.
 - `permissions` (`{ read?: boolean; edit?: boolean }`): At least one permission. `true` allows; `false` denies. Omitted permissions have no effect.
-- `priority?` (`number`): Integer precedence. Default: `0`. Higher values win; negative values are allowed.
-- `reason?` (`string`): Plain-text explanation returned in diagnostics. Do not include hidden content.
+- `priority?` (`number`): Integer precedence. Omitted: `0`. Higher values win; negative values are allowed. At equal priority, a denial wins over an allowance, regardless of rule order. This also applies when both rules omit `priority`.
+- `reason?` (`string`): Plain-text explanation returned in diagnostics. Does not affect permissions. Must not contain hidden content.
 
 ## `ProtectionSelector`
 
@@ -54,7 +54,9 @@ A union discriminated by `target`. Use `node` for Node targets and `mark` for Ma
 
 Does not protect the Node's attributes or contents from edits. Position shifts caused by earlier edits are not moves.
 
-### `target: 'content'`
+To protect descendants too, use `nodeContent`. A higher-priority `edit: true` rule can make a nested region editable again; see [nested content rules](#nested-content-rules). Read-denied ancestors still conceal their descendants; an edit allowance cannot reveal them.
+
+### `target: 'nodeContent'`
 
 - `node` (`NodeMatch`): Nodes whose contents are governed.
 - `edit: false`: Prevents changes to text, descendant Nodes, descendant attributes and Marks.
@@ -66,11 +68,30 @@ Does not protect the owner's attributes or existence. Deleting an owner with pro
 
 Content rules apply recursively, including nested Slots. To override an ancestor rule, match the nested region using `within` or attributes and set a higher `priority`. Selector depth does not affect precedence. An overriding content allow also applies to its descendants.
 
+```ts
+const rules = [
+  {
+    selector: { target: 'nodeContent', node: { types: ['blockquote'] } },
+    permissions: { edit: false },
+  },
+  {
+    selector: {
+      target: 'nodeContent',
+      node: { types: ['paragraph'], within: { types: ['blockquote'] } },
+    },
+    permissions: { edit: true },
+    priority: 10,
+  },
+] satisfies ProtectionRule[]
+```
+
+Allows editing paragraph text and formatting inside protected blockquotes. Other blockquote content remains protected. The allow rule needs a higher priority than the deny rule's default of `0`.
+
 ### `target: 'children'`
 
 - `node` (`NodeMatch`): Parent Nodes to match.
 - `edit: false`: Preserves the ordered sequence of direct non-text children while the parent survives.
-- `read`: Not supported; use `content` instead.
+- `read`: Not supported; use `nodeContent` instead.
 
 Text and formatting inside children remain editable. Use `node` to protect the parent's existence.
 
@@ -89,7 +110,7 @@ Text and formatting inside children remain editable. Use `node` to protect the p
 
 Wording may change while the same Mark is retained. Deleting the last content carrying a Mark removes that Mark and requires permission.
 
-### `target: 'markedContent'`
+### `target: 'markContent'`
 
 - `mark` (`MarkMatch`): Marks identifying protected content.
 - `edit: false`: Prevents changes to the marked content, including its Marks and descendant content.
@@ -114,7 +135,34 @@ Matches Nodes in the document, independent of DOM structure or CSS.
 - `attributes?` (`AttributePredicate[]`): Attribute tests combined with AND. Omitted or `[]`: no attribute restriction.
 - `within?` (`NodeMatch`): Requires a matching strict ancestor. Nested `within` values express further ancestors.
 
-`{}` matches every Node. Select the root with its schema name, usually `doc`; `content` on the root covers the entire document.
+`{}` matches every Node. Select the root with its schema name, usually `doc`; `nodeContent` on the root covers the entire document.
+
+### Target an individual Node with UniqueID
+
+Configure [UniqueID](/editor/extensions/functionality/uniqueid) for the relevant Node types:
+
+```ts
+import { UniqueID } from '@tiptap/extension-unique-id'
+
+UniqueID.configure({ types: ['paragraph'] })
+```
+
+Match the Node's stored `id` attribute. Replace `'paragraph-id'` with an ID from your document:
+
+```ts
+const rule = {
+  selector: {
+    target: 'nodeContent',
+    node: {
+      types: ['paragraph'],
+      attributes: [{ name: 'id', operator: 'eq', value: 'paragraph-id' }],
+    },
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects that paragraph's contents. Use `node` and `attribute` rules to also protect its existence and ID. If UniqueID uses a custom `attributeName`, use that name in the predicate instead of `id`.
 
 ## `MarkMatch`
 
@@ -160,8 +208,8 @@ Resolve `read` and `edit` independently for each affected operation:
 
 1. Select matching rules that state the permission.
 2. If none match, allow.
-3. Keep only rules with the highest `priority`.
-4. If any remaining rule denies, deny; otherwise allow.
+3. Treat omitted priorities as `0`, then keep only rules with the highest `priority`.
+4. At that priority, deny if any rule denies; otherwise allow. Two rules without a priority therefore resolve a conflict by denying.
 
 List order and selector specificity do not affect permission. A transaction is allowed only when every affected operation is allowed.
 
@@ -183,7 +231,9 @@ See [Redacted content](/composable-docs/content-protection/api-reference/renderi
 
 ## Validation
 
-[Compile a policy](/composable-docs/content-protection/api-reference/utilities#compilecontentprotectionpolicy) before using it without an editor. The extension compiles its configured policy automatically.
+The extension validates and compiles policies automatically when configured or updated. No manual compilation is needed when using an editor.
+
+Standalone utilities such as `checkContentProtectionTransaction` take a [compiled policy](/composable-docs/content-protection/api-reference/utilities#compilecontentprotectionpolicy). Compilation checks schema names and creates an immutable copy that can be reused across checks. To check configuration without creating a compiled policy, use [`validateContentProtectionPolicy`](/composable-docs/content-protection/api-reference/utilities#validatecontentprotectionpolicy).
 
 Invalid policies include:
 
