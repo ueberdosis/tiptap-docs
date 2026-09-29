@@ -5,6 +5,21 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
+    source: '/composable-docs/slots/concepts',
+    destination: '/composable-docs/slots/api-reference/concepts',
+    permanent: true,
+  },
+  {
+    source: '/composable-docs/slots/rendering',
+    destination: '/composable-docs/slots/api-reference/rendering',
+    permanent: true,
+  },
+  {
+    source: '/composable-docs/slots/events',
+    destination: '/composable-docs/slots/api-reference/events',
+    permanent: true,
+  },
+  {
     source: '/composable-docs/slots/guides/create-fields',
     destination: '/composable-docs/slots/guides/add-slots',
     permanent: true,
