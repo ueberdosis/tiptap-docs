@@ -62,8 +62,18 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Overview', href: '/composable-docs/content-protection/getting-started/overview' },
         {
-          title: 'Example Policies',
-          href: '/composable-docs/content-protection/examples/example-policies',
+          title: 'Guides',
+          href: '/composable-docs/content-protection/guides/example-policies',
+          children: [
+            {
+              title: 'Example Policies',
+              href: '/composable-docs/content-protection/guides/example-policies',
+            },
+            {
+              title: 'Lock selected content',
+              href: '/composable-docs/content-protection/guides/lock-selected-content',
+            },
+          ],
         },
         {
           title: 'API reference',

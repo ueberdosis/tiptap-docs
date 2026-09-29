@@ -5,6 +5,11 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
+    source: '/composable-docs/content-protection/examples/:path*',
+    destination: '/composable-docs/content-protection/guides/:path*',
+    permanent: true,
+  },
+  {
     source: '/composable-docs/slots/concepts',
     destination: '/composable-docs/slots/api-reference/concepts',
     permanent: true,
