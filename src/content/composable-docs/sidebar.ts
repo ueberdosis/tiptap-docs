@@ -19,11 +19,11 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Add slots to a document',
               href: '/composable-docs/slots/guides/add-slots',
             },
+            { title: 'Allow filling only', href: '/composable-docs/slots/guides/fill-only' },
             {
               title: 'Validate a submission',
               href: '/composable-docs/slots/guides/validate-submission',
             },
-            { title: 'Allow filling only', href: '/composable-docs/slots/guides/fill-only' },
           ],
         },
         {
