@@ -5,61 +5,6 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
-    source: '/composable-docs/content-protection/examples/:path*',
-    destination: '/composable-docs/content-protection/guides/:path*',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/slots/concepts',
-    destination: '/composable-docs/slots/api-reference/concepts',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/slots/rendering',
-    destination: '/composable-docs/slots/api-reference/rendering',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/slots/events',
-    destination: '/composable-docs/slots/api-reference/events',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/slots/guides/create-fields',
-    destination: '/composable-docs/slots/guides/add-slots',
-    permanent: true,
-  },
-  {
-    source: '/blocks/:path*',
-    destination: '/composable-docs/:path*',
-    permanent: true,
-  },
-  {
-    source: '/compose/:path*',
-    destination: '/composable-docs/:path*',
-    permanent: true,
-  },
-  {
-    source: '/content-protection/:path*',
-    destination: '/composable-docs/content-protection/:path*',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/getting-started/overview',
-    destination: '/composable-docs/slots/getting-started/overview',
-    permanent: true,
-  },
-  {
-    source: '/composable-docs/slots/api-reference',
-    destination: '/composable-docs/slots/api-reference/extension',
-    permanent: true,
-  },
-  {
-    source: '/composable-documents/:path*',
-    destination: '/composable-docs/:path*',
-    permanent: true,
-  },
-  {
     source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
     destination: '/ai/ai-toolkit/install#set-up-authorization',
     permanent: true,
