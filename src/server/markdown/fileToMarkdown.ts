@@ -37,6 +37,7 @@ function getContentDates(): Record<string, string> {
 /** Frontmatter descriptions may contain inline HTML; flatten to plain text. */
 function stripHtml(value: string): string {
   return value
+    .replace(/<[^<>]*>/g, '')
     .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')
     .trim()

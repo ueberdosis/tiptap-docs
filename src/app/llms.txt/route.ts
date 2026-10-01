@@ -28,6 +28,7 @@ function markdownUrl(route: string): string {
 function stripHtml(value?: string): string {
   return value
     ? value
+        .replace(/<[^<>]*>/g, '')
         .replace(/[<>]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
