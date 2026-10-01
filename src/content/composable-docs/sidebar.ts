@@ -21,7 +21,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             { title: 'Allow filling only', href: '/composable-docs/slots/guides/fill-only' },
             {
-              title: 'Validate a submission',
+              title: 'Validate Slot values',
               href: '/composable-docs/slots/guides/validate-submission',
             },
           ],
