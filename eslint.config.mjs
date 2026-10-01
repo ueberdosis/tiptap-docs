@@ -6,6 +6,7 @@ const nextConfig = require('eslint-config-next')
 const prettierConfig = require('eslint-config-prettier')
 const mdxPlugin = require('eslint-plugin-mdx')
 const prettierPlugin = require('eslint-plugin-prettier')
+const importPlugin = require('eslint-plugin-import')
 
 const config = [
   ...nextConfig,
@@ -14,6 +15,7 @@ const config = [
   {
     plugins: {
       prettier: prettierPlugin,
+      import: importPlugin,
     },
   },
   {

@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import fm from 'front-matter'
-import { IncidentData, PageFrontmatter } from '@/types'
+import { cache } from 'react'
+import { readFrontmatter } from './readFrontmatter'
+import type { IncidentData } from '@/types'
 
 // Helper function to safely parse dates
 function parseDateSafely(dateString: string): Date | null {
@@ -13,7 +14,11 @@ function parseDateSafely(dateString: string): Date | null {
   return isNaN(date.getTime()) ? null : date
 }
 
-export async function getIncidents(): Promise<IncidentData[]> {
+/**
+ * Gets all incidents from MDX files.
+ * Cached per-request to avoid duplicate file system scans.
+ */
+export const getIncidents = cache(async (): Promise<IncidentData[]> => {
   const incidentsDir = path.join(process.cwd(), 'src/content/resources/incidents')
 
   try {
@@ -23,8 +28,7 @@ export async function getIncidents(): Promise<IncidentData[]> {
     for (const file of files) {
       if (file.endsWith('.mdx')) {
         const filePath = path.join(incidentsDir, file)
-        const fileContent = fs.readFileSync(filePath, 'utf8')
-        const { attributes } = fm<PageFrontmatter>(fileContent)
+        const attributes = await readFrontmatter(filePath)
 
         const slug = file.replace('.mdx', '')
         const url = `/resources/incidents/${slug}`
@@ -71,4 +75,4 @@ export async function getIncidents(): Promise<IncidentData[]> {
     console.error('Error loading incidents:', error)
     return []
   }
-}
+})

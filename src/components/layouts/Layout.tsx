@@ -17,19 +17,8 @@ import { VersionSwitch } from '../VersionSwitch'
 import styles from './Layout.module.css'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
-import { getAllMetadata } from '@/server/getAllMetadata'
 import { SidebarConfig } from '@/types'
 import { CTA_BAR } from '@/utils/constants'
-
-const PageEditFooter = async () => {
-  const allMeta = await getAllMetadata()
-
-  return (
-    <>
-      <PageEditStatus allMeta={allMeta} />
-    </>
-  )
-}
 
 export const LayoutCTABar = () => {
   if (CTA_BAR.hideAt && CTA_BAR.hideAt <= new Date()) {
@@ -201,10 +190,12 @@ const LayoutSecondarySidebar = forwardRef<HTMLDivElement, LayoutSecondarySidebar
 
 LayoutSecondarySidebar.displayName = 'LayoutSecondarySidebar'
 
-export type LayoutContentProps = {} & React.HTMLAttributes<HTMLDivElement>
+export type LayoutContentProps = React.HTMLAttributes<HTMLDivElement> & {
+  contentPath?: string
+}
 
 export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
-  ({ children, className, ...rest }, ref) => {
+  ({ children, className, contentPath, ...rest }, ref) => {
     return (
       <main
         {...rest}
@@ -219,7 +210,7 @@ export const LayoutContent = forwardRef<HTMLDivElement, LayoutContentProps>(
         <footer className="border-t border-grayAlpha-300 pt-8 pb-[3.125rem]">
           <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:relative lg:min-h-[200px]">
             <div className="z-10 flex flex-col items-start flex-none">
-              <PageEditFooter />
+              <PageEditStatus contentPath={contentPath} />
             </div>
             <div className="z-20 flex flex-col items-end flex-none w-full lg:absolute lg:right-0 lg:top-0 lg:w-auto lg:static">
               <PageHelpFeedback />

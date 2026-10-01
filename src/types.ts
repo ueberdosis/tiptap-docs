@@ -3,7 +3,7 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
-  releaseTag?: "beta" | "alpha"
+  releaseTag?: 'beta' | 'alpha'
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
@@ -74,6 +74,7 @@ export type PageFrontmatter = {
   meta?: FrontmatterMeta
   sidebars?: FrontmatterSidebar
   extension?: ExtensionMeta
+  component?: Omit<UIComponentMetaWithUrl, 'path' | 'url'>
   incident?: IncidentMeta
   tags?: PageTag[]
 }

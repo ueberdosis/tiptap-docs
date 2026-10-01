@@ -1,23 +1,9 @@
-'use client'
-
-import { usePathname } from 'next/navigation'
 import { Button } from './Button'
 import Link from '@/components/Link'
-import { PageMeta } from '@/types'
 import { getRepoBase } from '@/utils'
 
-export const PageEditStatus = ({
-  allMeta,
-}: {
-  allMeta: Record<string, PageMeta & { path: string }>
-}) => {
-  const pathname = usePathname()
-  const meta =
-    pathname !== '/'
-      ? allMeta[`${pathname}.mdx`] || allMeta[`${pathname}/index.mdx`]
-      : allMeta['/index.mdx']
-
-  if (!meta?.path) {
+export const PageEditStatus = ({ contentPath }: { contentPath?: string }) => {
+  if (!contentPath) {
     return null
   }
 
@@ -25,7 +11,7 @@ export const PageEditStatus = ({
     <>
       <Button asChild variant="secondary">
         <Link
-          href={`https://github.com/${getRepoBase()}/content/${meta.path}`}
+          href={`https://github.com/${getRepoBase()}/content/${contentPath}`}
           target="_blank"
           rel="nofollow noreferrer"
         >
