@@ -38,6 +38,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Find and replace UI',
         },
         {
+          href: '/guides/spellcheck',
+          title: 'Spellcheck',
+        },
+        {
           href: '/guides/react-composable-api',
           title: 'React Composable API',
         },
