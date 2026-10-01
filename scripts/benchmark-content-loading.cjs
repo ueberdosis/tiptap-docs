@@ -39,7 +39,9 @@ function snapshot() {
 }
 
 async function request(route) {
-  const response = await fetch(`${base}${route}`)
+  const response = await fetch(`${base}${route}`, {
+    signal: AbortSignal.timeout(10_000),
+  })
   assert.equal(response.status, 200, route)
   const html = await response.text()
   assert.ok(!html.includes('allMeta'), `Whole metadata tree sent for ${route}`)
