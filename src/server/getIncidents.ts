@@ -1,8 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import fm from 'front-matter'
 import { cache } from 'react'
-import { IncidentData, PageFrontmatter } from '@/types'
+import { readFrontmatter } from './readFrontmatter'
+import type { IncidentData } from '@/types'
 
 // Helper function to safely parse dates
 function parseDateSafely(dateString: string): Date | null {
@@ -28,8 +28,7 @@ export const getIncidents = cache(async (): Promise<IncidentData[]> => {
     for (const file of files) {
       if (file.endsWith('.mdx')) {
         const filePath = path.join(incidentsDir, file)
-        const fileContent = fs.readFileSync(filePath, 'utf8')
-        const { attributes } = fm<PageFrontmatter>(fileContent)
+        const attributes = await readFrontmatter(filePath)
 
         const slug = file.replace('.mdx', '')
         const url = `/resources/incidents/${slug}`

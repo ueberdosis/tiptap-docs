@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { PageHeader } from '@/components/PageHeader'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
@@ -10,12 +11,16 @@ import { PageFrontmatter } from '@/types'
 import { FULL_DOMAIN } from '@/utils/constants'
 import { AskAi } from '@/components/AskAi'
 
-export async function generateMetadata() {
-  // @ts-ignore
-  const pageMdx = (await import(`@/content/index.mdx`)) as {
+const loadHomeMdx = cache(async () => {
+  const pageMdx = (await import('@/content/index.mdx')) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
   }
+  return { ...pageMdx, schemaDate: new Date().toISOString() }
+})
+
+export async function generateMetadata() {
+  const pageMdx = await loadHomeMdx()
 
   const canonicalUrl = createCanonicalUrl([])
 
@@ -28,10 +33,7 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const pageMdx = (await import(`@/content/index.mdx`)) as {
-    default: () => JSX.Element
-    frontmatter?: PageFrontmatter
-  }
+  const pageMdx = await loadHomeMdx()
   const sidebar = await importSidebarConfigFromMarkdownPath([])
 
   const techArticleSchema = {
@@ -40,8 +42,8 @@ export default async function HomePage() {
     headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     url: FULL_DOMAIN,
-    datePublished: new Date(Date.now()).toISOString(),
-    dateModified: new Date(Date.now()).toISOString(),
+    datePublished: pageMdx.schemaDate,
+    dateModified: pageMdx.schemaDate,
     publisher: {
       '@type': 'Organization',
       name: 'Tiptap',
@@ -59,17 +61,14 @@ export default async function HomePage() {
       <Layout.Header config={sidebar.sidebarConfig} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
-        <Layout.Content>
+        <Layout.Content contentPath="index.mdx">
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <CopyMarkdownButton
-                      title={pageMdx.frontmatter?.title}
-                      content={pageMdx.default()}
-                    />
+                    <CopyMarkdownButton title={pageMdx.frontmatter?.title} />
                     <AskAi />
                   </div>
                 </div>

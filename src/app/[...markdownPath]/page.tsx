@@ -38,12 +38,13 @@ const loadPageMdx = cache(async (markdownPath: string) => {
     return null
   }
 
-  const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
+  const contentPath = hasDirectMdx ? directPath : indexPath
+  const pageMdx = (await import(`@/content/${contentPath}`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
   }
 
-  return pageMdx
+  return { ...pageMdx, contentPath, schemaDate: new Date().toISOString() }
 })
 
 export async function generateMetadata({ params }: Props) {
@@ -81,8 +82,8 @@ export default async function MarkdownPage({ params }: Props) {
     headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     url: canonicalUrl,
-    datePublished: new Date(Date.now()).toISOString(),
-    dateModified: new Date(Date.now()).toISOString(),
+    datePublished: pageMdx.schemaDate,
+    dateModified: pageMdx.schemaDate,
     publisher: {
       '@type': 'Organization',
       name: 'Tiptap',
@@ -100,17 +101,14 @@ export default async function MarkdownPage({ params }: Props) {
       <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
-        <Layout.Content>
+        <Layout.Content contentPath={pageMdx.contentPath}>
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <CopyMarkdownButton
-                      title={pageMdx.frontmatter?.title}
-                      content={pageMdx.default()}
-                    />
+                    <CopyMarkdownButton title={pageMdx.frontmatter?.title} />
                     <AskAi />
                   </div>
                 </div>
