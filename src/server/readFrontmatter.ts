@@ -30,6 +30,13 @@ export async function readFrontmatter(filePath: string): Promise<PageFrontmatter
         return frontmatter<PageFrontmatter>(completeLines).attributes
       }
       if (totalBytes >= 65_536) {
+        const { size } = await file.stat()
+        if (size === totalBytes) {
+          const completeHeader = header + decoder.end()
+          if (frontmatter.test(completeHeader)) {
+            return frontmatter<PageFrontmatter>(completeHeader).attributes
+          }
+        }
         throw new Error(`Frontmatter exceeds 64 KiB in ${filePath}`)
       }
     }

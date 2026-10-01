@@ -164,6 +164,34 @@ test('header reader matches YAML parsing across chunk and UTF-8 boundaries', asy
   })
 })
 
+test('a closing delimiter at EOF is accepted exactly at the header limit', async () => {
+  const prefix = '---\ntitle: Boundary\n#'
+  const ending = '\n---'
+  const content = `${prefix}${'x'.repeat(65_536 - Buffer.byteLength(prefix + ending))}${ending}`
+  assert.equal(Buffer.byteLength(content), 65_536)
+
+  await withCatalog({ 'boundary.mdx': content }, async (catalog) => {
+    const { result, bytes } = await measureReads(catalog, () =>
+      readFrontmatter(path.join(catalog, 'boundary.mdx')),
+    )
+    assert.deepEqual(result, { title: 'Boundary' })
+    assert.equal(bytes, 65_536)
+  })
+})
+
+test('a delimiter prefix at the limit is rejected when the file continues', async () => {
+  const prefix = '---\ntitle: Boundary\n#'
+  const ending = '\n---'
+  const content = `${prefix}${'x'.repeat(65_536 - Buffer.byteLength(prefix + ending))}${ending}not-a-delimiter: value\n---`
+
+  await withCatalog({ 'continued.mdx': content }, async (catalog) => {
+    const { bytes } = await measureReads(catalog, () =>
+      assert.rejects(readFrontmatter(path.join(catalog, 'continued.mdx')), /exceeds 64 KiB/),
+    )
+    assert.equal(bytes, 65_536)
+  })
+})
+
 test('header reader releases file handles when YAML parsing fails', async () => {
   await withCatalog({ 'bad.mdx': '---\ntitle: [unterminated\n---\nBody' }, async (catalog) => {
     const open = fsp.open
