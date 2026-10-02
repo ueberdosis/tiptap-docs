@@ -28,6 +28,7 @@ Slot.configure({ validators: { registeredPerson } })
 - `crossFieldValidators` (`Record<string, CrossFieldValidator>`): Named cross-field validators. Default: `{}`; referenced validators are unavailable until registered.
 - `getValidationContext` (`() => unknown`): Captures application data once per validation request. Default: returns `undefined`.
 - `shortcuts` (`false | SlotShortcuts`): Typed delimiters. Default: `false`; no input conversion.
+- `resolveInputRuleSlot` (`SlotInputRuleResolver`): Resolves a matched shortcut before insertion. Default: returns `undefined`, preserving captured content and shortcut configuration. See [resolving input rules](#resolveinputruleslot).
 - `onSlotsUpdate` (`(event: SlotsUpdateEvent) => void`): `slotsUpdate` listener. Default: no-op.
 - `onActiveSlotChange` (`(event: ActiveSlotChangeEvent) => void`): `activeSlotChange` listener. Default: no-op.
 - `onValidationUpdate` (`(event: SlotValidationUpdateEvent) => void`): `slotValidationUpdate` listener. Default: no-op.
@@ -84,7 +85,59 @@ Inside an inline Slot, Backspace and Delete remove whole graphemes, including em
 - `close` (`string`): Nonempty closing delimiter, distinct from `open`.
 - `config?` (`SlotConfig`): Configuration for new Slots. Default: `{}`.
 
-Opening delimiters must not overlap by prefix. Text between delimiters becomes content, not an ID or configuration name. Refused conversion leaves the literal text; pasted text is not converted.
+Opening delimiters must not overlap by prefix. By default, content between delimiters becomes the Slot's content, preserving text Marks. Refused conversion leaves the literal text; pasted text is not converted. Shortcuts spanning inline atoms, such as mentions or Variables, are skipped by Tiptap's input-rule runner; the resolver is not called for those matches.
+
+## `resolveInputRuleSlot`
+
+Use this synchronous callback to choose the Slot's ID, configuration and initial content from the captured input and current application context. It runs before insertion, not as a notification that a Slot was created. It is used only by the configured input rules; ordinary `insertSlot` and `wrapInSlot` calls do not invoke it.
+
+```ts
+Slot.configure({
+  shortcuts: { inline: { open: '{{', close: '}}' } },
+  resolveInputRuleSlot({ kind, text, defaults }) {
+    if (kind !== 'inline' || text.trim() !== 'customer-name') {
+      return undefined
+    }
+
+    return {
+      config: {
+        ...defaults.config,
+        label: 'Customer name',
+        placeholder: 'Enter the customer’s name',
+        required: true,
+      },
+      content: [],
+    }
+  },
+})
+```
+
+Typing `{{customer-name}}` creates an empty required field with a generated ID. Other matched text uses the normal conversion. The callback can also read application data through its closure, for example to select a preset or decline creation for the current actor.
+
+### Parameters (`SlotInputRuleContext`)
+
+- `editor` (`Editor`): Inspect the current Document, Schema and extension storage. Do not dispatch Commands from the callback.
+- `kind` (`'inline' | 'block'`): Kind selected by the shortcut. The callback cannot change it.
+- `content` (`JSONContent[]`): Captured inline content without delimiters, preserving text Marks. This is the structured value to use when retaining formatting. Atom-spanning matches remain unsupported.
+- `text` (`string`): Complete captured text without delimiters or automatic trimming. Convenient for matching names such as `customer-name`.
+- `delimiters` (`{ open: string; close: string }`): Matched delimiter pair.
+- `range` (`{ from: number; to: number }`): Range replaced in the current Document. Block conversion replaces the whole textblock. Pending input may not yet be in that Document; `content` and `text` include the complete capture.
+- `defaults` (`{ config: SlotConfig; content: JSONContent[] }`): Shortcut configuration, or `{}`, and ready-to-insert content. For block Slots the captured inline content is wrapped in a paragraph.
+
+The JSON inputs are immutable snapshots. Return new objects rather than modifying them. The callback must be synchronous and must not write to the editor.
+
+### Return value (`SlotInputRuleResult | false | undefined`)
+
+- `undefined`: Use the defaults.
+- `false`: Leave the complete literal input, including delimiters. This is an intentional decline and emits no rejection event.
+- An object with any of the following overrides:
+  - `id?` (`string`): Explicit unique, nonempty ID. Omitted: use `generateId`.
+  - `config?` (`SlotConfig`): Replaces the default configuration as a whole. Spread `defaults.config` to merge explicitly.
+  - `content?` (`JSONContent[]`): Replaces the initial content and may include any Nodes and Marks valid for the Slot's Schema. Omitted: keep `defaults.content`, even if the returned configuration has `defaultContent`. `[]` creates an empty inline Slot or a block Slot containing an empty paragraph.
+
+The result cannot change the kind or insertion position. Slot insertion still goes through `insertSlot`, including ID, Schema and Content Protection checks. Validation constraints remain non-blocking, as with ordinary insertion.
+
+Thrown callback errors, promises and malformed results refuse conversion and emit `slotCommandRejected` with `command: 'insertSlot'` and `code: 'invalidInput'`. Insertion refusals use their existing codes, such as `schemaMismatch` or `protected`. No partial Slot is inserted. Input-rule undo remains available.
 
 ## Storage (`SlotStorage`)
 
