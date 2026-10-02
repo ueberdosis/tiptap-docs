@@ -44,7 +44,32 @@ One selector and the permissions it grants or denies.
 
 ## `ProtectionSelector`
 
-A union discriminated by `target`. Use `node` for Node targets and `mark` for Mark targets.
+Select one aspect with a string `target`, or several aspects with a nonempty target array. Use `node` for Node targets and `mark` for Mark targets. `SingleProtectionSelector` is the string-target form of this type.
+
+### Multiple targets
+
+Combine aspects of the same matched Nodes or Marks when they share permissions:
+
+```ts
+const rule = {
+  selector: {
+    target: ['nodeType', 'attribute'],
+    node: { types: ['heading'] },
+    names: ['level'],
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects heading structure and levels while leaving text editable. It behaves like separate `nodeType` and `attribute` rules with the same permissions and priority.
+
+- Combine Node targets (`node`, `nodeType`, `nodeContent`, `children`, `attribute`) with `node`, or Mark targets (`mark`, `markType`, `markContent`, `markAttribute`) with `mark`. Mixing the two categories is invalid.
+- The rule participates when any selected aspect applies. All aspects share its ID, reason and priority. Matching multiple aspects does not increase priority or repeat the rule in diagnostic metadata. Repeated targets have no additional effect.
+- `names` is only valid when selecting `attribute` or `markAttribute`, and applies only to that aspect. For Node attributes, omission selects all attributes. Mark attributes require `names`. An empty `names` array selects no attributes; the other targets still apply.
+- If any target is `children`, the rule supports only `edit`. Either value of `read` is invalid.
+- Empty target arrays are invalid. Existing string targets and policy version `1` remain supported.
+
+Ancestor conditions in `within` apply to every selected aspect. They only locate matching Nodes or Marks; they do not protect the ancestors. See [nested ancestor matching](#nested-ancestor-matching).
 
 ### `target: 'node'`
 
@@ -155,6 +180,32 @@ Matches Nodes in the document, independent of DOM structure or CSS.
 
 `{}` matches every Node. Select the root with its schema name, usually `doc`; `nodeContent` on the root covers the entire document.
 
+### Nested ancestor matching
+
+```ts
+const rule = {
+  selector: {
+    target: ['nodeType', 'attribute'],
+    node: {
+      types: ['heading'],
+      within: {
+        types: ['blockquote'],
+        within: {
+          types: ['blockSlot'],
+          attributes: [{ name: 'id', operator: 'eq', value: 'legal-notice' }],
+        },
+      },
+    },
+    names: ['level'],
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects heading structure and levels when the heading is inside a blockquote that is inside the `legal-notice` Slot. Text remains editable. Each `within` requires an ancestor at any depth, not necessarily the immediate parent, and the conditions must form that ancestry chain.
+
+The blockquote and Slot are matching conditions, not additional protection targets. `within` accepts only matcher properties; putting `target` or `permissions` inside it is invalid. Use separate rules to protect the ancestors themselves.
+
 ### Target an individual Node with UniqueID
 
 Configure [UniqueID](/editor/extensions/functionality/uniqueid) for the relevant Node types:
@@ -254,9 +305,11 @@ Standalone utilities also accept policy JSON directly and validate it against th
 Invalid policies include:
 
 - Unsupported versions, unknown properties, targets or operators.
+- Empty target arrays, mixed Node/Mark targets, or `names` without an attribute target.
+- Missing `names` when any target is `markAttribute`.
 - Empty permissions, duplicate or empty IDs, non-integer priorities.
 - Invalid JSON values or explicitly named types/attributes absent from the schema.
-- `read` on `children`.
+- `read` on `children`, including when combined with other targets.
 
 ## How edits are checked
 
