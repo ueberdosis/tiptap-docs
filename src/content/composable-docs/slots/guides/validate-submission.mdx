@@ -1,0 +1,88 @@
+---
+title: Validate Slot values
+meta:
+  description: Check Slot values with built-in and custom rules when your application needs them.
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Slots can include rules to describe what content is valid.
+
+<CodeDemo isPro path="/Examples/SlotValidation" />
+
+Call `validateEditorSlots` when your application needs to check the content, for example before saving or submitting a form. Submission is an application action, not a built-in Slot event.
+
+Validation reads a snapshot and returns findings; it does not resolve or rewrite Slot values. Built-in checks and registered async validators run only when you call the validation API. Editing invalidates previous results and cancels a pending editor validation run, but does not automatically start another run.
+
+For validation while typing, register an editor `update` listener and debounce calls to `validateEditorSlots`. Handle cancelled runs, display only current results, and remove the listener and pending timer when your UI unmounts. Automatic scheduling belongs to the host; there is no built-in auto-validation option.
+
+```ts
+import { isSlotValidationCurrent, validateEditorSlots } from '@tiptap-pro/extension-slot'
+
+try {
+  const result = await validateEditorSlots({ editor })
+  if (!isSlotValidationCurrent({ editor, result })) {
+    showMessage('The document changed. Please submit again to validate the latest values.')
+  } else if (result.valid) {
+    save(editor.getJSON())
+  } else {
+    showIssues(result.issues)
+  }
+} catch (error) {
+  if (error instanceof Error && error.name === 'AbortError') {
+    showMessage('Validation was cancelled. Please submit again.')
+  } else {
+    throw error
+  }
+}
+```
+
+`isSlotValidationCurrent` checks that the result still matches the editor's current document and validation settings.
+
+Define requiredness, length, content types and patterns in `attrs.config`:
+
+```ts
+const config = {
+  required: true,
+  constraints: {
+    pattern: { source: '^ORD-\\d{4}$', message: 'Use ORD-0000' },
+  },
+}
+
+editor.commands.insertSlot({ config })
+```
+
+For application-specific checks, persist a validator name and register its implementation:
+
+```ts
+Slot.configure({
+  validators: {
+    registeredPerson: async ({ slot, signal }) => {
+      const found = await directory.find(slot.text, { signal })
+      return found
+        ? []
+        : [
+            {
+              code: 'custom.person',
+              message: 'Choose a registered person.',
+            },
+          ]
+    },
+  },
+})
+
+// When the slot is created, include the custom validator
+editor.commands.insertSlot({
+  config: {
+    validators: [{ name: 'registeredPerson' }],
+  },
+})
+```
+
+Validation can be async, so an AbortSignal (the `signal` field) is passed to cancel the validation process if the document is edited during validation.
+
+For checks that involve multiple fields, add a `crossFieldRules` entry to an owning Slot and register a `crossFieldValidators` function. [Learn more in the API Reference](/composable-docs/slots/api-reference/validation#crossfieldvalidator).
+
+If some validators are missing or failed, `validateEditorSlots` returns `status: 'unavailable'`.
+
+See [the API Reference](/composable-docs/slots/api-reference/validation#slotvalidator) for more info on validation.

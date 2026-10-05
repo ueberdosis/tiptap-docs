@@ -1,0 +1,320 @@
+---
+title: Policy language
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Policy language | Tiptap Content Protection Docs
+  description: Policy types, selectors, permissions and rule precedence.
+  category: Composable Docs
+---
+
+A policy is a JSON object defining read and edit permissions. All content is allowed unless a matching rule denies access.
+
+## `ContentProtectionPolicy`
+
+### Properties
+
+- `version` (`1`): Policy format version. Only `1` is supported.
+- `rules` (`ProtectionRule[]`): Permission rules. An empty array allows all reads and edits.
+
+```ts
+const policy: ContentProtectionPolicy = {
+  version: 1,
+  rules: [
+    {
+      selector: { target: 'node', node: { types: ['heading'] } },
+      permissions: { edit: false },
+    },
+  ],
+}
+```
+
+## `ProtectionRule`
+
+One selector and the permissions it grants or denies.
+
+### Properties
+
+- `id?` (`string`): Optional diagnostic identifier. Must be nonempty and unique within the policy. Anonymous rules are identified by their array index.
+- `selector` (`ProtectionSelector`): What the rule applies to.
+- `permissions` (`{ read?: boolean; edit?: boolean }`): At least one permission. `true` allows; `false` denies. Rules with omitted permissions have no effect and are ignored.
+- `priority?` (`number`): Integer precedence. Omitted: `0`. Higher values win; negative values are allowed. At equal priority, a denial wins over an allowance, regardless of rule order. This also applies when both rules omit `priority`.
+- `reason?` (`string`): Plain-text explanation returned in diagnostics. Does not affect permissions. Must not contain hidden content.
+
+## `ProtectionSelector`
+
+Select one aspect with a string `target`, or several aspects with a nonempty target array. Use `node` for Node targets and `mark` for Mark targets. `SingleProtectionSelector` is the string-target form of this type.
+
+### Multiple targets
+
+Combine aspects of the same matched Nodes or Marks when they share permissions:
+
+```ts
+const rule = {
+  selector: {
+    target: ['nodeType', 'attribute'],
+    node: { types: ['heading'] },
+    names: ['level'],
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects heading structure and levels while leaving text editable. It behaves like separate `nodeType` and `attribute` rules with the same permissions and priority.
+
+- Combine Node targets (`node`, `nodeType`, `nodeContent`, `children`, `attribute`) with `node`, or Mark targets (`mark`, `markType`, `markContent`, `markAttribute`) with `mark`. Mixing the two categories is invalid.
+- The rule participates when any selected aspect applies. All aspects share its ID, reason and priority. Matching multiple aspects does not increase priority or repeat the rule in diagnostic metadata. Repeated targets have no additional effect.
+- `names` is only valid when selecting `attribute` or `markAttribute`, and applies only to that aspect. For Node attributes, omission selects all attributes. Mark attributes require `names`. An empty `names` array selects no attributes; the other targets still apply.
+- If any target is `children`, the rule supports only `edit`. Either value of `read` is invalid.
+- Empty target arrays are invalid. Existing string targets and policy version `1` remain supported.
+
+Ancestor conditions in `within` apply to every selected aspect. They only locate matching Nodes or Marks; they do not protect the ancestors. See [nested ancestor matching](#nested-ancestor-matching).
+
+### `target: 'node'`
+
+- `node` (`NodeMatch`): Nodes to match.
+- `edit: false`: Protects the Node's existence, type, attributes and entire content, including descendants and Marks.
+- `read: false`: Conceals the Node and its subtree.
+
+Use this to lock a whole Node. Changing its type or a matching attribute cannot unlock it. Higher-priority rules can allow specific edits inside it.
+
+### `target: 'nodeType'`
+
+- `node` (`NodeMatch`): Nodes to match.
+- `edit: false`: Prevents inserting, removing, retyping, splitting, joining or moving the Node.
+- `read: false`: Conceals the Node and its subtree.
+
+With edit-only protection, content and attributes remain editable. Redacted Nodes are entirely non-editable. Position shifts caused by earlier edits are not moves.
+
+### `target: 'nodeContent'`
+
+- `node` (`NodeMatch`): Nodes whose contents are governed.
+- `edit: false`: Prevents changes to text, descendant Nodes, descendant attributes and Marks.
+- `read: false`: Conceals the Node's children.
+
+With edit-only protection, the owner's type, attributes and existence are not protected. Changing its type or a matching attribute can allow later edits. Use `node` to protect the whole Node, or add `nodeType` and appropriate `attribute` rules. Deleting an owner with protected contents still requires permission to delete those contents.
+
+With `read: false`, the owner is also non-editable: its type, attributes and existence cannot be changed, even when its content is empty. This prevents changing the owner to reveal redacted content.
+
+### Nested content rules
+
+Content rules apply recursively, including nested Slots. Separate rules may grant or deny **edit access** inside a subtree when they have higher priority than the ancestor's edit rule. Match the nested region using `within` or attributes. Selector depth does not affect precedence, and an overriding edit rule also applies to its descendants.
+
+This does not override read restrictions: content inside a redacted ancestor remains redacted and cannot be edited. See [read restrictions](#read-restrictions).
+
+```ts
+const rules = [
+  {
+    selector: { target: 'nodeContent', node: { types: ['blockquote'] } },
+    permissions: { edit: false },
+  },
+  {
+    selector: {
+      target: 'nodeContent',
+      node: { types: ['paragraph'], within: { types: ['blockquote'] } },
+    },
+    permissions: { edit: true },
+    priority: 10,
+  },
+] satisfies ProtectionRule[]
+```
+
+Allows editing paragraph text and formatting inside protected blockquotes. Other blockquote content remains protected. The allow rule needs a higher priority than the deny rule's default of `0`.
+
+### `target: 'children'`
+
+- `node` (`NodeMatch`): Parent Nodes to match.
+- `edit: false`: Preserves the ordered sequence of direct non-text children while the parent survives.
+- `read`: Not supported; use `nodeContent` instead.
+
+Text and formatting inside children remain editable. Use `nodeType` to protect the parent's existence without freezing its content. This target supports fixed table columns with editable cells and removable body rows.
+
+### `target: 'attribute'`
+
+- `node` (`NodeMatch`): Nodes to match.
+- `names?` (`string[]`): Attributes to govern. Omitted: all attributes. `[]`: none.
+- `edit: false`: Prevents changes to the selected attributes.
+- `read: false`: Conceals the entire owning Node and its subtree.
+
+### `target: 'mark'`
+
+- `mark` (`MarkMatch`): Marks to match.
+- `edit: false`: Protects the Mark's presence, type, attributes and marked content, including other formatting.
+- `read: false`: Conceals the marked content.
+
+Use this to lock a marked passage and its metadata.
+
+### `target: 'markType'`
+
+- `mark` (`MarkMatch`): Marks to match.
+- `edit: false`: Prevents adding, removing or replacing the Mark with another type.
+- `read: false`: Conceals the marked content.
+
+Wording, Mark attributes and other formatting remain editable. Deleting the last content carrying the Mark removes it and requires permission. Use `markAttribute` to also protect metadata while allowing wording changes.
+
+### `target: 'markContent'`
+
+- `mark` (`MarkMatch`): Marks identifying protected content.
+- `edit: false`: Prevents changes to the marked content, including its Marks and descendant content.
+- `read: false`: Conceals the marked content.
+
+Removing or changing the selecting Mark is also governed by this rule. For edit protection, `markContent` and `mark` cover the same marked range. A higher-priority `markType` rule can allow removing the Mark; edit the newly unlocked content in a separate transaction.
+
+### `target: 'markAttribute'`
+
+- `mark` (`MarkMatch`): Marks to match.
+- `names` (`string[]`): Attributes to govern. Required; `[]` selects none.
+- `edit: false`: Prevents changes to the selected Mark attributes.
+- `read: false`: Conceals the marked content.
+
+## `NodeMatch`
+
+Matches Nodes in the document, independent of DOM structure or CSS.
+
+### Properties
+
+- `types?` (`string[]`): Exact, case-sensitive schema names. Omitted: all Node types. `[]`: none. Entries are combined with OR.
+- `attributes?` (`AttributePredicate[]`): Attribute tests combined with AND. Omitted or `[]`: no attribute restriction.
+- `within?` (`NodeMatch`): Requires a matching strict ancestor. Nested `within` values express further ancestors.
+
+`{}` matches every Node. Select the root with its schema name, usually `doc`; `nodeContent` on the root covers the entire document.
+
+### Nested ancestor matching
+
+```ts
+const rule = {
+  selector: {
+    target: ['nodeType', 'attribute'],
+    node: {
+      types: ['heading'],
+      within: {
+        types: ['blockquote'],
+        within: {
+          types: ['blockSlot'],
+          attributes: [{ name: 'id', operator: 'eq', value: 'legal-notice' }],
+        },
+      },
+    },
+    names: ['level'],
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects heading structure and levels when the heading is inside a blockquote that is inside the `legal-notice` Slot. Text remains editable. Each `within` requires an ancestor at any depth, not necessarily the immediate parent, and the conditions must form that ancestry chain.
+
+The blockquote and Slot are matching conditions, not additional protection targets. `within` accepts only matcher properties; putting `target` or `permissions` inside it is invalid. Use separate rules to protect the ancestors themselves.
+
+### Target an individual Node with UniqueID
+
+Configure [UniqueID](/editor/extensions/functionality/uniqueid) for the relevant Node types:
+
+```ts
+import { UniqueID } from '@tiptap/extension-unique-id'
+
+UniqueID.configure({ types: ['paragraph'] })
+```
+
+Match the Node's stored `id` attribute. Replace `'paragraph-id'` with an ID from your document:
+
+```ts
+const rule = {
+  selector: {
+    target: 'nodeContent',
+    node: {
+      types: ['paragraph'],
+      attributes: [{ name: 'id', operator: 'eq', value: 'paragraph-id' }],
+    },
+  },
+  permissions: { edit: false },
+} satisfies ProtectionRule
+```
+
+Protects that paragraph's contents. Use `target: 'node'` instead to also protect its type, existence and attributes, including its ID. If UniqueID uses a custom `attributeName`, use that name in the predicate instead of `id`.
+
+## `MarkMatch`
+
+Matches Marks on inline Nodes.
+
+### Properties
+
+- `types?` (`string[]`): Exact, case-sensitive Mark names. Omitted: all Mark types. `[]`: none. Entries are combined with OR.
+- `attributes?` (`AttributePredicate[]`): Attribute tests combined with AND. Omitted or `[]`: no attribute restriction.
+- `within?` (`NodeMatch`): Requires a matching ancestor of the marked inline Node.
+
+Different Mark types are evaluated independently, including where they overlap.
+
+## `AttributePredicate`
+
+These predicates are specific to Content Protection; they do not implement an external query standard. `operator` selects one of the tests below. Attribute names refer to whole attributes; dotted paths are not supported.
+
+Attribute values must be JSON: strings, finite numbers, booleans, `null`, or arrays and plain objects containing these values. The TypeScript API calls this type `JsonValue`.
+
+### `operator: 'exists'`
+
+- `name` (`string`): Attribute whose key must exist. A value of `null` still counts as present.
+
+### `operator: 'eq'`
+
+- `name` (`string`): Attribute to compare.
+- `value` (`JsonValue`): Required value. Uses structural equality without coercion; object-key order is ignored and array order is preserved.
+
+### `operator: 'in'`
+
+- `name` (`string`): Attribute to compare.
+- `values` (`JsonValue[]`): Accepted values, compared using `eq`. `[]` matches nothing.
+
+Schema defaults count as attribute values. A missing attribute differs from an attribute with value `null`.
+
+## Rule precedence
+
+Resolve `read` and `edit` independently for each affected operation:
+
+1. Select matching rules that state the permission.
+2. If none match, allow.
+3. Treat omitted priorities as `0`, then keep only rules with the highest `priority`.
+4. At that priority, deny if any rule denies; otherwise allow. Two rules without a priority therefore resolve a conflict by denying.
+
+List order and selector specificity do not affect permission. A transaction is allowed only when every affected operation is allowed.
+
+| Matching rules                                          | Result                           |
+| ------------------------------------------------------- | -------------------------------- |
+| Content deny at `0`; content allow at `10`              | Allow within the allowed region. |
+| Allow and deny at `10`                                  | Deny.                            |
+| Attribute deny at `20`; enclosing content allow at `10` | Deny the attribute change.       |
+| Read allow at `50`; edit deny at `0`                    | Readable, not editable.          |
+
+## Read restrictions
+
+- Read rules resolve by priority on each selected target. A read-denied target then redacts its entire subtree.
+- A separate `read: true` rule on a child does not reveal it, even with higher priority than the ancestor's read denial.
+- To reveal a child, narrow the ancestor's deny or use a higher-priority read allowance targeting that ancestor itself.
+- Redacted Nodes are non-editable, including their type, attributes, existence and content. You do not need an additional `edit: false` rule. Retyping, deleting or changing a matching attribute cannot reveal or remove redacted content.
+- Redacted marked content cannot be changed or have its selecting Mark removed. An edit allowance cannot override a read denial, regardless of priority.
+- Denying an attribute conceals its owner; it does not selectively sanitize a NodeView.
+
+See [Redacted content](/composable-docs/content-protection/api-reference/rendering) for rendering, clipboard and export behavior.
+
+## Validation
+
+Pass the policy directly to `ContentProtection.configure({ policy })` or `setContentProtectionPolicy({ policy })`. The extension validates it automatically and stores an immutable copy.
+
+Standalone utilities also accept policy JSON directly and validate it against the document or transaction's schema. Use [`validateContentProtectionPolicy`](/composable-docs/content-protection/api-reference/utilities#validatecontentprotectionpolicy) to check a policy without applying it.
+
+Invalid policies include:
+
+- Unsupported versions, unknown properties, targets or operators.
+- Empty target arrays, mixed Node/Mark targets, or `names` without an attribute target.
+- Missing `names` when any target is `markAttribute`.
+- Empty permissions, duplicate or empty IDs, non-integer priorities.
+- Invalid JSON values or explicitly named types/attributes absent from the schema.
+- `read` on `children`, including when combined with other targets.
+
+## How edits are checked
+
+Local changes are checked when typing, pasting content, running editor commands (including `setContent`) and using local undo/redo. [Tiptap Collaboration updates](/composable-docs/content-protection/getting-started/overview#collaboration), including initial synchronization and collaborative undo/redo, bypass local permission checks so collaborators with different policies stay synchronized.
+
+If any part of a transaction makes a forbidden change, the entire transaction is rejected. For example, pasting over both editable and protected text leaves the document unchanged.
+
+For Slot-only editing, use [`createSlotFillingPolicy`](/composable-docs/slots/api-reference/utilities#createslotfillingpolicy). It produces ordinary rules in this policy language.

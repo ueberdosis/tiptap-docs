@@ -19,6 +19,7 @@ const options = [
       },
       { label: 'Comments', href: '/comments/getting-started/overview' },
       { label: 'Compare', href: '/compare/getting-started/overview' },
+      { label: 'Composable Docs', href: '/composable-docs/slots/getting-started/overview' },
       {
         label: 'Tracked Changes',
         href: '/tracked-changes/getting-started/overview',
