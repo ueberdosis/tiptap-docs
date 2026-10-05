@@ -21,6 +21,10 @@ export const sidebarConfig: SidebarConfig = {
             },
             { title: 'Allow filling only', href: '/composable-docs/slots/guides/fill-only' },
             {
+              title: 'Bind slots to variables',
+              href: '/composable-docs/slots/guides/bind-variables',
+            },
+            {
               title: 'Validate Slot values',
               href: '/composable-docs/slots/guides/validate-submission',
             },
@@ -53,6 +57,16 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Editor events', href: '/composable-docs/slots/api-reference/events' },
           ],
         },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Variables',
+      href: '/composable-docs/variables',
+      children: [
+        { title: 'Overview', href: '/composable-docs/variables/getting-started/overview' },
+        { title: 'API reference', href: '/composable-docs/variables/api-reference/extension' },
+        { title: 'Slot bindings', href: '/composable-docs/slots/guides/bind-variables' },
       ],
     },
     {
