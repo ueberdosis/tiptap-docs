@@ -10,19 +10,26 @@ meta:
 ---
 
 import { Callout } from '@/components/ui/Callout'
+import { CodeDemo } from '@/components/CodeDemo'
 
-**Variables** display dynamic values inside your editor. Define a value, or a function that calculates it, and insert a reference wherever you want to display it.
+**Variables** let you display values, such as a customer name or a calculated total, in your editor. When a value changes, every reference to it updates automatically.
 
-The value is not editable as normal text. Update it through a command, refresh its resolver after an application event, or [bind it to an editable slot](/composable-docs/slots/guides/bind-variables).
+The document stores a reference to the variable, while your application manages its value.
 
-<Callout title="Client-side alpha" variant="info">
-  Variables run inside each editor instance. This alpha does not provide a server API or synchronize
-  runtime values between clients.
+<CodeDemo isPro path="/Extensions/Variable" />
+
+<Callout title="Client-side only" variant="info">
+  Variables run inside each editor instance. They do not provide a server API or synchronize runtime
+  values between clients.
 </Callout>
 
 ## Install
 
-First, [contact our team](https://tiptap.dev/contact-sales?form=pilot-program) to join the Tiptap Composable Docs pilot program and follow the [private registry guide](/guides/pro-extensions).
+First, [contact our team](https://tiptap.dev/contact-sales?form=pilot-program) to join the Tiptap Composable Docs pilot program.
+
+Then, configure your package manager by following the [private registry guide](/guides/pro-extensions).
+
+Then, install the package:
 
 ```bash
 npm install @tiptap/core @tiptap/starter-kit @tiptap-pro/extension-variable
@@ -30,97 +37,121 @@ npm install @tiptap/core @tiptap/starter-kit @tiptap-pro/extension-variable
 
 ## Define and display a variable
 
+First, import the editor and extensions:
+
 ```ts
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Variable } from '@tiptap-pro/extension-variable'
-
-const editor = new Editor({
-  extensions: [
-    StarterKit,
-    Variable.configure({
-      variables: {
-        customer: 'Ada',
-        greeting: ({ get }) => `Hello, ${get('customer')}!`,
-      },
-    }),
-  ],
-  content: {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: [{ type: 'variable', attrs: { name: 'greeting' } }],
-      },
-    ],
-  },
-})
-
-editor.commands.setVariable({ name: 'customer', value: 'Grace' })
-// The editor now displays "Hello, Grace!".
 ```
 
-You can also insert a reference at the current selection:
+Define a variable called `customer` and add the extension to your editor:
+
+```ts
+const variable = Variable.configure({
+  variables: { customer: 'Ada' },
+})
+
+const editor = new Editor({
+  extensions: [StarterKit, variable],
+  content: '<p></p>',
+})
+```
+
+Insert a reference at the current selection. It displays **Ada**:
 
 ```ts
 editor.commands.insertVariable({ name: 'customer' })
 ```
 
+Update the value. Every reference to `customer` now displays **Grace**:
+
+```ts
+editor.commands.setVariable({ name: 'customer', value: 'Grace' })
+```
+
 ## Values and resolvers
 
-A variable holds a string, finite number, boolean, or `null`. A resolver is a synchronous function that returns one of those values. Use `get(name)` inside the resolver to read another variable. Reads register dependencies automatically, including reads made only in one branch of a conditional.
+Define values directly or calculate them with a function, called a **resolver**. Use `get()` to read another variable. Replace the earlier `variable` configuration with this one:
 
-When you set a variable or refresh a resolver, its dependents are recalculated synchronously. Unrelated resolvers keep their cached values. Circular dependencies, unknown variable reads, promises, and other unsupported return values are rejected.
+```ts
+const variable = Variable.configure({
+  variables: {
+    customer: 'Ada',
+    quantity: 3,
+    greeting: ({ get }) => `Hello, ${String(get('customer'))}!`,
+  },
+})
+```
 
-## Refresh after an application event
+With this configuration, changing `customer` also updates `greeting`:
 
-Changing an external object does not automatically call a resolver. Refresh the affected variables from your application's event listener:
+```ts
+editor.commands.setVariable({ name: 'customer', value: 'Grace' })
+// greeting becomes "Hello, Grace!"
+```
+
+Values can also be objects or arrays. Objects that are not Tiptap content display as JSON:
+
+```ts
+editor.commands.setVariable({
+  name: 'customer',
+  value: { name: 'Ada', company: 'Acme' },
+})
+```
+
+Use Tiptap JSON to display formatted content:
+
+```ts
+editor.commands.setVariable({
+  name: 'customer',
+  value: { type: 'text', text: 'Ada', marks: [{ type: 'bold' }] },
+})
+```
+
+## Connect variable values to external sources
+
+A resolver can read data from your application. Create a customer object, a resolver that reads its name, and an editor that displays it:
 
 ```ts
 let customer = { name: 'Ada' }
-const events = new EventTarget()
 
-const variable = Variable.configure({
+const customerVariable = Variable.configure({
   variables: {
     customer: () => customer.name,
-    greeting: ({ get }) => `Hello, ${get('customer')}!`,
   },
 })
 
 const refreshEditor = new Editor({
-  extensions: [StarterKit, variable],
-  content: {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: [{ type: 'variable', attrs: { name: 'greeting' } }],
-      },
-    ],
-  },
+  extensions: [StarterKit, customerVariable],
+  content: '<p></p>',
 })
+refreshEditor.commands.insertVariable({ name: 'customer' })
+```
 
+Listen for an application event and refresh the resolver:
+
+```ts
+const events = new EventTarget()
 const refresh = () => refreshEditor.commands.refreshVariables({ names: ['customer'] })
 events.addEventListener('customer-change', refresh)
+```
 
+After changing the data, send the event. The editor now displays **Grace**:
+
+```ts
 customer = { name: 'Grace' }
 events.dispatchEvent(new Event('customer-change'))
+```
 
-// Remove application listeners when disposing this editor.
+Remove the listener when the editor is destroyed:
+
+```ts
 refreshEditor.on('destroy', () => events.removeEventListener('customer-change', refresh))
 ```
 
-For asynchronous data, fetch it in your application and then call `setVariable`, or refresh a synchronous resolver that reads the fetched result.
-
 ## What is saved
 
-An inline reference saves only its variable name. Its current value is absent from document JSON, exported HTML, plain text, and clipboard exports. Value changes do not add document history entries. A reference itself can still be selected, deleted, copied, and undone as a document node.
+The document saves the variable's name, not its value. Each editor supplies its own values.
 
-Each editor resolves its own values. Loading the same document in another editor uses that editor's configuration. An imported reference to an unknown name displays an empty value.
-
-Bound slots behave differently: their filled text is normal document content, so it is saved, exported, and included in undo history. Read [Bind slots to variables](/composable-docs/slots/guides/bind-variables) for the details.
-
-## Next steps
-
-- [API reference](/composable-docs/variables/api-reference/extension)
-- [Bind slots to variables](/composable-docs/slots/guides/bind-variables)
+Text inside a [bound slot](/composable-docs/variables/guides/bind-slots) is saved as normal document content.

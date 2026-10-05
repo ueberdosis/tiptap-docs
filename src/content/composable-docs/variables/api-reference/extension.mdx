@@ -5,82 +5,313 @@ tags:
   - type: restricted
 meta:
   title: Variable API | Tiptap Docs
-  description: Configure variables, update values, refresh resolvers, and read the current value.
+  description: Types, configuration, commands, events, and return values for the Variable extension.
   category: Composable Docs
 ---
 
-## Configuration
+Import the extension and value reader from `@tiptap-pro/extension-variable`:
 
 ```ts
-Variable.configure({
-  variables: {
-    customer: 'Ada',
-    greeting: ({ get }) => `Hello, ${get('customer')}!`,
-  },
-  slots: { customerField: 'customer', signatureField: 'customer' },
-  onUpdate: ({ values }) => console.log(values),
-  onError: ({ error }) => console.error(error),
-})
+import { Variable, getVariable } from '@tiptap-pro/extension-variable'
 ```
 
-| Option      | Default   | Description                                                                                     |
-| ----------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `variables` | `{}`      | Variable names mapped to primitive values or synchronous resolvers.                             |
-| `slots`     | `{}`      | Slot IDs mapped to variable names. Requires the `Slot` extension.                               |
-| `onUpdate`  | No action | Receives `{ editor, values }` after an accepted value change. `values` is a read-only snapshot. |
-| `onError`   | No action | Receives `{ editor, error }` when an update fails.                                              |
+All Variable-specific types below are exported from the same package. `Editor` and `JSONContent` come from `@tiptap/core`.
 
-Invalid initial configuration or a failing initial resolver throws during editor creation. Resolver errors in local edits or variable commands preserve the previous runtime values and call `onError`. Incoming collaborative edits and content-protection policy changes still apply if a resolver fails: that resolver's value becomes `null`, its dependents recalculate, and `onError` receives the error. Refresh the resolver or update a dependency to retry it.
+## Variable values
 
-## Commands
-
-### insertVariable
-
-Insert a non-editable inline reference at the selection. Returns `false` for an unknown variable.
+### VariableValue
 
 ```ts
-editor.commands.insertVariable({ name: 'greeting' })
+type VariableValue = string | number | boolean | bigint | symbol | null | undefined | object
 ```
 
-### setVariable
+`object` includes arrays, Tiptap JSON, and other JavaScript objects. Runtime validation still applies: promises are rejected, and objects must support `JSON.stringify()` without throwing.
 
-Set a primitive value and recalculate its dependents. Returns `false` when the name is unknown or the update fails.
+| Value                                           | Display                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| `string`                                        | Literal text. HTML strings are not parsed.                        |
+| `number`, `boolean`, `bigint`, `symbol`         | `String(value)`. Numbers include `NaN` and infinities.            |
+| `null`, `undefined`                             | Empty text.                                                       |
+| Valid Tiptap JSON node, document, or node array | Rich content using the editor's schema.                           |
+| Other objects or arrays                         | `JSON.stringify(value)`, or empty text if it returns `undefined`. |
+
+Tiptap JSON uses the `JSONContent` type from `@tiptap/core`. Its node and mark types must exist in the editor's schema. Objects that are not valid content for that schema display as JSON text.
 
 ```ts
-editor.commands.setVariable({ name: 'customer', value: 'Grace' })
+import type { JSONContent } from '@tiptap/core'
+
+const label: JSONContent = {
+  type: 'text',
+  text: 'Ada',
+  marks: [{ type: 'bold' }],
+}
 ```
 
-Setting a resolver-backed variable overrides its cached value until the resolver next runs, either through `refreshVariables` or a dependency update. The resolver itself is preserved.
+Rich values remain read-only inside variable references and are not saved with those references. [Bound slots](/composable-docs/variables/guides/bind-slots) save their filled content normally.
 
-### refreshVariables
-
-Refresh the named variables and their dependents. Omit `names` to refresh all resolvers. An empty list reruns no resolvers and synchronizes bound slots with the current values.
+### VariableResolver and VariableResolverContext
 
 ```ts
-editor.commands.refreshVariables({ names: ['customer'] })
-editor.commands.refreshVariables()
+type VariableResolver = (context: VariableResolverContext) => VariableValue
+
+interface VariableResolverContext {
+  get: (name: string) => VariableValue
+}
 ```
 
-Commands support `editor.chain()`. Capability checks with `editor.can()` do not execute resolvers; they check known variable names, so they cannot predict resolver failures.
+| Property | Type                              | Behavior                                                                                                        |
+| -------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `get`    | `(name: string) => VariableValue` | Reads a configured variable and registers a dependency. An unknown name or circular dependency throws an error. |
 
-## Read a value
-
-```ts
-import { getVariable } from '@tiptap-pro/extension-variable'
-
-const greeting = getVariable({ editor, name: 'greeting' })
-```
-
-Returns the current primitive value, or `undefined` when the name is unknown or the extension is not installed. `null` is a valid configured value and displays as empty text.
-
-If Content Protection conceals a bound slot, its variable and dependent values return `null` and display as empty text. They are recalculated when the slots become readable again.
-
-## Types
-
-The package exports `VariableValue`, `VariableResolver`, `VariableResolverContext`, `VariableOptions`, `SetVariableOptions`, `RefreshVariablesOptions`, `GetVariableOptions`, `VariableUpdateOptions`, and `VariableErrorOptions`.
+Resolvers return synchronously. Reading another variable makes the resolver rerun when that variable is updated.
 
 ```ts
 import type { VariableResolver } from '@tiptap-pro/extension-variable'
 
-const greeting: VariableResolver = ({ get }) => `Hello, ${get('customer')}!`
+const greeting: VariableResolver = ({ get }) => `Hello, ${String(get('customer'))}!`
 ```
+
+A function assigned directly in `variables` is a resolver. To use a function itself as a value, return it from a resolver or pass it to `setVariable`; it displays as `String(value)`.
+
+## Configuration
+
+### VariableOptions
+
+```ts
+interface VariableOptions {
+  HTMLAttributes: Record<string, string>
+  variables: Record<string, VariableValue | VariableResolver>
+  slots: Record<string, string>
+  onUpdate: (options: VariableUpdateOptions) => void
+  onError: (options: VariableErrorOptions) => void
+}
+```
+
+Every option is optional when calling `Variable.configure()`. The extension supplies these defaults:
+
+See [Styling](/composable-docs/variables/api-reference/rendering) for styling and custom views.
+
+| Option           | Type                                                | Default        | Meaning                                                                                    |
+| ---------------- | --------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------ |
+| `HTMLAttributes` | `Record<string, string>`                            | `{}`           | Attributes for the default NodeView and exported HTML.                                     |
+| `variables`      | `Record<string, VariableValue \| VariableResolver>` | `{}`           | Keys are variable names; values are initial values or resolvers.                           |
+| `slots`          | `Record<string, string>`                            | `{}`           | Keys are slot IDs; values are names defined in `variables`. Requires the `Slot` extension. |
+| `onUpdate`       | `(options: VariableUpdateOptions) => void`          | No-op function | Called after accepted variable-value changes.                                              |
+| `onError`        | `(options: VariableErrorOptions) => void`           | No-op function | Called when evaluation or slot synchronization fails.                                      |
+
+```ts
+Variable.configure({
+  variables: { customer: 'Ada', greeting },
+  slots: { customerField: 'customer', signatureField: 'customer' },
+  onUpdate: ({ values }) => console.log(values.customer),
+  onError: ({ error }) => console.error(error.message),
+})
+```
+
+### VariableUpdateOptions
+
+Both `onUpdate` and the `variablesUpdate` event receive this payload:
+
+```ts
+interface VariableUpdateOptions {
+  editor: Editor
+  values: Readonly<Record<string, VariableValue>>
+}
+```
+
+| Property | Type                                      | Meaning                                                                                       |
+| -------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `editor` | `Editor`                                  | The editor whose variables changed.                                                           |
+| `values` | `Readonly<Record<string, VariableValue>>` | All current values, including recalculated dependents. Keys are variable names, not slot IDs. |
+
+The `values` record is frozen. Its object values are not cloned or deeply frozen. Call `setVariable` after changing an object, or refresh the resolver that supplies it; mutation alone does not trigger an update.
+
+Values are not narrowed by their configured names. Check the type before using a value as a specific object or primitive:
+
+```ts
+import type { VariableUpdateOptions } from '@tiptap-pro/extension-variable'
+
+const onVariablesUpdate = ({ values }: VariableUpdateOptions): void => {
+  if (typeof values.customer === 'string') {
+    console.log(values.customer.toUpperCase())
+  }
+}
+```
+
+### VariableErrorOptions
+
+```ts
+interface VariableErrorOptions {
+  editor: Editor
+  error: Error
+}
+```
+
+| Property | Type     | Meaning                                                                                   |
+| -------- | -------- | ----------------------------------------------------------------------------------------- |
+| `editor` | `Editor` | The editor where the update failed.                                                       |
+| `error`  | `Error`  | The failure, with a readable `message`. Thrown non-Error values are converted to `Error`. |
+
+Both callbacks return `void`; return values are ignored.
+
+Invalid initial configuration or an initial resolver failure throws during editor creation. Later failures in local edits or variable commands preserve the previous runtime values and call `onError`.
+
+Incoming collaborative edits and protection-policy changes still apply if a resolver fails. That resolver's value becomes `null`, its dependents recalculate, and `onError` receives the error.
+
+## Commands
+
+Direct calls through `editor.commands` return `boolean`. In a chain, the same commands return the chain; `.run()` returns `boolean`.
+
+### insertVariable
+
+Insert a non-editable inline reference at the selection.
+
+| Argument property | Type     | Required | Meaning                                     |
+| ----------------- | -------- | -------- | ------------------------------------------- |
+| `name`            | `string` | Yes      | A key in the configured `variables` record. |
+
+The argument type is `{ name: string }`. There is no separately exported `InsertVariableOptions` type.
+
+```ts
+const inserted: boolean = editor.commands.insertVariable({ name: 'greeting' })
+```
+
+Returns `false` if the name is unknown or the reference cannot be inserted.
+
+### setVariable
+
+Set a value and recalculate its dependents.
+
+```ts
+interface SetVariableOptions {
+  name: string
+  value: VariableValue
+}
+```
+
+| Argument property | Type            | Required | Meaning                                         |
+| ----------------- | --------------- | -------- | ----------------------------------------------- |
+| `name`            | `string`        | Yes      | A configured variable name.                     |
+| `value`           | `VariableValue` | Yes      | The new value. Explicit `undefined` is allowed. |
+
+```ts
+const updated: boolean = editor.commands.setVariable({ name: 'customer', value: 'Grace' })
+```
+
+Returns `false` when the name is unknown or the update fails. An unknown name does not call `onError`.
+
+Setting a resolver-backed variable overrides its cached value until its resolver runs again. It does not replace the resolver.
+
+### refreshVariables
+
+Refresh resolvers and their dependent values.
+
+```ts
+interface RefreshVariablesOptions {
+  names?: string[]
+}
+```
+
+The options object and its `names` property are both optional.
+
+| `names`                | Behavior                                                                    |
+| ---------------------- | --------------------------------------------------------------------------- |
+| Omitted or `undefined` | Refresh all configured resolvers.                                           |
+| `string[]`             | Refresh the named variables and their dependents. Names must be configured. |
+| `[]`                   | Run no resolvers; synchronize bound slots with current values.              |
+
+```ts
+const refreshed: boolean = editor.commands.refreshVariables({ names: ['customer'] })
+editor.commands.refreshVariables()
+```
+
+Returns `false` for an unknown name or a failed update. An unknown name does not call `onError`. Refreshing a plain value leaves it unchanged but recalculates its dependents.
+
+`editor.can().setVariable({ name, value })` and `editor.can().refreshVariables()` check variable names without executing resolvers. Their `boolean` result cannot predict evaluation or slot-write failures.
+
+## Read a value
+
+### getVariable and GetVariableOptions
+
+```ts
+interface GetVariableOptions {
+  editor: Editor
+  name: string
+}
+```
+
+| Argument property | Type     | Required | Meaning                           |
+| ----------------- | -------- | -------- | --------------------------------- |
+| `editor`          | `Editor` | Yes      | The editor instance to read from. |
+| `name`            | `string` | Yes      | The variable name to read.        |
+
+**Return type:** `VariableValue | undefined`. `VariableValue` itself also includes `undefined`.
+
+```ts
+const customer = getVariable({ editor, name: 'customer' })
+if (typeof customer === 'string') console.log(customer.toUpperCase())
+```
+
+This returns the value itself, including object values and Tiptap JSON. It does not run the resolver.
+
+| Result                    | Meaning                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `undefined`               | The configured value is `undefined`, the name is unknown, or the extension is not installed.                             |
+| `null`                    | The configured value is `null`, a bound source is concealed, or a resolver failed during a remote edit or policy change. |
+| Any other `VariableValue` | The current runtime value.                                                                                               |
+
+Concealing a bound slot also conceals its dependent values. They are recalculated when access is restored.
+
+## renderVariableValue
+
+Render a value outside the document using the editor's schema and custom NodeViews.
+
+```ts
+interface RenderVariableValueOptions {
+  editor: Editor
+  value: VariableValue
+}
+
+interface RenderedVariableValue {
+  dom: DocumentFragment
+  destroy: () => void
+}
+
+function renderVariableValue(options: RenderVariableValueOptions): RenderedVariableValue
+```
+
+Both option properties are required. `editor` supplies the schema and NodeViews; `value` is the current value to display. These interfaces and the function are exported from `@tiptap-pro/extension-variable`.
+
+`dom` contains the rendered snapshot. Tiptap JSON preserves formatting and custom NodeViews; other objects display as JSON text. Call `destroy()` before replacing or removing the result. It releases nested NodeViews and is safe to call more than once.
+
+The helper does not subscribe to updates. Nested NodeViews have no document position, so their `getPos()` returns `undefined`. Rendering errors are thrown after cleaning up any NodeViews already created.
+
+## Listen for changes
+
+The event name is **`variablesUpdate`**. Its listener type is **`(options: VariableUpdateOptions) => void`**. `onVariablesUpdate` is just the handler name used in these examples.
+
+Subscribe and unsubscribe using the same function:
+
+```ts
+editor.on('variablesUpdate', onVariablesUpdate)
+editor.off('variablesUpdate', onVariablesUpdate)
+```
+
+Both `editor.on()` and `editor.off()` return the editor instance. The listener receives the same `{ editor, values }` payload as the extension's `onUpdate` callback.
+
+Commands, refreshed resolvers, and slot edits can emit this event. Rejected updates and unchanged values do not emit it. Registering a listener does not send an initial value; use `getVariable` to read it.
+
+## Document reference
+
+Variable references store only a name:
+
+```json
+{ "type": "variable", "attrs": { "name": "customer" } }
+```
+
+| Property     | Type             | Meaning                                                                                   |
+| ------------ | ---------------- | ----------------------------------------------------------------------------------------- |
+| `type`       | `'variable'`     | The extension's node name.                                                                |
+| `attrs.name` | `string \| null` | A variable name. The schema default is `null`; commands require a configured string name. |
+
+A missing or unknown name displays an empty value. The runtime value is absent from document JSON, exported HTML, and plain text.
