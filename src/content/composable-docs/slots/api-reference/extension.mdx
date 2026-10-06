@@ -1,0 +1,175 @@
+---
+title: Extension
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Extension | Tiptap Slots Docs
+  description: Slot options, Node extensions and editor storage.
+  category: Composable Docs
+---
+
+Import `Slot`, `BlockSlot` and `InlineSlot` from `@tiptap-pro/extension-slot`.
+
+## `Slot`
+
+Installs both Slot Nodes, commands, indexing and editing behavior. Its extension and storage name is `slot`.
+
+```ts
+Slot.configure({ validators: { registeredPerson } })
+```
+
+### Options (`SlotOptions`)
+
+- `blockSlot` (`Node`): Block Node extension. Default: `BlockSlot`.
+- `inlineSlot` (`Node`): Inline Node extension. Default: `InlineSlot`.
+- `generateId` (`() => string`): Creates document-unique IDs. Default: UUID generator.
+- `validators` (`Record<string, SlotValidator>`): Named field validators. Default: `{}`; referenced validators are unavailable until registered.
+- `crossFieldValidators` (`Record<string, CrossFieldValidator>`): Named cross-field validators. Default: `{}`; referenced validators are unavailable until registered.
+- `getValidationContext` (`() => unknown`): Captures application data once per validation request. Default: returns `undefined`.
+- `shortcuts` (`false | SlotShortcuts`): Typed creation and optional delimiter conversion. Defaults to immediate inline creation with `{{{` and block creation with `[[[`. Set `false` to disable all Slot input rules.
+- `resolveInputRuleSlot` (`SlotInputRuleResolver`): Resolves a matched shortcut before insertion. Default: returns `undefined`, preserving captured content and shortcut configuration. See [resolving input rules](#resolveinputruleslot).
+- `onSlotsUpdate` (`(event: SlotsUpdateEvent) => void`): `slotsUpdate` listener. Default: no-op.
+- `onActiveSlotChange` (`(event: ActiveSlotChangeEvent) => void`): `activeSlotChange` listener. Default: no-op.
+- `onValidationUpdate` (`(event: SlotValidationUpdateEvent) => void`): `slotValidationUpdate` listener. Default: no-op.
+- `onValidationError` (`(event: SlotValidationErrorEvent) => void`): `slotValidationError` listener. Default: no-op.
+- `onCommandRejected` (`(event: SlotCommandRejectedEvent) => void`): `slotCommandRejected` listener. Default: no-op.
+
+`Node` here is the extension type from `@tiptap/core`. See [validators](/composable-docs/slots/api-reference/validation) and [event payloads](/composable-docs/slots/api-reference/events).
+
+### Configuration rules
+
+- Register `Slot` once. Pass customized Nodes through its options; do not also register them separately.
+- Both Node options are required and fixed at editor construction. They do not accept `false`.
+- Custom Nodes must preserve their names, attributes and schema behavior.
+- Invalid Node instances, duplicate registrations and invalid shortcuts fail initialization.
+- ID generation retries collisions up to five times. Failure refuses the command with `idGenerationFailed`.
+
+## `BlockSlot` and `InlineSlot`
+
+Ordinary Tiptap Node extensions supporting `.configure()` and `.extend()`.
+
+### Options
+
+- `HTMLAttributes` (`Record<string, string>`): Attributes on the outer element. Default: `{}`. Required `data-slot-*` attributes take precedence.
+
+### Node attributes
+
+- `id` (`string | null`): Document-wide, case-sensitive identifier. Default: `null`; commands generate missing IDs. Imported missing or duplicate IDs produce validation issues.
+- `config` (`SlotConfig`): Embedded [configuration](/composable-docs/slots/api-reference/concepts). Default: `{}`. Malformed imported JSON is retained for diagnostics.
+
+| Property           | `BlockSlot`         | `InlineSlot` |
+| ------------------ | ------------------- | ------------ |
+| Node name          | `blockSlot`         | `inlineSlot` |
+| Group              | `block`             | `inline`     |
+| `inline`           | `false`             | `true`       |
+| Content expression | `block+`            | `inline*`    |
+| `defining`         | `true`              | `true`       |
+| `isolating`        | `true`              | `true`       |
+| Empty content      | One empty paragraph | No children  |
+
+Block Slots require `paragraph` in the schema. See [rendering](/composable-docs/slots/api-reference/rendering) for NodeViews and HTML customization.
+
+Inside an inline Slot, Backspace and Delete remove whole graphemes, including emoji and combining characters, while preserving the Slot wrapper.
+
+## `SlotShortcuts`
+
+### Properties
+
+- `inline?` (`SlotShortcut | false`): Inline rules. Default: `{ create: '{{{' }`. Set `false` to disable this kind.
+- `block?` (`SlotShortcut | false`): Block rules. Default: `{ create: '[[[' }`. Set `false` to disable this kind.
+
+Typing the third `{` immediately creates an empty inline Slot at the caret and places the cursor inside it. Typing the third `[` in an otherwise empty textblock replaces it with a block Slot containing an empty paragraph, with the cursor inside that paragraph. Neither rule needs a closing delimiter or Enter. Block creation does not consume surrounding text.
+
+### `SlotShortcut`
+
+- `create?` (`string | false`): Immediate creation trigger. Defaults to `{{{` for inline and `[[[` for block. Set `false` to disable creation while retaining a paired rule.
+- `open?` (`string`): Optional nonempty paired opening delimiter. Requires `close`.
+- `close?` (`string`): Optional nonempty paired closing delimiter, distinct from `open`. Requires `open`.
+- `config?` (`SlotConfig`): Configuration for new Slots. Default: `{}`.
+
+Configuration merges with the defaults. For example, adding an inline `open: '{{', close: '}}'` pair retains both immediate creation rules. `{{name}}` then converts existing wording; `{{{` immediately opens an empty inline field. A declined triple trigger is not subsequently consumed as the shorter paired opener.
+
+Paired opening delimiters must not overlap each other by prefix. Immediate triggers must not overlap each other by prefix, and a paired opening delimiter cannot equal or start with an enabled creation trigger. Disable the conflicting `create` trigger before configuring such a pair.
+
+For paired conversion, captured text becomes the Slot's content, preserving text Marks. A block pair must occupy the whole textblock. Refused conversion leaves literal input; paste does not trigger these rules. Pairs spanning inline atoms, such as mentions or Variables, are skipped by Tiptap's input-rule runner; the resolver is not called for those matches.
+
+```ts
+// Retain paired conversion, but disable immediate creation for both kinds.
+Slot.configure({
+  shortcuts: {
+    inline: { create: false, open: '{{', close: '}}' },
+    block: { create: false, open: '[[', close: ']]' },
+  },
+})
+```
+
+## `resolveInputRuleSlot`
+
+Use this synchronous callback to choose the Slot's ID, configuration and initial content from the captured input and current application context. It runs before insertion, not as a notification that a Slot was created. It is used only by the configured input rules; ordinary `insertSlot` and `wrapInSlot` calls do not invoke it.
+
+```ts
+Slot.configure({
+  shortcuts: { inline: { open: '{{', close: '}}' } },
+  resolveInputRuleSlot({ kind, text, defaults }) {
+    if (kind !== 'inline' || text.trim() !== 'customer-name') {
+      return undefined
+    }
+
+    return {
+      config: {
+        ...defaults.config,
+        label: 'Customer name',
+        placeholder: 'Enter the customer’s name',
+        required: true,
+      },
+      content: [],
+    }
+  },
+})
+```
+
+Typing `{{customer-name}}` creates an empty required field with a generated ID. Other matched text uses the normal conversion. The callback can also read application data through its closure, for example to select a preset or decline creation for the current actor.
+
+### Parameters (`SlotInputRuleContext`)
+
+- `editor` (`Editor`): Inspect the current Document, Schema and extension storage. Do not dispatch Commands from the callback.
+- `kind` (`'inline' | 'block'`): Kind selected by the shortcut. The callback cannot change it.
+- `content` (`JSONContent[]`): Captured inline content without delimiters, preserving text Marks. This is the structured value to use when retaining formatting. Atom-spanning matches remain unsupported.
+- `text` (`string`): Complete captured text without delimiters or automatic trimming. Convenient for matching names such as `customer-name`.
+- `delimiters` (`{ open: string; close: string }`): Matched delimiter pair. For immediate creation, `open` is the trigger and `close` is `''`.
+- `range` (`{ from: number; to: number }`): Range replaced in the current Document. Block conversion replaces the whole textblock. Pending input may not yet be in that Document; `content` and `text` include the complete capture.
+- `defaults` (`{ config: SlotConfig; content: JSONContent[] }`): Shortcut configuration, or `{}`, and ready-to-insert content. For block Slots the captured inline content is wrapped in a paragraph.
+
+The JSON inputs are immutable snapshots. Return new objects rather than modifying them. The callback must be synchronous and must not write to the editor.
+
+Immediate creation also calls this resolver, with `text: ''` and `content: []`. Its default content is empty for inline Slots and an empty paragraph for block Slots. After insertion, the caret moves to the start of the Slot's content; if that content is a lone selectable atom, the atom is selected instead. Returning `false` leaves the trigger literal.
+
+### Return value (`SlotInputRuleResult | false | undefined`)
+
+- `undefined`: Use the defaults.
+- `false`: Leave the complete literal input, including delimiters. This is an intentional decline and emits no rejection event.
+- An object with any of the following overrides:
+  - `id?` (`string`): Explicit unique, nonempty ID. Omitted: use `generateId`.
+  - `config?` (`SlotConfig`): Replaces the default configuration as a whole. Spread `defaults.config` to merge explicitly.
+  - `content?` (`JSONContent[]`): Replaces the initial content and may include any Nodes and Marks valid for the Slot's Schema. Omitted: keep `defaults.content`, even if the returned configuration has `defaultContent`. `[]` creates an empty inline Slot or a block Slot containing an empty paragraph.
+
+The result cannot change the kind or insertion position. Slot insertion still goes through `insertSlot`, including ID, Schema and Content Protection checks. Validation constraints remain non-blocking, as with ordinary insertion.
+
+Thrown callback errors, promises and malformed results refuse conversion and emit `slotCommandRejected` with `command: 'insertSlot'` and `code: 'invalidInput'`. Insertion refusals use their existing codes, such as `schemaMismatch` or `protected`. No partial Slot is inserted. Input-rule undo remains available.
+
+## Storage (`SlotStorage`)
+
+Read-only getters at `editor.storage.slot`.
+
+- `snapshot` (`SlotSnapshot`): Current document and Slot index.
+- `activeSlot` (`SlotEntry | null`): Innermost Slot at the selection head, or the selected Slot Node. `null` outside Slots.
+- `validation` (`SlotValidationState`): Current validation lifecycle and result.
+
+### `SlotValidationState`
+
+- `status` (`'unvalidated' | 'pending' | 'current'`): Initially `'unvalidated'`. Validation is requested explicitly.
+- `snapshotId` (`string | null`): Snapshot being validated or holding the current result; otherwise `null`.
+- `result` (`SlotValidationResult | null`): Current result; `null` while unvalidated or pending.
+
+Document edits, including edits appended by plugins, refresh the snapshot and clear cached validation. Selection changes do not. See [read types](/composable-docs/slots/api-reference/types).

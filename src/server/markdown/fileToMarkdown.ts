@@ -36,10 +36,13 @@ function getContentDates(): Record<string, string> {
 
 /** Frontmatter descriptions may contain inline HTML; flatten to plain text. */
 function stripHtml(value: string): string {
-  return value
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  let previous: string
+  let output = value
+  do {
+    previous = output
+    output = output.replace(/<[^<>]*>/g, '')
+  } while (output !== previous)
+  return output.replace(/\s+/g, ' ').trim()
 }
 
 /** Build the minimal YAML frontmatter block served atop every `.md` response. */

@@ -4,30 +4,24 @@ import { useClipboard } from '@mantine/hooks'
 import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useState } from 'react'
 import TurndownService from 'turndown'
-import { renderToString } from 'react-dom/server'
 import { Button } from './ui/Button'
 
 export type CopyMarkdownButtonClientProps = {
   title?: string
-  content: JSX.Element
   className?: string
 }
 
-export const CopyMarkdownButton = ({
-  title,
-  content,
-  className,
-}: CopyMarkdownButtonClientProps) => {
+export const CopyMarkdownButton = ({ title, className }: CopyMarkdownButtonClientProps) => {
   const clipboard = useClipboard()
   const [isCopied, setIsCopied] = useState(false)
 
   const handleCopy = () => {
     if (isCopied) return
+    const html = document.querySelector('.mdx-content')?.innerHTML
+    if (html === undefined) return
+
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 1500)
-
-    // Convert HTML to markdown using turndown
-    const html = renderToString(content)
 
     const turndownService = new TurndownService({
       headingStyle: 'atx',
