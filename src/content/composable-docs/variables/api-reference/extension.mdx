@@ -82,6 +82,8 @@ interface VariableOptions {
   HTMLAttributes: Record<string, string>
   variables: Record<string, VariableValue | VariableResolver>
   slots: Record<string, string>
+  shortcuts: false | VariableShortcut
+  resolveInputRuleVariable: VariableInputRuleResolver
   onUpdate: (options: VariableUpdateOptions) => void
   onError: (options: VariableErrorOptions) => void
 }
@@ -91,13 +93,15 @@ Every option is optional when calling `Variable.configure()`. The extension supp
 
 See [Styling](/composable-docs/variables/api-reference/rendering) for styling and custom views.
 
-| Option           | Type                                                | Default        | Meaning                                                                                    |
-| ---------------- | --------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------ |
-| `HTMLAttributes` | `Record<string, string>`                            | `{}`           | Attributes for the default NodeView and exported HTML.                                     |
-| `variables`      | `Record<string, VariableValue \| VariableResolver>` | `{}`           | Keys are variable names; values are initial values or resolvers.                           |
-| `slots`          | `Record<string, string>`                            | `{}`           | Keys are slot IDs; values are names defined in `variables`. Requires the `Slot` extension. |
-| `onUpdate`       | `(options: VariableUpdateOptions) => void`          | No-op function | Called after accepted variable-value changes.                                              |
-| `onError`        | `(options: VariableErrorOptions) => void`           | No-op function | Called when evaluation or slot synchronization fails.                                      |
+| Option                     | Type                                                | Default                     | Meaning                                                                                    |
+| -------------------------- | --------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| `HTMLAttributes`           | `Record<string, string>`                            | `{}`                        | Attributes for the default NodeView and exported HTML.                                     |
+| `variables`                | `Record<string, VariableValue \| VariableResolver>` | `{}`                        | Keys are variable names; values are initial values or resolvers.                           |
+| `slots`                    | `Record<string, string>`                            | `{}`                        | Keys are slot IDs; values are names defined in `variables`. Requires the `Slot` extension. |
+| `shortcuts`                | `false \| VariableShortcut`                         | `{ open: '{', close: '}' }` | Typed delimiters. See [typed shortcuts](#typed-shortcuts).                                 |
+| `resolveInputRuleVariable` | `VariableInputRuleResolver`                         | Returns `undefined`         | Customize or cancel a typed reference.                                                     |
+| `onUpdate`                 | `(options: VariableUpdateOptions) => void`          | No-op function              | Called after accepted variable-value changes.                                              |
+| `onError`                  | `(options: VariableErrorOptions) => void`           | No-op function              | Called when evaluation, slot synchronization, or an input-rule callback fails.             |
 
 ```ts
 Variable.configure({
@@ -261,6 +265,69 @@ This returns the value itself, including object values and Tiptap JSON. It does 
 | Any other `VariableValue` | The current runtime value.                                                                                               |
 
 Concealing a bound slot also conceals its dependent values. They are recalculated when access is restored.
+
+## Typed shortcuts
+
+Typing `{foo}` creates an inline reference named `foo`, even when `foo` is not defined in `variables`. Unknown names display an empty value. This creates a document reference, not a new runtime value or resolver.
+
+The rule is enabled by default. Disable it with `Variable.configure({ shortcuts: false })`, or change the delimiters:
+
+```ts
+Variable.configure({
+  shortcuts: { open: '[[', close: ']]' },
+})
+```
+
+```ts
+interface VariableShortcut {
+  open: string
+  close: string
+}
+```
+
+`shortcuts` has type `false | VariableShortcut` and defaults to `{ open: '{', close: '}' }`. Both delimiters must be nonempty, distinct strings. The captured name is case-sensitive and is not trimmed. Empty matches, nested opening delimiters, and code blocks are skipped. Pasting or loading content does not trigger conversion. `undoInputRule()` restores the typed text.
+
+### resolveInputRuleVariable
+
+Customize or cancel a reference before it is inserted. The default callback returns `undefined`, keeping the captured name.
+
+```ts
+Variable.configure({
+  resolveInputRuleVariable({ text }) {
+    if (text === 'private') return false
+    if (text === 'name') return { name: 'customer' }
+    return undefined
+  },
+})
+```
+
+```ts
+interface VariableInputRuleContext {
+  editor: Editor
+  text: string
+  delimiters: Readonly<VariableShortcut>
+  range: Readonly<{ from: number; to: number }>
+  defaults: Readonly<{ name: string }>
+}
+
+interface VariableInputRuleResult {
+  name?: string
+}
+
+type VariableInputRuleResolver = (
+  context: VariableInputRuleContext,
+) => VariableInputRuleResult | false | undefined
+```
+
+| Context property | Meaning                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| `editor`         | The editor receiving the input.                                      |
+| `text`           | The text between the delimiters, without either delimiter.           |
+| `delimiters`     | The configured opening and closing strings.                          |
+| `range`          | Document positions to replace, before the pending input is inserted. |
+| `defaults`       | The default reference attributes: `{ name: text }`.                  |
+
+Return `false` to leave the input as text. Return `{ name: 'customer' }` to override the name, or `{}` / `undefined` to use the default. An override must be a nonempty string; it does not have to name a configured variable. The callback is synchronous. Thrown errors and invalid results cancel conversion and call `onError`.
 
 ## renderVariableValue
 
