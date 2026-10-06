@@ -56,7 +56,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/api-reference/rest-api',
             },
             {
-              title: 'tiptapQuery',
+              title: 'Tiptap Query',
               href: '/ai/ai-toolkit/api-reference/tiptap-query',
               releaseTag: 'alpha',
             },
