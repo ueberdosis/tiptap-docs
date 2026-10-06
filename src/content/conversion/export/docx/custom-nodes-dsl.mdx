@@ -7,7 +7,7 @@ tags:
     label: v0.33.0
 meta:
   title: Custom-node DSL for DOCX | Tiptap Conversion
-  description: A serializable JSON description of how Tiptap custom nodes should render into DOCX. Works in both the editor extension and the Conversion REST API.
+  description: Use JSON rules to export Tiptap custom nodes to DOCX in the editor extension or the Conversion REST API.
   category: Conversion
 ---
 
@@ -19,9 +19,7 @@ import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
 <EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
 
 <Callout variant="hint" title="Beta feature">
-  The DSL is stabilising but may still see additive refinements before general availability. Pin
-  exact package versions if you depend on it. The wire format is versioned (`dslVersion: "1.0"`);
-  future versions will not change this document's shape silently.
+  The DSL is a beta feature. Set `dslVersion: "1.0"` in your rules.
 </Callout>
 
 <Requirements>
@@ -34,13 +32,14 @@ import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
     the [setup guide](/guides/pro-extensions).
   </RequirementItem>
   <RequirementItem label="3. (REST only) Configure Convert app">
-    Authenticate REST calls with a signed token carrying `aud: "Convert"`. See [Authentication](/authentication).
+    Authenticate REST calls with a signed token carrying `aud: "Convert"`. See
+    [Authentication](/authentication).
   </RequirementItem>
 </Requirements>
 
-The [function-based custom-node API](/conversion/export/docx/custom-nodes) lets you render any custom Tiptap node into DOCX by writing a small JavaScript function. That works great inside the editor extension, but functions cannot be sent over HTTP, so the [DOCX REST API](/conversion/export/docx/rest-api) historically had no way to render custom nodes at all.
+Use `customNodeDsl` to define how your custom Tiptap nodes export to DOCX. The rules use JSON, so you can store them in a file or send them in an API request.
 
-The **`customNodeDsl`** option closes that gap. It is a small, serializable JSON language for describing how a custom node should render into DOCX. The same JSON works in both surfaces: pass it to `ExportDocx.configure({ customNodeDsl })` in the browser, or as the `customNodeDsl` field in the REST request body.
+Pass the rules to `ExportDocx.configure({ customNodeDsl })` in the browser, or set `customNodeDsl` in the [REST request body](/conversion/export/docx/rest-api). For JavaScript callbacks in the editor extension, use [`customNodes`](/conversion/export/docx/custom-nodes).
 
 <CodeDemo isPro path="/Extensions/ExportDocxCustomNodeDsl" />
 
@@ -51,18 +50,17 @@ The **`customNodeDsl`** option closes that gap. It is a small, serializable JSON
 | You want to…                                                                                              | Use                                                                       |
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Render a custom node when calling `editor.exportDocx()` in the browser, with full JavaScript flexibility. | The [function API](/conversion/export/docx/custom-nodes) (`customNodes`). |
-| Render a custom node when calling any export REST endpoint (docx, pdf, odt, epub, doc).                                         | **`customNodeDsl`** (this page).                                          |
+| Render a custom node when calling any export REST endpoint (docx, pdf, odt, epub, doc).                   | **`customNodeDsl`** (this page).                                          |
 | Share the same custom-node export logic between your browser app and a server-side render.                | **`customNodeDsl`** (this page).                                          |
-| Render the same custom node from both surfaces, with one source of truth.                                 | **`customNodeDsl`** (this page).                                          |
+| Use the same rules in the editor extension and the REST API.                                              | **`customNodeDsl`** (this page).                                          |
 
-Both APIs can coexist on the editor extension. When the same node type appears in both `customNodes` and `customNodeDsl`, the function definition wins and a single `console.warn` is emitted per export call. Existing function-based customers see no behavior change.
+You can use both APIs in the editor extension. When both define the same node type, the exporter uses the `customNodes` callback and logs one warning per export call for that type.
 
 <Callout variant="hint" title="Authoring in TypeScript? Use the builder">
-  This page documents the **JSON wire format**, the canonical reference for what travels over the
-  convert REST surface. If you're authoring rules in a TypeScript codebase, consider the [DSL
-  builder](/conversion/export/docx/custom-nodes-dsl-builder), a fluent, typed API that produces the
-  exact same JSON, with autocomplete on every prop and compile-time containment safety. The builder
-  ships under the `@tiptap-pro/extension-export-docx/dsl` subpath import.
+  This page describes the JSON rules. To write rules in TypeScript, use the [DSL
+  builder](/conversion/export/docx/custom-nodes-dsl-builder). It creates the same JSON, suggests
+  property names, and checks which children each element accepts. Import it from
+  `@tiptap-pro/extension-export-docx/dsl`.
 </Callout>
 
 ---
@@ -122,7 +120,7 @@ curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/doc
     }'
 ```
 
-The `Hintbox` paragraph style itself is declared via [styleOverrides](/conversion/export/docx/styles), exactly the same way you would declare it for the function API.
+Define the `Hintbox` paragraph style in [`styleOverrides`](/conversion/export/docx/styles).
 
 ---
 
@@ -142,7 +140,7 @@ The `Hintbox` paragraph style itself is declared via [styleOverrides](/conversio
 | `dslVersion` | `"1.0"`            | Required exact literal. Any other value rejects with `DOCX_DSL_UNKNOWN_VERSION`.                                                       |
 | `nodes`      | `CustomNodeRule[]` | Required. One rule per ProseMirror node type. Maximum 128 entries. Duplicate `type` values reject with `DOCX_DSL_DUPLICATE_NODE_TYPE`. |
 
-The following root keys are **reserved for future versions** and reject today with `DOCX_DSL_RESERVED_SHAPE` instead of being silently ignored: `requiresStyles`, `contributedStyles`, `externalRefs`, `limits`. This makes future activations safe: payloads that compile today will keep compiling exactly the same way tomorrow.
+The root keys `requiresStyles`, `contributedStyles`, `externalRefs`, and `limits` are reserved. Using any of them causes a `DOCX_DSL_RESERVED_SHAPE` error.
 
 ---
 
@@ -186,12 +184,12 @@ A `RenderProgram` must declare at least an `emit`. A program with neither `emit`
 
 ## RenderNodes
 
-Every entry under `emit` (and the children of `ElementNode`) is a `RenderNode`. There are seven shapes, all discriminated structurally; there is no `kind` tag on the wire:
+Every entry under `emit` and every child of an `ElementNode` is a `RenderNode`. There are eight shapes. The keys identify each shape; there is no `kind` field:
 
 | Shape                    | Discriminator   | Meaning                                                   |
 | ------------------------ | --------------- | --------------------------------------------------------- |
 | `null`                   | literal         | Render nothing here.                                      |
-| array                    | bare JS array   | Implicit fragment; render each item in order.            |
+| array                    | bare JS array   | Implicit fragment; render each item in order.             |
 | `{ "element": …, … }`    | `element` key   | Build a docx.js element via the adapter registry.         |
 | `{ "$children": { … } }` | `$children` key | Walk the PM node's child content and dispatch each child. |
 | `{ "$text": …, … }`      | `$text` key     | Convenience for emitting a single text run.               |
@@ -263,6 +261,8 @@ Explicit fragment of sibling render nodes. A bare array does the same job:
 [ /* RenderNode, … */ ]
 ```
 
+In the editor extension, a block fragment can contain both `Paragraph` and `Table` elements. The exporter keeps them in order in the body, list items, quotes, headers, footers, footnotes, and endnotes. Consecutive inline elements in a list or quote get a paragraph wrapper with that container's formatting. Inline fragments inside a paragraph must contain inline elements.
+
 ### `$if`
 
 Structural conditional:
@@ -308,7 +308,7 @@ Multi-way conditional. Lookup is exact-match against `cases` keys; there is no r
 
 ## Element catalog
 
-The DSL ships with a closed set of supported elements. Adding new elements is a versioned change. Unknown names reject with `DOCX_DSL_UNKNOWN_ELEMENT`.
+The DSL supports the elements below. An unknown name causes a `DOCX_DSL_UNKNOWN_ELEMENT` error.
 
 | Element             | Kind         | Allowed in      | Children kind           | Notes                                                                                                                                                    |
 | ------------------- | ------------ | --------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -320,7 +320,7 @@ The DSL ships with a closed set of supported elements. Adding new elements is a 
 | `TableCell`         | `table-cell` | table-cell      | `block`                 | One cell of a row; contains block content.                                                                                                               |
 | `PageBreak`         | `block`      | document, block | (leaf)                  | Emits a paragraph containing a docx page-break run. For an inline page break inside a paragraph use `{ "element": "TextRun", "props": { "break": 1 } }`. |
 
-`ImageRun` is **not** part of v1. Image data flows through the built-in `image` PM node only: your DSL rule can `$children` into it, but the DSL itself never originates image bytes. This is a security guarantee on the REST surface.
+The DSL does not support `ImageRun`. To export an image, use `$children` to convert a built-in `image` node. DSL rules cannot supply image bytes directly.
 
 ### Containment
 
@@ -481,19 +481,19 @@ The expression language is **deliberately small**. There is no string concatenat
 
 Allowed paths:
 
-| Path               | Returns                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| `node`             | The whole PM node object.                                                                      |
-| `node.type`        | The PM node type name.                                                                         |
-| `node.attrs`       | The whole attrs object.                                                                        |
+| Path               | Returns                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `node`             | The whole PM node object.                                                                        |
+| `node.type`        | The PM node type name.                                                                           |
+| `node.attrs`       | The whole attrs object.                                                                          |
 | `node.attrs.<key>` | The named attribute (only one level deep, so `node.attrs.style.color` is **not** allowed in v1). |
-| `node.text`        | The PM node's `text` field (only meaningful for text nodes).                                   |
-| `node.textContent` | Concatenation of all descendant text nodes, equivalent to ProseMirror's `node.textContent`.   |
+| `node.text`        | The PM node's `text` field (only meaningful for text nodes).                                     |
+| `node.textContent` | Concatenation of all descendant text nodes, equivalent to ProseMirror's `node.textContent`.      |
 
 Other paths reject:
 
 - `node.content`, `node.marks` → `DOCX_DSL_INVALID_REF` (no traversal model in v1).
-- `loop.*`, `$parent`, `$siblings`, `$depth`, `$root` → `DOCX_DSL_RESERVED_SHAPE` (reserved for future versions).
+- `loop.*`, `$parent`, `$siblings`, `$depth`, `$root` → `DOCX_DSL_RESERVED_SHAPE`.
 - `__proto__`, `prototype`, `constructor` segments anywhere in the path → `DOCX_DSL_INVALID_REF` (prototype-pollution guard).
 - Function-valued resolutions → `DOCX_DSL_INVALID_REF`.
 
@@ -543,7 +543,7 @@ Bridges to a closed list of helpers. The result type matches the helper's signat
 | `cmToTwips`               | number (cm)                           | number (twips)                           |
 | `mmToTwips`               | number (mm)                           | number (twips)                           |
 
-These are the same helpers used by the function-based `customNodes` API, exposed for DSL authors so the wire format matches the editor extension's runtime semantics exactly.
+The function-based `customNodes` API uses the same helpers.
 
 ### Value-form `$switch`
 
@@ -592,12 +592,15 @@ There is no implicit type coercion outside of these explicit rules.
 
 ## Marks system
 
-Marks (`bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `textStyle`, `highlight`, `link`) are the source of much of DOCX's run-level formatting. The DSL gives you two mark hooks:
+Marks such as `bold`, `italic`, `underline`, and `link` control text formatting. The DSL reads them in three places:
 
-1. **`MarkPolicy`** on `$children` and `$text` controls how the standard pipeline maps marks on **text children**.
-2. **`applyMarks`** on inline elements (`TextRun`, `ExternalHyperlink`) controls how the **rule's own** PM-node marks merge onto the emitted run.
+1. `MarkPolicy` on `$children` controls the marks on text children.
+2. `marks: 'default'` on `$text` reads the current rule node's marks. `marks: 'none'` leaves them out.
+3. `applyMarks` on an inline element reads the rule node's marks for its emitted text.
 
 ### `MarkPolicy` (on `$children` / `$text`)
+
+The object policy below applies to `$children`. `$text` accepts only `"default"` or `"none"`.
 
 ```jsonc
 "marks": "default"           // standard Tiptap mark mapping (the default)
@@ -618,9 +621,11 @@ Marks (`bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscrip
 | `mode`                      | required (in object form) | `"default"` runs the standard mark pipeline; `"node"` runs it against the rule's own PM-node marks.       |
 | `overrides[<mark>].props`   | `{}`                      | Extra `TextRun` props to apply when this mark is present.                                                 |
 | `overrides[<mark>].replace` | `false`                   | When `true`, suppress the standard mapping for this mark and apply only the override `props`.             |
-| `disable`                   | `[]`                      | Marks to skip entirely. Their standard mappings do not run and any matching `overrides` entry is ignored. |
+| `disable`                   | `[]`                      | Marks whose standard mappings do not run. Explicit props in a matching `overrides` entry can still apply. |
 
-`MarkPolicy: "default"` is the default for `$children: { as: "inline" }` and `$text`: the same standard pipeline a normal text run would receive.
+`"default"` is the default for both helpers. `$children: { as: "inline" }` reads each text child's marks. `$text` reads the current rule node's marks because it creates text from a value rather than walking text children.
+
+In the editor extension, the selected marks also include insertion and deletion suggestions. `marks: "none"` leaves out their revision records. A `$children` inline slot also keeps built-in inline content such as hard breaks, images, and inline equations.
 
 ### `applyMarks` (on inline elements)
 
@@ -639,27 +644,22 @@ Marks (`bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscrip
 
 When `applyMarks` is omitted, the rule's PM-node marks are **ignored**. Most explicitly styled inline custom nodes want this default: you set the colors and font yourself, and let the wrapping marks fall away.
 
+In the editor extension, `applyMarks: "node"` also keeps insertion and deletion suggestions on a custom node's emitted text. The revision carries the source author and date. An `ExternalHyperlink` can contain that revised text without losing the link. Formatting suggestions do not become Word formatting revisions. See [Tracked changes](/conversion/export/docx/tracked-changes).
+
 ### Override precedence
 
-When several layers want to set the same property, the last one in this ordered ladder wins:
+For an explicit DSL element, later defined properties win:
 
-```
-1. base docx defaults
-2. the editor's rendered CSS              (documentStyles, in the browser)
-3. cssStyles-derived styles               (the experimental cssStyles option)
-4. styleOverrides                         (named DOCX styles)
-5. global *Overrides options              (paragraphOverrides, textRunOverrides, …)
-6. built-in Tiptap node/mark mapping      (the standard pipeline)
-7. DSL child-pipeline mark overrides      (MarkPolicy.overrides[<mark>])
-8. DSL applyMarks props on inline elements
-9. explicit DSL element props
-```
+| Element                                       | Property order, from lower to higher priority                                      |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `TextRun`                                     | Inherited `textRunOverrides`, selected `applyMarks` formatting, explicit DSL props |
+| `Paragraph`, `Table`, `TableRow`, `TableCell` | The matching inherited override option, explicit DSL props                         |
 
-Layer 2 is on by default in the browser, see [Document styles](/conversion/export/docx/document-styles).
+`inheritOverrides: false` skips the inherited override option for that element. It does not turn off `applyMarks` or explicit props.
 
-`inheritOverrides: false` on an `ElementNode` skips layer 5 for that element only, useful when you want a single hint-box paragraph to opt out of `paragraphOverrides` without affecting any other paragraph.
+The DSL adapters replace nested objects such as `spacing`, `borders`, and `shading`. If `paragraphOverrides` supplies `spacing: { line: 240 }` and a DSL paragraph supplies `spacing: { before: 120 }`, its direct spacing contains only `before`. A named Word style can still supply values the paragraph does not set directly.
 
-Nested objects (`spacing`, `borders`, `shading`) are **replaced** at each layer, not deep-merged. If you set `spacing: { before: 120 }` and the underlying `paragraphOverrides` has `spacing: { line: 240 }`, the result is just `{ before: 120 }`. Same convention as the existing extension options.
+Named style merging is separate. See [Style overrides](/conversion/export/docx/styles) for how Document Styles, `cssStyles`, and custom named styles combine. `$children` and `$text` use the text conversion path described in [Marks system](#marks-system).
 
 ---
 
@@ -824,18 +824,16 @@ When the editor extension is configured with both `customNodes` and `customNodeD
 | Same `type` in both                               | Function wins. One `console.warn` is emitted per export call per conflicting type. |
 | Type only in `customNodes`                        | Function renders.                                                                  |
 | Type only in `customNodeDsl.nodes`                | DSL renders.                                                                       |
-| Type in neither                                   | Existing "Custom node not found" behaviour; node is dropped with a console error.  |
+| Type in neither                                   | The exporter skips the node and logs a "Custom node not found" error.              |
 | Duplicate `type` **within** `customNodeDsl.nodes` | Compile error: `DOCX_DSL_DUPLICATE_NODE_TYPE`.                                     |
 
-This is the contract: a customer with no DSL knowledge upgrades the package version with no code changes and observes identical output. Adding `customNodeDsl` only **adds** rules; it never overrides existing function-based custom nodes.
-
-The REST surface does not accept the function API at all, only `customNodeDsl`.
+The REST API accepts `customNodeDsl`. JavaScript callbacks in `customNodes` work only in the editor extension.
 
 ---
 
 ## Resource limits
 
-The DSL is untrusted JSON over the public REST surface. Resource caps are enforced at compile and runtime. Legitimate custom-node programs should never hit them.
+The DSL compiler and exporter check these limits to control memory use and nesting depth.
 
 | Limit                 | Default | Description                                                                           |
 | --------------------- | ------- | ------------------------------------------------------------------------------------- |
@@ -851,6 +849,8 @@ The DSL is untrusted JSON over the public REST surface. Resource caps are enforc
 
 ### Tuning limits in the editor extension
 
+In the editor extension, `maxRenderDepth` counts nesting along one render path. Sibling rules do not add to each other's depth or share the current node's marks. The nesting limit still applies to recursive rules.
+
 Pass `customNodeDslLimits?: Partial<CustomNodeDslLimits>` alongside `customNodeDsl`:
 
 ```ts
@@ -863,7 +863,7 @@ ExportDocx.configure({
 })
 ```
 
-The wire format itself has **no** `limits` field. The reserved root key `limits` rejects with `DOCX_DSL_RESERVED_SHAPE` so server-administered limits cannot be subverted by the client payload.
+The JSON rules do not accept a `limits` field. Use `customNodeDslLimits` in the editor extension to set limits. A root `limits` key causes a `DOCX_DSL_RESERVED_SHAPE` error.
 
 ---
 
@@ -883,35 +883,35 @@ Every error carries a stable `code` and a `dslPath` pointing into the offending 
 
 ### Error codes
 
-| Code                             | When                                                                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `DOCX_DSL_UNKNOWN_VERSION`       | `dslVersion` is present but not `"1.0"`.                                                                                     |
-| `DOCX_DSL_INVALID_SHAPE`         | The JSON does not match the expected shape (missing required field, wrong type).                                             |
-| `DOCX_DSL_DUPLICATE_NODE_TYPE`   | Two rules in `nodes` declare the same `type`.                                                                                |
-| `DOCX_DSL_UNKNOWN_ELEMENT`       | `element` is not in the v1 catalog.                                                                                          |
-| `DOCX_DSL_UNKNOWN_OPERATION`     | `$op` is not in the closed list.                                                                                             |
-| `DOCX_DSL_RESERVED_SHAPE`        | A key reserved for future versions appeared in the payload.                                                                  |
-| `DOCX_DSL_INVALID_PROP`          | An element prop fails its schema (unknown key, wrong type).                                                                  |
-| `DOCX_DSL_INVALID_ENUM`          | An enum prop received a value outside the closed list.                                                                       |
-| `DOCX_DSL_INVALID_REF`           | `$ref` path is malformed, points outside the allowed roots, or hits a forbidden segment.                                     |
-| `DOCX_DSL_INVALID_TEMPLATE`      | `$template` malformed (e.g. unbalanced braces).                                                                              |
-| `DOCX_DSL_INVALID_UNIT`          | `$unit` name is not in the closed list.                                                                                      |
-| `DOCX_DSL_INVALID_TRANSFORM`     | `transform` name is not in the closed list.                                                                                  |
-| `DOCX_DSL_INVALID_CONTEXT`       | A render node is in a slot its element kind isn't allowed in (containment violation).                                        |
-| `DOCX_DSL_INVALID_OP_ARITY`      | An `$op` was passed the wrong number of arguments.                                                                           |
-| `DOCX_DSL_RUNTIME_TYPE_MISMATCH` | A value-expression result didn't match the expected type at runtime (e.g. `$switch.on` resolved to a number).                |
-| `DOCX_DSL_RESOURCE_LIMIT`        | A configurable cap was exceeded (depth, node count, string length, …).                                                       |
+| Code                             | When                                                                                                                        |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DOCX_DSL_UNKNOWN_VERSION`       | `dslVersion` is present but not `"1.0"`.                                                                                    |
+| `DOCX_DSL_INVALID_SHAPE`         | The JSON does not match the expected shape (missing required field, wrong type).                                            |
+| `DOCX_DSL_DUPLICATE_NODE_TYPE`   | Two rules in `nodes` declare the same `type`.                                                                               |
+| `DOCX_DSL_UNKNOWN_ELEMENT`       | `element` is not in the v1 catalog.                                                                                         |
+| `DOCX_DSL_UNKNOWN_OPERATION`     | `$op` is not in the closed list.                                                                                            |
+| `DOCX_DSL_RESERVED_SHAPE`        | The JSON rules use a reserved key.                                                                                          |
+| `DOCX_DSL_INVALID_PROP`          | An element prop fails its schema (unknown key, wrong type).                                                                 |
+| `DOCX_DSL_INVALID_ENUM`          | An enum prop received a value outside the closed list.                                                                      |
+| `DOCX_DSL_INVALID_REF`           | `$ref` path is malformed, points outside the allowed roots, or hits a forbidden segment.                                    |
+| `DOCX_DSL_INVALID_TEMPLATE`      | `$template` malformed (e.g. unbalanced braces).                                                                             |
+| `DOCX_DSL_INVALID_UNIT`          | `$unit` name is not in the closed list.                                                                                     |
+| `DOCX_DSL_INVALID_TRANSFORM`     | `transform` name is not in the closed list.                                                                                 |
+| `DOCX_DSL_INVALID_CONTEXT`       | A render node is in a slot its element kind isn't allowed in (containment violation).                                       |
+| `DOCX_DSL_INVALID_OP_ARITY`      | An `$op` was passed the wrong number of arguments.                                                                          |
+| `DOCX_DSL_RUNTIME_TYPE_MISMATCH` | A value-expression result didn't match the expected type at runtime (e.g. `$switch.on` resolved to a number).               |
+| `DOCX_DSL_RESOURCE_LIMIT`        | A configurable cap was exceeded (depth, node count, string length, …).                                                      |
 | `DOCX_DSL_RENDER_FAILED`         | The adapter `instantiate` step threw; generally indicates a docx.js incompatibility, surfaced with the offending `dslPath`. |
 
 ### HTTP status mapping (REST)
 
-| Class                                    | Status                                             |
-| ---------------------------------------- | -------------------------------------------------- |
-| Compile errors (caught by the validator) | `400`                                              |
-| Runtime errors (caught while rendering)  | `422`                                              |
-| Resource caps exceeded at compile        | `400`                                              |
-| Resource caps exceeded at runtime        | `422`                                              |
-| docx.js itself fails (rare)              | `422` (existing `FAILED_TO_EXPORT_DOCX_FILE` path) |
+| Class                                    | Status                                   |
+| ---------------------------------------- | ---------------------------------------- |
+| Compile errors (caught by the validator) | `400`                                    |
+| Runtime errors (caught while rendering)  | `422`                                    |
+| Resource caps exceeded at compile        | `400`                                    |
+| Resource caps exceeded at runtime        | `422`                                    |
+| docx.js itself fails (rare)              | `422`, with `FAILED_TO_EXPORT_DOCX_FILE` |
 
 ### Behavior matrix (REST)
 
@@ -954,7 +954,7 @@ The REST surface accepts arbitrary `customNodeDsl` from authenticated clients. T
 
 ## REST API addendum
 
-The DSL is accepted on every export REST endpoint (`/export/docx`, `/export/pdf`, `/export/odt`, `/export/epub`, `/export/doc`) as a sibling of the existing `styleOverrides`, `pageSize`, `pageMargins`, `headers`, and `footers` fields. See the [REST API reference](/conversion/export/docx/rest-api) for headers, response shape, and the rest of the body schema.
+Set `customNodeDsl` in the request body for `/export/docx`, `/export/pdf`, `/export/odt`, `/export/epub`, or `/export/doc`. It goes alongside fields such as `styleOverrides`, `pageSize`, `pageMargins`, `headers`, and `footers`. See the [REST API reference](/conversion/export/docx/rest-api) for the request and response formats.
 
 | Body field      | Type                                              | Default     | Description               |
 | --------------- | ------------------------------------------------- | ----------- | ------------------------- |
@@ -966,14 +966,14 @@ When the request comes in `multipart/form-data` (the form variant of the endpoin
 
 ## What's intentionally not here
 
-These are **explicit boundaries**, not bugs:
+The DSL has these limits:
 
-- **Loops over array attributes.** There is no `$each` in v1. The shape is reserved (`DOCX_DSL_RESERVED_SHAPE`) so it can be added without breaking any payloads compiled today. Until then, model variable-length collections by emitting them from the parent (block) and using `$children` to dispatch their items.
-- **Cross-rule attribute access.** A child rule cannot read its parent rule's PM node. The escape hatch is `$children: { as: "inline", marks: "node" }` on the parent rule, which forwards the parent's marks to the child run.
-- **Free-form expressions.** The DSL is not Turing-complete and does not embed Jexl / JSONata / `eval`. All operations are typed and capped.
-- **Image data origination.** Image bytes never come from the DSL; they come from the built-in `image` PM node.
-- **Document-level style contributions.** The DSL describes how _nodes_ render. Named styles still live in [`styleOverrides`](/conversion/export/docx/styles). The reserved `requiresStyles` and `contributedStyles` root keys mark the future surface.
-- **Editing a `dslVersion` payload between versions.** `dslVersion: "1.0"` is an exact literal. Future minor versions will be additive (new optional fields, new operations) and will accept v1.0 payloads unchanged. Major version bumps will require explicit migration.
+- The DSL does not accept `$each` to loop over array attributes. Use child nodes for a collection, then use `$children` in the parent block's rule to convert them.
+- A child rule cannot read its parent node's attributes. To pass the parent's marks to child text, use `$children: { as: "inline", marks: "node" }` in the parent rule.
+- Expressions use only the supported operations. The DSL does not run JavaScript or other expression languages.
+- Image bytes come from built-in `image` nodes. DSL rules cannot supply them directly.
+- Define named styles in [`styleOverrides`](/conversion/export/docx/styles). The DSL does not accept `requiresStyles` or `contributedStyles` at the root.
+- Set `dslVersion` to the exact string `"1.0"`. Other values cause a `DOCX_DSL_UNKNOWN_VERSION` error.
 
 ---
 

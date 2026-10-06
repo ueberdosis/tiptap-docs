@@ -24,59 +24,58 @@ import ExportStylesGuide from '../_shared/_export-styles-guide.mdx'
     plan](https://cloud.tiptap.dev/v2/billing) in your account.
   </RequirementItem>
   <RequirementItem label="2. Install from private registry">
-    To install this frontend extensions, authenticate to Tiptap's private npm registry by following
+    To install this frontend extension, authenticate to Tiptap's private npm registry by following
     the [setup guide](/guides/pro-extensions).
   </RequirementItem>
 </Requirements>
 
-When exporting to `DOCX`, you can define custom styles that will be applied to the exported document. This is useful when you want to have a consistent look and feel across your documents.
+Use custom Word styles to set the fonts, colors, and spacing in your exported documents.
 
-In the browser, the export already takes its styles from your editor's CSS, see [Document styles](/conversion/export/docx/document-styles). The options on this page apply over those styles.
+In the browser, [Document styles](/conversion/export/docx/document-styles) read your editor's CSS. The options on this page take priority over those styles.
 
 <ExportStylesGuide />
 
 ## Per-node overrides with a function
 
-Every element override accepts a function as well as a static object. That covers `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides` and `imageOverrides`. The function gets the node being converted and returns the overrides for that node, so you can change them per node based on its attributes. The object form still works the same way.
+Every element override accepts a function or an object. That includes `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, and `imageOverrides`. A node is an item in your Tiptap JSON, such as a paragraph or an image. The function receives the original node and returns its formatting.
+
+With document styles, the exporter can split one text node into several Word text runs. These runs hold pieces of text with different formatting. The exporter calls `textRunOverrides` once with the original text node and applies the result to every run from that node.
 
 ```ts
 ExportDocx.configure({
   onCompleteExport: (result) => {
     /* ... */
   },
-  // `node` is the image node currently being converted, including its `attrs`.
   imageOverrides: (node) => ({
-    // Carry the editor's alt text into Word's accessibility metadata.
+    // Give Word the image's alternative text.
     altText: { name: node.attrs?.alt, description: node.attrs?.alt },
-    // Derive the rendered size from the dimensions set on the node.
-    transformation: {
-      width: Number(node.attrs?.width),
-      height: Number(node.attrs?.height),
-    },
   }),
-  // The function receives the matching node for every override type.
   paragraphOverrides: (node) => ({
     keepNext: node.attrs?.keepWithNext === true,
   }),
 })
 ```
 
-The export applies what the function returns exactly like a static object, with the same precedence. If it returns an empty object, the node keeps every default.
+The exporter applies the returned object in the same way as an object passed directly. An empty object keeps the formatting. A `textRunOverrides` callback may also return `undefined` to keep it.
+
+Named `styleOverrides` combine nested properties with the editor styles. Element overrides replace the properties you supply, including nested objects. For example, `paragraphOverrides: { spacing: { after: 200 } }` replaces the whole `spacing` object read from the editor. It removes that object's line height and space before. Formatting stored on nodes and marks can still affect the final result. See [How your options combine with your CSS](/conversion/export/docx/document-styles#how-your-options-combine-with-your-css).
 
 ### Where the node sits
 
-Since v0.33.0, the function also receives a second argument, `context`, which describes where the node sits in the document:
+The function receives a second argument, `context`, that describes where the node sits in the document:
 
-| Field           | Description                                                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `documentIndex` | Index of the top-level block that holds the node, `0` for the first block. Missing in header, footer, footnote and comment content |
-| `table`         | The innermost `table` node around the node                                                                                         |
-| `tableRow`      | The `tableRow` node around the node                                                                                                |
-| `tableCell`     | The cell around the node. Its `type` is `tableHeader` for a header cell                                                            |
-| `rowIndex`      | Index of the row in its table, `0` for the first row                                                                               |
-| `cellIndex`     | Index of the cell in its row. Under a `rowspan` from an earlier row, this is not the grid column the cell sits in                  |
+| Field            | Description                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `documentIndex`  | Index of the top-level block that holds the node, `0` for the first block. Missing in header, footer, footnote, endnote, and comment content |
+| `table`          | The closest `table` node that contains the node                                                                                              |
+| `tableRow`       | The `tableRow` node around the node                                                                                                          |
+| `tableCell`      | The cell around the node. Its `type` is `tableHeader` for a header cell                                                                      |
+| `rowIndex`       | Index of the row in its table, `0` for the first row                                                                                         |
+| `cellIndex`      | Index of the cell in its row. Under a `rowspan` from an earlier row, this is not the grid column the cell sits in                            |
+| `block`          | The paragraph or heading around a text run. Available to `textRunOverrides` when the built-in text converter has that parent.                |
+| `paragraphStyle` | The selected paragraph style, such as `Quote`, `CodeBlock`, or `ListParagraph`.                                                              |
 
-Outside a table, `context` holds only `documentIndex`. The context is read-only, and a callback that writes to it throws.
+Outside a table, the table fields are absent. The context can still include `documentIndex`, `block`, and `paragraphStyle`. You can read `context`, but you cannot change it. Changing it causes an error.
 
 ```ts
 ExportDocx.configure({
@@ -91,9 +90,8 @@ ExportDocx.configure({
 })
 ```
 
-A function that takes only `node` keeps working.
+Use only `node` when you do not need `context`.
 
 <Callout title="Function form is DOCX-only">
-  The function form of the element overrides is supported by the DOCX export. Other export formats
-  accept the static object form.
+  DOCX export accepts functions for element overrides. Other export formats accept objects.
 </Callout>

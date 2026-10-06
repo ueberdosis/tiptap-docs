@@ -19,13 +19,13 @@ Headers and footers in Word carry repeated content at the top and bottom of ever
 
 ## Support overview
 
-| Feature                      | Import                                                                                                         | Editor                                                                            | Export                                                                                                                                                                                       |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Default header/footer        | Supported                                                                                                      | Supported ([Pages](/editor/extensions/functionality/pages))                       | Supported                                                                                                                                                                                    |
-| Different first page         | Supported                                                                                                      | Supported                                                                         | Supported                                                                                                                                                                                    |
-| Different odd/even pages     | Supported                                                                                                      | Supported                                                                         | Supported                                                                                                                                                                                    |
-| Page number placeholders     | Supported. PAGE/NUMPAGES fields are translated to canonical `{page}` / `{numpages}` text tokens (default-on when Pages is installed; pass `placeholders: false` to keep the cached display value as plain text instead). | Supported (`{page}`, `{total}` substituted at render time by the Pages extension; rename via `placeholders` config). | Supported via the editor extension: `{page}` / `{total}` tokens in headers/footers are emitted as live `PAGE` / `NUMPAGES` fields. The REST API does not currently translate these tokens, so they render as literal text. |
-| Rich text in headers/footers | Supported                                                                                                      | Supported                                                                         | Supported                                                                                                                                                                                    |
+| Feature                      | Import                                                                                                        | Editor                                                                                            | Export                                                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default header/footer        | Supported                                                                                                     | Supported ([Pages](/editor/extensions/functionality/pages))                                       | Supported                                                                                                                                                                        |
+| Different first page         | Supported                                                                                                     | Supported                                                                                         | Supported                                                                                                                                                                        |
+| Different odd/even pages     | Supported                                                                                                     | Supported                                                                                         | Supported                                                                                                                                                                        |
+| Page number placeholders     | Supported. See the [import placeholder options](/conversion/import/docx/editor-extension#page-number-fields). | Pages replaces `{page}` and `{total}` at render time. You can rename them through `placeholders`. | The editor export writes live `PAGE` and `NUMPAGES` fields. See the [REST placeholder options](/conversion/export/docx/rest-api#custom-token-names-placeholders) for API export. |
+| Rich text in headers/footers | Supported                                                                                                     | Supported                                                                                         | Supported                                                                                                                                                                        |
 
 ## Import
 
@@ -82,7 +82,7 @@ The Pages extension supports three header/footer modes matching Word's behavior:
 - **Different first page:** Separate header/footer on the first page
 - **Different odd/even pages:** Separate headers/footers for odd and even pages
 
-Page numbers are rendered through placeholders: `{page}` for current page, `{total}` for total page count. The Pages extension substitutes them when rendering each page in the editor, and the [`ExportDocx` editor extension](/conversion/export/docx/editor-extension) emits them as live `PAGE` / `NUMPAGES` fields when exporting, so the exported document shows the real page numbers in Word. The REST API export path does not currently translate these tokens, so they render as literal text. See the [Export](#export) section below.
+Pages uses `{page}` for the current page and `{total}` for the total page count. The [`ExportDocx` editor extension](/conversion/export/docx/editor-extension) writes these tokens as live `PAGE` and `NUMPAGES` fields. Word updates those fields when it lays out the document. See the [Export](#export) section below.
 
 After import, the user can double-click an imported header or footer to edit it. The Pages extension exposes the active overlay editor through `editor.storage.pages` and provides `headerEditorOn` / `headerEditorOff` (and `footerEditorOn` / `footerEditorOff`) event-subscription helpers, useful for syncing toolbars or reacting to focus changes. See [Active editor state](/pages/core-concepts/page-header-footer#active-editor-state) on the Page header and footer guide.
 
@@ -92,7 +92,9 @@ Export headers and footers using the [editor extension](/conversion/export/docx/
 
 For PDF export specifically, the extension accepts a richer set of slot values (plain text, stringified JSONContent, JSONContent object, `docx.Header`/`Footer` instance, and async factories that build a header on demand). See the [PDF headers and footers guide](/conversion/export/pdf/headers-footers) for the full table.
 
-When the Pages extension is installed alongside the export extension, header/footer content is extracted automatically from the Pages extension storage. No additional configuration is needed.
+When Pages is installed alongside the export extension, the exporter reads its header and footer content automatically. With `documentStyles` enabled, it reads each part's own displayed styles from the Pages preview or active editor. The exporter copies the content before waiting for fonts, so later edits do not replace the content being exported.
+
+Use `headerFooterOverrides` to change text, paragraphs, tables, table rows, cells, or images in these parts. Explicit formatting takes priority over the captured styles. If you build a completed `Docx.Header` or `Docx.Footer` yourself, its contents keep the formatting you used to build it. See [Header and footer styles](/conversion/export/docx/headers-footers#header-and-footer-styles).
 
 Without the Pages extension, you can supply headers and footers manually through export options:
 
@@ -113,20 +115,19 @@ ExportDocx.configure({
 })
 ```
 
-The export supports `default`, `first`, and `even` variants for both headers and footers. The `differentFirstPage` and `evenAndOddHeaders` flags are set automatically when the corresponding variants are provided.
+The export supports `default`, `first`, and `even` variants. For manual configuration, set `differentFirstPage: true` to use a first-page variant. Set `evenAndOddHeaders: true` or `evenAndOddFooters: true` to use even-page content. The Pages integration supplies these flags from Pages settings automatically.
 
-Explicit header/footer options override automatic extraction from the Pages extension.
+Explicit `headers` or `footers` options override the automatic Pages configuration for that part as a whole. Supplying only `headers.first`, for example, does not keep Pages' other header slots automatically. Keep the automatic content and use `headerFooterOverrides` if you only want to change formatting.
 
 <Callout variant="info" title="`{page}` and `{total}` render as live DOCX page-number fields">
-  When a header or footer contains `{page}` or `{total}`, the [`ExportDocx` editor extension](/conversion/export/docx/editor-extension)
-  emits each token as a live `PAGE` / `NUMPAGES` field, so Word displays the actual current page and
-  total page count instead of the literal token strings. This applies to headers and footers
-  auto-extracted from the Pages extension and to direct `convertHeader` / `convertFooter` calls
-  that pass a `placeholders` option. The [REST API](/conversion/export/docx/rest-api) does not
-  currently translate these tokens, so they render as literal text. For richer constructions
-  (e.g. `"Page X of Y"` formatting beyond the bare tokens), you can also supply a
-  `Docx.Header` / `Docx.Footer` instance manually with `Docx.PageNumber.CURRENT` /
-  `Docx.PageNumber.TOTAL_PAGES`.
+  When a header or footer contains `{page}` or `{total}`, the [`ExportDocx` editor
+  extension](/conversion/export/docx/editor-extension) emits each token as a live `PAGE` /
+  `NUMPAGES` field, so Word displays the actual current page and total page count instead of the
+  literal token strings. This applies to headers and footers auto-extracted from the Pages extension
+  and to direct `convertHeader` / `convertFooter` calls that pass a `placeholders` option. The [REST
+  API](/conversion/export/docx/rest-api#custom-token-names-placeholders) documents its own
+  placeholder options. For custom page-number formatting, you can supply a `Docx.Header` /
+  `Docx.Footer` instance manually with `Docx.PageNumber.CURRENT` / `Docx.PageNumber.TOTAL_PAGES`.
 </Callout>
 
 ### What round-trips

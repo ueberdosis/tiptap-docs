@@ -76,7 +76,7 @@ export async function GET() {
       ' or send an `Accept: text/markdown` header.',
     '',
     'For a product overview and curated entry points, see https://tiptap.dev/llms.txt',
-    ''
+    '',
   ]
 
   for (const [section, items] of [...bySection.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
@@ -88,7 +88,7 @@ export async function GET() {
     lines.push('')
   }
 
-  return new Response(lines.join('\n').trim() + '\n', {
+  return new Response(`${lines.join('\n').trim()  }\n`, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
