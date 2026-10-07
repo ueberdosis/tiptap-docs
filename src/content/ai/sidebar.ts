@@ -13,7 +13,6 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           title: 'Overview',
-          releaseTag: 'beta',
           href: '/ai/ai-toolkit/overview',
         },
         {
@@ -43,7 +42,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Streaming',
               href: '/ai/ai-toolkit/agents/streaming',
-              releaseTag: 'alpha',
+              releaseTag: 'beta',
             },
           ],
         },
