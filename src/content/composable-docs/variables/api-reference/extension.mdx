@@ -59,9 +59,9 @@ interface VariableResolverContext {
 }
 ```
 
-| Property | Type                              | Behavior                                                                                                        |
-| -------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `get`    | `(name: string) => VariableValue` | Reads a configured variable and registers a dependency. An unknown name or circular dependency throws an error. |
+| Property | Type                              | Behavior                                                                                                     |
+| -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `get`    | `(name: string) => VariableValue` | Reads a registered variable and tracks a dependency. An unknown name or circular dependency throws an error. |
 
 Resolvers return synchronously. Reading another variable makes the resolver rerun when that variable is updated.
 
@@ -174,9 +174,9 @@ Direct calls through `editor.commands` return `boolean`. In a chain, the same co
 
 Insert a non-editable inline reference at the selection.
 
-| Argument property | Type     | Required | Meaning                                     |
-| ----------------- | -------- | -------- | ------------------------------------------- |
-| `name`            | `string` | Yes      | A key in the configured `variables` record. |
+| Argument property | Type     | Required | Meaning                                                        |
+| ----------------- | -------- | -------- | -------------------------------------------------------------- |
+| `name`            | `string` | Yes      | A variable registered through configuration or `setVariables`. |
 
 The argument type is `{ name: string }`. There is no separately exported `InsertVariableOptions` type.
 
@@ -199,7 +199,7 @@ interface SetVariableOptions {
 
 | Argument property | Type            | Required | Meaning                                         |
 | ----------------- | --------------- | -------- | ----------------------------------------------- |
-| `name`            | `string`        | Yes      | A configured variable name.                     |
+| `name`            | `string`        | Yes      | A registered variable name.                     |
 | `value`           | `VariableValue` | Yes      | The new value. Explicit `undefined` is allowed. |
 
 ```ts
@@ -209,6 +209,61 @@ const updated: boolean = editor.commands.setVariable({ name: 'customer', value: 
 Returns `false` when the name is unknown or the update fails. An unknown name does not call `onError`.
 
 Setting a resolver-backed variable overrides its cached value until its resolver runs again. It does not replace the resolver.
+
+### setVariables
+
+Add variables or replace their values and resolvers at runtime. Names omitted from the record stay unchanged.
+
+```ts
+interface SetVariablesOptions {
+  variables: Record<string, VariableValue | VariableResolver>
+}
+```
+
+The `variables` property is required. Each key is a variable name; each value is a plain value or synchronous resolver.
+
+```ts
+editor.commands.setVariables({
+  variables: {
+    customer: 'Ada',
+    greeting: ({ get }) => `Hello, ${String(get('customer'))}!`,
+  },
+})
+```
+
+Resolvers run immediately, and dependent values and bound slots update. You can register a resolver and its dependencies in the same call.
+
+Replace a resolver with a value to stop recalculating it. To keep its current value:
+
+```ts
+editor.commands.setVariables({
+  variables: { greeting: getVariable({ editor, name: 'greeting' }) },
+})
+```
+
+Returns `false` if evaluation or slot synchronization fails, and calls `onError`. The whole update is rejected, leaving previous definitions and values unchanged.
+
+Definitions belong to this editor instance. They are not saved in the document or reverted by document undo.
+
+### removeVariables
+
+Remove variables and their resolvers together.
+
+```ts
+interface RemoveVariablesOptions {
+  names: string[]
+}
+```
+
+The `names` property is required. An empty array does nothing.
+
+```ts
+editor.commands.removeVariables({ names: ['greeting'] })
+```
+
+Returns `false` if a name is unknown, has a configured slot binding, or is read by a remaining resolver. These checks do not call `onError`. Remove dependent variables in the same call, or replace their resolvers first.
+
+Existing document references stay in place and display an empty value. Registering the name again restores their display.
 
 ### refreshVariables
 
@@ -224,8 +279,8 @@ The options object and its `names` property are both optional.
 
 | `names`                | Behavior                                                                    |
 | ---------------------- | --------------------------------------------------------------------------- |
-| Omitted or `undefined` | Refresh all configured resolvers.                                           |
-| `string[]`             | Refresh the named variables and their dependents. Names must be configured. |
+| Omitted or `undefined` | Refresh all registered resolvers, including those added at runtime.         |
+| `string[]`             | Refresh the named variables and their dependents. Names must be registered. |
 | `[]`                   | Run no resolvers; synchronize bound slots with current values.              |
 
 ```ts
@@ -236,6 +291,8 @@ editor.commands.refreshVariables()
 Returns `false` for an unknown name or a failed update. An unknown name does not call `onError`. Refreshing a plain value leaves it unchanged but recalculates its dependents.
 
 `editor.can().setVariable({ name, value })` and `editor.can().refreshVariables()` check variable names without executing resolvers. Their `boolean` result cannot predict evaluation or slot-write failures.
+
+`editor.can().setVariables({ variables })` also skips evaluation. `editor.can().removeVariables({ names })` checks existing names, slot bindings, and tracked dependencies. Neither changes the runtime definitions.
 
 ## Read a value
 
@@ -370,7 +427,7 @@ editor.off('variablesUpdate', onVariablesUpdate)
 
 Both `editor.on()` and `editor.off()` return the editor instance. The listener receives the same `{ editor, values }` payload as the extension's `onUpdate` callback.
 
-Commands, refreshed resolvers, and slot edits can emit this event. Rejected updates and unchanged values do not emit it. Registering a listener does not send an initial value; use `getVariable` to read it.
+Commands, refreshed resolvers, and slot edits can emit this event. Adding or removing a variable also emits it, even when its value is `undefined`. Removed names are absent from `values`. Replacing a resolver without changing its value does not emit it. Rejected updates and unchanged values do not emit it. Registering a listener does not send an initial value; use `getVariable` to read it.
 
 ## Document reference
 
@@ -380,9 +437,9 @@ Variable references store only a name:
 { "type": "variable", "attrs": { "name": "customer" } }
 ```
 
-| Property     | Type             | Meaning                                                                                   |
-| ------------ | ---------------- | ----------------------------------------------------------------------------------------- |
-| `type`       | `'variable'`     | The extension's node name.                                                                |
-| `attrs.name` | `string \| null` | A variable name. The schema default is `null`; commands require a configured string name. |
+| Property     | Type             | Meaning                                                                                     |
+| ------------ | ---------------- | ------------------------------------------------------------------------------------------- |
+| `type`       | `'variable'`     | The extension's node name.                                                                  |
+| `attrs.name` | `string \| null` | A variable name. The schema default is `null`; `insertVariable` requires a registered name. |
 
 A missing or unknown name displays an empty value. The runtime value is absent from document JSON, exported HTML, and plain text.
