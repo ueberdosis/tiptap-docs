@@ -93,15 +93,15 @@ Every option is optional when calling `Variable.configure()`. The extension supp
 
 See [Styling](/composable-docs/variables/api-reference/rendering) for styling and custom views.
 
-| Option                     | Type                                                | Default                     | Meaning                                                                                    |
-| -------------------------- | --------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
-| `HTMLAttributes`           | `Record<string, string>`                            | `{}`                        | Attributes for the default NodeView and exported HTML.                                     |
-| `variables`                | `Record<string, VariableValue \| VariableResolver>` | `{}`                        | Keys are variable names; values are initial values or resolvers.                           |
-| `slots`                    | `Record<string, string>`                            | `{}`                        | Keys are slot IDs; values are names defined in `variables`. Requires the `Slot` extension. |
-| `shortcuts`                | `false \| VariableShortcut`                         | `{ open: '{', close: '}' }` | Typed delimiters. See [typed shortcuts](#typed-shortcuts).                                 |
-| `resolveInputRuleVariable` | `VariableInputRuleResolver`                         | Returns `undefined`         | Customize or cancel a typed reference.                                                     |
-| `onUpdate`                 | `(options: VariableUpdateOptions) => void`          | No-op function              | Called after accepted variable-value changes.                                              |
-| `onError`                  | `(options: VariableErrorOptions) => void`           | No-op function              | Called when evaluation, rendering, slot synchronization, or an input-rule callback fails.  |
+| Option                     | Type                                                | Default                     | Meaning                                                                                            |
+| -------------------------- | --------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `HTMLAttributes`           | `Record<string, string>`                            | `{}`                        | Attributes for the default NodeView and exported HTML.                                             |
+| `variables`                | `Record<string, VariableValue \| VariableResolver>` | `{}`                        | Keys are variable names; values are initial values or resolvers.                                   |
+| `slots`                    | `Record<string, string>`                            | `{}`                        | Initial slot-ID-to-variable bindings. Requires `Slot`. Prefer slot attributes or binding commands. |
+| `shortcuts`                | `false \| VariableShortcut`                         | `{ open: '{', close: '}' }` | Typed delimiters. See [typed shortcuts](#typed-shortcuts).                                         |
+| `resolveInputRuleVariable` | `VariableInputRuleResolver`                         | Returns `undefined`         | Customize or cancel a typed reference.                                                             |
+| `onUpdate`                 | `(options: VariableUpdateOptions) => void`          | No-op function              | Called after accepted variable-value changes.                                                      |
+| `onError`                  | `(options: VariableErrorOptions) => void`           | No-op function              | Called when evaluation, rendering, slot synchronization, or an input-rule callback fails.          |
 
 ```ts
 Variable.configure({
@@ -111,6 +111,8 @@ Variable.configure({
   onError: ({ error }) => console.error(error.message),
 })
 ```
+
+Slot bindings are stored as `variable: 'customer'` on slot nodes. `variable: null` explicitly unbinds a slot. HTML uses `data-slot-variable="customer"`; an empty attribute means unbound. When the attribute is omitted, the initial `slots` configuration supplies the binding; the extension writes those initial bindings into the document when the editor is created. Prefer the [binding commands](#bindslotvariable) for later changes.
 
 ### VariableUpdateOptions
 
@@ -208,7 +210,7 @@ const updated: boolean = editor.commands.setVariable({ name: 'customer', value: 
 
 Returns `false` when the name is unknown or the update fails. An unknown name does not call `onError`.
 
-Setting a resolver-backed variable overrides its cached value until its resolver runs again. It does not replace the resolver.
+This replaces any resolver with the supplied value. Bound slots take the new value and become read-only.
 
 ### setVariables
 
@@ -261,9 +263,48 @@ The `names` property is required. An empty array does nothing.
 editor.commands.removeVariables({ names: ['greeting'] })
 ```
 
-Returns `false` if a name is unknown, has a configured slot binding, or is read by a remaining resolver. These checks do not call `onError`. Remove dependent variables in the same call, or replace their resolvers first.
+For a bound variable, this removes its explicit value or resolver. Its slots become editable and supply the value instead.
 
-Existing document references stay in place and display an empty value. Registering the name again restores their display.
+For an unbound variable, this removes the variable. Returns `false` if a name is unknown or removing it would leave a remaining resolver without its dependency. These checks do not call `onError`.
+
+Existing document references stay in place. References to removed, unbound variables display an empty value.
+
+### bindSlotVariable
+
+Bind a slot to a variable, or replace its current binding. The binding is saved in the slot's `variable` attribute.
+
+```ts
+interface BindSlotVariableOptions {
+  id: string
+  name: string
+}
+
+editor.commands.bindSlotVariable({ id: 'customerField', name: 'customer' })
+```
+
+Both properties are required. `id` must identify exactly one slot; `name` must be nonempty. An unknown name creates a variable whose value comes from the slot.
+
+An explicit value or resolver takes precedence and makes the slot read-only. Otherwise, the first bound slot supplies the value and all bound slots stay editable. Adding another slot copies the variable's current value into it.
+
+Returns `false` and calls `onError` if the slot is missing or ambiguous, the name is empty, or synchronization or Content Protection rejects the change. The whole change is rejected.
+
+### unbindSlotVariable
+
+Remove a binding and keep the slot's current content.
+
+```ts
+interface UnbindSlotVariableOptions {
+  id: string
+}
+
+editor.commands.unbindSlotVariable({ id: 'customerField' })
+```
+
+The `id` property is required and must identify exactly one slot. The command saves `variable: null` on that slot. It returns `false` and calls `onError` when the slot cannot be found uniquely or the change is rejected.
+
+When a slot-driven variable loses its last bound slot, its value becomes `undefined`. Explicit values and resolvers are unaffected. Binding and unbinding support document undo and redo.
+
+Both binding commands support `editor.can()` without evaluating resolvers or changing bindings. A dry run checks the slot, name, and permission to change the binding; it cannot predict synchronization failures.
 
 ### refreshVariables
 
@@ -292,7 +333,7 @@ Returns `false` for an unknown name or a failed update. An unknown name does not
 
 `editor.can().setVariable({ name, value })` and `editor.can().refreshVariables()` check variable names without executing resolvers. Their `boolean` result cannot predict evaluation or slot-write failures.
 
-`editor.can().setVariables({ variables })` also skips evaluation. `editor.can().removeVariables({ names })` checks existing names, slot bindings, and tracked dependencies. Neither changes the runtime definitions.
+`editor.can().setVariables({ variables })` also skips evaluation. `editor.can().removeVariables({ names })` checks existing names and whether remaining resolvers would lose a dependency. Neither changes the runtime definitions.
 
 ## Read a value
 
