@@ -74,21 +74,34 @@ See the [REST API reference](/ai/ai-toolkit/api-reference/rest-api#readselection
 
 ## Publish the selection to awareness
 
-The server reads the selection from live collaboration awareness data. To make this data available, configure
-the [`CollaborationCaret` extension](/editor/extensions/functionality/collaboration-caret) and give the user an `id` that matches the `tool.config.user` you
-send to the server. Create the editor once the provider is connected so the caret can attach.
+Add `AiSelectionAwareness` from `@tiptap/ai-toolkit/selection-awareness` to your editor. It publishes
+selection data specifically for the AI Toolkit and keeps it when the editor loses focus. Users can
+select text, click into chat, and ask the AI to edit that selection.
+
+This entry point requires the collaboration peer dependencies `@tiptap/y-tiptap` and `yjs`:
+
+```bash
+npm install @tiptap/ai-toolkit @tiptap/y-tiptap yjs
+```
+
+Pass the collaboration provider and a `userId` matching `tool.config.user`. Create the editor once
+the provider exists, and use the same Yjs document for the provider and `Collaboration`.
+`CollaborationCaret` is optional: keep it if you want to display other users' cursors.
 
 ```tsx
-import { CollaborationCaret } from '@tiptap/extension-collaboration-caret'
+import { ServerAiToolkit } from '@tiptap/ai-toolkit'
+import { AiSelectionAwareness } from '@tiptap/ai-toolkit/selection-awareness'
+import { Collaboration } from '@tiptap/extension-collaboration'
+import { useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 
 const editor = useEditor({
   extensions: [
-    StarterKit,
+    StarterKit.configure({ undoRedo: false }),
     Collaboration.configure({ document: doc }),
-    CollaborationCaret.configure({
+    AiSelectionAwareness.configure({
       provider,
-      // The id is what readSelection matches against on the server.
-      user: { id: 'user-1', name: 'You', color: '#6a00f5' },
+      userId: 'user-1',
     }),
     ServerAiToolkit,
   ],
@@ -97,22 +110,72 @@ const editor = useEditor({
 
 ## Preserving the selection
 
-The server reads the selection from awareness at the moment the tool runs. `CollaborationCaret`
-clears the awareness selection when the editor loses focus, so if the user clicks into a chat input
-before sending, the server reads an empty selection.
-
-Re-focus the editor when the user sends a message so `CollaborationCaret` re-publishes the current selection:
+The server reads awareness at the moment the tool runs. Blurring the editor leaves the AI selection
+intact, so sending a message requires no editor focus call:
 
 ```tsx
 const handleSubmit = () => {
   if (!input.trim()) return
-  // Re-publish the selection to awareness: moving to the chat input blurred the
-  // editor and cleared the awareness cursor.
-  editor.commands.focus()
   sendMessage({ text: input })
   setInput('')
 }
 ```
+
+The selection uses Yjs relative positions, so it follows collaborative edits while the user is in
+chat. Changing the selection, including collapsing it to a cursor, replaces the previous selection.
+Destroying the editor clears its field's selection. This is live awareness, not durable storage:
+the selection is unavailable once the provider disconnects and the server removes its awareness state.
+
+## Multiple collaborative fields
+
+Each editor publishes its own field, inferred from the fragment bound by `Collaboration`. Editors
+can share one provider and retain independent selections:
+
+```ts
+const titleExtensions = [
+  StarterKit.configure({ undoRedo: false }),
+  Collaboration.configure({ document: doc, field: 'title' }),
+  ServerAiToolkit,
+  AiSelectionAwareness.configure({ provider, userId: 'user-1' }),
+]
+
+const bodyExtensions = [
+  StarterKit.configure({ undoRedo: false }),
+  Collaboration.configure({ document: doc, field: 'body' }),
+  ServerAiToolkit,
+  AiSelectionAwareness.configure({ provider, userId: 'user-1' }),
+]
+```
+
+Pass the field at the top level of every tool execution request for that editor, including subsequent
+read and edit calls. Omit it to use `default`. The field is chosen by your application, not the model:
+
+```ts
+const body = {
+  editorContext: getEditorContext(bodyEditor),
+  document: { type: 'cloud', id: documentId },
+  field: 'body',
+  tool: {
+    name: 'readSelection',
+    input: {},
+    config: { user: 'user-1' },
+  },
+}
+```
+
+## Existing Collaboration Caret integrations
+
+The server prefers AI Toolkit selection awareness for the requested user and field. If no matching
+AI Toolkit entry exists, it falls back to `CollaborationCaret`'s `user.id` and cursor for the `default`
+field. Existing integrations continue to work without changes, including their existing blur behavior.
+
+To migrate, add `AiSelectionAwareness` with the same user ID and remove any chat-submit workaround
+that refocuses the editor. An empty or cleared AI Toolkit selection takes precedence over a legacy
+caret selection. The caret fallback is not used for non-default fields because caret awareness does
+not identify its field.
+
+Deploy the server update before enabling the new extension. An older server only reads caret
+awareness, so retain `CollaborationCaret` during a staggered rollout if older servers still need it.
 
 ## End result
 
@@ -129,11 +192,11 @@ See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
 
 ## Limitations
 
-### Only works with Tiptap Cloud documents on the `default` field
+### Requires live collaborative documents
 
-The `readSelection` tool reads the selection state from the live updates sent by the `CollaborationCaret` extension. Therefore, it only works with Tiptap Cloud collaborative documents and is not compatible with documents provided inline.
-
-An advanced option of collaborative documents is to store [multiple fields](/editor/extensions/functionality/collaboration#field). Currently, the `readSelection` tool only supports the `default` field. If you have a use case that involves multiple fields, [contact us](mailto:humans@tiptap.dev).
+The `readSelection` tool reads live awareness from Tiptap Cloud collaborative documents. Documents
+provided inline have no awareness and are not supported. A missing user or field, a collapsed
+selection, or positions that can no longer be resolved returns `{ success: true, isEmpty: true }`.
 
 ### AI model behavior
 
