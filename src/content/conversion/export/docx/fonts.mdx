@@ -4,10 +4,10 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v0.26.1
+    label: v0.33.0
 meta:
   title: Custom fonts | Tiptap Conversion
-  description: Embed TTF/OTF fonts into exported DOCX files (manually, or automatically from the fonts your document already uses) so they render correctly in Word everywhere.
+  description: Add TTF or OTF font files to your DOCX export. Supply fonts yourself or let the browser export find the fonts your document uses.
   category: Conversion
 ---
 
@@ -29,24 +29,23 @@ import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
   </RequirementItem>
 </Requirements>
 
-Word only renders a font that's installed on the reader's machine, unless the font is **embedded** into the document itself. `@tiptap-pro/extension-export-docx` can embed the fonts your content uses so the exported `.docx` looks the same everywhere, even where those fonts aren't installed.
+You can include font files in your DOCX export with `@tiptap-pro/extension-export-docx`. Word can then use those fonts on a computer that does not have them installed. Font embedding helps preserve the text's appearance, but it does not guarantee the same page layout in every Word version.
 
 There are two ways to do it:
 
-- **[Manual](#manual-embedding)**: you supply the font bytes via the `fonts` option. Full control, no network dependency, works on the server.
-- **[Automatic](#automatic-embedding)**: set `embedFonts: true` and the export detects, fetches, and embeds the fonts your document uses for you. Browser only.
+- [Manual embedding](#manual-embedding) uses font files you supply through the `fonts` option. It works in the browser and on the server.
+- [Automatic embedding](#automatic-embedding) finds and fetches fonts when you set `embedFonts: true`. It needs the browser's stylesheets.
 
 <CodeDemo isPro path="/Extensions/ExportDocxCustomFont" />
 
 <Callout title="Only the regular variant is embedded">
-  DOCX font embedding carries the regular (upright, 400-weight) face of each family. Word
-  synthesizes bold and italic from it, so you don't need to (and can't, through this API) embed
-  separate bold/italic font files.
+  The exporter embeds one regular font file per family, normally weight 400. Word creates bold and
+  italic versions from that file. This API does not embed separate bold or italic files.
 </Callout>
 
 ## Manual embedding
 
-Pass a `fonts` array, one entry per font family, each with its raw TTF or OTF bytes. The font is obfuscated into the document package (`word/fonts/font<N>.odttf`, per the OOXML spec) and bound to every run that uses the matching family name.
+Pass a `fonts` array with one entry per font family. Each entry contains the TTF or OTF file bytes. The exporter adds that file to the DOCX and connects it to text that uses the same family name.
 
 ```ts
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
@@ -91,20 +90,23 @@ interface DocxFontDefinition {
 }
 ```
 
-| Field          | Description                                                                                                                                                                                                                                                                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | The font family name. **Must exactly match** the font name used by your content: the first family of a `textStyle` mark's `fontFamily` (quotes stripped, so `'"Playfair Display", serif'` resolves to `Playfair Display`) or the `font` set via `styleOverrides` / `textRunOverrides`. A mismatch silently falls back to a substitute font. |
-| `data`         | Raw **TTF or OTF** bytes. Accepts a Node `Buffer`, a `Uint8Array`, or an `ArrayBuffer` (so `await fetch(url).then((r) => r.arrayBuffer())` works directly in the browser). WOFF/WOFF2 data is not accepted here; see [automatic embedding](#automatic-embedding) for converting WOFF2.                                                      |
-| `characterSet` | Optional Word charset code, written as `<w:charset>` in the font table. Leave unset for ordinary Latin fonts. Use the re-exported `CharacterSet` constant for the value (e.g. `CharacterSet.GREEK`).                                                                                                                                         |
+| Field          | Description                                                                                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`         | Family name that matches your content or export styles. The exporter uses the first name in a CSS font list and removes surrounding quotes. For example, `'"Playfair Display", serif'` becomes `Playfair Display`. |
+| `data`         | TTF or OTF file bytes as a Node `Buffer`, `Uint8Array`, or `ArrayBuffer`. The manual option does not accept WOFF or WOFF2. See [automatic embedding](#automatic-embedding) for WOFF2 conversion.                   |
+| `characterSet` | Optional Word character set. Leave it unset for ordinary Latin fonts. Use a `CharacterSet` value such as `CharacterSet.GREEK` when needed.                                                                         |
 
 ## Automatic embedding
 
-Set `embedFonts: true` and the export does the work: it collects every font family the document references, locates each font's file, converts it to an embeddable format if needed, and embeds it, with no per-export font plumbing.
+Set `embedFonts: true` to find and embed the fonts used by the export. The exporter checks text marks, [Document styles](/conversion/export/docx/document-styles), custom styles, and fonts returned by formatting callbacks. It also reads fonts used in list markers, headers, footers, notes, and comments when the exporter converts their content.
+
+If you provide `Docx.Header` or `Docx.Footer` objects, add their fonts through `fonts` or your export styles.
 
 ```ts
 ExportDocx.configure({
   embedFonts: true,
-  // token is only used when a font needs WOFF2 → TTF conversion
+  // These credentials are needed when a font uses WOFF2.
+  appId: 'your-convert-app-id',
   token: 'your-jwt',
   region: 'eu', // optional. 'eu' or 'us'
   onCompleteExport: (blob) => {
@@ -115,41 +117,41 @@ ExportDocx.configure({
 
 ### How it works
 
-1. **Detect**: collects the families used across `textStyle` `fontFamily` marks, [CSS styles](/conversion/export/docx/css-to-docx), and run-level style overrides. Generic keywords (`serif`, `monospace`, …) and families you already passed via `fonts` are skipped.
-2. **Locate**: finds each font's file from the page's readable `@font-face` rules, picking the regular face. When a family is split into per-language subsets (as Google Fonts, and many self-hosted setups, are), the subset that covers the characters your document actually uses is chosen: a Latin document embeds the Latin glyphs, a Cyrillic document the Cyrillic glyphs, and so on. A family with no readable rule (the usual case for a Google Fonts `<link>`, whose cross-origin stylesheet can't be read from JavaScript) falls back to a [Google Fonts](https://fonts.google.com) lookup.
-3. **Convert**: `TTF`/`OTF` files are embedded as-is. `WOFF2` files are converted to TTF through the Convert Service's `POST /fonts/convert` endpoint (this is the step that needs a token with the `Convert:Fonts` permission).
-4. **Embed**: the resulting fonts are embedded exactly as if you'd passed them through the manual `fonts` option. Manually supplied fonts always win over auto-resolved ones with the same name.
+1. The exporter collects font names and the characters used with them. It skips generic names such as `serif` and `monospace`, and families you already supplied through `fonts`.
+2. It reads `@font-face` rules from accessible document and adopted stylesheets. It follows active `@media`, `@supports`, `@layer`, and `@import` rules. It skips disabled stylesheets, inactive conditions, and rules the browser blocks from JavaScript.
+3. It selects a regular face and the font subset that best covers the used characters. Within the selected rule, it tries supported `src` URLs in order. If a source cannot be fetched or converted, it tries the next source. If none works, it tries [Google Fonts](https://fonts.google.com).
+4. TTF and OTF files are embedded directly. WOFF2 files go through the Convert Service's `POST /fonts/convert` endpoint to become TTF. The exporter checks the downloaded bytes, so a font URL does not need a file extension. WOFF files are not supported.
+5. The exporter adds the resolved files to the DOCX. A font you supply manually always takes priority over an automatically found font with the same name.
 
 ### Requirements and credentials
 
-- **Browser only.** Automatic embedding reads `document.styleSheets`, so it does nothing in a server environment. Use the manual `fonts` option server-side.
-- **A token is needed only for WOFF2 conversion.** Self-hosted `TTF`/`OTF` fonts embed with no Convert Service call at all. WOFF2 fonts (including everything resolved from Google Fonts) require a token with the `Convert:Fonts` permission so the [conversion endpoint](#convert-service-endpoint) can run.
-- **Convert Service ≥ v2.25.0** must back your `endpoint` for the WOFF2 → TTF conversion to be available.
+- Automatic embedding needs browser stylesheets. Use the manual `fonts` option on the server.
+- WOFF2 conversion needs both `appId` and `token`. The token needs the `Convert:Fonts` permission. Self-hosted TTF and OTF files do not need a Convert Service call.
+- Your endpoint must use Convert Service v2.25.0 or later for WOFF2 conversion.
 
-<Callout title="Embedding never breaks an export">
-  Every font is resolved independently. If one can't be found, fetched, or converted (or
-  credentials are missing for a WOFF2 font), the export logs a single `console.warn` for that family
-  and continues. The affected text falls back to Word's font substitution, exactly as it would
-  without embedding; the export itself always succeeds.
+<Callout title="Missing fonts do not stop the export">
+  The exporter resolves each font separately. If it cannot find, fetch, or convert a font, it logs a
+  warning and continues without that font. Word chooses a substitute for the affected text. Other
+  export errors can still stop the export.
 </Callout>
 
 <Callout title="One font used for multiple scripts">
-  A DOCX embeds one file per font family. If the **same** family is used for text in more than one
-  script (for example Latin and Cyrillic) within a single document, the subset covering the most of
-  that text is embedded and text in the other scripts falls back to Word's substitution. To embed
-  full coverage for such a family, supply one complete (non-subset) font file: self-host it as a
-  single `@font-face`, or pass it through the manual [`fonts`](#manual-embedding) option. Families
-  used for only one script each are unaffected.
+  The exporter embeds one file per font family. If a family has separate Latin and Cyrillic subsets,
+  the exporter chooses one subset based on the used characters. Word uses a substitute for
+  characters missing from that file. Supply a complete font file through
+  [`fonts`](#manual-embedding) or a single `@font-face` rule if your document needs several scripts
+  in the same family.
 </Callout>
 
 ### Options
 
-| Parameter    | Description                                                                                                     | Default                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `embedFonts` | Enable automatic detection and embedding. Browser only.                                                         | `false`                             |
-| `token`      | Tiptap Convert JWT, sent as the `Authorization` bearer token. Required only when a WOFF2 font needs conversion. | `undefined`                         |
-| `endpoint`   | Tiptap Convert REST endpoint base used for WOFF2 → TTF conversion. When set, it overrides `region`.             | `undefined`                         |
-| `region`     | Tiptap Cloud region used for WOFF2 → TTF conversion when `endpoint` is not set, `'eu'` or `'us'`.               | `'eu'`                              |
+| Parameter    | Description                                                                                              | Default     |
+| ------------ | -------------------------------------------------------------------------------------------------------- | ----------- |
+| `embedFonts` | Enable automatic detection and embedding. Browser only.                                                  | `false`     |
+| `appId`      | Convert app ID. Required with `token` when a WOFF2 font needs conversion.                                | `undefined` |
+| `token`      | Tiptap Convert JWT sent as the `Authorization` bearer token. Required with `appId` for WOFF2 conversion. | `undefined` |
+| `endpoint`   | Tiptap Convert REST endpoint base used for WOFF2 → TTF conversion. When set, it overrides `region`.      | `undefined` |
+| `region`     | Tiptap Cloud region used for WOFF2 → TTF conversion when `endpoint` is not set, `'eu'` or `'us'`.        | `'eu'`      |
 
 ## Make the editor match the export
 
@@ -177,9 +179,9 @@ Automatic embedding's WOFF2 conversion is backed by a REST endpoint you can also
 
 `POST {endpoint}/fonts/convert`
 
-- **Body:** `multipart/form-data` with a `file` field (the font binary) and an optional `fontFamily` field.
-- **Response:** the embeddable font as `font/ttf`. TTF/OTF uploads are returned unchanged, WOFF2 uploads are converted to TTF.
-- **Auth:** the same `Authorization: Bearer <token>` header as the other conversion endpoints. The token needs the `Convert:Fonts` permission.
+- Send `multipart/form-data` with a `file` field containing the font bytes and an optional `fontFamily` field.
+- The response contains the font as `font/ttf`. TTF and OTF uploads stay unchanged. The service converts WOFF2 uploads to TTF.
+- Send `Authorization: Bearer <token>` and `X-App-Id: <appId>`. The token needs the `Convert:Fonts` permission.
 
 Available on Tiptap Cloud and on-premises from Convert Service v2.25.0.
 

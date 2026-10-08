@@ -1,0 +1,308 @@
+---
+title: Export DOCX with your editor's CSS
+tags:
+  - type: start
+  - type: beta
+meta:
+  title: Document styles | Tiptap Conversion
+  description: Use your editor's CSS in DOCX export. Learn which styles are supported, how to set custom styles, and when the exporter uses defaults.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    To install this frontend extension, authenticate to Tiptap's private npm registry by following
+    the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+The `documentStyles` option uses your editor's CSS for supported DOCX formatting, including fonts, colors, spacing, lists, and tables. It works in the browser when the editor is visible on the page.
+
+The `exportDocx` editor command enables this feature by default. You do not need to add a style option to use it. See [Editor extension](/conversion/export/docx/editor-extension) for setup.
+
+The exporter reads styles for the whole editor and for each node. Two paragraphs can keep different colors or spacing even when they contain the same text. Text with several styles can become separate pieces of formatted text in Word.
+
+## CSS scope
+
+The exporter reads the CSS that applies to your editor. You can use global rules, your own classes, parent selectors, or inline styles. The `.tiptap` class is optional:
+
+```css
+h1 {
+  color: #1f2937;
+}
+.my-editor p {
+  line-height: 1.5;
+}
+```
+
+Both rules affect the export if they apply to your editor. The separate [`cssStyles.readFromStylesheets`](/conversion/export/docx/css-to-docx#read-rules-from-stylesheets) setting reads rules written in stylesheets. That setting requires selectors that start with `.tiptap`.
+
+## Turn it off
+
+Set `documentStyles: false` on the extension to turn it off for every export, or pass it to the command to turn it off once:
+
+```js
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+// Every export
+ExportDocx.configure({
+  onCompleteExport: (result) => saveAs(result, 'document.docx'),
+  documentStyles: false,
+})
+
+// One export
+editor.chain().exportDocx({ documentStyles: false }).run()
+```
+
+The command's option takes priority over the extension's setting. For example, `exportDocx({ documentStyles: true })` reads your CSS even if the extension sets it to `false`.
+
+With `documentStyles: false`, the export uses the package's [default styles](/conversion/export/docx/styles#tiptaps-export-default-styles), your custom export styles, and formatting stored in the document.
+
+## When it applies
+
+The `exportDocx` command reads CSS from a visible editor in the browser. Other export methods use the default styles unless you provide custom styles:
+
+| Where you export                                                                      | What happens                                                                                        |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `editor.commands.exportDocx()` in the browser                                         | Uses the editor's CSS                                                                               |
+| On a server, in a headless editor, or with an editor that's destroyed or off the page | Uses the default styles, without a warning                                                          |
+| With an editor hidden by `display: none`, on itself or on a parent                    | Warns with [`document-styles-failed`](#warnings) and uses the default styles                        |
+| With the standalone `exportDocx()` function                                           | Uses the default styles. See [Use the standalone function](#use-the-standalone-exportdocx-function) |
+
+Your custom export styles still apply in all these cases. To use the same style settings on a server and in the browser, set `documentStyles: false` in the browser and pass the same custom export styles to both.
+
+PDF, ODT, DOC and EPUB exports also use the editor's CSS when `ExportDocx` is installed. See [PDF, ODT, DOC and EPUB](#pdf-odt-doc-and-epub).
+
+## What carries over
+
+The exporter reads the styles the browser displays. This includes values from CSS variables, calculations, parent elements, and media queries that apply at export time. Stylesheets from other domains can also affect the export.
+
+| In the editor                                         | In the exported file                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Body text                                             | The `Normal` style and per-paragraph formatting: font, size, color, line height, spacing, alignment, indent, borders and background |
+| `h1` to `h6`                                          | The `Heading 1` to `Heading 6` styles                                                                                               |
+| `blockquote`                                          | The `Quote` style, with the quote's margin, padding, border and background                                                          |
+| `hr`                                                  | The space above and below the rule                                                                                                  |
+| Bullet, ordered and task lists, up to nine levels     | Indents, marker text, marker font and the ordered counter style. See [Lists](#lists)                                                |
+| `a`                                                   | The `Hyperlink` style                                                                                                               |
+| `code`                                                | The `Code` style                                                                                                                    |
+| Code blocks                                           | The `CodeBlock` style, with font, background, border, spacing, and displayed text colors                                            |
+| `strong`, `em`, `u`, `s`, `mark`, `sub`, `sup`        | Their color, font, background and other text styles                                                                                 |
+| `table`, `th`, `td`                                   | Table width, alignment and borders, cell padding, cell background, vertical alignment and cell text                                 |
+| Images                                                | The displayed image size when the exporter can measure it                                                                           |
+| The background behind the editor                      | The page color. See [Page color](#page-color)                                                                                       |
+| `direction: rtl` on the editor or a block             | Right-to-left paragraphs and text, with the direction of each measured block                                                        |
+| The nearest `lang` attribute, often the one on `html` | The proofing language of the text                                                                                                   |
+| `tab-size`                                            | The default tab stop                                                                                                                |
+
+Supported formatting includes `font-family`, `font-size`, `font-weight`, `font-style`, `color`, `background-color`, `text-decoration`, `letter-spacing`, `text-transform`, small caps, `font-stretch`, `vertical-align`, `text-align`, `text-indent`, `line-height`, margins, padding, borders, and page-break rules. Word represents some of these values differently from a browser.
+
+Classes, inline styles, and marks can change each node's formatting. The exporter can also read styles from text inside a custom node view. It exports the document's source text, so labels and controls around that text do not appear in the file. A custom node needs a renderer that defines its DOCX output. See [Custom nodes](/conversion/export/docx/custom-nodes).
+
+### Displayed text formatting
+
+When the browser displays a saved mark differently, the export follows the displayed value. For example, a `bold` mark styled with `font-weight: normal` can export as regular text.
+
+CSS `text-transform: uppercase` uses Word's uppercase formatting. `lowercase` and `capitalize` can change the text in the exported file to match the editor. They do not change the editor's JSON. If the exporter cannot read the displayed text, it keeps the source text.
+
+The exporter also checks which styles apply to each block. An underline, background, or first-line indent on body text does not automatically apply to a heading or table cell that displays without it.
+
+### Headers, footers, and notes
+
+If you use the [Pages extension](/pages/getting-started/overview), the exporter can read styles from each header, footer, footnote, and endnote editor or preview. Each part keeps its own text, table, and list styles. Parts without a matching editor or preview use the styles for the whole document and your custom export styles. See [Headers and footers](/conversion/export/docx/headers-footers) and [Footnotes and endnotes](/conversion/content-types/structures-and-media/footnotes-endnotes).
+
+### Fonts
+
+The export uses the first named font in each CSS `font-family` list. Generic font names use common Word fonts:
+
+| CSS font name             | Word font       |
+| ------------------------- | --------------- |
+| `serif`                   | Times New Roman |
+| `sans-serif`, `system-ui` | Arial           |
+| `monospace`               | Courier New     |
+
+If a reader does not have the font installed, Word uses another font. You can [embed fonts](/conversion/export/docx/fonts) to include them in the file.
+
+A CSS `font-weight` of 600 or more exports as bold. For some loaded fonts with weights between 500 and 600, the exporter checks how the text looks in the browser. That check does not cover every font, writing system, or text direction.
+
+### Line height
+
+Measured CSS line spacing exports as a minimum line height. A line with taller text or an image can still grow.
+
+If the document stores a `lineHeight` such as `1.5` or `150%`, the exporter uses the paragraph's font size to calculate a minimum height. A fixed value such as `24px` or `18pt` uses exact spacing. These stored values also work with `documentStyles: false`.
+
+## How your options combine with your CSS
+
+Custom export styles take priority over the editor's CSS. From lowest to highest priority, the style settings are:
+
+1. The package's default styles
+2. The editor's CSS
+3. [`cssStyles`](/conversion/export/docx/css-to-docx)
+4. [`styleOverrides`](/conversion/export/docx/styles)
+
+`styleOverrides` combines properties, including properties inside spacing, indent, border, and font objects. A `Normal` style that sets only `font`, for example, keeps the font size from your CSS. Formatting stored on nodes and marks can also affect the result.
+
+Line spacing from your CSS uses `lineRule: 'atLeast'`. If you set `spacing.line` on a style, set `lineRule` as well. For example, `line: 276` with `lineRule: 'auto'` means 1.15 lines. With `lineRule: 'atLeast'`, it means a minimum line height of 13.8pt:
+
+```js
+ExportDocx.configure({
+  onCompleteExport: (result) => saveAs(result, 'document.docx'),
+  styleOverrides: {
+    paragraphStyles: [
+      {
+        id: 'Normal',
+        name: 'Normal',
+        // 1.15 lines. 'auto' makes `line` a multiple of the line height.
+        paragraph: { spacing: { line: 276, lineRule: 'auto' } },
+      },
+    ],
+  },
+})
+```
+
+The [element overrides](/conversion/export/docx/styles#element-overrides), `listLevels`, `pageColor` and `defaultTabStop` also take priority over your CSS:
+
+- In `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides` and `tableCellOverrides`, each top-level key you set replaces the whole value for that key. So `spacing: { after: 200 }` replaces the whole `spacing` object.
+- `listLevels` applies per list kind and nesting depth. See [List positions with `listLevels`](/conversion/export/docx/ordered-list-numbering#list-positions-with-listlevels).
+- `pageColor` and `defaultTabStop` replace the values from your CSS.
+
+The exporter keeps supported formatting stored in the document. For example, a table's stored width, borders, and cell margins take priority over its CSS. Text marks follow their displayed formatting when it differs from the stored value.
+
+<Callout title="Styles for specific text" variant="hint">
+  Links and inline code can use their own character styles. Changing `Normal` does not replace every
+  character style. Use the matching character style or `textRunOverrides` to set formatting for
+  specific text.
+</Callout>
+
+```js
+ExportDocx.configure({
+  onCompleteExport: (result) => saveAs(result, 'document.docx'),
+  // Change the color for bold text.
+  textRunOverrides: (node) =>
+    node.marks?.some((mark) => mark.type === 'bold') ? { color: '1F2937' } : undefined,
+})
+```
+
+## Lists
+
+List items keep the indent they have in the editor, unless a [numbering format](/conversion/export/docx/ordered-list-numbering) or [`listLevels`](/conversion/export/docx/ordered-list-numbering#list-positions-with-listlevels) sets the indent for that depth.
+
+List bullets and numbers follow your CSS:
+
+- `disc`, `circle` and `square` become `•`, `◦` and `▪`.
+- A quoted string in `list-style-type` or `::marker` content stays as written.
+- `none` hides the bullet or number.
+- Ordered lists support `decimal`, `decimal-leading-zero`, `lower-alpha`, `upper-alpha`, `lower-roman` and `upper-roman`.
+- The bullet or number's font, size, color and weight follow `::marker`.
+
+A list that names a [numbering format](/conversion/export/docx/ordered-list-numbering) uses that format's numbers and marker text. The marker font comes from the format, or from your CSS if the format does not set one.
+
+For task lists, the checkbox position follows the editor's indent. The checkbox symbol does not come from CSS.
+
+## Page color
+
+Each page uses the background color behind the editor. A dark theme can therefore produce dark pages with light text.
+
+To export without a page color, set `pageColor: 'transparent'`. You can also set a specific color. The `pageColor` option takes priority over your CSS:
+
+```js
+ExportDocx.configure({
+  onCompleteExport: (result) => saveAs(result, 'document.docx'),
+  pageColor: 'transparent',
+})
+```
+
+Word shows the page color on screen but leaves it out when printing, unless the reader changes that setting. See [Page background color](/conversion/export/docx/page-layout#page-background-color).
+
+## Limitations
+
+- The browser does not provide a measurable box for its list bullets and numbers. The exporter uses a gap of up to a quarter inch for them. It measures the gap for task checkboxes and custom numbering markers when possible.
+- Page size, margins and columns do not come from your CSS. Set [`pageSize` and `pageMargins`](/conversion/export/docx/page-layout), or use the [Pages extension](/pages/getting-started/overview) to provide the page setup.
+- A horizontal rule keeps a fixed color and thickness. Only the space around it follows your CSS.
+- Word and browsers arrange text and pages differently. Line breaks and page breaks may differ.
+- The style reader adds a hidden sample next to the editor to measure styles. Selectors such as `:only-child` or `:last-child` on the editor's outer element can give different values for that sample.
+- CSS transforms, zoom, or an image's `object-fit` can prevent the exporter from measuring its displayed size. The image converter then uses its [other size settings](/conversion/content-types/structures-and-media/images).
+- Custom node output does not automatically copy every style from a node view. Use a [custom renderer](/conversion/export/docx/custom-nodes) or [element overrides](/conversion/export/docx/styles#element-overrides) for output the built-in converters do not handle.
+- The export uses the styles that apply when it runs, at the editor's current width and color scheme.
+
+## Use the standalone `exportDocx()` function
+
+The standalone `exportDocx()` function doesn't read an editor on its own. In the browser, pass it the result of `readEditorDocxStyles`:
+
+```js
+import { readEditorDocxStyles, exportDocx } from '@tiptap-pro/extension-export-docx'
+
+const content = editor.getJSON()
+const styles = await readEditorDocxStyles({ editor, document: content })
+const file = await exportDocx({
+  document: content,
+  exportType: 'blob',
+  customNodes: [],
+  ...styles,
+})
+```
+
+`readEditorDocxStyles` returns a `DocxStyles` object with `styleOverrides`, element overrides, `listLevels`, `pageColor`, and `defaultTabStop`.
+
+Use the same `content` object for reading styles and exporting. The reader connects each node's styles to its node object. Copying or changing the document between these steps can lose that formatting.
+
+If you also set custom style options, merge them with the returned values. The `exportDocx` command handles that merge for you.
+
+Pass `genericFonts` to choose the Word font for a generic CSS font name. For example, use `genericFonts: { 'sans-serif': 'Calibri' }`.
+
+`readEditorDocxStyles` throws an error outside a browser, or when the editor is destroyed, off the page, or hidden. Its `customizeSample` option lets you change the hidden sample before the reader measures it. Keep the sample's `data-css` attributes so the reader can find its elements.
+
+To read the styles for the whole editor without converting them to Word styles, use `readEditorStyles({ editor })`. Convert those values with `createDocxStyles({ editorStyles })`. Use `readEditorDocxStyles` with `document` to include each node's styles.
+
+## Warnings
+
+If the exporter cannot read your CSS, it calls `onWarning` with the code `document-styles-failed`. It finishes with the default styles and your custom export styles. This can happen when the editor is hidden with `display: none`. Without `onWarning`, the message goes to `console.warn`.
+
+On a server, in a headless editor, or with an editor that is destroyed or off the page, the export uses the default styles without a warning.
+
+The exporter reads the document before it starts loading fonts and reading styles. If the editor changes while fonts are loading, the reader may no longer find the matching nodes. It then keeps the styles for the whole editor and reports `document-styles-failed` for the missing node styles.
+
+```js
+ExportDocx.configure({
+  onCompleteExport: (result) => saveAs(result, 'document.docx'),
+  onWarning: (warning) => {
+    if (warning.code === 'document-styles-failed') {
+      console.warn(warning.message)
+    }
+  },
+})
+```
+
+## PDF, ODT, DOC and EPUB
+
+When `ExportDocx` is installed, PDF, ODT, DOC and EPUB exports follow your editor's CSS too. They don't have a `documentStyles` option of their own, so turn it off on `ExportDocx`:
+
+```js
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { ExportPdf } from '@tiptap-pro/extension-export-pdf'
+
+const editor = new Editor({
+  extensions: [
+    // Other extensions ...
+    ExportDocx.configure({ documentStyles: false }),
+    ExportPdf.configure({ token: 'YOUR_TOKEN' }),
+  ],
+})
+```
+
+## Related
+
+- [CSS to DOCX](/conversion/export/docx/css-to-docx) compiles CSS rules you declare with `cssStyles`.
+- [Styles](/conversion/export/docx/styles) covers `styleOverrides` and the element overrides.
+- [Fonts](/conversion/export/docx/fonts) shows how to embed the fonts your CSS names.
+- [List numbering and bullets](/conversion/export/docx/ordered-list-numbering) covers numbering formats and `listLevels`.
