@@ -55,7 +55,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'PHP',
             },
             {
-              href: '/editor/getting-started/install/cdn',
+              href: '/editor/getting-started/install/vanilla-javascript#without-a-build-tool-cdn',
               title: 'CDN',
             },
           ],
