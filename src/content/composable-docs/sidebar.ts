@@ -47,11 +47,25 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Types', href: '/composable-docs/slots/api-reference/types' },
             { title: 'Configuration', href: '/composable-docs/slots/api-reference/concepts' },
             {
-              title: 'Rendering and NodeViews',
+              title: 'Styling',
               href: '/composable-docs/slots/api-reference/rendering',
             },
             { title: 'Editor events', href: '/composable-docs/slots/api-reference/events' },
           ],
+        },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Variables',
+      href: '/composable-docs/variables',
+      children: [
+        { title: 'Overview', href: '/composable-docs/variables/getting-started/overview' },
+        { title: 'Slot bindings', href: '/composable-docs/variables/guides/bind-slots' },
+        { title: 'API reference', href: '/composable-docs/variables/api-reference/extension' },
+        {
+          title: 'Styling',
+          href: '/composable-docs/variables/api-reference/rendering',
         },
       ],
     },

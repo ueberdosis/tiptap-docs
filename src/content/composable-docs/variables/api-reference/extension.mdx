@@ -1,0 +1,488 @@
+---
+title: Variable API
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Variable API | Tiptap Docs
+  description: Types, configuration, commands, events, and return values for the Variable extension.
+  category: Composable Docs
+---
+
+Import the extension and value reader from `@tiptap-pro/extension-variable`:
+
+```ts
+import { Variable, getVariable } from '@tiptap-pro/extension-variable'
+```
+
+All Variable-specific types below are exported from the same package. `Editor` and `JSONContent` come from `@tiptap/core`.
+
+## Variable values
+
+### VariableValue
+
+```ts
+type VariableValue = string | number | boolean | bigint | symbol | null | undefined | object
+```
+
+`object` includes arrays, Tiptap JSON, and other JavaScript objects. Runtime validation still applies: promises are rejected, and objects must support `JSON.stringify()` without throwing.
+
+| Value                                           | Display                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| `string`                                        | Literal text. HTML strings are not parsed.                        |
+| `number`, `boolean`, `bigint`, `symbol`         | `String(value)`. Numbers include `NaN` and infinities.            |
+| `null`, `undefined`                             | Empty text.                                                       |
+| Valid Tiptap JSON node, document, or node array | Rich content using the editor's schema.                           |
+| Other objects or arrays                         | `JSON.stringify(value)`, or empty text if it returns `undefined`. |
+
+Tiptap JSON uses the `JSONContent` type from `@tiptap/core`. Its node and mark types must exist in the editor's schema. Objects that are not valid content for that schema display as JSON text.
+
+```ts
+import type { JSONContent } from '@tiptap/core'
+
+const label: JSONContent = {
+  type: 'text',
+  text: 'Ada',
+  marks: [{ type: 'bold' }],
+}
+```
+
+Rich values remain read-only inside variable references and are not saved with those references. [Bound slots](/composable-docs/variables/guides/bind-slots) save their filled content normally.
+
+### VariableResolver and VariableResolverContext
+
+```ts
+type VariableResolver = (context: VariableResolverContext) => VariableValue
+
+interface VariableResolverContext {
+  get: (name: string) => VariableValue
+}
+```
+
+| Property | Type                              | Behavior                                                                                                     |
+| -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `get`    | `(name: string) => VariableValue` | Reads a registered variable and tracks a dependency. An unknown name or circular dependency throws an error. |
+
+Resolvers return synchronously. Reading another variable makes the resolver rerun when that variable is updated.
+
+```ts
+import type { VariableResolver } from '@tiptap-pro/extension-variable'
+
+const greeting: VariableResolver = ({ get }) => `Hello, ${String(get('customer'))}!`
+```
+
+A function assigned directly in `variables` is a resolver. To use a function itself as a value, return it from a resolver or pass it to `setVariable`; it displays as `String(value)`.
+
+## Configuration
+
+### VariableOptions
+
+```ts
+interface VariableOptions {
+  HTMLAttributes: Record<string, string>
+  variables: Record<string, VariableValue | VariableResolver>
+  slots: Record<string, string>
+  shortcuts: false | VariableShortcut
+  resolveInputRuleVariable: VariableInputRuleResolver
+  onUpdate: (options: VariableUpdateOptions) => void
+  onError: (options: VariableErrorOptions) => void
+}
+```
+
+Every option is optional when calling `Variable.configure()`. The extension supplies these defaults:
+
+See [Styling](/composable-docs/variables/api-reference/rendering) for styling and custom views.
+
+| Option                     | Type                                                | Default                     | Meaning                                                                                            |
+| -------------------------- | --------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `HTMLAttributes`           | `Record<string, string>`                            | `{}`                        | Attributes for the default NodeView and exported HTML.                                             |
+| `variables`                | `Record<string, VariableValue \| VariableResolver>` | `{}`                        | Keys are variable names; values are initial values or resolvers.                                   |
+| `slots`                    | `Record<string, string>`                            | `{}`                        | Initial slot-ID-to-variable bindings. Requires `Slot`. Prefer slot attributes or binding commands. |
+| `shortcuts`                | `false \| VariableShortcut`                         | `{ open: '{', close: '}' }` | Typed delimiters. See [typed shortcuts](#typed-shortcuts).                                         |
+| `resolveInputRuleVariable` | `VariableInputRuleResolver`                         | Returns `undefined`         | Customize or cancel a typed reference.                                                             |
+| `onUpdate`                 | `(options: VariableUpdateOptions) => void`          | No-op function              | Called after accepted variable-value changes.                                                      |
+| `onError`                  | `(options: VariableErrorOptions) => void`           | No-op function              | Called when evaluation, rendering, slot synchronization, or an input-rule callback fails.          |
+
+```ts
+Variable.configure({
+  variables: { customer: 'Ada', greeting },
+  slots: { customerField: 'customer', signatureField: 'customer' },
+  onUpdate: ({ values }) => console.log(values.customer),
+  onError: ({ error }) => console.error(error.message),
+})
+```
+
+Slot bindings are stored as `variable: 'customer'` on slot nodes. `variable: null` explicitly unbinds a slot. HTML uses `data-slot-variable="customer"`; an empty attribute means unbound. When the attribute is omitted, the initial `slots` configuration supplies the binding; the extension writes those initial bindings into the document when the editor is created. Prefer the [binding commands](#bindslotvariable) for later changes.
+
+### VariableUpdateOptions
+
+Both `onUpdate` and the `variablesUpdate` event receive this payload:
+
+```ts
+interface VariableUpdateOptions {
+  editor: Editor
+  values: Readonly<Record<string, VariableValue>>
+}
+```
+
+| Property | Type                                      | Meaning                                                                                       |
+| -------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `editor` | `Editor`                                  | The editor whose variables changed.                                                           |
+| `values` | `Readonly<Record<string, VariableValue>>` | All current values, including recalculated dependents. Keys are variable names, not slot IDs. |
+
+The `values` record is frozen. Its object values are not cloned or deeply frozen. Call `setVariable` after changing an object, or refresh the resolver that supplies it; mutation alone does not trigger an update.
+
+Values are not narrowed by their configured names. Check the type before using a value as a specific object or primitive:
+
+```ts
+import type { VariableUpdateOptions } from '@tiptap-pro/extension-variable'
+
+const onVariablesUpdate = ({ values }: VariableUpdateOptions): void => {
+  if (typeof values.customer === 'string') {
+    console.log(values.customer.toUpperCase())
+  }
+}
+```
+
+### VariableErrorOptions
+
+```ts
+interface VariableErrorOptions {
+  editor: Editor
+  error: Error
+}
+```
+
+| Property | Type     | Meaning                                                                                   |
+| -------- | -------- | ----------------------------------------------------------------------------------------- |
+| `editor` | `Editor` | The editor where the update failed.                                                       |
+| `error`  | `Error`  | The failure, with a readable `message`. Thrown non-Error values are converted to `Error`. |
+
+Both callbacks return `void`; return values are ignored.
+
+Invalid initial configuration or an initial resolver failure throws during editor creation. Later evaluation or slot-synchronization failures in local edits or variable commands preserve the previous runtime values and call `onError`.
+
+If the default NodeView cannot render a value, it clears the failed content and reports the error through `onError`. Editing remains available, and setting a valid value restores the display.
+
+Incoming collaborative edits and protection-policy changes still apply if a resolver fails. That resolver's value becomes `null`, its dependents recalculate, and `onError` receives the error.
+
+Remote edits that introduce duplicate bound slot IDs remain in the document. While the slot structure is invalid, slot-driven values and their dependents are unavailable and slot synchronization pauses. Repairing the structure restores values from the slots.
+
+## Commands
+
+Direct calls through `editor.commands` return `boolean`. In a chain, the same commands return the chain; `.run()` returns `boolean`.
+
+### insertVariable
+
+Insert a non-editable inline reference at the selection.
+
+| Argument property | Type     | Required | Meaning                                                        |
+| ----------------- | -------- | -------- | -------------------------------------------------------------- |
+| `name`            | `string` | Yes      | A variable registered through configuration or `setVariables`. |
+
+The argument type is `{ name: string }`. There is no separately exported `InsertVariableOptions` type.
+
+```ts
+const inserted: boolean = editor.commands.insertVariable({ name: 'greeting' })
+```
+
+Returns `false` if the name is unknown or the reference cannot be inserted.
+
+### setVariable
+
+Set a value and recalculate its dependents.
+
+```ts
+interface SetVariableOptions {
+  name: string
+  value: VariableValue
+}
+```
+
+| Argument property | Type            | Required | Meaning                                         |
+| ----------------- | --------------- | -------- | ----------------------------------------------- |
+| `name`            | `string`        | Yes      | A registered variable name.                     |
+| `value`           | `VariableValue` | Yes      | The new value. Explicit `undefined` is allowed. |
+
+```ts
+const updated: boolean = editor.commands.setVariable({ name: 'customer', value: 'Grace' })
+```
+
+Returns `false` when the name is unknown or the update fails. An unknown name does not call `onError`.
+
+This replaces any resolver with the supplied value. Bound slots take the new value and become read-only.
+
+### setVariables
+
+Add variables or replace their values and resolvers at runtime. Names omitted from the record stay unchanged.
+
+```ts
+interface SetVariablesOptions {
+  variables: Record<string, VariableValue | VariableResolver>
+}
+```
+
+The `variables` property is required. Each key is a variable name; each value is a plain value or synchronous resolver.
+
+```ts
+editor.commands.setVariables({
+  variables: {
+    customer: 'Ada',
+    greeting: ({ get }) => `Hello, ${String(get('customer'))}!`,
+  },
+})
+```
+
+Resolvers run immediately, and dependent values and bound slots update. You can register a resolver and its dependencies in the same call.
+
+Replace a resolver with a value to stop recalculating it. To keep its current value:
+
+```ts
+editor.commands.setVariables({
+  variables: { greeting: getVariable({ editor, name: 'greeting' }) },
+})
+```
+
+Returns `false` if evaluation or slot synchronization fails, and calls `onError`. The whole update is rejected, leaving previous definitions and values unchanged.
+
+Definitions belong to this editor instance. They are not saved in the document or reverted by document undo.
+
+### removeVariables
+
+Remove variables and their resolvers together.
+
+```ts
+interface RemoveVariablesOptions {
+  names: string[]
+}
+```
+
+The `names` property is required. An empty array does nothing.
+
+```ts
+editor.commands.removeVariables({ names: ['greeting'] })
+```
+
+For a bound variable, this removes its explicit value or resolver. Its slots become editable and supply the value instead.
+
+For an unbound variable, this removes the variable. Returns `false` if a name is unknown or removing it would leave a remaining resolver without its dependency. These checks do not call `onError`.
+
+Existing document references stay in place. References to removed, unbound variables display an empty value.
+
+### bindSlotVariable
+
+Bind a slot to a variable, or replace its current binding. The binding is saved in the slot's `variable` attribute.
+
+```ts
+interface BindSlotVariableOptions {
+  id: string
+  name: string
+}
+
+editor.commands.bindSlotVariable({ id: 'customerField', name: 'customer' })
+```
+
+Both properties are required. `id` must identify exactly one slot; `name` must be nonempty. An unknown name creates a variable whose value comes from the slot.
+
+An explicit value or resolver takes precedence and makes the slot read-only. Otherwise, the first bound slot supplies the value and all bound slots stay editable. Adding another slot copies the variable's current value into it.
+
+Bindings inside another bound slot are saved but ignored while nested. Only the outer binding takes effect. Removing the outer binding or moving the inner slot outside it activates the inner binding.
+
+Returns `false` and calls `onError` if the slot is missing or ambiguous, the name is empty, or synchronization or Content Protection rejects the change. The whole change is rejected.
+
+### unbindSlotVariable
+
+Remove a binding and keep the slot's current content.
+
+```ts
+interface UnbindSlotVariableOptions {
+  id: string
+}
+
+editor.commands.unbindSlotVariable({ id: 'customerField' })
+```
+
+The `id` property is required and must identify exactly one slot. The command saves `variable: null` on that slot. It returns `false` and calls `onError` when the slot cannot be found uniquely or the change is rejected.
+
+When a slot-driven variable loses its last bound slot, its value becomes `undefined`. Explicit values and resolvers are unaffected. Binding and unbinding support document undo and redo.
+
+Both binding commands support `editor.can()` without evaluating resolvers or changing bindings. A dry run checks the slot, name, and permission to change the binding; it cannot predict synchronization failures.
+
+### refreshVariables
+
+Refresh resolvers and their dependent values.
+
+```ts
+interface RefreshVariablesOptions {
+  names?: string[]
+}
+```
+
+The options object and its `names` property are both optional.
+
+| `names`                | Behavior                                                                    |
+| ---------------------- | --------------------------------------------------------------------------- |
+| Omitted or `undefined` | Refresh all registered resolvers, including those added at runtime.         |
+| `string[]`             | Refresh the named variables and their dependents. Names must be registered. |
+| `[]`                   | Run no resolvers; synchronize bound slots with current values.              |
+
+```ts
+const refreshed: boolean = editor.commands.refreshVariables({ names: ['customer'] })
+editor.commands.refreshVariables()
+```
+
+Returns `false` for an unknown name or a failed update. An unknown name does not call `onError`. Refreshing a plain value leaves it unchanged but recalculates its dependents.
+
+`editor.can().setVariable({ name, value })` and `editor.can().refreshVariables()` check variable names without executing resolvers. Their `boolean` result cannot predict evaluation or slot-write failures.
+
+`editor.can().setVariables({ variables })` also skips evaluation. `editor.can().removeVariables({ names })` checks existing names and whether remaining resolvers would lose a dependency. Neither changes the runtime definitions.
+
+## Read a value
+
+### getVariable and GetVariableOptions
+
+```ts
+interface GetVariableOptions {
+  editor: Editor
+  name: string
+}
+```
+
+| Argument property | Type     | Required | Meaning                           |
+| ----------------- | -------- | -------- | --------------------------------- |
+| `editor`          | `Editor` | Yes      | The editor instance to read from. |
+| `name`            | `string` | Yes      | The variable name to read.        |
+
+**Return type:** `VariableValue | undefined`. `VariableValue` itself also includes `undefined`.
+
+```ts
+const customer = getVariable({ editor, name: 'customer' })
+if (typeof customer === 'string') console.log(customer.toUpperCase())
+```
+
+This returns the value itself, including object values and Tiptap JSON. It does not run the resolver.
+
+| Result                    | Meaning                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `undefined`               | The configured value is `undefined`, the name is unknown, or the extension is not installed.                             |
+| `null`                    | The configured value is `null`, a bound source is concealed, or a resolver failed during a remote edit or policy change. |
+| Any other `VariableValue` | The current runtime value.                                                                                               |
+
+Concealing a bound slot also conceals its dependent values. They are recalculated when access is restored.
+
+## Typed shortcuts
+
+Typing `{foo}` creates an inline reference named `foo`, even when `foo` is not defined in `variables`. Unknown names display an empty value. This creates a document reference, not a new runtime value or resolver.
+
+The rule is enabled by default. Disable it with `Variable.configure({ shortcuts: false })`, or change the delimiters:
+
+```ts
+Variable.configure({
+  shortcuts: { open: '[[', close: ']]' },
+})
+```
+
+```ts
+interface VariableShortcut {
+  open: string
+  close: string
+}
+```
+
+`shortcuts` has type `false | VariableShortcut` and defaults to `{ open: '{', close: '}' }`. Both delimiters must be nonempty, distinct strings. The captured name is case-sensitive and is not trimmed. Empty matches, nested opening delimiters, and code blocks are skipped. Pasting or loading content does not trigger conversion. `undoInputRule()` restores the typed text.
+
+### resolveInputRuleVariable
+
+Customize or cancel a reference before it is inserted. The default callback returns `undefined`, keeping the captured name.
+
+```ts
+Variable.configure({
+  resolveInputRuleVariable({ text }) {
+    if (text === 'private') return false
+    if (text === 'name') return { name: 'customer' }
+    return undefined
+  },
+})
+```
+
+```ts
+interface VariableInputRuleContext {
+  editor: Editor
+  text: string
+  delimiters: Readonly<VariableShortcut>
+  range: Readonly<{ from: number; to: number }>
+  defaults: Readonly<{ name: string }>
+}
+
+interface VariableInputRuleResult {
+  name?: string
+}
+
+type VariableInputRuleResolver = (
+  context: VariableInputRuleContext,
+) => VariableInputRuleResult | false | undefined
+```
+
+| Context property | Meaning                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| `editor`         | The editor receiving the input.                                      |
+| `text`           | The text between the delimiters, without either delimiter.           |
+| `delimiters`     | The configured opening and closing strings.                          |
+| `range`          | Document positions to replace, before the pending input is inserted. |
+| `defaults`       | The default reference attributes: `{ name: text }`.                  |
+
+Return `false` to leave the input as text. Return `{ name: 'customer' }` to override the name, or `{}` / `undefined` to use the default. An override must be a nonempty string; it does not have to name a configured variable. The callback is synchronous. Thrown errors and invalid results cancel conversion and call `onError`.
+
+## renderVariableValue
+
+Render a value outside the document using the editor's schema and custom NodeViews.
+
+```ts
+interface RenderVariableValueOptions {
+  editor: Editor
+  value: VariableValue
+}
+
+interface RenderedVariableValue {
+  dom: DocumentFragment
+  destroy: () => void
+}
+
+function renderVariableValue(options: RenderVariableValueOptions): RenderedVariableValue
+```
+
+Both option properties are required. `editor` supplies the schema and NodeViews; `value` is the current value to display. These interfaces and the function are exported from `@tiptap-pro/extension-variable`.
+
+`dom` contains the rendered snapshot. Tiptap JSON preserves formatting and custom NodeViews; other objects display as JSON text. Call `destroy()` before replacing or removing the result. It releases nested NodeViews and is safe to call more than once.
+
+The helper does not subscribe to updates. Nested NodeViews have no document position, so their `getPos()` returns `undefined`. Rendering errors are thrown after cleaning up any NodeViews already created.
+
+## Listen for changes
+
+The event name is **`variablesUpdate`**. Its listener type is **`(options: VariableUpdateOptions) => void`**. `onVariablesUpdate` is just the handler name used in these examples.
+
+Subscribe and unsubscribe using the same function:
+
+```ts
+editor.on('variablesUpdate', onVariablesUpdate)
+editor.off('variablesUpdate', onVariablesUpdate)
+```
+
+Both `editor.on()` and `editor.off()` return the editor instance. The listener receives the same `{ editor, values }` payload as the extension's `onUpdate` callback.
+
+Commands, refreshed resolvers, and slot edits can emit this event. Adding or removing a variable also emits it, even when its value is `undefined`. Removed names are absent from `values`. Replacing a resolver without changing its value does not emit it. Rejected updates and unchanged values do not emit it. Registering a listener does not send an initial value; use `getVariable` to read it.
+
+## Document reference
+
+Variable references store only a name:
+
+```json
+{ "type": "variable", "attrs": { "name": "customer" } }
+```
+
+| Property     | Type             | Meaning                                                                                     |
+| ------------ | ---------------- | ------------------------------------------------------------------------------------------- |
+| `type`       | `'variable'`     | The extension's node name.                                                                  |
+| `attrs.name` | `string \| null` | A variable name. The schema default is `null`; `insertVariable` requires a registered name. |
+
+A missing or unknown name displays an empty value. The runtime value is absent from document JSON, exported HTML, and plain text.
