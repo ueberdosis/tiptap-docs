@@ -64,13 +64,13 @@ const editor = new Editor({
 })
 ```
 
-`no-inline` keeps Vite from turning the small renderer script into a `data:` URL, which the iframe can't load. It needs Vite 6 or later.
+`no-inline` keeps Vite from turning the small renderer script into a `data:` URL, which the iframe can't load. It needs Vite 6.2.1 or later.
 
 The editor needs a code block extension, like StarterKit's [CodeBlock](/editor/extensions/nodes/code-block).
 
 ### Serve the files from the public folder
 
-Without Vite, or with Vite 5 or older, copy both files into your public folder:
+Without Vite, or with an older Vite version, copy both files into your public folder:
 
 ```bash
 mkdir -p public/diagram
@@ -220,10 +220,14 @@ const modes: DiagramDisplay[] = ['code', 'split', 'preview']
 function DisplayMenu({ editor }: { editor: Editor }) {
   const display = useEditorState({
     editor,
-    selector: ({ editor: currentEditor }) =>
-      currentEditor.isActive('codeBlock', { language: 'mermaid' })
-        ? (currentEditor.getAttributes('codeBlock').diagramDisplay ?? 'split')
-        : null,
+    selector: ({ editor: currentEditor }) => {
+      const { language, diagramDisplay } = currentEditor.getAttributes('codeBlock')
+
+      // Only the language's first word counts, so "mermaid title" is a diagram too
+      return currentEditor.isActive('codeBlock') && language?.split(/\s/)[0] === 'mermaid'
+        ? (diagramDisplay ?? 'split')
+        : null
+    },
   })
 
   return modes.map((mode) => (
@@ -299,7 +303,9 @@ A width from `setDiagramSize()` is the image's inline `width`, and the alignment
 
 ## Security and Content Security Policy
 
-Mermaid runs in a sandboxed iframe, with no access to your page, its cookies, or the network. Pictures come back as SVG and show as images, which run no code and load nothing. Diagrams can't change Mermaid's security settings.
+Mermaid runs in a sandboxed iframe, so it can't reach your page or its cookies, and it can't fetch anything. Pictures come back as SVG and show as images, which run no code and load nothing. Diagrams can't change Mermaid's security settings.
+
+The sandbox protects your page, not the text of the diagrams. If a Mermaid bug ever let a diagram run script, the script could read every diagram the iframe renders, also from other editors on the page, and send the text out. A `frame-src` in your page's policy blocks this through navigation. No policy blocks it through WebRTC, which Chromium-based browsers and Safari allow in the iframe.
 
 If your page has a Content Security Policy:
 
@@ -307,14 +313,14 @@ If your page has a Content Security Policy:
 - Allow inline styles with `style-src 'unsafe-inline'`, or set a nonce with the editor's [`injectNonce`](/editor/api/editor#injectnonce) option. Tiptap's own styles need this too. Without it, labels in diagrams are out of place.
 - `script-src 'self'` works in Chrome, Firefox, and newer Safari versions. Some older Safari versions also need your app's origin, like `script-src 'self' https://app.example.com`, or a nonce.
 - With a nonce, the extension adds `injectNonce` to the iframe's scripts and Mermaid's styles. To use another nonce, set the `scriptNonce` option.
-- `frame-src` and `child-src` don't apply: the iframe's page is inline, in `srcdoc`, and isn't loaded from a URL.
+- `frame-src` and `child-src` don't stop diagrams from rendering, because the iframe's page is inline, in `srcdoc`. `frame-src` does stop the iframe from navigating to other sites.
 
 When the policy or a wrong URL stops Mermaid, diagrams show their text and the `unavailable` label. The browser console shows the cause once, starting with `[Diagram]`.
 
 ## Use with other extensions
 
 - **Collaboration:** Changes to a diagram's text merge like any text. For the mode, size, and alignment, the last change wins. Add the extension to every editor of a shared document: an editor without it shows diagrams as code, and when it edits one, the diagram goes back to its default mode. The text stays.
-- **Tracked Changes:** Diagrams are code blocks, so their text is tracked only with [code block tracking](/tracked-changes/guides/editor-setup#enable-code-block-tracking). In Preview, the text and its suggestions are hidden.
+- **Tracked Changes:** Enable [code block tracking](/tracked-changes/guides/editor-setup#enable-code-block-tracking). Without it, typing in a code block fails while tracking is on. The picture leaves out text suggested for deletion, so it shows the text as if every suggestion were accepted. In Preview, the text and its suggestions are hidden.
 - **Pages:** Pictures are scaled down to fit one page.
 - **Markdown:** Diagrams read and write as `mermaid` code fences. The mode, size, and alignment aren't kept.
 - **AI Toolkit:** Agents can write and change diagrams as `mermaid` code blocks. To describe diagrams to an agent, change the code block's entry in the [editor context](/ai/ai-toolkit/api-reference/editor-context) or the [schema awareness](/ai/ai-toolkit/client/agents/schema-awareness).
@@ -332,6 +338,7 @@ In a diagram's text, keys work like in a code block, except these:
 | <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>A</kbd> | Selects the diagram's text. Press again to select the document.                             |
 | <kbd>Escape</kbd>                             | Selects the whole diagram. <kbd>Tab</kbd> then moves the focus on.                          |
 | <kbd>Backspace</kbd>, <kbd>Delete</kbd>       | Keep the diagram whole at the start and end of its text. Next to a diagram, they select it. |
+| Arrow keys                                    | Next to a diagram in Preview, select it, like an image                                      |
 
 ## Accessibility
 
