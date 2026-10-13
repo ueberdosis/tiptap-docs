@@ -109,6 +109,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/docx/editor-extension',
             },
             {
+              title: 'Document styles',
+              href: '/conversion/export/docx/document-styles',
+            },
+            {
               title: 'CSS to DOCX',
               href: '/conversion/export/docx/css-to-docx',
               tags: ['Beta'],
