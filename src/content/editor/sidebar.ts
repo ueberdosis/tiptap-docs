@@ -122,12 +122,6 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Details summary',
             },
             {
-              href: '/editor/extensions/nodes/diagram',
-              title: 'Diagram',
-              tags: ['Team'],
-              releaseTag: 'beta',
-            },
-            {
               href: '/editor/extensions/nodes/document',
               title: 'Document',
             },
@@ -162,6 +156,12 @@ export const sidebarConfig: SidebarConfig = {
             {
               href: '/editor/extensions/nodes/mention',
               title: 'Mention',
+            },
+            {
+              href: '/editor/extensions/nodes/mermaid',
+              title: 'Mermaid',
+              tags: ['Team'],
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/nodes/ordered-list',
