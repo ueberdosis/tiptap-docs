@@ -1,0 +1,165 @@
+---
+title: Bind slots to variables
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Bind slots to variables | Tiptap Docs
+  description: Keep editable slots and reactive variable values synchronized inside the editor.
+  category: Composable Docs
+---
+
+Bind one or more [slots](/composable-docs/slots/getting-started/overview) to a variable so that their content syncs with the variable.
+
+## Configure the bindings
+
+Install both `@tiptap-pro/extension-slot` and `@tiptap-pro/extension-variable`.
+
+First, give both slots a `variable` attribute with the same name:
+
+```ts
+const content = {
+  type: 'doc',
+  content: [
+    {
+      type: 'paragraph',
+      content: [
+        {
+          type: 'inlineSlot',
+          attrs: { id: 'customerField', variable: 'customer' },
+          content: [{ type: 'text', text: 'Ada' }],
+        },
+        { type: 'text', text: ' / ' },
+        {
+          type: 'inlineSlot',
+          attrs: { id: 'signatureField', variable: 'customer' },
+          content: [{ type: 'text', text: 'Ada' }],
+        },
+      ],
+    },
+  ],
+}
+```
+
+Then, create the editor with both extensions:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Slot } from '@tiptap-pro/extension-slot'
+import { Variable } from '@tiptap-pro/extension-variable'
+
+const editor = new Editor({
+  extensions: [StarterKit, Slot, Variable],
+  content,
+})
+```
+
+The value appears directly inside each slot. No extra variable node is needed.
+
+## Let slots supply the value
+
+With no explicit value or resolver for `customer`, the first bound slot supplies its value. Edit either slot, or fill it with a command. The variable and the other slot update together:
+
+```ts
+editor.commands.fillSlot({
+  id: 'customerField',
+  content: [{ type: 'text', text: 'Grace' }],
+})
+```
+
+The command returns `true` when the fill succeeds. The binding alone does not make a slot read-only.
+
+If a dependent resolver fails, the new content cannot fit another bound slot, or Content Protection prevents a peer update, the command returns `false` and preserves the previous document and values. `Variable.onError` receives the error, and `slotCommandRejected` reports `code: 'variableSyncFailed'`. Dry runs do not evaluate resolvers or predict synchronization failures.
+
+## Let the variable control the slots
+
+An explicit value or resolver takes precedence over slot content. Setting one refills both slots and makes them read-only:
+
+```ts
+editor.commands.setVariable({ name: 'customer', value: 'Lin' })
+```
+
+To use a resolver instead:
+
+```ts
+const currentCustomer = { name: 'Lin' }
+editor.commands.setVariables({ variables: { customer: () => currentCustomer.name } })
+```
+
+While the variable controls the slot, `fillSlot()`, `fillSlots()`, and `clearSlot()` return `false` without changing its content, even if the replacement matches its current value. `editor.can()` returns `false` for these writes too:
+
+```ts
+const filled = editor.commands.fillSlot({
+  id: 'customerField',
+  content: [{ type: 'text', text: 'Grace' }],
+})
+// filled === false; both slots still display "Lin".
+```
+
+A refused batch or chain applies none of its writes. Slot commands also refuse content writes through parent or nested slots. To change controlled content, update the variable instead.
+
+For debugging or application feedback, listen for the Slot extension's `slotCommandRejected` event:
+
+```ts
+editor.on('slotCommandRejected', ({ command, code, slotIds }) => {
+  if (code === 'variableControlled') {
+    console.log(`${command} refused: a variable controls the slot`, slotIds)
+  }
+})
+```
+
+This refusal uses `slotCommandRejected`, rather than `Variable.onError`. Dry runs emit no events. Other edits rejected by the Variable plugin still report through `Variable.onError`.
+
+Remove the explicit definition to make the slots editable again. Their current content becomes the variable's value:
+
+```ts
+editor.commands.removeVariables({ names: ['customer'] })
+```
+
+Explicit `null` and `undefined` values also make slots read-only; they display empty content.
+
+## Change bindings
+
+Bind an existing slot to a variable, or change its current binding:
+
+```ts
+editor.commands.bindSlotVariable({ id: 'customerField', name: 'customer' })
+```
+
+An unknown name creates a slot-driven variable. If the variable already has a bound slot, the newly bound slot takes its value.
+
+Remove the binding while keeping the slot's content:
+
+```ts
+editor.commands.unbindSlotVariable({ id: 'customerField' })
+```
+
+## Rich content
+
+Plain text slots supply strings. Formatted slots supply Tiptap JSON, preserving marks, line breaks, and structure:
+
+```ts
+editor.commands.setVariable({
+  name: 'customer',
+  value: { type: 'text', text: 'Ada', marks: [{ type: 'bold' }] },
+})
+```
+
+- Content must fit every bound slot. Use block slots for multiple paragraphs.
+- Bindings inside another bound slot are ignored. They stay saved and take effect when the outer binding is removed or the inner slot moves outside it.
+- Other objects display as JSON text. `null` and `undefined` empty the slot.
+
+## Saving and protection
+
+Slot content and bindings are saved with the document. Bindings support undo and redo. Runtime values and resolvers stay in the editor configuration.
+
+In collaborative editors, incoming slot content is preserved even when a client's local variable value differs. Cursor movement and unrelated edits do not restore that local value. An explicit local variable update can write its value to the shared slot. Keep runtime definitions consistent across clients if they should display the same variable values.
+
+With [Content Protection](/composable-docs/content-protection/getting-started/overview):
+
+- Local edits require permission to update every bound slot.
+- Unreadable source slots conceal their slot-driven variable and dependent values until access is restored.
+- Incoming collaborative edits still apply. Additional local slot writes require edit permission.
+
+Synchronization runs in the client-side editor. Provide explicit values and resolvers again when loading a document.

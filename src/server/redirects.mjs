@@ -5,6 +5,11 @@
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
   {
+    source: '/composable-docs/slots/guides/bind-variables',
+    destination: '/composable-docs/variables/guides/bind-slots',
+    permanent: true,
+  },
+  {
     source: '/content-ai/capabilities/server-ai-toolkit/tiptap-access-control',
     destination: '/ai/ai-toolkit/install#set-up-authorization',
     permanent: true,
