@@ -172,13 +172,46 @@ Remote edits that introduce duplicate bound slot IDs remain in the document. Whi
 
 Direct calls through `editor.commands` return `boolean`. In a chain, the same commands return the chain; `.run()` returns `boolean`.
 
+### addVariable
+
+Register a new value or synchronous resolver after editor creation.
+
+```ts
+interface AddVariableOptions {
+  name: string
+  value: VariableValue | VariableResolver
+}
+
+editor.commands.addVariable({ name: 'company', value: 'Acme' })
+editor.commands.addVariable({
+  name: 'greeting',
+  value: ({ get }) => `Hello, ${String(get('customer'))}!`,
+})
+```
+
+Both properties are required; explicit `undefined` is a valid value. A function is treated as a resolver and runs immediately. Its dependencies must already be registered. Use `setVariables()` to register several variables and their dependencies together.
+
+Returns `false` for an empty name or a name already registered through configuration, runtime commands, or a slot binding. These checks do not call `onError`. Use `setVariable()` to update an existing value or `setVariables()` to replace a resolver.
+
+Evaluation and synchronization failures return `false`, call `onError`, and leave previous definitions and values unchanged. Adding a variable updates existing references to its name; it does not insert a new reference. Chain it with `insertVariable()` to do both:
+
+```ts
+editor
+  .chain()
+  .addVariable({ name: 'company', value: 'Acme' })
+  .insertVariable({ name: 'company' })
+  .run()
+```
+
+Definitions belong to this editor instance. They are not saved in the document or reverted by document undo.
+
 ### insertVariable
 
 Insert a non-editable inline reference at the selection.
 
-| Argument property | Type     | Required | Meaning                                                        |
-| ----------------- | -------- | -------- | -------------------------------------------------------------- |
-| `name`            | `string` | Yes      | A variable registered through configuration or `setVariables`. |
+| Argument property | Type     | Required | Meaning                                                                           |
+| ----------------- | -------- | -------- | --------------------------------------------------------------------------------- |
+| `name`            | `string` | Yes      | A variable registered through configuration, runtime commands, or a slot binding. |
 
 The argument type is `{ name: string }`. There is no separately exported `InsertVariableOptions` type.
 
@@ -246,6 +279,24 @@ editor.commands.setVariables({
 Returns `false` if evaluation or slot synchronization fails, and calls `onError`. The whole update is rejected, leaving previous definitions and values unchanged.
 
 Definitions belong to this editor instance. They are not saved in the document or reverted by document undo.
+
+### removeVariable
+
+Remove one runtime definition using the same rules as `removeVariables()`:
+
+```ts
+interface RemoveVariableOptions {
+  name: string
+}
+
+editor.commands.removeVariable({ name: 'greeting' })
+```
+
+The `name` property is required. Returns `false` for an unknown name or when removing an unbound variable would leave a remaining resolver without its dependency. These checks do not call `onError`. Remove dependent resolvers first or use `removeVariables()` to remove the group together.
+
+For a bound variable, this removes its explicit value or resolver and returns it to editable slot content. References to a removed, unbound variable stay in the document and display an empty value. Adding its name again restores their display.
+
+Evaluation and synchronization failures return `false`, call `onError`, and leave the previous runtime state unchanged.
 
 ### removeVariables
 
@@ -336,6 +387,8 @@ Returns `false` for an unknown name or a failed update. An unknown name does not
 `editor.can().setVariable({ name, value })` and `editor.can().refreshVariables()` check variable names without executing resolvers. Their `boolean` result cannot predict evaluation or slot-write failures.
 
 `editor.can().setVariables({ variables })` also skips evaluation. `editor.can().removeVariables({ names })` checks existing names and whether remaining resolvers would lose a dependency. Neither changes the runtime definitions.
+
+`editor.can().addVariable({ name, value })` checks that the name is nonempty and unregistered without running the resolver. `editor.can().removeVariable({ name })` checks the same rules as bulk removal. Neither dry run changes definitions or predicts evaluation or slot-write failures.
 
 ## Read a value
 
