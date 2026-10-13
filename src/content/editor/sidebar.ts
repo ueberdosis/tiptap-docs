@@ -125,7 +125,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/nodes/diagram',
               title: 'Diagram',
               tags: ['Team'],
-              releaseTag: 'alpha',
+              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/nodes/document',
