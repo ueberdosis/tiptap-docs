@@ -4,7 +4,7 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v0.26.1
+    label: v1.0.0
 meta:
   title: Export custom nodes to DOCX | Tiptap Conversion
   description: Learn how to export custom nodes to DOCX (Word) files using the Export extension.
@@ -30,73 +30,83 @@ import CustomNodeConversionGuide from '../_shared/_custom-node-conversion-guide.
   </RequirementItem>
 </Requirements>
 
-One of the biggest advantages of the `@tiptap-pro/extension-export-docx` extension is the ability to define how custom nodes in your Tiptap schema should be rendered in DOCX.
+Describe how each custom node in your Tiptap schema becomes DOCX content, so application-specific content keeps its look in the exported Word file.
 
-This allows you to preserve application-specific content in the exported Word file.
-
-<Callout variant="hint" title="Looking for the REST-compatible variant?">
-  Functions can't be serialized over HTTP, so the function API on this page only works inside the
-  editor extension. For a JSON-based equivalent that travels over REST and runs in both surfaces,
-  see the [Custom-nodes DSL](/conversion/export/docx/custom-nodes-dsl).
+<Callout variant="hint" title="Custom nodes are described as JSON">
+  Custom nodes are described as JSON, so they can travel to Convert. The Convert service builds the
+  DOCX file and renders each node from your rules. If you used the `customNodes` option before
+  `1.0.0`, see the [migration guide](/conversion/export/docx/migrate-to-v1#removed-customNodes).
 </Callout>
 
 ## Export custom nodes to .docx
 
 <CodeDemo isPro path="/Extensions/ExportDocxCustomNode" />
 
-When calling `editor.exportDocx()`, you can pass an array of custom node definitions in the `ExportDocxOptions` argument. Each definition specifies the node type and a render function.
+Pass your rules to the `customNodeDsl` option of `ExportDocx`. Each rule names a node type and describes the DOCX element it becomes.
 
 <CustomNodeConversionGuide />
 
-### Define the custom node render function
+### Describe the custom node with the DSL
 
-And we will define how the `Hintbox` custom node should be rendered in the exported document:
+Write each rule with the builder from `@tiptap-pro/extension-export-docx/dsl`. This example renders the `hintbox` block node as a styled paragraph, and an `inlineExtensionNode` inline node as a highlighted text run:
 
 ```ts
-// Import the ExportDocx extension
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
 import {
-  convertTextNode,
-  Docx,
-  ExportDocx,
-  lineHeightToDocx,
+  multiplierToLineSpacingUnits,
   pixelsToHalfPoints,
   pointsToTwips,
-} from '@tiptap-pro/extension-export-docx'
+} from '@tiptap-pro/extension-convert-kit/ooxml-registry'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import {
+  childrenInline,
+  docxNode,
+  paragraph,
+  template,
+  textRun,
+} from '@tiptap-pro/extension-export-docx/dsl'
+
+import { Hintbox } from './hintbox'
+import { InlineExtensionNode } from './inline-extension-node'
 
 const editor = new Editor({
   extensions: [
-    // Other extensions ...
+    ConvertKit,
+    Hintbox,
+    InlineExtensionNode,
     ExportDocx.configure({
+      token: 'YOUR_JWT',
+      appId: 'YOUR_APP_ID',
       onCompleteExport: (result) => {
-        setIsLoading(false)
-        const blob = new Blob([result], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'export.docx'
-        a.click()
+        const url = URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'export.docx'
+        link.click()
         URL.revokeObjectURL(url)
       },
-      exportType: 'blob',
-      customNodes: [
-        {
-          type: 'hintbox',
-          render: (node) => {
-            // Here we define how our custom Hintbox node should be rendered in the DOCX.
-            // Per the documentation, we should return a Docx node
-            // that's either a Paragraph, an array of Paragraphs, a Table, a TextRun, an ExternalHyperlink, or null.
-            return new Docx.Paragraph({
-              children: node.content.map((content) => convertTextNode(content)),
-              style: 'Hintbox', // Here we apply our custom style to the Paragraph node.
-            })
-          },
-        },
-      ], // Custom nodes
+      customNodeDsl: {
+        dslVersion: '1.0',
+        nodes: [
+          docxNode('hintbox')
+            .block()
+            .emit(paragraph({ style: 'Hintbox' }).children(childrenInline({ marks: 'default' })))
+            .toJSON(),
+          docxNode('inlineExtensionNode')
+            .inline()
+            .emit(
+              textRun({
+                text: template('[{node.textContent}]'),
+                color: '000000',
+                highlight: 'cyan',
+              }).applyMarks('node'),
+            )
+            .toJSON(),
+        ],
+      },
       styleOverrides: {
         paragraphStyles: [
-          // Here we define our custom styles for our custom Hintbox node.
           {
             id: 'Hintbox',
             name: 'Hintbox',
@@ -104,41 +114,53 @@ const editor = new Editor({
             next: 'Normal',
             quickFormat: false,
             run: {
-              font: 'Aptos Light',
+              font: 'Aptos',
               size: pixelsToHalfPoints(16),
             },
             paragraph: {
               spacing: {
                 before: pointsToTwips(12),
                 after: pointsToTwips(12),
-                line: lineHeightToDocx(1),
+                line: multiplierToLineSpacingUnits(1),
               },
               border: {
-                // DOCX colors are in Hexadecimal without the leading #
-                top: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
-                bottom: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
-                right: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
-                left: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                // DOCX colors are hex values without the leading #
+                top: { style: 'single', size: 1, color: 'b8d8ff', space: 5 },
+                bottom: { style: 'single', size: 1, color: 'b8d8ff', space: 5 },
+                right: { style: 'single', size: 1, color: 'b8d8ff', space: 5 },
+                left: { style: 'single', size: 1, color: 'b8d8ff', space: 5 },
               },
               shading: {
-                type: Docx.ShadingType.SOLID,
+                type: 'solid',
                 color: 'e6f3ff',
               },
             },
           },
         ],
-      }, // Style overrides
+      },
     }),
-    // Other extensions ...
   ],
-  // Other editor settings ...
 })
 ```
 
-Then, at a later point in your application, you can export the editor content to a `DOCX` file:
+Here is what each part does:
+
+- `docxNode('hintbox')` matches nodes of type `hintbox`. `.block()` and `.inline()` declare what kind of node it is.
+- `.emit()` sets the DOCX element the node becomes. `paragraph({ style: 'Hintbox' })` uses the `Hintbox` paragraph style you declare in `styleOverrides`.
+- `childrenInline({ marks: 'default' })` renders the node's content with its usual bold, italic and other marks.
+- `template('[{node.textContent}]')` builds the run's text from the node's text. `.applyMarks('node')` applies the marks on the node itself to the run.
+- `.toJSON()` turns each rule into the JSON that the extension sends to Convert.
+
+Then export the editor content to a `DOCX` file:
 
 ```ts
 editor.chain().exportDocx().run()
 ```
 
-You can construct any supported `DOCX` elements in the `render` function using the `Docx` library classes (`Paragraph`, `TextRun`, `Table`, etc.) that are provided via the `Docx` import from the `@tiptap-pro/extension-export-docx` package.
+The [DSL builder](/conversion/export/docx/custom-nodes-dsl-builder) page lists every element, helper and value expression. The [custom nodes DSL](/conversion/export/docx/custom-nodes-dsl) page documents the JSON the builder produces, its errors and its limits.
+
+## Limitations
+
+- Rules are JSON. They can't run your own JavaScript code.
+- A rule can emit only the elements the DSL supports: `paragraph`, `textRun`, `externalHyperlink`, `table`, `tableRow`, `tableCell` and `pageBreak`.
+- The Convert service sets the limits for rule count, nesting depth and string length. See [resource limits](/conversion/export/docx/custom-nodes-dsl#resource-limits).

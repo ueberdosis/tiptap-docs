@@ -4,7 +4,7 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v0.26.1
+    label: v1.0.0
 meta:
   title: Custom-node DSL for DOCX | Tiptap Conversion
   description: A serializable JSON description of how Tiptap custom nodes should render into DOCX. Works in both the editor extension and the Conversion REST API.
@@ -34,13 +34,12 @@ import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
     the [setup guide](/guides/pro-extensions).
   </RequirementItem>
   <RequirementItem label="3. (REST only) Configure Convert app">
-    Authenticate REST calls with a signed token carrying `aud: "Convert"`. See [Authentication](/authentication).
+    Authenticate REST calls with a signed token carrying `aud: "Convert"`. See
+    [Authentication](/authentication).
   </RequirementItem>
 </Requirements>
 
-The [function-based custom-node API](/conversion/export/docx/custom-nodes) lets you render any custom Tiptap node into DOCX by writing a small JavaScript function. That works great inside the editor extension, but functions cannot be sent over HTTP, so the [DOCX REST API](/conversion/export/docx/rest-api) historically had no way to render custom nodes at all.
-
-The **`customNodeDsl`** option closes that gap. It is a small, serializable JSON language for describing how a custom node should render into DOCX. The same JSON works in both surfaces: pass it to `ExportDocx.configure({ customNodeDsl })` in the browser, or as the `customNodeDsl` field in the REST request body.
+The **`customNodeDsl`** option describes how your custom Tiptap nodes render into DOCX. It's a small JSON format, so it can travel to the Convert service, which builds the file. Pass it to `ExportDocx.configure({ customNodeDsl })` in the editor, or send it as the `customNodeDsl` field of a REST request.
 
 <CodeDemo isPro path="/Extensions/ExportDocxCustomNodeDsl" />
 
@@ -48,14 +47,13 @@ The **`customNodeDsl`** option closes that gap. It is a small, serializable JSON
 
 ## When to use it
 
-| You want to…                                                                                              | Use                                                                       |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Render a custom node when calling `editor.exportDocx()` in the browser, with full JavaScript flexibility. | The [function API](/conversion/export/docx/custom-nodes) (`customNodes`). |
-| Render a custom node when calling any export REST endpoint (docx, pdf, odt, epub, doc).                                         | **`customNodeDsl`** (this page).                                          |
-| Share the same custom-node export logic between your browser app and a server-side render.                | **`customNodeDsl`** (this page).                                          |
-| Render the same custom node from both surfaces, with one source of truth.                                 | **`customNodeDsl`** (this page).                                          |
+| You want to                                                    | Use                                                                                                                |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Render a custom node when you call `exportDocx` in the editor. | `customNodeDsl` on `ExportDocx`, written with the [DSL builder](/conversion/export/docx/custom-nodes-dsl-builder). |
+| Render a custom node when you call an export REST endpoint.    | The `customNodeDsl` field in the request body (this page).                                                         |
+| Load rules from a JSON file or a config service.               | The JSON format (this page).                                                                                       |
 
-Both APIs can coexist on the editor extension. When the same node type appears in both `customNodes` and `customNodeDsl`, the function definition wins and a single `console.warn` is emitted per export call. Existing function-based customers see no behavior change.
+`customNodeDsl` is the only way to export custom nodes in `1.0.0`. If you used the `customNodes` option before, see the [migration guide](/conversion/export/docx/migrate-to-v1#removed-customNodes).
 
 <Callout variant="hint" title="Authoring in TypeScript? Use the builder">
   This page documents the **JSON wire format**, the canonical reference for what travels over the
@@ -97,12 +95,15 @@ ExportDocx.configure({
 The same JSON over REST:
 
 ```bash
-curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/docx" \
+curl --output example.docx -X POST "https://api.tiptap.dev/v3/convert/export/docx" \
     -H "Authorization: Bearer YOUR_TOKEN" \
+    -H "X-App-Id: YOUR_APP_ID" \
     -H "Content-Type: application/json" \
     -d '{
-      "doc": "{\"type\":\"doc\",\"content\":[{\"type\":\"hintbox\",\"content\":[{\"type\":\"text\",\"text\":\"hi\"}]}]}",
-      "exportType": "blob",
+      "document": {
+        "type": "doc",
+        "content": [{ "type": "hintbox", "content": [{ "type": "text", "text": "hi" }] }]
+      },
       "customNodeDsl": {
         "dslVersion": "1.0",
         "nodes": [
@@ -122,7 +123,9 @@ curl --output example.docx -X POST "https://api.tiptap.dev/v2/convert/export/doc
     }'
 ```
 
-The `Hintbox` paragraph style itself is declared via [styleOverrides](/conversion/export/docx/styles), exactly the same way you would declare it for the function API.
+See [Export DOCX (v3)](/conversion/export/docx/rest-api#export-docx-v3) for the full request body, headers and responses.
+
+Declare the `Hintbox` paragraph style itself in [styleOverrides](/conversion/export/docx/styles).
 
 ---
 
@@ -191,7 +194,7 @@ Every entry under `emit` (and the children of `ElementNode`) is a `RenderNode`. 
 | Shape                    | Discriminator   | Meaning                                                   |
 | ------------------------ | --------------- | --------------------------------------------------------- |
 | `null`                   | literal         | Render nothing here.                                      |
-| array                    | bare JS array   | Implicit fragment; render each item in order.            |
+| array                    | bare JS array   | Implicit fragment; render each item in order.             |
 | `{ "element": …, … }`    | `element` key   | Build a docx.js element via the adapter registry.         |
 | `{ "$children": { … } }` | `$children` key | Walk the PM node's child content and dispatch each child. |
 | `{ "$text": …, … }`      | `$text` key     | Convenience for emitting a single text run.               |
@@ -481,14 +484,14 @@ The expression language is **deliberately small**. There is no string concatenat
 
 Allowed paths:
 
-| Path               | Returns                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| `node`             | The whole PM node object.                                                                      |
-| `node.type`        | The PM node type name.                                                                         |
-| `node.attrs`       | The whole attrs object.                                                                        |
+| Path               | Returns                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `node`             | The whole PM node object.                                                                        |
+| `node.type`        | The PM node type name.                                                                           |
+| `node.attrs`       | The whole attrs object.                                                                          |
 | `node.attrs.<key>` | The named attribute (only one level deep, so `node.attrs.style.color` is **not** allowed in v1). |
-| `node.text`        | The PM node's `text` field (only meaningful for text nodes).                                   |
-| `node.textContent` | Concatenation of all descendant text nodes, equivalent to ProseMirror's `node.textContent`.   |
+| `node.text`        | The PM node's `text` field (only meaningful for text nodes).                                     |
+| `node.textContent` | Concatenation of all descendant text nodes, equivalent to ProseMirror's `node.textContent`.      |
 
 Other paths reject:
 
@@ -542,8 +545,6 @@ Bridges to a closed list of helpers. The result type matches the helper's signat
 | `inchesToTwips`           | number (in)                           | number (twips)                           |
 | `cmToTwips`               | number (cm)                           | number (twips)                           |
 | `mmToTwips`               | number (mm)                           | number (twips)                           |
-
-These are the same helpers used by the function-based `customNodes` API, exposed for DSL authors so the wire format matches the editor extension's runtime semantics exactly.
 
 ### Value-form `$switch`
 
@@ -812,27 +813,9 @@ A bold mention renders as `new TextRun({ text: '@alice', color: '4472C4', bold: 
 
 ---
 
-## Conflict policy with the function API
-
-When the editor extension is configured with both `customNodes` and `customNodeDsl`:
-
-| Scenario                                          | Outcome                                                                            |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Same `type` in both                               | Function wins. One `console.warn` is emitted per export call per conflicting type. |
-| Type only in `customNodes`                        | Function renders.                                                                  |
-| Type only in `customNodeDsl.nodes`                | DSL renders.                                                                       |
-| Type in neither                                   | Existing "Custom node not found" behaviour; node is dropped with a console error.  |
-| Duplicate `type` **within** `customNodeDsl.nodes` | Compile error: `DOCX_DSL_DUPLICATE_NODE_TYPE`.                                     |
-
-This is the contract: a customer with no DSL knowledge upgrades the package version with no code changes and observes identical output. Adding `customNodeDsl` only **adds** rules; it never overrides existing function-based custom nodes.
-
-The REST surface does not accept the function API at all, only `customNodeDsl`.
-
----
-
 ## Resource limits
 
-The DSL is untrusted JSON over the public REST surface. Resource caps are enforced at compile and runtime. Legitimate custom-node programs should never hit them.
+The Convert service enforces resource caps when it compiles and renders your rules. Normal custom node rules don't hit them.
 
 | Limit                 | Default | Description                                                                           |
 | --------------------- | ------- | ------------------------------------------------------------------------------------- |
@@ -846,19 +829,23 @@ The DSL is untrusted JSON over the public REST surface. Resource caps are enforc
 | `maxTableRows`        | 1 024   | Maximum number of `TableRow` children a `Table` may emit.                             |
 | `maxTableCellsPerRow` | 64      | Maximum number of `TableCell` children a single `TableRow` may emit.                  |
 
-### Tuning limits in the editor extension
+### Change the limits
 
-Pass `customNodeDslLimits?: Partial<CustomNodeDslLimits>` alongside `customNodeDsl`:
+The Convert service sets these limits. You can't change them on Tiptap Cloud. On-premises, set the matching environment variable on the Convert service. Convert ignores a value that isn't a positive integer and uses the default.
 
-```ts
-ExportDocx.configure({
-  customNodeDsl,
-  customNodeDslLimits: {
-    maxRules: 256,
-    maxRenderDepth: 48,
-  },
-})
-```
+| Limit                 | Environment variable               |
+| --------------------- | ---------------------------------- |
+| `maxRules`            | `DOCX_DSL_MAX_RULES`               |
+| `maxRenderDepth`      | `DOCX_DSL_MAX_DEPTH`               |
+| `maxRenderNodes`      | `DOCX_DSL_MAX_NODES`               |
+| `maxValueDepth`       | `DOCX_DSL_MAX_VALUE_DEPTH`         |
+| `maxStringLength`     | `DOCX_DSL_MAX_STRING_LEN`          |
+| `maxTemplateLength`   | `DOCX_DSL_MAX_TEMPLATE_LEN`        |
+| `maxOpArgs`           | `DOCX_DSL_MAX_OP_ARGS`             |
+| `maxTableRows`        | `DOCX_DSL_MAX_TABLE_ROWS`          |
+| `maxTableCellsPerRow` | `DOCX_DSL_MAX_TABLE_CELLS_PER_ROW` |
+
+The editor extension no longer takes a `customNodeDslLimits` option. See the [migration guide](/conversion/export/docx/migrate-to-v1#removed-customNodeDslLimits).
 
 The wire format itself has **no** `limits` field. The reserved root key `limits` rejects with `DOCX_DSL_RESERVED_SHAPE` so server-administered limits cannot be subverted by the client payload.
 
@@ -880,24 +867,24 @@ Every error carries a stable `code` and a `dslPath` pointing into the offending 
 
 ### Error codes
 
-| Code                             | When                                                                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `DOCX_DSL_UNKNOWN_VERSION`       | `dslVersion` is present but not `"1.0"`.                                                                                     |
-| `DOCX_DSL_INVALID_SHAPE`         | The JSON does not match the expected shape (missing required field, wrong type).                                             |
-| `DOCX_DSL_DUPLICATE_NODE_TYPE`   | Two rules in `nodes` declare the same `type`.                                                                                |
-| `DOCX_DSL_UNKNOWN_ELEMENT`       | `element` is not in the v1 catalog.                                                                                          |
-| `DOCX_DSL_UNKNOWN_OPERATION`     | `$op` is not in the closed list.                                                                                             |
-| `DOCX_DSL_RESERVED_SHAPE`        | A key reserved for future versions appeared in the payload.                                                                  |
-| `DOCX_DSL_INVALID_PROP`          | An element prop fails its schema (unknown key, wrong type).                                                                  |
-| `DOCX_DSL_INVALID_ENUM`          | An enum prop received a value outside the closed list.                                                                       |
-| `DOCX_DSL_INVALID_REF`           | `$ref` path is malformed, points outside the allowed roots, or hits a forbidden segment.                                     |
-| `DOCX_DSL_INVALID_TEMPLATE`      | `$template` malformed (e.g. unbalanced braces).                                                                              |
-| `DOCX_DSL_INVALID_UNIT`          | `$unit` name is not in the closed list.                                                                                      |
-| `DOCX_DSL_INVALID_TRANSFORM`     | `transform` name is not in the closed list.                                                                                  |
-| `DOCX_DSL_INVALID_CONTEXT`       | A render node is in a slot its element kind isn't allowed in (containment violation).                                        |
-| `DOCX_DSL_INVALID_OP_ARITY`      | An `$op` was passed the wrong number of arguments.                                                                           |
-| `DOCX_DSL_RUNTIME_TYPE_MISMATCH` | A value-expression result didn't match the expected type at runtime (e.g. `$switch.on` resolved to a number).                |
-| `DOCX_DSL_RESOURCE_LIMIT`        | A configurable cap was exceeded (depth, node count, string length, …).                                                       |
+| Code                             | When                                                                                                                        |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DOCX_DSL_UNKNOWN_VERSION`       | `dslVersion` is present but not `"1.0"`.                                                                                    |
+| `DOCX_DSL_INVALID_SHAPE`         | The JSON does not match the expected shape (missing required field, wrong type).                                            |
+| `DOCX_DSL_DUPLICATE_NODE_TYPE`   | Two rules in `nodes` declare the same `type`.                                                                               |
+| `DOCX_DSL_UNKNOWN_ELEMENT`       | `element` is not in the v1 catalog.                                                                                         |
+| `DOCX_DSL_UNKNOWN_OPERATION`     | `$op` is not in the closed list.                                                                                            |
+| `DOCX_DSL_RESERVED_SHAPE`        | A key reserved for future versions appeared in the payload.                                                                 |
+| `DOCX_DSL_INVALID_PROP`          | An element prop fails its schema (unknown key, wrong type).                                                                 |
+| `DOCX_DSL_INVALID_ENUM`          | An enum prop received a value outside the closed list.                                                                      |
+| `DOCX_DSL_INVALID_REF`           | `$ref` path is malformed, points outside the allowed roots, or hits a forbidden segment.                                    |
+| `DOCX_DSL_INVALID_TEMPLATE`      | `$template` malformed (e.g. unbalanced braces).                                                                             |
+| `DOCX_DSL_INVALID_UNIT`          | `$unit` name is not in the closed list.                                                                                     |
+| `DOCX_DSL_INVALID_TRANSFORM`     | `transform` name is not in the closed list.                                                                                 |
+| `DOCX_DSL_INVALID_CONTEXT`       | A render node is in a slot its element kind isn't allowed in (containment violation).                                       |
+| `DOCX_DSL_INVALID_OP_ARITY`      | An `$op` was passed the wrong number of arguments.                                                                          |
+| `DOCX_DSL_RUNTIME_TYPE_MISMATCH` | A value-expression result didn't match the expected type at runtime (e.g. `$switch.on` resolved to a number).               |
+| `DOCX_DSL_RESOURCE_LIMIT`        | A configurable cap was exceeded (depth, node count, string length, …).                                                      |
 | `DOCX_DSL_RENDER_FAILED`         | The adapter `instantiate` step threw; generally indicates a docx.js incompatibility, surfaced with the offending `dslPath`. |
 
 ### HTTP status mapping (REST)
@@ -951,13 +938,13 @@ The REST surface accepts arbitrary `customNodeDsl` from authenticated clients. T
 
 ## REST API addendum
 
-The DSL is accepted on every export REST endpoint (`/export/docx`, `/export/pdf`, `/export/odt`, `/export/epub`, `/export/doc`) as a sibling of the existing `styleOverrides`, `pageSize`, `pageMargins`, `headers`, and `footers` fields. See the [REST API reference](/conversion/export/docx/rest-api) for headers, response shape, and the rest of the body schema.
+The [Export DOCX (v3)](/conversion/export/docx/rest-api#export-docx-v3) endpoint takes `customNodeDsl` in its body. The PDF, ODT, EPUB and DOC export endpoints take the same field. See the [REST API reference](/conversion/export/docx/rest-api) for headers, responses and the rest of the body.
 
 | Body field      | Type                                              | Default     | Description               |
 | --------------- | ------------------------------------------------- | ----------- | ------------------------- |
 | `customNodeDsl` | `Object` ([`CustomNodeDsl`](#top-level-document)) | `undefined` | Custom-node render rules. |
 
-When the request comes in `multipart/form-data` (the form variant of the endpoint), `customNodeDsl` is sent as a **JSON-stringified value** in the form field of the same name, exactly like `styleOverrides`. The service parses it and forwards the result to the export pipeline.
+In a `multipart/form-data` request to the v3 DOCX endpoint, put `customNodeDsl` inside the `options` part. The PDF, ODT, EPUB and DOC endpoints take it as a JSON string in a form field named `customNodeDsl`, like `styleOverrides`.
 
 ---
 
@@ -976,7 +963,9 @@ These are **explicit boundaries**, not bugs:
 
 ## Related
 
-- [Editor-extension custom nodes (function API)](/conversion/export/docx/custom-nodes): the JavaScript-function variant for in-browser customisation.
+- [Export custom nodes to .docx](/conversion/export/docx/custom-nodes): a walkthrough with the builder and a live demo.
+- [DSL builder](/conversion/export/docx/custom-nodes-dsl-builder): the typed TypeScript API that produces this JSON.
+- [Migrate to Export DOCX v1](/conversion/export/docx/migrate-to-v1#removed-customNodes): move from `customNodes` to `customNodeDsl`.
 - [Style overrides](/conversion/export/docx/styles): declare named DOCX styles like `Hintbox`, `CalloutWarning`, that DSL rules reference by id.
 - [CSS to DOCX](/conversion/export/docx/css-to-docx): compose with the DSL so the `cssStyles` layer feeds heading and paragraph styles, while DSL rules cover your custom-node types.
 - [DOCX REST API](/conversion/export/docx/rest-api): request shape, headers, response, and error envelope for the underlying endpoint.
