@@ -55,20 +55,28 @@ Rich values remain read-only inside variable references and are not saved with t
 type VariableResolver = (context: VariableResolverContext) => VariableValue
 
 interface VariableResolverContext {
+  editor: Editor
   get: (name: string) => VariableValue
+  getText: (name: string) => string
 }
 ```
 
-| Property | Type                              | Behavior                                                                                                     |
-| -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `get`    | `(name: string) => VariableValue` | Reads a registered variable and tracks a dependency. An unknown name or circular dependency throws an error. |
+| Property  | Type                              | Behavior                                                                                                                  |
+| --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `editor`  | `Editor`                          | The current Tiptap editor, including its schema.                                                                          |
+| `get`     | `(name: string) => VariableValue` | Reads the raw value and tracks a dependency. An unknown name or circular dependency throws an error.                      |
+| `getText` | `(name: string) => string`        | Reads a variable as text and tracks the same dependency as `get`. Unknown names and circular dependencies throw an error. |
 
-Resolvers return synchronously. Reading another variable makes the resolver rerun when that variable is updated.
+Resolvers return synchronously. Reading another variable with `get()` or `getText()` makes the resolver rerun when that variable is updated. Use `editor` for reads; dispatching transactions inside a resolver can trigger recursive updates. Reads from `editor` do not register variable dependencies.
+
+`getText()` extracts text from schema-valid Tiptap JSON nodes, documents, and node arrays. It uses the schema's text serializers, preserves hard breaks, and separates blocks with two newlines. It returns `''` for `null` and `undefined`, and `String(value)` for all other values, including ordinary objects and arrays. For example, `{ name: 'Ada' }` becomes `'[object Object]'`. This conversion differs from how a variable reference displays ordinary objects as JSON.
+
+If a bound source is unreadable, `getText()` stops the resolver and conceals its value, just like `get()`.
 
 ```ts
 import type { VariableResolver } from '@tiptap-pro/extension-variable'
 
-const greeting: VariableResolver = ({ get }) => `Hello, ${String(get('customer'))}!`
+const greeting: VariableResolver = ({ getText }) => `Hello, ${getText('customer')}!`
 ```
 
 A function assigned directly in `variables` is a resolver. To use a function itself as a value, return it from a resolver or pass it to `setVariable`; it displays as `String(value)`.
@@ -185,7 +193,7 @@ interface AddVariableOptions {
 editor.commands.addVariable({ name: 'company', value: 'Acme' })
 editor.commands.addVariable({
   name: 'greeting',
-  value: ({ get }) => `Hello, ${String(get('customer'))}!`,
+  value: ({ getText }) => `Hello, ${getText('customer')}!`,
 })
 ```
 
@@ -261,7 +269,7 @@ The `variables` property is required. Each key is a variable name; each value is
 editor.commands.setVariables({
   variables: {
     customer: 'Ada',
-    greeting: ({ get }) => `Hello, ${String(get('customer'))}!`,
+    greeting: ({ getText }) => `Hello, ${getText('customer')}!`,
   },
 })
 ```
