@@ -1,0 +1,146 @@
+---
+title: Add value fields
+meta:
+  description: Use built-in form controls and custom NodeViews to edit JSON values stored in slot attributes.
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Value slots store their answer in `attrs.value`. They have no document children and cannot be edited as rich text. Their NodeView renders a form control instead. Use them alongside ordinary content slots in the same document.
+
+<CodeDemo isPro path="/Examples/SlotValues" />
+
+The demo includes every built-in control, a vanilla JavaScript rating input, and a React customer picker. The customer picker saves an object. Lock fields to see both default and custom inputs follow Content Protection.
+
+## Insert a value slot
+
+Install `Slot` as usual, then pass `mode: 'value'` when inserting:
+
+```ts
+editor.commands.insertSlot({
+  mode: 'value',
+  kind: 'inline',
+  id: 'priority',
+  value: null,
+  config: {
+    label: 'Priority',
+    placeholder: 'Choose a priority',
+    input: {
+      type: 'select',
+      options: [
+        { value: 'normal', label: 'Normal' },
+        { value: 'urgent', label: 'Urgent' },
+      ],
+    },
+  },
+})
+```
+
+Use `kind: 'block'` for a block field. Without `mode`, insertion creates an ordinary content slot. Value slots serialize as `inlineValueSlot` or `blockValueSlot` with `id`, `config`, and `value` attributes and no `content`.
+
+Values may be any finite JSON: `null`, strings, booleans, numbers, arrays, or objects. There is no `valueType` restriction. A custom field can switch between `null`, a string, and an object. Use custom validators for application-specific requirements.
+
+## Built-in inputs
+
+Set `config.input.type` to select a control. Omit `input` for a text input.
+
+| Type                          | Control                      | Stored value                       |
+| ----------------------------- | ---------------------------- | ---------------------------------- |
+| `text`, `email`, `url`, `tel` | Native input                 | String                             |
+| `textarea`                    | Multiline text input         | String                             |
+| `number`                      | Native number input          | String, including an empty string  |
+| `date`                        | Native date input            | Date string such as `2026-10-14`   |
+| `time`                        | Native time input            | Time string such as `09:30`        |
+| `datetime-local`              | Native local date-time input | String without timezone conversion |
+| `checkbox`                    | Native checkbox              | Boolean                            |
+| `select`                      | Single select                | String option value                |
+| `multiple-select`             | Multiple select              | Array of string option values      |
+
+Select options use `{ value: string, label: string }`. Labels do not become the answer. These output conventions do not restrict values written through commands or imported documents. Unsupported values remain stored; controls never overwrite them just because they cannot display them.
+
+Number inputs do not coerce values to numbers. Browsers can expose an empty string for an invalid intermediate number, even while displaying typed characters. Use a custom text input with numeric input hints if you need to preserve every intermediate character.
+
+`config.placeholder` is presentation only. Text controls use it as a native placeholder; selects use it as the unanswered prompt. Native date and time controls determine their own empty presentation. A placeholder never counts as an answer.
+
+`config.defaultValue` initializes a newly inserted slot only when `value` is omitted. Explicit `null` overrides the default. Loading, clearing, and changing configuration do not restore defaults.
+
+## Read and update values
+
+```ts
+editor.commands.setSlotValue({ id: 'priority', value: 'urgent' })
+editor.commands.clearSlot({ id: 'priority' })
+
+const slot = getSlot({ snapshot: editor.storage.slot.snapshot, id: 'priority' })
+if (slot?.mode === 'value') console.log(slot.value)
+```
+
+Import `getSlot` from `@tiptap-pro/extension-slot`. Clearing writes `null`. Use `setSlotValues({ values: [{ id, value }] })` for an atomic batch. Changes participate in document history and collaboration.
+
+## Mix custom and default NodeViews
+
+Choose a renderer inside `addNodeView()`. The selection can depend on the input type, slot ID, or metadata. Call `createDefaultSlotValueView` for other fields:
+
+```ts
+import { Slot, InlineValueSlot, createDefaultSlotValueView } from '@tiptap-pro/extension-slot'
+
+const CustomValueSlot = InlineValueSlot.extend({
+  addNodeView() {
+    return (props) => {
+      if (props.node.attrs.config?.input?.type === 'rating') {
+        return createRatingView(props)
+      }
+      return createDefaultSlotValueView(props)
+    }
+  },
+})
+
+Slot.configure({ inlineValueSlot: CustomValueSlot })
+```
+
+`createRatingView` is application code. The demo implements it with native buttons. Use `BlockValueSlot` and the `blockValueSlot` option for block views. Preserve the original node name and leaf schema. Do not provide a `contentDOM` or `NodeViewContent`.
+
+Inside a custom view, `createSlotValueController({ editor, getPos })` provides:
+
+- `getValue()` and `setValue(value)` to read and write the answer.
+- `getState()` for a stable snapshot of `value`, `config`, `editable`, and `available`.
+- `subscribe(listener)` to update the UI after document and permission changes.
+- `focus()` to select the slot when its input receives focus.
+- `destroy()` to release subscriptions when a vanilla view is removed.
+
+`setValue` returns `false` when the write is refused. Disable controls when `editable` is false. Render from the current state after a refused write. Keep input events inside the control, handle IME composition, and release subscriptions when disposing the view.
+
+If changing configuration selects a different renderer, return `false` from your NodeView's `update` method so Tiptap runs `addNodeView`'s factory again. The default view does this when the input type changes.
+
+## React and Vue
+
+The slot package has no React or Vue dependencies or peer dependencies. Import `ReactNodeViewRenderer` or `VueNodeViewRenderer` in your application and select it inside `addNodeView` just like the vanilla renderer.
+
+This application-owned React hook connects the controller to `useSyncExternalStore`:
+
+```tsx
+import { useMemo, useSyncExternalStore } from 'react'
+import type { NodeViewProps } from '@tiptap/react'
+import { createSlotValueController } from '@tiptap-pro/extension-slot'
+
+function useSlotValue({ editor, getPos }: NodeViewProps) {
+  const slot = useMemo(() => createSlotValueController({ editor, getPos }), [editor, getPos])
+  const state = useSyncExternalStore(slot.subscribe, slot.getState, slot.getState)
+  return { ...state, getValue: slot.getValue, setValue: slot.setValue, focus: slot.focus }
+}
+```
+
+The controller releases its editor listener when the last subscription is removed. The demo's customer component uses this hook inside a `NodeViewWrapper`, and registers through `ReactNodeViewRenderer`. The application keeps control of its React providers and UI library.
+
+For Vue, create the controller in setup, copy `getState()` into a `shallowRef`, update that ref from `subscribe`, and unsubscribe and destroy the controller in `onBeforeUnmount`. Render a `NodeViewWrapper` without `NodeViewContent`.
+
+## Validation and protection
+
+Validation reports invalid drafts; it does not prevent writing serializable values. Required fields treat `null`, empty or whitespace-only strings, and empty arrays as unanswered. `false` and `0` are answers. Use a custom validator when a checkbox must be checked.
+
+Content-only settings such as `allowedBlocks`, `allowedMarks`, `nesting`, and `defaultContent` are invalid on value slots. String constraints apply to string values. Select validation checks option values. Custom and cross-field validators receive the slot's `value`.
+
+`createSlotFillingPolicy()` protects the slot's structure and every attribute except `value` for assigned fields. Objects and arrays are protected as a whole; there are no property-level permissions. Custom controllers use the same guarded commands as built-in inputs.
+
+With the Variable extension, value slots exchange JSON values directly. Explicit variable definitions and resolvers make their bound fields read-only. Runtime-only values that cannot be saved as JSON are refused when synchronizing into value slots.
+
+NodeViews are editor UI. Exported HTML preserves the value and configuration in `data-slot-*` attributes and renders a static value, without interactive controls. Custom input types without a custom view use a read-only fallback and retain their data.

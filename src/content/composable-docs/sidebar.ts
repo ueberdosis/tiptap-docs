@@ -20,6 +20,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/composable-docs/slots/guides/add-slots',
             },
             { title: 'Allow filling only', href: '/composable-docs/slots/guides/fill-only' },
+            { title: 'Add value fields', href: '/composable-docs/slots/guides/value-fields' },
             {
               title: 'Validate Slot values',
               href: '/composable-docs/slots/guides/validate-submission',
