@@ -95,13 +95,37 @@ If you're using `ConvertKit`, you should see paragraph, heading, image, table ex
 
 Conversion requests that go to the service return one of a small set of responses. Each has a clear cause and a clear action.
 
-| Status | What it means                                                                                                                        | What to do                                                                                                                                           |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401`  | Missing or invalid JWT.                                                                                                              | Regenerate the token server-side.                                                                                                                    |
-| `403`  | The operation isn't permitted for your app. Most often: a format your plan doesn't include, or `customFonts` against the cloud plan. | Check the [pricing page](https://tiptap.dev/pricing) for plan format coverage. Custom fonts in PDF require an Enterprise plan or on-prem deployment. |
-| `5xx`  | Transient server-side error.                                                                                                         | Retry with exponential backoff. Open a support ticket if it persists.                                                                                |
+| Status | What it means                                                                                                                                                                                | What to do                                                                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `400`  | The request was rejected. For DOCX export, `INVALID_EXPORT_OPTIONS` means an option has the wrong shape. `REMOVED_EXPORT_OPTION` means a REST request sent an option that's gone in `1.0.0`. | Read `path` to find the option. For a removed option, follow `docsUrl` or the [migration guide](/conversion/export/docx/migrate-to-v1#option-mapping). |
+| `401`  | Missing or invalid JWT.                                                                                                                                                                      | Regenerate the token server-side.                                                                                                                      |
+| `403`  | The operation isn't permitted for your app. Most often: a format your plan doesn't include, or `customFonts` against the cloud plan.                                                         | Check the [pricing page](https://tiptap.dev/pricing) for plan format coverage. Custom fonts in PDF require an Enterprise plan or on-prem deployment.   |
+| `404`  | The route doesn't exist. DOCX export `1.0.0` calls a `/v3` route that on-premises Convert older than `<MIN_CONVERT_VERSION>` doesn't have.                                                   | Upgrade Convert to `<MIN_CONVERT_VERSION>` or later. See [On-premises](/conversion/export/docx/migrate-to-v1#on-premises).                             |
+| `422`  | Convert couldn't build the file. For DOCX export, the code is `FAILED_TO_EXPORT_DOCX_FILE`, or a `DOCX_DSL_*` code when a custom node rule fails while rendering.                            | Read `error` for the reason. An image that can't be used is a common cause.                                                                            |
+| `5xx`  | Transient server-side error.                                                                                                                                                                 | Retry with exponential backoff. Open a support ticket if it persists.                                                                                  |
 
-Frame your error handling around these three; you don't need granular case-by-case logic.
+Frame your error handling around these statuses; you don't need granular case-by-case logic.
+
+### DOCX export errors
+
+DOCX export sends its request to the `/v3` route. A failed export answers with JSON in this shape:
+
+```json
+{
+  "success": false,
+  "code": "REMOVED_EXPORT_OPTION",
+  "error": "`customNodes` is not supported by the v3 export",
+  "path": "customNodes",
+  "docsUrl": "https://tiptap.dev/docs/conversion/export/docx/custom-nodes-dsl"
+}
+```
+
+`path` names the option that caused the error. `docsUrl` points to a page that explains it. Each is only there when Convert has one. The `ExportDocx` extension turns this body into an `ExportDocxRequestError` with the same `code`, `path` and `docsUrl`, plus the HTTP `status`. Two codes come from the extension itself:
+
+- `NETWORK_ERROR`: the request never reached Convert.
+- `HTTP_ERROR`: Convert answered with a failure but no error code. An on-premises Convert older than `<MIN_CONVERT_VERSION>` gives you this code with `status` `404`.
+
+See [Errors](/conversion/export/docx/editor-extension#errors) to handle them in `onError`.
 
 ## The Pages infinite-loop scenario
 

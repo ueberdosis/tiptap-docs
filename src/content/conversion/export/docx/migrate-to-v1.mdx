@@ -1,0 +1,281 @@
+---
+title: Migrate to Export DOCX v1
+tags:
+  - type: start
+  - type: version
+    label: v1.0.0
+meta:
+  title: Migrate to Export DOCX v1 | Tiptap Conversion
+  description: Move from Export DOCX 0.34.x to 1.0.0. Connect to Convert, replace removed options and exports, and handle warnings and errors.
+  category: Conversion
+---
+
+import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
+
+Use this guide to upgrade `@tiptap-pro/extension-export-docx` from `0.34.x` to `1.0.0`. It covers the new connection settings, every removed option and export, and how errors and warnings reach you.
+
+## What changed
+
+The Convert service builds the DOCX file now. The `exportDocx` command sends the document, the measured editor CSS, comments, numbering formats, overrides, images and fonts to Convert and hands you the finished file.
+
+- The browser bundle is smaller. The DOCX engine no longer ships to the browser.
+- Every export uses the latest engine on the Convert service.
+- Export needs a network connection. It no longer works offline.
+
+## Connect to Convert
+
+`ExportDocx` needs a token for the Convert service. Pass it to `ExportDocx.configure`, or to the `exportDocx` command.
+
+| Option     | Required | Description                                                                               |
+| ---------- | -------- | ----------------------------------------------------------------------------------------- |
+| `token`    | Yes      | A signed token that allows the `Convert:Export:Docx` action.                              |
+| `appId`    | No       | Your Tiptap app ID, sent as the `X-App-Id` header. Set it when you use Tiptap Cloud.      |
+| `endpoint` | No       | The base URL of a custom or on-premises Convert service.                                  |
+| `region`   | No       | `'eu'` (default) or `'us'`. Picks the Tiptap Cloud host when you don't set an `endpoint`. |
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  extensions: [
+    ConvertKit,
+    ExportDocx.configure({
+      token: 'YOUR_JWT',
+      appId: 'YOUR_APP_ID',
+      onCompleteExport: (result) => {
+        if (!(result instanceof Blob)) return
+        const url = URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'export.docx'
+        link.click()
+        URL.revokeObjectURL(url)
+      },
+    }),
+  ],
+})
+
+editor.commands.exportDocx()
+```
+
+The export fails without a `token`. The command itself never throws. Without `onError`, the error is an unhandled promise rejection, so always pass `onError`. See [Install](/conversion/getting-started/install#authentication) to sign a token and to find the `Convert:Export:Docx` action.
+
+<RegionalEndpoints />
+
+## Custom endpoints
+
+The extension sends each export to `<base>/export/docx`. If your `endpoint` ends in `/v2` or `/v2/convert`, the extension maps it to `/v3` or `/v3/convert` for you. You don't need to change it.
+
+| `endpoint` you set                    | Request goes to                                   |
+| ------------------------------------- | ------------------------------------------------- |
+| Not set (Tiptap Cloud, `eu` region)   | `https://api.tiptap.dev/v3/convert/export/docx`   |
+| `https://convert.acme.com/v2`         | `https://convert.acme.com/v3/export/docx`         |
+| `https://convert.acme.com/v2/convert` | `https://convert.acme.com/v3/convert/export/docx` |
+
+With `region: 'us'`, the base is `https://api-us.tiptap.dev/v3/convert`. The extension uses any other `endpoint` as it is and logs a console warning once.
+
+## On-premises
+
+`1.0.0` needs Convert `<MIN_CONVERT_VERSION>` or later. An older service doesn't know the export route and answers `404`. Upgrade Convert before you upgrade the extension.
+
+## Option mapping
+
+Each removed option or export has its own row.
+
+| Removed in `1.0.0`                                                                                                                  | Use instead                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <span id="removed-customNodes" />`customNodes`                                                                                      | `customNodeDsl`, written with the builder from `@tiptap-pro/extension-export-docx/dsl`. See [Custom nodes](#custom-nodes).                                                                                                                            |
+| <span id="removed-function-overrides" />Function overrides                                                                          | Plain objects. A function passed to `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides`, or a function inside `headerFooterOverrides`, is left out with an `unsupported` warning. |
+| <span id="removed-headers" />`headers`                                                                                              | The document's page layout. See [Pages v1](#pages-v1).                                                                                                                                                                                                |
+| <span id="removed-footers" />`footers`                                                                                              | The document's page layout. See [Pages v1](#pages-v1).                                                                                                                                                                                                |
+| <span id="removed-placeholders" />`placeholders`                                                                                    | No replacement. Pages v1 headers and footers aren't exported.                                                                                                                                                                                         |
+| <span id="removed-stream" />`exportType: 'stream'`                                                                                  | `exportType: 'buffer'`. It now gives you a `Uint8Array`, not a Node.js `Buffer`.                                                                                                                                                                      |
+| <span id="removed-unit-helpers" />`pointsToTwips`, `pixelsToHalfPoints`, `pixelsToPoints`, `lineHeightToDocx`, `pointsToHalfPoints` | Import the helpers from `@tiptap-pro/extension-convert-kit/ooxml-registry`. `lineHeightToDocx` becomes `multiplierToLineSpacingUnits`. `pointsToHalfPoints(points)` becomes `points * 2`.                                                             |
+| <span id="removed-LevelFormat" />`LevelFormat`                                                                                      | String values, such as `'decimal'`, `'lowerLetter'` or `'lowerRoman'`.                                                                                                                                                                                |
+| <span id="removed-CharacterSet" />`CharacterSet`                                                                                    | The charset code as a string, such as `'A1'` for Greek.                                                                                                                                                                                               |
+| <span id="removed-Docx" />`Docx` namespace                                                                                          | Plain objects and string values, such as `'single'` for a border style or `'solid'` for shading.                                                                                                                                                      |
+| <span id="removed-converters" />`convertTextNode`, `convertParagraph`, `convertNode` and the other `convert*` functions             | `customNodeDsl`. Convert renders every node, so you describe a custom node instead of building it.                                                                                                                                                    |
+| <span id="removed-customNodeDslLimits" />`customNodeDslLimits`                                                                      | The server's `DOCX_DSL_*` environment variables, such as `DOCX_DSL_MAX_RULES`, set on the Convert service.                                                                                                                                            |
+| <span id="removed-compileCustomNodeDsl" />`compileCustomNodeDsl`, `DEFAULT_LIMITS`, `DslCompileError`, `DslRuntimeError`            | Convert compiles `customNodeDsl` and checks its limits. A rule it can't compile fails the export with an `ExportDocxRequestError`.                                                                                                                    |
+| <span id="removed-style-helpers" />`processCssStyles`, `createExportStyles`, `exportStylesFromCss`                                  | Pass `cssStyles` to `ExportDocx`. Convert compiles them. The measured editor CSS is sent too while `documentStyles` is on, which is the default.                                                                                                      |
+| <span id="removed-hash31" />`hash31`                                                                                                | No replacement.                                                                                                                                                                                                                                       |
+| <span id="removed-exportDocx" />The `exportDocx` function                                                                           | The [REST API](/conversion/export/docx/rest-api). Send the document to `POST https://api.tiptap.dev/v3/convert/export/docx` from your server.                                                                                                         |
+
+The extension leaves `customNodes`, `headers`, `footers`, `placeholders` and `customNodeDslLimits` out of the request and reports each one through `onWarning` with the `unsupported` code. A direct REST call with any of them gets a `400` with the `REMOVED_EXPORT_OPTION` code.
+
+`ExportDocx` also no longer warns you when `ConvertKit` isn't installed.
+
+## Custom nodes
+
+Describe each custom node as a rule in `customNodeDsl`. Convert renders it on the server.
+
+Before, in `0.34.x`, a render function built the DOCX element:
+
+```ts
+import { ExportDocx, convertTextNode, Docx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'hintbox',
+      render: (node) =>
+        new Docx.Paragraph({
+          children: node.content.map((content) => convertTextNode(content)),
+          style: 'Hintbox',
+        }),
+    },
+  ],
+})
+```
+
+After, in `1.0.0`, a rule describes the same node:
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import {
+  childrenInline,
+  docxNode,
+  paragraph,
+  ref,
+  template,
+  textRun,
+} from '@tiptap-pro/extension-export-docx/dsl'
+
+ExportDocx.configure({
+  token: 'YOUR_JWT',
+  customNodeDsl: {
+    dslVersion: '1.0',
+    nodes: [
+      docxNode('hintbox')
+        .block()
+        .emit(paragraph({ style: 'Hintbox' }).children(childrenInline({ marks: 'default' })))
+        .toJSON(),
+      docxNode('mention')
+        .inline()
+        .emit(
+          textRun({
+            text: template('@{node.attrs.label}'),
+            color: ref('node.attrs.color', { default: '4472C4', transform: 'hexNoHash' }),
+          }).applyMarks('node'),
+        )
+        .toJSON(),
+    ],
+  },
+})
+```
+
+See [Custom nodes DSL](/conversion/export/docx/custom-nodes-dsl) and the [DSL builder](/conversion/export/docx/custom-nodes-dsl-builder) for every element and value helper.
+
+## Pages v1
+
+If you use the [Pages extension](/pages/getting-started/overview), `1.0.0` doesn't export its headers and footers. Headers and footers now come from the document's page layout.
+
+Footnotes and endnotes still export. Pass them to the command:
+
+```ts
+editor.commands.exportDocx({
+  footnotes: editor.storage.pages.footnotesJSON,
+  endnotes: editor.storage.pages.endnotesJSON,
+})
+```
+
+## PDF, DOC, ODT and EPUB
+
+The PDF, DOC, ODT and EPUB extensions use `ExportDocx` to build their DOCX file first, when it's installed. Their `headers`, `footers` and `customNodes` options are gone.
+
+- Configure `customNodeDsl` on `ExportDocx`. Every format then uses the same custom node rules.
+- The `token`, `appId`, `endpoint` and `region` you give the PDF, DOC, ODT or EPUB extension are passed on to `exportDocx`.
+
+## Warnings and errors
+
+`onWarning` receives everything the export skipped. Each warning has a `code` and a `message`.
+
+| Code                          | Meaning                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| `unsupported`                 | A removed option, a function override, or a setting DOCX can't hold was left out.  |
+| `image-missing-src`           | An image has no `src`.                                                             |
+| `image-request-failed`        | An image couldn't be requested.                                                    |
+| `image-fetch-failed`          | An image host answered with an error status.                                       |
+| `image-unsupported-type`      | An image has a format DOCX can't hold.                                             |
+| `font-fetch-failed`           | A font couldn't be read, or is over a limit, and was left out.                     |
+| `document-styles-failed`      | The editor's CSS couldn't be measured, so the export used default styles.          |
+| `list-paragraph-path-missing` | A list paragraph path points at nothing, so its list styling was skipped.          |
+| `numbering-format-invalid`    | Convert couldn't build a numbering format, so its lists use the default numbering. |
+| `warnings-truncated`          | Convert had more warnings than fit in its response.                                |
+
+Without `onWarning`, the extension logs each warning with `console.warn`.
+
+When the export fails, `onError` receives the error. The command itself never throws. Without `onError`, the error is an unhandled promise rejection, so always pass `onError`. A failed request gives you an `ExportDocxRequestError` with these fields:
+
+| Field     | Description                                                      |
+| --------- | ---------------------------------------------------------------- |
+| `code`    | The error code from Convert, or `NETWORK_ERROR` or `HTTP_ERROR`. |
+| `status`  | The HTTP status. Not set when the request got no answer.         |
+| `path`    | The option that caused the error, when Convert names one.        |
+| `docsUrl` | A docs page that explains the error, when Convert sends one.     |
+
+- `NETWORK_ERROR` means the request never reached Convert.
+- `HTTP_ERROR` means Convert answered with a failure but no error code.
+
+```ts
+import { ExportDocx, ExportDocxRequestError } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  token: 'YOUR_JWT',
+  onCompleteExport: (result) => {
+    /* save the file */
+  },
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+  onError: (error) => {
+    if (error instanceof ExportDocxRequestError) {
+      console.error(error.code, error.status, error.path)
+    }
+  },
+})
+```
+
+### Images
+
+Convert fetches each image by its `src`. The extension reads the images Convert can't reach in the browser and sends them with the request: `blob:` URLs, large `data:` URLs, and images on your page's own origin, relative URLs included.
+
+- With `onImageError: 'skip'`, the default, an image that fails is left out of the file and reported through `onWarning`.
+- With `onImageError: 'throw'`, an image that fails to load stops the export before the request is sent.
+
+## Limitations
+
+- Export needs a connection to Convert. It doesn't work offline.
+- On-premises deployments need Convert `<MIN_CONVERT_VERSION>` or later.
+- Headers and footers from the Pages extension aren't exported.
+
+## Staying on 0.34.x
+
+If you can't upgrade yet, pin the previous release:
+
+```bash
+npm install @tiptap-pro/extension-export-docx@0.34
+```
+
+`0.34.x` keeps building the DOCX in the browser. Server-side callers on v2 use `POST /v2/convert/export/docx`. The v2 section of the [REST API](/conversion/export/docx/rest-api) page documents it and stays online.
+
+## Migration checklist
+
+1. Upgrade `@tiptap-pro/extension-export-docx` to `1.0.0`.
+2. Sign a token with the `Convert:Export:Docx` action and pass `token` and `appId` to `ExportDocx`.
+3. Set `endpoint` or `region` if you don't use the default `eu` Tiptap Cloud host.
+4. On-premises: upgrade Convert to `<MIN_CONVERT_VERSION>` or later first.
+5. Replace `customNodes` with `customNodeDsl`.
+6. Turn function overrides into plain objects.
+7. Remove `headers`, `footers` and `placeholders`. Pass Pages footnotes and endnotes to `exportDocx`.
+8. Replace `exportType: 'stream'` with `'buffer'`, and handle a `Uint8Array`.
+9. Import unit helpers from `@tiptap-pro/extension-convert-kit/ooxml-registry`, and replace `LevelFormat`, `CharacterSet` and `Docx` values with strings.
+10. Move server-side `exportDocx` calls to the REST API.
+11. Add `onWarning` and `onError` handlers.
+
+## Related
+
+- [Export DOCX editor extension](/conversion/export/docx/editor-extension)
+- [Install](/conversion/getting-started/install): tokens and registry setup
+- [Custom nodes DSL](/conversion/export/docx/custom-nodes-dsl)
+- [REST API](/conversion/export/docx/rest-api)
