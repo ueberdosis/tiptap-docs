@@ -86,6 +86,97 @@ Comments.configure({
 })
 ```
 
+If you configure `onThreadAnchorRemoved`, that option replaces automatic cleanup. Its `defaultHandler()` still respects `deleteUnreferencedThreads`.
+
+## onThreadAnchorRemoved
+
+A callback that runs when a local edit removes a thread's last document anchor. An anchor is an inline thread mark or a block thread node. The callback runs after edits settle, before cleanup changes the thread data. It runs only on the editing client, not on clients receiving the change remotely.
+
+**Default:** `undefined`, which keeps automatic cleanup controlled by `deleteUnreferencedThreads`.
+
+Set this option to `false` to disable automatic cleanup when anchors disappear. A callback replaces cleanup unless it calls `defaultHandler()`. The default handler soft-deletes the unreferenced thread when `deleteUnreferencedThreads` is `true`.
+
+For example, resolve the thread and keep its comments when its anchor disappears:
+
+```js
+CommentsKit.configure({
+  onThreadAnchorRemoved: ({ editor, threadId }) => {
+    editor.commands.resolveThread({ id: threadId })
+  },
+})
+```
+
+The callback receives these arguments:
+
+| Argument         | Description                                              |
+| ---------------- | -------------------------------------------------------- |
+| `editor`         | The editor whose last anchor for the thread was removed. |
+| `threadId`       | The thread ID.                                           |
+| `thread`         | The current thread data, including its comments.         |
+| `field`          | The collaboration field containing the thread.           |
+| `removedBy`      | `'edit'`, `'command'`, or `'undoRedo'`.                  |
+| `defaultHandler` | Runs the configured default cleanup.                     |
+
+Explicit anchor removal with `removeThread({ id })` reports `'command'`. Calling `removeThread({ id, deleteThread: true })` deletes the thread directly and skips this callback. Threads created for Tracked Changes suggestions are handled by that integration and also skip this callback.
+
+Call `defaultHandler()` synchronously inside the callback. It runs at most once, and calls made after the callback returns have no effect. For example, log the removal and keep default cleanup:
+
+```js
+CommentsKit.configure({
+  onThreadAnchorRemoved: ({ threadId, removedBy, defaultHandler }) => {
+    console.log('Thread anchor removed', threadId, removedBy)
+    defaultHandler()
+  },
+})
+```
+
+## onThreadStateChanged
+
+A callback that runs after a Yjs transaction changes an existing thread's state in the editor's collaboration field. It handles both local and remote changes. Creating a thread, adding a comment, or updating thread metadata does not trigger it.
+
+**Default:** `undefined`, which keeps default document handling. Permanent thread deletion removes its anchors and preserves their text. Resolving, reopening, soft-deleting, or restoring a thread keeps its anchors.
+
+Set this option to `false` to disable automatic document handling for thread state changes. A callback replaces that handling unless it calls `defaultHandler()`.
+
+```js
+CommentsKit.configure({
+  onThreadStateChanged: ({ event, threadId, origin, defaultHandler }) => {
+    console.log('Thread state changed', event, threadId, origin)
+    defaultHandler()
+  },
+})
+```
+
+The callback receives these arguments:
+
+| Argument         | Description                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `editor`         | The editor handling the state change.                                                                                                     |
+| `threadId`       | The thread ID.                                                                                                                            |
+| `event`          | `'resolved'`, `'unresolved'`, `'deleted'`, or `'restored'`.                                                                               |
+| `previousThread` | The thread data before the change.                                                                                                        |
+| `thread`         | The thread data after the change. This is `undefined` after permanent deletion.                                                           |
+| `field`          | The collaboration field containing the thread.                                                                                            |
+| `origin`         | `'local'` or `'remote'`, based on the Yjs transaction.                                                                                    |
+| `defaultHandler` | Runs default document handling. Call it synchronously inside the callback, at most once. Calls after the callback returns have no effect. |
+
+The `'deleted'` event covers both soft deletion and permanent deletion. The `'restored'` event means a soft-deleted thread was restored, not that its document anchor was restored.
+
+For example, remove the anchor when a thread is resolved while keeping the thread and its comments:
+
+```js
+CommentsKit.configure({
+  onThreadStateChanged: ({ editor, threadId, event, defaultHandler }) => {
+    if (event === 'resolved') {
+      editor.commands.removeThread({ id: threadId, deleteThread: false })
+    }
+    defaultHandler()
+  },
+})
+```
+
+Anchor removal inside this callback does not trigger `onThreadAnchorRemoved` or automatic deletion of the detached thread. Thread state changes made inside this callback do not trigger another local state callback. Reopening the thread does not recreate an anchor removed by custom handling.
+
 ## trackedChangesIntegration
 
 A boolean option that controls whether to enable the automatic [Track Changes](/editor/extensions/functionality/tracked-changes) integration. When enabled, threads are automatically created, updated, resolved, or deleted in response to Track Changes suggestion lifecycle events.
