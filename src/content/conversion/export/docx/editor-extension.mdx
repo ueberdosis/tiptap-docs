@@ -4,7 +4,7 @@ tags:
   - type: start
   - type: beta
   - type: version
-    label: v0.26.1
+    label: v1.0.0
 meta:
   title: Export DOCX | Tiptap Conversion
   description: Learn how to export Tiptap editor content to DOCX (Word) files using the Export extension in our docs.
@@ -28,41 +28,45 @@ import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
     To install this frontend extensions, authenticate to Tiptap’s private npm registry by following
     the [setup guide](/guides/pro-extensions).
   </RequirementItem>
+  <RequirementItem label="3. Create a Convert app">
+    The export runs on the Convert service. Use the app ID of your Convert app as `appId`.
+  </RequirementItem>
+  <RequirementItem label="4. Sign a token">
+    Sign a token that allows the `Convert:Export:Docx` action and pass it as `token`. See
+    [Authentication](/conversion/getting-started/install#authentication).
+  </RequirementItem>
 </Requirements>
 
 <CodeDemo isPro path="/Extensions/ExportDocx" />
 
-Use Tiptap’s `@tiptap-pro/extension-export-docx` to export the editor’s content as a `.docx` file. This extension works in any JavaScript environment, including server-side applications, due to the isomorphic nature of the `exportDocx` function.
+Use Tiptap’s `@tiptap-pro/extension-export-docx` to export the editor’s content as a `.docx` file. The extension sends your document to the Convert service, which builds the file and sends it back.
 
-You can also export via the [REST API](/conversion/export/docx/rest-api). Both paths use the same conversion library. The main differences:
+You can also export with the [REST API](/conversion/export/docx/rest-api). Both run on the Convert service and take the same export options.
 
-|                       | Editor extension                                                                                                                                                                                                                                                                                     | REST API                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Runs in               | Your app (client or server-side)                                                                                                                                                                                                                                                                     | Tiptap cloud                   |
-| Custom node rendering | Supported via [`customNodes`](/conversion/export/docx/custom-nodes)                                                                                                                                                                                                                                  | Not yet supported\*            |
-| Element overrides     | [`paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides`](/conversion/export/docx/styles#element-overrides), plus [`headerFooterOverrides`](/conversion/export/docx/styles#headerfooteroverrides) for header/footer-scoped overrides | Not yet supported\*            |
-| Style overrides       | Supported                                                                                                                                                                                                                                                                                            | Supported                      |
-| Headers and footers   | docx.js objects or auto-extracted from Pages                                                                                                                                                                                                                                                         | Plain text or stringified JSON |
-| Footnotes             | Auto-extracted from [Pages footnotes](/pages/core-concepts/footnotes), or provided via the `footnotes` option                                                                                                                                                                                        | Not yet supported\*            |
-| Endnotes              | Auto-extracted from [Pages endnotes](/pages/core-concepts/endnotes), or provided via the `endnotes` option                                                                                                                                                                                           | Not yet supported\*            |
+|                           | Editor extension | REST API        |
+| ------------------------- | ---------------- | --------------- |
+| Runs in                   | Convert service  | Convert service |
+| Shared export options     | Yes              | Yes             |
+| Measures the editor’s CSS | Yes              | No              |
 
-\* The REST API does not currently accept `customNodes` or any of the element-override fields. Requests carrying them have those fields stripped during validation and the export proceeds with defaults. Bringing both surfaces to parity is on the roadmap; until then, use the editor extension if you need custom node rendering or element overrides.
+Both take these export options: `customNodeDsl`, `styleOverrides`, `cssStyles`, the seven plain-object overrides (`paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides`, `headerFooterOverrides`), `numberingFormats`, `listLevels`, `outline`, `defaultTabStop`, `pageColor`, `pageSize`, `pageMargins`, `pageSetup`, `footnotes`, `endnotes`, `comments`, `embedFonts` and `onImageError`.
 
-Choose the REST API for simple exports that only need style customization. Use the editor extension when you need custom node rendering, element overrides, or full control over the output.
+- The extension adds `token`, `appId`, `endpoint`, `region`, `exportType`, `documentStyles`, `fonts`, `onCompleteExport`, `onError` and `onWarning`.
+- The REST body adds `document`, `assets`, and the fields the extension measures in the browser: `documentCss`, `cellParagraphIds` and `listParagraphOverrides`.
 
-By default, the extension maps Tiptap nodes to DOCX elements. If your content includes custom nodes, configure their [export behavior](/conversion/export/docx/custom-nodes) to ensure they’re properly converted.
+Use the editor extension when you export from the editor. The file then looks like what you see on screen. Use the REST API when you export from your server without an editor.
+
+To render custom nodes, describe them with [`customNodeDsl`](/conversion/export/docx/custom-nodes-dsl).
 
 ## Install the DOCX Export extension
 
 The Conversion extensions are published in Tiptap’s private npm registry. Integrate the extensions by following the [private registry guide](/guides/pro-extensions).
 
-Once done you can install and import the **Export DOCX** extension package
+Once done, install the **Export DOCX** extension package:
 
 ```bash
 npm i @tiptap-pro/extension-export-docx
 ```
-
-Using the export extension does not require any Tiptap Conversion credentials, since the conversion is handled right away in the extension.
 
 ```js
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
@@ -70,65 +74,74 @@ import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 
 ## Configuring the extension
 
-The `ExportDocx` extension can be configured with an `ExportDocxOptions` (`object`) as an argument to the `configure` method with the following properties:
+<Callout title="Upgrading from 0.x?" variant="hint">
+  Some options are gone in `1.0.0`. See [Migrate to v1](/conversion/export/docx/migrate-to-v1) for
+  what replaces each one.
+</Callout>
+
+Pass your options to `ExportDocx.configure`. `token` and `onCompleteExport` are required.
 
 ```ts
-// Import the ExportDocx extension
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 
 const editor = new Editor({
   extensions: [
-    // Other extensions ...
+    ConvertKit,
     ExportDocx.configure({
-      onCompleteExport: (result: string | Buffer<ArrayBufferLike> | Blob | Stream) => void, // required
-      exportType: 'blob', // optional. Default: 'blob'
-      customNodes: [], // optional. Default: []
-      styleOverrides: {}, // optional. Default: {}
-      paragraphOverrides: {}, // optional. Default: {}
-      textRunOverrides: {}, // optional. Default: {}
-      tableOverrides: {}, // optional. Default: {}
-      tableRowOverrides: {}, // optional. Default: {}
-      tableCellOverrides: {}, // optional. Default: {}
-      imageOverrides: {}, // optional. Default: {}
-      onWarning: undefined, // optional. Default: undefined
-      onImageError: 'skip', // optional. Default: 'skip'
-      numberingFormats: undefined, // optional. Default: undefined
-      headerFooterOverrides: undefined, // optional. Default: undefined
-      fonts: undefined, // optional. Default: undefined
-      embedFonts: false, // optional. Default: false
-      token: undefined, // optional. Default: undefined
-      endpoint: undefined, // optional. Default: undefined
-      region: 'eu', // optional. 'eu' or 'us'. Default: 'eu'
+      token: 'YOUR_JWT',
+      appId: 'YOUR_APP_ID',
+      onCompleteExport: (result) => {
+        const url = URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'export.docx'
+        link.click()
+        URL.revokeObjectURL(url)
+      },
     }),
-    // Other extensions ...
   ],
-  // Other editor settings ...
 })
 ```
 
-| Parameter             | Description                                                                                                                                                                                                                                                                                                                                                                                                       | Default                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| onCompleteExport      | A **required** callback function that receives the exported data. You can then handle the data as needed (e.g., prompt a file download)                                                                                                                                                                                                                                                                           | `N/A`                               |
-| options               | An object to configure some parts of the export:<br/><br/>**exportType**: The type of data returned by the method:<br/>- **buffer**: Returns a Node.js `Buffer` (server-side only)<br/>- **stream**: Returns a Node.js `Stream` (server-side only)<br/>- **string**: Returns a `String`<br/>- **blob**: Returns a `Blob`                                                                                          | `blob`                              |
-| customNodes           | An array of custom node definitions. If your content includes custom nodes, pass their definitions here to ensure they're properly converted                                                                                                                                                                                                                                                                      | `[]`                                |
-| styleOverrides        | An object with custom styles to apply to the exported document. [See Export styles](/conversion/export/docx/styles)                                                                                                                                                                                                                                                                                               | `{}`                                |
-| paragraphOverrides    | Base defaults for all paragraphs (also applied to header/footer content). Accepts a static object applied to every paragraph, or a function `(node) => overrides` that receives the current paragraph node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                             | `{}`                                |
-| textRunOverrides      | Base defaults for all text runs (also applied to header/footer content). Accepts a static object applied to every text run, or a function `(node) => overrides` that receives the current text node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                    | `{}`                                |
-| tableOverrides        | Table-level property overrides (also applied to header/footer tables). Accepts a static object applied to every table, or a function `(node) => overrides` that receives the current table node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                        | `{}`                                |
-| tableRowOverrides     | Base defaults for all table rows (e.g. `cantSplit`, `tableHeader`, `height`; also applied to header/footer tables). Accepts a static object applied to every row, or a function `(node) => overrides` that receives the current table row node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                         | `{}`                                |
-| tableCellOverrides    | Base defaults for all table cells (also applied to header/footer cells). Accepts a static object applied to every cell, or a function `(node) => overrides` that receives the current table cell node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                  | `{}`                                |
-| imageOverrides        | Image property overrides (also applied to images in headers/footers). Accepts either a static object applied to every image, or a function `(node) => overrides` that receives the current image node so overrides can be derived from its attributes. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                  | `{}`                                |
-| onWarning             | Called for each image the export skipped, with `code`, `message` and `src`. Without it, skipped images go to `console.warn`. [See Images that cannot be exported](#images-that-cannot-be-exported)                                                                                                                                                                                                                 | `undefined`                         |
-| onImageError          | What to do with an image the exporter cannot use. `skip` leaves it out and reports it; `throw` fails the whole export. [See Images that cannot be exported](#images-that-cannot-be-exported)                                                                                                                                                                                                                      | `'skip'`                            |
-| numberingFormats      | Registry of multilevel ordered-list numbering format definitions. Each entry's `id` matches the `numberingFormat` attribute on the outermost `<ol>`; unknown / missing ids fall back to plain `1. 2. 3.` numbering. Pair this with `OrderedListNumbering` and `generateNumberingFormatCss` from `@tiptap-pro/extension-convert-kit`. [See Ordered list numbering](/conversion/export/docx/ordered-list-numbering) | `undefined`                         |
-| headerFooterOverrides | Per-field overrides scoped to header/footer content only; they fully replace the matching body-wide override inside headers and footers. Only applies to headers/footers auto-extracted from the [Pages extension](/pages/getting-started/overview). [See `headerFooterOverrides`](/conversion/export/docx/styles#headerfooteroverrides)                                                                          | `undefined`                         |
-| footnotes             | Footnote content keyed by note id (`Record<string, JSONContent>`). Each `footnoteReference` node in the body whose `noteId` has an entry exports as a real Word footnote. Auto-extracted from [Pages footnotes](/pages/core-concepts/footnotes) when enabled; pass this option only to override.                                                                                                                  | Auto-extracted from Pages           |
-| endnotes              | Endnote content keyed by note id (`Record<string, JSONContent>`). Each `endnoteReference` node in the body whose `noteId` has an entry exports as a real Word endnote. Auto-extracted from [Pages endnotes](/pages/core-concepts/endnotes) when enabled; pass this option only to override.                                                                                                                       | Auto-extracted from Pages           |
-| fonts                 | Custom TTF/OTF fonts to embed so the file renders with the intended fonts even on machines where they aren't installed. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                | `undefined`                         |
-| embedFonts            | Automatically detect the fonts the document uses, locate them via the page's `@font-face` rules (with a Google Fonts fallback), convert WOFF2 to TTF through the Convert Service, and embed them. Browser only. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                        | `false`                             |
-| token                 | Tiptap Convert JWT, sent only when `embedFonts` needs to convert a WOFF2 font. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                                         | `undefined`                         |
-| endpoint              | Tiptap Convert REST endpoint base used for WOFF2 → TTF conversion. When set, it overrides `region`. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                    | `undefined`                         |
-| region                | Tiptap Cloud region used for WOFF2 → TTF conversion when `endpoint` is not set, `'eu'` or `'us'`. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                      | `'eu'`                              |
+| Parameter               | Description                                                                                                                                                                                                            | Default     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `token`                 | **Required.** A signed token that allows the `Convert:Export:Docx` action. See [Authentication](/conversion/getting-started/install#authentication).                                                                   | `undefined` |
+| `appId`                 | Your Tiptap app ID, sent as the `X-App-Id` header.                                                                                                                                                                     | `undefined` |
+| `endpoint`              | The base URL of a custom or on-premises Convert service. When set, it overrides `region`. A base that ends in `/v2` or `/v2/convert` maps to `/v3` or `/v3/convert`.                                                   | `undefined` |
+| `region`                | `'eu'` or `'us'`. Picks the Tiptap Cloud host when you don't set `endpoint`.                                                                                                                                           | `'eu'`      |
+| `onCompleteExport`      | **Required.** Receives the exported file.                                                                                                                                                                              | Throws      |
+| `exportType`            | The shape of the file you get: `'blob'` gives a `Blob`, `'base64'` a base64 string, `'string'` a binary string, `'buffer'` a `Uint8Array`. [`'stream'` is gone](/conversion/export/docx/migrate-to-v1#removed-stream). | `'blob'`    |
+| `onError`               | Receives the error when the export fails. Without it, the error is rethrown. See [Errors](#errors).                                                                                                                    | `undefined` |
+| `onWarning`             | Receives each warning, from the browser and from Convert. Without it, warnings go to `console.warn`. See [Images that cannot be exported](#images-that-cannot-be-exported).                                            | `undefined` |
+| `documentStyles`        | Measures your editor’s CSS and sends it with the document, so the file matches the editor. `false` skips it.                                                                                                           | `true`      |
+| `cssStyles`             | CSS rules as a plain object, compiled into DOCX styles. See [CSS to DOCX](/conversion/export/docx/css-to-docx).                                                                                                        | `undefined` |
+| `styleOverrides`        | Custom styles for the exported document. See [Export styles](/conversion/export/docx/styles).                                                                                                                          | `undefined` |
+| `customNodeDsl`         | Rules that describe how custom nodes render. See [Custom nodes DSL](/conversion/export/docx/custom-nodes-dsl). [`customNodes` is gone](/conversion/export/docx/migrate-to-v1#removed-customNodes).                     | `undefined` |
+| `paragraphOverrides`    | A plain object applied to every paragraph. See [Export styles](/conversion/export/docx/styles).                                                                                                                        | `undefined` |
+| `textRunOverrides`      | A plain object applied to every text run.                                                                                                                                                                              | `undefined` |
+| `tableOverrides`        | A plain object applied to every table.                                                                                                                                                                                 | `undefined` |
+| `tableRowOverrides`     | A plain object applied to every table row, for example `cantSplit` or `height`.                                                                                                                                        | `undefined` |
+| `tableCellOverrides`    | A plain object applied to every table cell.                                                                                                                                                                            | `undefined` |
+| `imageOverrides`        | A plain object applied to every image.                                                                                                                                                                                 | `undefined` |
+| `headerFooterOverrides` | Plain-object overrides for header and footer content only. A field you leave out uses the body-wide value.                                                                                                             | `undefined` |
+| `numberingFormats`      | Multilevel numbering formats for ordered lists. Formats registered in the editor are added for you. See [Ordered list numbering](/conversion/export/docx/ordered-list-numbering).                                      | `undefined` |
+| `listLevels`            | Marker and text indents per list kind and depth.                                                                                                                                                                       | `undefined` |
+| `outline`               | Outline numbering. Read from the editor when you leave it out.                                                                                                                                                         | From editor |
+| `defaultTabStop`        | The default tab stop of the document.                                                                                                                                                                                  | `undefined` |
+| `pageColor`             | The page background color.                                                                                                                                                                                             | `undefined` |
+| `pageSize`              | Page `width` and `height`.                                                                                                                                                                                             | `undefined` |
+| `pageMargins`           | Page margins: `top`, `bottom`, `left`, `right`, `header` and `footer`.                                                                                                                                                 | `undefined` |
+| `pageSetup`             | The document's page layout setup. Read from the editor when you leave it out.                                                                                                                                          | From editor |
+| `footnotes`             | Footnote content keyed by note ID (`Record<string, JSONContent>`).                                                                                                                                                     | `undefined` |
+| `endnotes`              | Endnote content keyed by note ID (`Record<string, JSONContent>`).                                                                                                                                                      | `undefined` |
+| `comments`              | Comment threads to export. Read from the comments extension when you leave it out.                                                                                                                                     | From editor |
+| `fonts`                 | TTF, OTF or WOFF2 fonts to embed. See [Fonts](/conversion/export/docx/fonts).                                                                                                                                          | `undefined` |
+| `embedFonts`            | Finds the fonts the document uses and embeds them. See [Fonts](/conversion/export/docx/fonts).                                                                                                                         | `false`     |
+| `onImageError`          | `'skip'` leaves out an image that can't be used and reports it. `'throw'` fails the export. See [Images that cannot be exported](#images-that-cannot-be-exported).                                                     | `'skip'`    |
+
+Overrides take plain objects. The extension drops a function override and reports an `unsupported` warning. See [function overrides](/conversion/export/docx/migrate-to-v1#removed-function-overrides).
 
 <RegionalEndpoints />
 
@@ -139,214 +152,91 @@ const editor = new Editor({
   honors the same token names, so the editor preview and the exported `.docx` stay consistent.
 </Callout>
 
+<Callout title="Headers and footers come from the document" variant="info">
+  Headers and footers come from the document's page layout. The `headers` and `footers` options are
+  gone. See [Migrate to v1](/conversion/export/docx/migrate-to-v1#removed-headers).
+</Callout>
+
 ## Export a DOCX file
 
-With the extension installed, you can convert your editor’s content to `.docx`.
-
-Before diving into an example, let's take a look into the signature of the `exportDocx` method available in your editor's commands:
+Call the `exportDocx` command to export the document:
 
 ```ts
-/**
- * Export the current document as a .docx file
- *
- * Notes: 'buffer' and 'stream' export types are only available in the server environment
- * as they use the Node Buffer and Stream APIs respectively
- *
- * @param onCompleteExport - Callback function to handle the exported file
- * @param options - Export options
- * @param customNodes - Custom node definitions to ensure proper conversion
- * @param styleOverrides - Custom styles to apply to the exported document
- * @example editor.commands.exportDocx((result) => {}, { exportType: 'buffer' }, [])
- *
- */
-exportDocx: (options?: ExportDocxOptions) =>
-  Promise<string | Buffer<ArrayBufferLike> | Blob | Stream>
+exportDocx: (options?: ExportDocxCommandOptions) => ReturnType
 ```
 
-The `exportDocx` method takes an optional `ExportDocxOptions` (`object`) as an argument with the following properties that you can use to _override_ the ones that you have configured with the `ExportDocx.configure` method:
+The command takes the same options as `ExportDocx.configure`. An option you pass to the command wins. An option you leave out falls back to the configured one.
 
-| Parameter             | Description                                                                                                                                                                                                                                                                                                                                                                                                       | Default                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| onCompleteExport      | A **required** callback function (if you haven't defined it in the configure extension call) that receives the exported data. You can then handle the data as needed (e.g., prompt a file download)                                                                                                                                                                                                               | `N/A`                               |
-| options               | An object to configure some parts of the export:<br/><br/>**exportType**: The type of data returned by the method:<br/>- **buffer**: Returns a Node.js `Buffer` (server-side only)<br/>- **stream**: Returns a Node.js `Stream` (server-side only)<br/>- **string**: Returns a `String`<br/>- **blob**: Returns a `Blob`                                                                                          | `blob`                              |
-| customNodes           | An array of custom node definitions. If your content includes custom nodes, pass their definitions here to ensure they're properly converted                                                                                                                                                                                                                                                                      | `[]`                                |
-| styleOverrides        | An object with custom styles to apply to the exported document. [See Export styles](/conversion/export/docx/styles)                                                                                                                                                                                                                                                                                               | `{}`                                |
-| paragraphOverrides    | Base defaults for all paragraphs (also applied to header/footer content). Accepts a static object applied to every paragraph, or a function `(node) => overrides` that receives the current paragraph node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                             | `{}`                                |
-| textRunOverrides      | Base defaults for all text runs (also applied to header/footer content). Accepts a static object applied to every text run, or a function `(node) => overrides` that receives the current text node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                    | `{}`                                |
-| tableOverrides        | Table-level property overrides (also applied to header/footer tables). Accepts a static object applied to every table, or a function `(node) => overrides` that receives the current table node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                        | `{}`                                |
-| tableRowOverrides     | Base defaults for all table rows (e.g. `cantSplit`, `tableHeader`, `height`; also applied to header/footer tables). Accepts a static object applied to every row, or a function `(node) => overrides` that receives the current table row node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                         | `{}`                                |
-| tableCellOverrides    | Base defaults for all table cells (also applied to header/footer cells). Accepts a static object applied to every cell, or a function `(node) => overrides` that receives the current table cell node. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                                                                  | `{}`                                |
-| imageOverrides        | Image property overrides (also applied to images in headers/footers). Accepts either a static object applied to every image, or a function `(node) => overrides` that receives the current image node so overrides can be derived from its attributes. [See Element overrides](/conversion/export/docx/styles#element-overrides)                                                                                  | `{}`                                |
-| onWarning             | Called for each image the export skipped, with `code`, `message` and `src`. Without it, skipped images go to `console.warn`. [See Images that cannot be exported](#images-that-cannot-be-exported)                                                                                                                                                                                                                 | `undefined`                         |
-| onImageError          | What to do with an image the exporter cannot use. `skip` leaves it out and reports it; `throw` fails the whole export. [See Images that cannot be exported](#images-that-cannot-be-exported)                                                                                                                                                                                                                      | `'skip'`                            |
-| numberingFormats      | Registry of multilevel ordered-list numbering format definitions. Each entry's `id` matches the `numberingFormat` attribute on the outermost `<ol>`; unknown / missing ids fall back to plain `1. 2. 3.` numbering. Pair this with `OrderedListNumbering` and `generateNumberingFormatCss` from `@tiptap-pro/extension-convert-kit`. [See Ordered list numbering](/conversion/export/docx/ordered-list-numbering) | `undefined`                         |
-| headerFooterOverrides | Per-field overrides scoped to header/footer content only; they fully replace the matching body-wide override inside headers and footers. Only applies to headers/footers auto-extracted from the [Pages extension](/pages/getting-started/overview). [See `headerFooterOverrides`](/conversion/export/docx/styles#headerfooteroverrides)                                                                          | `undefined`                         |
-| footnotes             | Footnote content keyed by note id (`Record<string, JSONContent>`). Each `footnoteReference` node in the body whose `noteId` has an entry exports as a real Word footnote. Auto-extracted from [Pages footnotes](/pages/core-concepts/footnotes) when enabled; pass this option only to override.                                                                                                                  | Auto-extracted from Pages           |
-| endnotes              | Endnote content keyed by note id (`Record<string, JSONContent>`). Each `endnoteReference` node in the body whose `noteId` has an entry exports as a real Word endnote. Auto-extracted from [Pages endnotes](/pages/core-concepts/endnotes) when enabled; pass this option only to override.                                                                                                                       | Auto-extracted from Pages           |
-| fonts                 | Custom TTF/OTF fonts to embed so the file renders with the intended fonts even on machines where they aren't installed. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                | `undefined`                         |
-| embedFonts            | Automatically detect the fonts the document uses, locate them via the page's `@font-face` rules (with a Google Fonts fallback), convert WOFF2 to TTF through the Convert Service, and embed them. Browser only. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                        | `false`                             |
-| token                 | Tiptap Convert JWT, sent only when `embedFonts` needs to convert a WOFF2 font. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                                         | `undefined`                         |
-| endpoint              | Tiptap Convert REST endpoint base used for WOFF2 → TTF conversion. When set, it overrides `region`. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                    | `undefined`                         |
-| region                | Tiptap Cloud region used for WOFF2 → TTF conversion when `endpoint` is not set, `'eu'` or `'us'`. [See Fonts](/conversion/export/docx/fonts)                                                                                                                                                                                                                                                                      | `'eu'`                              |
+The command returns right away. The file arrives in `onCompleteExport` once Convert sends it back.
 
-```js
-// Import the ExportDocx extension
-import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+```ts
+// Export with the configured options
+editor.commands.exportDocx()
 
-// Setup you editor
-const editor = new Editor({
-  extensions: [
-    // Other extensions ...
-    ExportDocx.configure({
-      onCompleteExport: (result: string | Buffer<ArrayBufferLike> | Blob | Stream) => {}, // required
-      exportType: 'blob', // optional. Default: 'blob'
-      customNodes: [], // optional. Default: []
-      styleOverrides: {}, // optional. Default: {}
-      paragraphOverrides: {}, // optional. Default: {}
-      textRunOverrides: {}, // optional. Default: {}
-      tableOverrides: {}, // optional. Default: {}
-      tableRowOverrides: {}, // optional. Default: {}
-      tableCellOverrides: {}, // optional. Default: {}
-      imageOverrides: {}, // optional. Default: {}
-      onWarning: undefined, // optional. Default: undefined
-      onImageError: 'skip', // optional. Default: 'skip'
-      headerFooterOverrides: undefined, // optional. Default: undefined
-      fonts: undefined, // optional. Default: undefined
-      embedFonts: false, // optional. Default: false
-      token: undefined, // optional. Default: undefined
-      endpoint: undefined, // optional. Default: undefined
-      region: 'eu', // optional. 'eu' or 'us'. Default: 'eu'
-    }),
-    // Other extensions ...
-  ],
-  // Other editor settings ...
+// Export as a Uint8Array instead of a Blob
+editor.commands.exportDocx({
+  exportType: 'buffer',
+  onCompleteExport: (result) => {
+    // result is a Uint8Array
+  },
 })
-
-// Declare some functions that will call the exportDocx method from your editor
-
-function handleExportDocx() {
-  // Call your editor's exportDocx method
-  editor
-    .chain()
-    // Method call without any overrides
-    // It will take the configuration set in the configure method
-    .exportDocx()
-    .run()
-}
-
-function handleExportDocxBuffer() {
-  // Call your editor's exportDocx method
-  editor
-    .chain()
-    // Method call with some overrides
-    .exportDocx({
-      // Override the onCompleteExport callback to handle the override exported type
-      onCompleteExport: (result: Buffer) => {
-        // Handle the exported file in a buffer format
-      },
-      // Override the export type
-      exportType: 'Buffer',
-    })
-    .run()
-}
-
-// Call those functions at any point in your application
-handleExportDocx()
-handleExportDocxBuffer()
 ```
 
 ### How it works
 
-The above example runs entirely in the browser, generating a DOCX Blob via the ExportDocx extension since it's the default value for the `exportType` as we haven't override it. We then programmatically download the file. You can adjust this logic, for instance, to send the blob to a server instead of downloading.
+The extension measures your editor’s styles, sends them with the document to Convert, and hands you the file. It also reads fonts, and images Convert can't reach, in the browser and sends them along.
 
-| Parameter        | Description                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| onCompleteExport | When the conversion completes, we will get the `result` of the conversion as the main and only argument to the callback function which, in this case, it would be a `Blob` since we've declared that we wanted this type in the `exportType` within the `options` parameter. You can then handle it however you prefer, e.g. prompting a file download, like we showcased in the example above. |
-| exportType       | We're using the default `blob` so the conversion returns a `Blob`.                                                                                                                                                                                                                                                                                                                              |
-| customNodes      | We won't provide any custom node mapping since we are not providing any custom nodes.                                                                                                                                                                                                                                                                                                           |
-| styleOverrides   | We won't provide any style overrides, and therefore, a default `DOCX` style is set following some common guideliness from Microsoft Word defaults and they will be applied to the exported document.                                                                                                                                                                                            |
+| Parameter          | Description                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| `onCompleteExport` | Receives the file. With the default `exportType`, it's a `Blob` you can download or upload.   |
+| `exportType`       | Picks the shape of the file. The default `'blob'` gives a `Blob`.                             |
+| `documentStyles`   | On by default, so the file matches the editor’s styles. Pass `styleOverrides` to change them. |
 
-## Server-side export
+### Errors
 
-For applications requiring complex document generation or to reduce client-side bundle size, you can export `.docx` files in your the server.
-
-In order to do so, you'd need to import the `exportDocx` function from the `@tiptap-pro/extension-export-docx` package, pass it your Tiptap JSON content, and return the resulting conversion to the client.
-
-Let's first take a look into the `exportDocx` function signature:
+When the export fails, `onError` receives the error. A failed request gives you an `ExportDocxRequestError` with a `code`, and a `status`, `path` and `docsUrl` when Convert sends them. `NETWORK_ERROR` means the request never reached Convert.
 
 ```ts
-/**
- * Export the current document as a .docx file
- *
- * Notes: 'buffer' and 'stream' export types are only available in the server environment
- * as they use the Node Buffer and Stream APIs respectively
- *
- * @param options.document - The JSON representation of the document
- * @param options.exportType - The type of export to perform
- * @param options.customNodes - Custom node definitions
- * @param options.styleOverrides - Style overrides for the exported document
- * @param options.paragraphOverrides - Base defaults for all paragraphs
- * @param options.textRunOverrides - Base defaults for all text runs
- * @param options.tableOverrides - Table-level property overrides
- * @param options.tableRowOverrides - Base defaults for all table rows
- * @param options.tableCellOverrides - Base defaults for all table cells
- * @param options.imageOverrides - Image property overrides
- * @param options.onWarning - Called for each image the export skipped
- * @param options.onImageError - 'skip' (default) or 'throw'
- * @example exportDocx({ document: editor.getJSON(), exportType: 'blob', customNodes: [], styleOverrides: {} })
- */
-async function exportDocx({
-  document,
-  exportType,
-  customNodes,
-  styleOverrides,
-  paragraphOverrides,
-  textRunOverrides,
-  tableOverrides,
-  tableRowOverrides,
-  tableCellOverrides,
-  imageOverrides,
-  onWarning,
-  onImageError,
-}: ExportDocxOptions) {}
-```
+import { ExportDocx, ExportDocxRequestError } from '@tiptap-pro/extension-export-docx'
 
-The `exportDocx` function will return a `docx` document ready and converted to any format that .
-
-Here you have a simple example using `Express` and `@tiptap-pro/extension-export-docx` on the server-side:
-
-```ts
-import { exportDocx } from '@tiptap-pro/extension-export-docx'
-import express from 'express'
-
-const app = express()
-
-app.post('/export-docx', async (req, res) => {
-  try {
-    // Get Tiptap JSON content from the request or from your database
-    const { content } = req.body
-
-    // Convert Tiptap JSON to DOCX
-    const docxBuffer = await exportDocx({ document: content })
-
-    // Send as a downloadable file
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    )
-    res.setHeader('Content-Disposition', 'attachment; filename="document.docx"')
-    res.send(docxBuffer)
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
+ExportDocx.configure({
+  token: 'YOUR_JWT',
+  onCompleteExport: (result) => {
+    /* save the file */
+  },
+  onError: (error) => {
+    if (error instanceof ExportDocxRequestError) {
+      console.error(error.code, error.status, error.path)
+    }
+  },
 })
 ```
 
+## Server-side export
+
+To export from your server, call the REST API with `fetch`. Send the Tiptap JSON as `document`, plus any of the shared export options.
+
+```ts
+const response = await fetch('https://api.tiptap.dev/v3/convert/export/docx', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${token}`,
+    'X-App-Id': appId,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ document: tiptapJson }),
+})
+
+const docx = await response.arrayBuffer()
+```
+
+Your server has no editor to measure, so the request has no `documentCss`. Convert then styles the file with `styleOverrides`, `cssStyles` and the plain-object overrides. See the [REST API](/conversion/export/docx/rest-api#export-docx-v3) for every body field. The `exportDocx` function is gone, see [Migrate to v1](/conversion/export/docx/migrate-to-v1#removed-exportDocx).
+
 ## Images that cannot be exported
 
-The export fetches every image by its `src`. Some cannot be used: the URL returns a 404,
-the host does not answer, or the format is one DOCX cannot embed. Word writes EMF for
-pasted charts and equations, so documents that came from Word often carry one.
+Convert fetches each image by its `src`. The extension reads the images Convert can't reach in the browser and sends them with the request: `blob:` URLs, large `data:` URLs, and images on your page's own origin, relative URLs included.
+
+Some images can't be used: the URL returns a 404, the host does not answer, or the format is one DOCX cannot embed. Word writes EMF for pasted charts and equations, so documents that came from Word often carry one.
 
 By default the export leaves that image out and carries on, so one broken picture does not
 cost you the whole file. If the image was the only thing in its paragraph, the paragraph
@@ -356,85 +246,85 @@ Pass `onWarning` to find out which images were skipped:
 
 ```js
 ExportDocx.configure({
-  onCompleteExport: result => saveAs(result, 'export.docx'),
-  onWarning: warning => {
+  token: 'YOUR_JWT',
+  onCompleteExport: (result) => saveAs(result, 'export.docx'),
+  onWarning: (warning) => {
     console.log(warning.code, warning.src)
   },
 })
 ```
 
-Each warning carries:
+Image warnings carry:
 
-| Field         | Description                                                                       |
-| ------------- | --------------------------------------------------------------------------------- |
+| Field         | Description                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------- |
 | `code`        | `image-missing-src`, `image-request-failed`, `image-fetch-failed`, or `image-unsupported-type` |
-| `message`     | Readable summary, safe to log                                                     |
-| `src`         | The image URL, when the node had one                                              |
-| `status`      | HTTP status, when the host answered with a failure                                 |
-| `contentType` | The detected type, for an unsupported format                                       |
+| `message`     | Readable summary, safe to log                                                                  |
+| `src`         | The image URL, when the node had one                                                           |
+| `status`      | HTTP status, when the host answered with a failure                                             |
+| `contentType` | The detected type, for an unsupported format                                                   |
 
-Without `onWarning`, skipped images are reported through `console.warn`. Exceptions thrown
+Without `onWarning`, warnings go to `console.warn`. Exceptions thrown
 inside `onWarning` are swallowed, so a mistake in your handler cannot break an export.
 
-To fail the export instead, set `onImageError: 'throw'`. The thrown error is one of
-`ImageMissingSrcError`, `ImageRequestError`, `ImageFetchError` or `UnsupportedImageTypeError`,
-all exported from the package and all extending `ImageConversionError`:
+To fail the export instead, set `onImageError: 'throw'`. `onError` then receives the error:
+
+- An image the browser can't load stops the export before the request is sent. You get an `ImageRequestError`, or an `ImageFetchError` when the host answered with an error status. Both extend `ImageConversionError`.
+- An image Convert can't use fails the request. You get an `ExportDocxRequestError`.
 
 ```js
 import { ImageConversionError } from '@tiptap-pro/extension-export-docx'
 
-try {
-  await exportDocx({ document, onImageError: 'throw' })
-} catch (error) {
-  if (error instanceof ImageConversionError) {
-    console.log(`Could not use ${error.src}: ${error.code}`)
-  }
-}
+editor.commands.exportDocx({
+  onImageError: 'throw',
+  onError: (error) => {
+    if (error instanceof ImageConversionError) {
+      console.log(`Could not use ${error.src}: ${error.code}`)
+    }
+  },
+})
 ```
-
-<Callout title="Relative image URLs are not resolved" variant="hint">
-  Export runs against the `src` exactly as stored. A relative URL such as `/img/chart.png` has
-  no origin to resolve against, so it is reported as `image-request-failed` and skipped. Store
-  absolute URLs the exporter can reach.
-</Callout>
 
 ## Node attribute inference
 
 The DOCX export automatically respects node-level attributes set by the editor, rather than always computing values from scratch. This means resized images, adjusted table columns, and other editor-level customizations are preserved in the exported document.
 
-| Feature                                   | Description                                                                                                                                                                                               |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Image `width`/`height`**                | When an image has been resized in the editor, the user-set dimensions are used. Priority: `imageOverrides.transformation` > `node.attrs.width/height` > intrinsic dimensions                              |
-| **Image `alt` text**                      | Mapped to the docx `altText` property for accessibility metadata                                                                                                                                          |
-| **Table cell `colwidth`**                 | Per-cell pixel array from editor-resized columns produces precise column widths in the export. On a fluid table the columns keep their proportions                                                        |
-| **Table cell `rowspan`**                  | Cells spanning multiple rows are correctly exported                                                                                                                                                       |
-| **Table `width`**                         | A table with an explicit `width` exports at that fixed width; a table with no width exports full width (fluid) so it reflows to the page                                                                  |
-| **Table borders**                         | The table's own borders (outer edges plus the inside horizontal and vertical grid) are exported; a borderless table stays borderless                                                                     |
-| **Table cell `background`**               | Exported as cell shading                                                                                                                                                                                 |
-| **Table cell borders**                    | Per-side cell borders (`width` / `style` / `color`) are exported; a cell border that differs from the table's is kept as an override                                                                     |
-| **Table cell `verticalAlign`**            | `top` / `middle` / `bottom` exported as the cell vertical alignment                                                                                                                                      |
-| **Table row `height` / `heightRule`**     | Row height is exported; `exact` clips to the height, `atLeast` treats it as a minimum                                                                                                                     |
-| **Table cell margins**                    | `cellMarginTop` / `cellMarginRight` / `cellMarginBottom` / `cellMarginLeft` on the table node are exported as the table's cell margins. A table without them uses Word's default                          |
-| **Paragraph `textAlign: 'justify'`**      | Correctly mapped to `AlignmentType.JUSTIFIED` (previously fell through to left alignment)                                                                                                                 |
-| **Text run `backgroundColor`**            | `textStyle` mark `backgroundColor` exported as solid character shading                                                                                                                                    |
-| **Paragraph/heading `lineHeight`**        | Proportional line height (a unitless multiple such as `1.5` or a percentage such as `150%`) is written as a relative line that scales with the font size. A fixed `px`/`pt` line height is written as an exact line height                                                 |
-| **Paragraph/heading spacing**             | `spacingBefore` and `spacingAfter` are written as space before/after the paragraph                                                                                                                        |
-| **Paragraph/heading indentation**         | `indent`, `indentRight`, and `firstLineIndent` are written as left, right, and first-line indentation; a negative `firstLineIndent` becomes a hanging indent                                              |
-| **Paragraph/heading `contextualSpacing`** | Suppresses spacing between adjacent paragraphs of the same style in the export                                                                                                                            |
-| **Paragraph/heading `keepNext` / `keepLines`** | Written as Word's keep-with-next and keep-lines-together pagination hints                                                                                                                            |
+| Feature                                        | Description                                                                                                                                                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Image `width`/`height`**                     | When an image has been resized in the editor, the user-set dimensions are used. Priority: `imageOverrides.transformation` > `node.attrs.width/height` > intrinsic dimensions                                               |
+| **Image `alt` text**                           | Mapped to the docx `altText` property for accessibility metadata                                                                                                                                                           |
+| **Table cell `colwidth`**                      | Per-cell pixel array from editor-resized columns produces precise column widths in the export. On a fluid table the columns keep their proportions                                                                         |
+| **Table cell `rowspan`**                       | Cells spanning multiple rows are correctly exported                                                                                                                                                                        |
+| **Table `width`**                              | A table with an explicit `width` exports at that fixed width; a table with no width exports full width (fluid) so it reflows to the page                                                                                   |
+| **Table borders**                              | The table's own borders (outer edges plus the inside horizontal and vertical grid) are exported; a borderless table stays borderless                                                                                       |
+| **Table cell `background`**                    | Exported as cell shading                                                                                                                                                                                                   |
+| **Table cell borders**                         | Per-side cell borders (`width` / `style` / `color`) are exported; a cell border that differs from the table's is kept as an override                                                                                       |
+| **Table cell `verticalAlign`**                 | `top` / `middle` / `bottom` exported as the cell vertical alignment                                                                                                                                                        |
+| **Table row `height` / `heightRule`**          | Row height is exported; `exact` clips to the height, `atLeast` treats it as a minimum                                                                                                                                      |
+| **Table cell margins**                         | `cellMarginTop` / `cellMarginRight` / `cellMarginBottom` / `cellMarginLeft` on the table node are exported as the table's cell margins. A table without them uses Word's default                                           |
+| **Paragraph `textAlign: 'justify'`**           | Correctly mapped to `AlignmentType.JUSTIFIED` (previously fell through to left alignment)                                                                                                                                  |
+| **Text run `backgroundColor`**                 | `textStyle` mark `backgroundColor` exported as solid character shading                                                                                                                                                     |
+| **Paragraph/heading `lineHeight`**             | Proportional line height (a unitless multiple such as `1.5` or a percentage such as `150%`) is written as a relative line that scales with the font size. A fixed `px`/`pt` line height is written as an exact line height |
+| **Paragraph/heading spacing**                  | `spacingBefore` and `spacingAfter` are written as space before/after the paragraph                                                                                                                                         |
+| **Paragraph/heading indentation**              | `indent`, `indentRight`, and `firstLineIndent` are written as left, right, and first-line indentation; a negative `firstLineIndent` becomes a hanging indent                                                               |
+| **Paragraph/heading `contextualSpacing`**      | Suppresses spacing between adjacent paragraphs of the same style in the export                                                                                                                                             |
+| **Paragraph/heading `keepNext` / `keepLines`** | Written as Word's keep-with-next and keep-lines-together pagination hints                                                                                                                                                  |
 
 ## What to expect
 
-- **No authentication required.** The export runs entirely in the browser (or your Node.js server using the same package). No token, no API call.
-- **Browser and server-side environments are both supported** via the same package. The server-side example above shows the Node.js path; the browser path is the default.
-- **Synchronous result delivery.** The `onCompleteExport` callback receives the exported file directly, as a `Blob`, `Buffer`, `Stream`, or `string` depending on `exportType`.
+- **Needs a Convert token.** Every export goes to the Convert service, so you need a `token` that allows `Convert:Export:Docx`.
+- **The file matches your editor.** The extension measures your editor’s CSS and sends it with the document.
+- **Callback delivery.** `onCompleteExport` receives the file as a `Blob`, a `string` or a `Uint8Array`, depending on `exportType`.
 
 ## What not to expect
 
 - **Round-trip identity.** Importing a DOCX, editing it, and exporting it back is not byte-identical. A handful of attributes (tab stops, and fixed `px`/`pt` line heights) are extracted on import but not written on export today. See the [feature support matrix](/conversion/getting-started/feature-support-matrix) for the full list.
 - **Pixel-perfect Word match.** We aim for visually faithful round-trips on the supported feature set; absolute parity with Word's rendering engine is out of scope.
-- **Page layout from the editor.** DOCX export preserves headers, footers, and page-format settings you configure on the export options. It does not infer page boundaries from on-screen pagination, so pair it with the [Pages extension](/pages/getting-started/overview) when you need pagination-aware exports.
+- **Header and footer options.** Headers and footers come from the document's page layout. The `headers` and `footers` options are gone, see [Migrate to v1](/conversion/export/docx/migrate-to-v1#removed-headers).
 
-## Support & Limitations
+## Limitations
+
+- **Doesn't work offline.** The export needs a connection to Convert.
+- **Overrides take plain objects.** The extension drops a function override and reports an `unsupported` warning.
 
 For a detailed breakdown of which document features are supported at each stage of the pipeline, see the [Supported features](/conversion/getting-started/feature-support-matrix) matrix.
