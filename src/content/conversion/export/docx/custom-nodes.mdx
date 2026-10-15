@@ -142,3 +142,75 @@ editor.chain().exportDocx().run()
 ```
 
 You can construct any supported `DOCX` elements in the `render` function using the `Docx` library classes (`Paragraph`, `TextRun`, `Table`, etc.) that are provided via the `Docx` import from the `@tiptap-pro/extension-export-docx` package.
+
+## Fit images to the page or table cell
+
+An image without `width` and `height` exports at its pixel size, so a large photo runs past the right margin in Word. A custom node that renders an image can keep it inside the page.
+
+`render` gets a second argument, `context`. Its `maxImageWidth` is the width of the page's text column in pixels, or the content width of the table cell the node is in (the cell width minus its left and right margins). List indents are not subtracted. `context` is `undefined` for a custom node inside a [`customNodeDsl`](/conversion/export/docx/custom-nodes-dsl) rule.
+
+Pass it as `maxWidth` to `convertImage` or `convertImageRun`:
+
+```ts
+import { convertImage, ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'photo',
+      render: (node, context) =>
+        convertImage({
+          node: { type: 'image', attrs: { src: node.attrs?.src } },
+          maxWidth: context?.maxImageWidth,
+        }),
+    },
+  ],
+})
+```
+
+`maxWidth` only changes an image that has neither `width` nor `height`. A wider image shrinks to `maxWidth` and keeps its aspect ratio. An image with its own size, and `imageOverrides.transformation`, still win.
+
+When the node lays out content around the image, use `convertImageRunWithSize`. It returns the image run together with the size it gets in the document (`{ imageRun, width, height }`, in pixels), or `null` for an image the export skipped. This example puts a caption under the image in a table as wide as the image:
+
+```ts
+import {
+  convertImageRunWithSize,
+  Docx,
+  ExportDocx,
+  pixelsToPoints,
+  pointsToTwips,
+} from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'figure',
+      render: async (node, context) => {
+        const image = await convertImageRunWithSize({
+          node: { type: 'image', attrs: { src: node.attrs?.src } },
+          maxWidth: context?.maxImageWidth,
+        })
+        if (!image) return null
+
+        return new Docx.Table({
+          width: { size: pointsToTwips(pixelsToPoints(image.width)), type: Docx.WidthType.DXA },
+          rows: [
+            new Docx.TableRow({
+              children: [
+                new Docx.TableCell({
+                  children: [
+                    new Docx.Paragraph({ children: [image.imageRun] }),
+                    new Docx.Paragraph({ text: node.attrs?.caption }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      },
+    },
+  ],
+})
+```
+
+Built-in `image` nodes are not affected: they keep exporting at their own size.
