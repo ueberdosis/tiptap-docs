@@ -1,0 +1,300 @@
+---
+title: Shapes and tools
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Shapes and tools | Tiptap Whiteboard Docs
+  description: Fill a whiteboard with shapes, add and change them with commands, select them, and choose the tools that people draw with.
+  category: Whiteboard
+---
+
+Every shape is a node on the board, and the commands find shapes by their ids. This guide shows how to fill a board, add and change shapes, select them, and choose tools.
+
+## Shapes
+
+| Shape           | Node type    | `data-type`   | Tool                              | Holds                 |
+| --------------- | ------------ | ------------- | --------------------------------- | --------------------- |
+| Sticky note     | `stickyNote` | `sticky-note` | `note`                            | Text                  |
+| Geometric shape | `geo`        | `geo`         | `rectangle`, `ellipse`, `diamond` | Text                  |
+| Free text       | `freeText`   | `free-text`   | `text`                            | Text                  |
+| Pen line        | `freehand`   | `freehand`    | `pen`                             | Points                |
+| Doc frame       | `docFrame`   | `doc-frame`   | `doc`                             | A document of its own |
+| Arrow           | `arrow`      | `arrow`       | `arrow`                           | Two ends              |
+
+Every shape has an `id`, and a `zIndex` that orders the shapes from back to front. All shapes but doc frames have a `color`, and all shapes but arrows have a box: `x`, `y`, `width` and `height`, in board units.
+
+- **Shapes with text** hold paragraphs and lists. They also have a `fontSize`, a `textAlign` and a `font`.
+- **Geometric shapes** have a `kind` from `geoKinds`: `rectangle`, `ellipse`, `diamond` or `triangle`. The tools draw the first three, and a shape can change its kind later.
+- **Free text** has no shape around it. It grows as tall as its text, and its width wraps the lines.
+- **Arrows** connect shapes or free points. An end that connects a shape follows it. Each end also has a point, where a free end sits and where a connected end stays when its shape is deleted.
+- **Doc frames** show a document in an editor of their own. See [Doc frames](/whiteboard/guides/doc-frames).
+
+See [Types](/whiteboard/api-reference/types#shapeattributes) for all attributes.
+
+## Fill a board
+
+`boardContent` builds the JSON of a board from the JSON of its shapes. `stickyNoteContent` and `textShapeContent` build shapes with one paragraph of text, and `freehandFromPoints` turns points into the box and points of a pen line:
+
+```ts
+import {
+  boardContent,
+  freehandFromPoints,
+  stickyNoteContent,
+  textShapeContent,
+} from '@tiptap-pro/extension-whiteboard'
+
+const wave = freehandFromPoints({
+  points: [
+    { x: 0, y: 260 },
+    { x: 120, y: 300 },
+  ],
+  strokeWidth: 3,
+})
+
+const content = boardContent([
+  stickyNoteContent({ id: 'idea', x: 0, y: 0, text: 'An idea' }),
+  textShapeContent({
+    type: 'geo',
+    id: 'plan',
+    kind: 'ellipse',
+    x: 320,
+    y: 0,
+    color: 'green',
+    text: 'A plan',
+  }),
+  { type: 'arrow', attrs: { id: 'idea-to-plan', fromId: 'idea', toId: 'plan' } },
+  { type: 'freehand', attrs: { id: 'wave', ...wave, strokeWidth: 3 } },
+])
+
+editor.commands.setContent(content)
+```
+
+Each shape needs an `id` that no other shape on the board has. `createShapeId` returns a new random one. A board is a Tiptap document, so `editor.getJSON()` returns the JSON to save.
+
+## Add shapes
+
+`insertShape` adds a shape of any shape node type, in front of all other shapes. It puts the caret inside a shape with text, and selects other shapes:
+
+```ts
+editor.commands.insertShape({ type: 'geo', kind: 'ellipse', x: 100, y: 100 })
+editor.commands.insertShape({ type: 'freeText', x: 100, y: 100, width: 240 })
+editor.commands.insertShape({ type: 'arrow', fromId: 'idea', toId: 'plan' })
+editor.commands.insertShape({ type: 'arrow', fromX: 0, fromY: 0, toX: 200, toY: 100 })
+```
+
+The shape gets a new id unless you pass one, and the styles from [`setShapeStyle`](#styles-for-new-shapes) unless you pass them. It adds nothing when an attribute is `NaN` or infinite, when the type isn't a shape, or when a shape on the board has the id already.
+
+`insertStickyNote` adds a sticky note. Without a size, the note gets `stickyNoteSize`, 220 by 160:
+
+```ts
+editor.commands.insertStickyNote({ x: 100, y: 100 })
+```
+
+## Change shapes
+
+`updateShape` changes attributes of one shape, and `updateShapes` of several in one step. They skip ids that are not on the board, changes to an id, `NaN` and infinite numbers, attributes that a shape does not have, and shapes that have the attributes already. They return `false` when nothing would change.
+
+```ts
+editor.commands.updateShape({ id: 'plan', attributes: { kind: 'diamond' } })
+
+editor.commands.updateShapes([
+  { id: 'idea', attributes: { color: 'blue' } },
+  { id: 'plan', attributes: { color: 'blue', fontSize: 'l' } },
+])
+```
+
+The other commands take the ids of the shapes:
+
+```ts
+import { getSelectedShapeIds } from '@tiptap-pro/extension-whiteboard'
+
+const ids = getSelectedShapeIds(editor.state)
+
+// Moves the shapes, in board units. Arrows move their free ends
+editor.commands.moveShapes({ ids, delta: { x: 40, y: 0 } })
+
+// Adds copies with new ids, 24 right and down, and selects them
+editor.commands.duplicateShapes({ ids })
+
+// Puts the shapes in front of or behind all others, in their order among each other
+editor.commands.bringToFront(ids)
+editor.commands.sendToBack(ids)
+
+// Deletes the shapes in one step
+editor.commands.deleteShapes(ids)
+```
+
+Arrows that connect a deleted shape stay, with a free end where they touched it. Copy, cut and paste work on the selected shapes too. Pasted shapes get new ids, and move down and right until they don't cover a shape at the same spot.
+
+## Select shapes
+
+The board keeps the selected shapes as ids, apart from the text selection, so the selection survives changes by others:
+
+```ts
+import { getSelectedShapeIds } from '@tiptap-pro/extension-whiteboard'
+
+editor.commands.selectShapes(['idea', 'plan'])
+getSelectedShapeIds(editor.state) // ['idea', 'plan']
+
+editor.commands.toggleShapeSelection('plan')
+editor.commands.selectAllShapes()
+editor.commands.clearShapeSelection()
+```
+
+`selectShapes` ignores unknown ids, and keeps the order in which the shapes were selected.
+
+With the pointer, a press on a shape selects it and drags it, together with the other selected shapes. <kbd>Shift</kbd> adds the shape to the selection or removes it. A click on the only selected shape edits its text where the pointer is, so a double click on a note starts writing. The corner handles resize the pressed shape, and the end handles of a selected arrow move its ends.
+
+## Edit text
+
+While text is edited, the keyboard types into one shape. Otherwise the board has the keyboard, and keys act on the board and the selected shapes. `editShapeText` puts the caret into a shape's text, at `pos` when it lies in that text, and at the end otherwise:
+
+```ts
+import { getEditedShapeId, isEditingText } from '@tiptap-pro/extension-whiteboard'
+
+editor.chain().focus().editShapeText({ id: 'idea' }).run()
+
+isEditingText(editor.state) // true
+getEditedShapeId(editor.state) // 'idea'
+```
+
+<kbd>Escape</kbd> stops editing and selects the shape. `selectShapeText` selects all text of the
+edited shape, and selections never reach into another shape.
+
+The kit brings the text extensions that shapes use, so their commands work on the edited text:
+
+```ts
+editor.commands.toggleBold()
+editor.commands.setTextColor('red')
+editor.commands.setHighlight({ color: 'blue' })
+editor.commands.setLink({ href: 'https://tiptap.dev' })
+editor.chain().editShapeText({ id: 'idea' }).toggleTaskList().run()
+```
+
+Text colors and highlights store the name of a board color, like shapes do, so your CSS decides how they look. A click with <kbd>Cmd</kbd> on a Mac, or <kbd>Ctrl</kbd> elsewhere, opens a link in a new tab. Task checkboxes toggle while the board has the keyboard, too.
+
+## Tools
+
+The tool decides what a press on the board does. The board starts with `select`:
+
+```ts
+import { getActiveTool, getToolShapeType, toolKeys } from '@tiptap-pro/extension-whiteboard'
+
+editor.commands.setTool('pen')
+getActiveTool(editor.state) // 'pen'
+
+getToolShapeType('note') // 'stickyNote'
+toolKeys.pen // 'p'
+```
+
+`setTool` also gives the keyboard to the board. The tools and their keys:
+
+| Tool        | Key | What a press does                               |
+| ----------- | --- | ----------------------------------------------- |
+| `select`    | V   | Selects and moves shapes                        |
+| `hand`      | H   | Pans the board                                  |
+| `note`      | N   | Adds a sticky note                              |
+| `text`      | T   | Adds free text                                  |
+| `doc`       | W   | Adds a doc frame                                |
+| `rectangle` | R   | Adds a rectangle                                |
+| `ellipse`   | O   | Adds an ellipse                                 |
+| `diamond`   | D   | Adds a diamond                                  |
+| `arrow`     | A   | Draws an arrow between two points or two shapes |
+| `pen`       | P   | Draws a line                                    |
+| `eraser`    | E   | Erases the pen lines it touches                 |
+
+After a tool adds a shape, the board goes back to `select`. The pen and the eraser stay active. With the arrow tool, each end connects the shape with text under it, or stays free on the board.
+
+## Styles for new shapes
+
+`setShapeStyle` gives a style to the selected shapes, or to the shape whose text is edited, and to the shapes added later. Shapes without the style keep theirs:
+
+```ts
+import { getNextShapeStyles } from '@tiptap-pro/extension-whiteboard'
+
+editor.commands.setShapeStyle({ name: 'color', value: 'blue' })
+editor.commands.setShapeStyle({ name: 'fontSize', value: 'l' })
+
+getNextShapeStyles(editor.state) // { color: 'blue', fontSize: 'l' }
+```
+
+`shapeStyles` lists the styles and the names of their values. Use it, or `shapeColors`, to build your menus:
+
+| Style        | Values                                                                   |
+| ------------ | ------------------------------------------------------------------------ |
+| `color`      | `black`, `gray`, `red`, `orange`, `yellow`, `green`, `blue` and `violet` |
+| `fontSize`   | `s`, `m`, `l` and `xl`                                                   |
+| `textAlign`  | `start`, `center` and `end`                                              |
+| `font`       | `sans`, `serif` and `mono`                                               |
+| `arrowheads` | `none`, `end` and `both`                                                 |
+
+Shapes store the names, and your CSS decides how they look. See [Styling](/whiteboard/api-reference/styling).
+
+## Undo and redo
+
+`undoBoard` and `redoBoard` undo and redo the last change, and select the shapes that it changed. An undo that only changed text goes back to editing that text:
+
+```ts
+editor.commands.undoBoard()
+editor.commands.redoBoard()
+```
+
+The kit brings Tiptap's [`UndoRedo`](/editor/extensions/functionality/undo-redo). Configure it with the `undoRedo` option, like `WhiteboardKit.configure({ undoRedo: { depth: 50 } })`. With collaboration, set `undoRedo: false`, and `undoBoard` and `redoBoard` use the undo of the collaboration instead. See [Collaboration](/whiteboard/guides/collaboration).
+
+## Build your own transactions
+
+Code that builds its own transaction, like an AI tool, can change shapes with `insertShapesInFront`, `removeShapes` and `restackShapes`. Each makes the transaction its own undo step, and leaves dispatching it to you:
+
+```ts
+import {
+  createShapeId,
+  insertShapesInFront,
+  stickyNoteContent,
+} from '@tiptap-pro/extension-whiteboard'
+
+const { tr, schema } = editor.state
+const note = stickyNoteContent({ id: createShapeId(), x: 0, y: 0, text: 'Idea' })
+
+insertShapesInFront({ tr, shapes: [schema.nodeFromJSON(note)] })
+editor.view.dispatch(tr)
+```
+
+`insertShapesInFront` throws a `RangeError` when a shape has no id, or one that the board has already. Free text and doc frames grow as tall as their content after each change. For content that arrives later, like the document of a doc frame that an AI writes after it adds the frame, `keepShapeHeights(tr)` keeps the heights that the transaction gives its shapes.
+
+## Keyboard shortcuts
+
+<kbd>Mod</kbd> is <kbd>Cmd</kbd> on a Mac and <kbd>Ctrl</kbd> elsewhere. While the board has the
+keyboard:
+
+| Keys                                                                              | Action                                                     |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| The [tool keys](#tools)                                                           | Choose a tool                                              |
+| <kbd>Escape</kbd>                                                                 | Put a drawing tool away, then clear the selection          |
+| <kbd>Backspace</kbd> or <kbd>Delete</kbd>                                         | Delete the selected shapes                                 |
+| <kbd>Mod</kbd> + <kbd>D</kbd>                                                     | Duplicate the selected shapes                              |
+| <kbd>Enter</kbd>                                                                  | Edit the text of the selected shape, when only one is      |
+| <kbd>Mod</kbd> + <kbd>A</kbd>                                                     | Select all shapes                                          |
+| <kbd>]</kbd> or <kbd>Mod</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd>                  | Bring the selected shapes to the front                     |
+| <kbd>[</kbd> or <kbd>Mod</kbd> + <kbd>Shift</kbd> + <kbd>↓</kbd>                  | Send the selected shapes to the back                       |
+| Arrow keys                                                                        | Move the selected shapes by 1 board unit, or 10 with Shift |
+| <kbd>Mod</kbd> + <kbd>Z</kbd>                                                     | Undo                                                       |
+| <kbd>Mod</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> or <kbd>Mod</kbd> + <kbd>Y</kbd> | Redo                                                       |
+| <kbd>Space</kbd>                                                                  | Hold to pan                                                |
+
+While text is edited, <kbd>Escape</kbd> selects the shape, <kbd>Mod</kbd> + <kbd>A</kbd> selects its text, and undo and redo work the same. For the zoom shortcuts, see [Stage and camera](/whiteboard/guides/stage-and-camera#attach-the-stage).
+
+## Read-only boards
+
+`setEditable(false)` makes a board read-only, like any Tiptap editor:
+
+```ts
+editor.setEditable(false)
+```
+
+People can still select shapes, pan, zoom and copy. Presses, tools and keys change nothing, task checkboxes stay as they are, and no shape starts editing, also not with `editShapeText`. An edit that runs when the board turns read-only stops, and its shape is selected. Other commands still change the board, so your app can, for example, load new content.
+
+## Next steps
+
+- Show documents on the board with [doc frames](/whiteboard/guides/doc-frames)
+- See all [commands](/whiteboard/api-reference/commands)

@@ -88,6 +88,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Tracked Changes',
         },
         {
+          href: '/whiteboard/getting-started/overview',
+          title: 'Whiteboard',
+        },
+        {
           href: '/ai/ai-toolkit/overview',
           title: 'AI Toolkit',
         },

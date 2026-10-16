@@ -1,0 +1,139 @@
+---
+title: Collaboration
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Collaboration | Tiptap Whiteboard Docs
+  description: Edit a whiteboard together in real time through Yjs, and show what other people select and drag.
+  category: Whiteboard
+---
+
+A board is one Tiptap document, so people edit it together through Yjs like any other document. The board adds what a whiteboard needs on top: `BoardCollaboration`, and helpers that show what other people select and drag.
+
+## Install
+
+Collaboration lives in its own entry, `@tiptap-pro/extension-whiteboard/collaboration`. Only that entry needs Yjs, so a board without collaboration loads none. Install its peer dependencies:
+
+```bash
+npm install @tiptap/extension-collaboration @tiptap/y-tiptap yjs
+```
+
+To sync through Tiptap Collaboration, also install `@tiptap-pro/provider` from the private registry. See [Install Collaboration](/collaboration/getting-started/install).
+
+## Set up the editor
+
+Use `BoardCollaboration` instead of `Collaboration`. Plain `Collaboration` drops a first change that leaves the document empty, like deleting the last shape, when the editor starts on content from Yjs. `BoardCollaboration` syncs that change too.
+
+Turn off the undo of the kit, so `undoBoard` and `redoBoard` use the undo of the collaboration instead:
+
+```ts
+import { Editor } from '@tiptap/core'
+import { WhiteboardKit } from '@tiptap-pro/extension-whiteboard'
+import { BoardCollaboration } from '@tiptap-pro/extension-whiteboard/collaboration'
+import { TiptapCollabProvider } from '@tiptap-pro/provider'
+import * as Y from 'yjs'
+
+const ydoc = new Y.Doc()
+
+const provider = new TiptapCollabProvider({
+  name: 'board-1', // The name of the board's document
+  appId: 'your-app-id', // Your document server ID from the Cloud dashboard
+  token: 'your-jwt',
+  document: ydoc,
+})
+
+const editor = new Editor({
+  element: viewport,
+  extensions: [
+    // Collaboration handles undo, so the kit leaves its own out
+    WhiteboardKit.configure({ undoRedo: false }),
+    BoardCollaboration.configure({ document: ydoc }),
+  ],
+})
+```
+
+`BoardCollaboration` takes the options of [Collaboration](/editor/extensions/functionality/collaboration). The content of a collaborative board comes from Yjs. To give a new board its first shapes, see [Initialize content properly](/collaboration/getting-started/install#initialize-content-properly).
+
+## Show what others select and drag
+
+Yjs syncs the document, but not what people select, or a shape while someone drags it. Share those through [awareness](/collaboration/core-concepts/awareness):
+
+- `getSelectedShapeIds` returns what this person selects. `setRemoteSelections` shows what the others select.
+- The board's editor emits `shapesMove` while a drag moves shapes, with `delta: null` once the drag ends. `createRemoteMoves` shows the drags of the others, without changing the document. The drop of the other person changes it.
+
+```ts
+import { createRemoteMoves, getSelectedShapeIds } from '@tiptap-pro/extension-whiteboard'
+import type { onAwarenessChangeParameters } from '@tiptap-pro/provider'
+
+provider.setAwarenessField('user', { name: 'Ada', color: '#be185d' })
+
+// Shares what this person selects, when it changes
+let sharedIds: readonly string[] = []
+
+editor.on('transaction', () => {
+  const ids = getSelectedShapeIds(editor.state)
+
+  if (ids.length !== sharedIds.length || ids.some((id, index) => id !== sharedIds[index])) {
+    sharedIds = ids
+    provider.setAwarenessField('selection', ids)
+  }
+})
+
+// Shares the drags of this person, and `null` once a drag ends
+editor.on('shapesMove', ({ ids, delta }) => {
+  provider.setAwarenessField('drag', delta ? { ids, delta } : null)
+})
+
+// Shows what the others select and drag
+const moves = createRemoteMoves(editor)
+let dragging = new Set<number>()
+
+provider.on('awarenessChange', ({ states }: onAwarenessChangeParameters) => {
+  const others = states.filter((state) => state.clientId !== ydoc.clientID)
+  const stillDragging = new Set<number>()
+
+  editor.commands.setRemoteSelections(
+    others.map((state) => ({ color: state.user?.color ?? '#6a00f5', ids: state.selection ?? [] })),
+  )
+
+  for (const { clientId, drag } of others) {
+    if (drag) {
+      moves.show({ owner: clientId, ids: drag.ids, delta: drag.delta })
+      stillDragging.add(clientId)
+    }
+  }
+
+  // Ends the drags that stopped, also of people who left
+  for (const owner of dragging) {
+    if (!stillDragging.has(owner)) {
+      moves.end(owner)
+    }
+  }
+
+  dragging = stillDragging
+})
+```
+
+A shape that someone else selects gets `data-remote-selected`, and the color of that person in `--remote-selection`. When several people select a shape, the first one's color shows. Only plain colors like `#be185d` pass, because the color goes into the style of the element:
+
+```css
+[data-shape][data-remote-selected] {
+  outline: calc(2px / var(--zoom, 1)) solid var(--remote-selection);
+}
+```
+
+## Doc frames
+
+The board's Y.Doc holds the frames, but not their documents. Your `createEditor` decides where each document lives and how it syncs. See [Doc frames](/whiteboard/guides/doc-frames).
+
+`start` runs only in the editor that adds a frame. Frames that come through Yjs keep the document that their own editor started.
+
+## Heights of text
+
+Free text and doc frames grow as tall as their content. Each editor measures the changes that it makes, with its own fonts. Changes by others keep the height that their editor measured.
+
+## Next steps
+
+- Show suggestions on the board with [Tracked Changes](/whiteboard/guides/tracked-changes)
+- Learn more about [Tiptap Collaboration](/collaboration/getting-started/overview)
