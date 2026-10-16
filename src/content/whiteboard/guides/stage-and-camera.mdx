@@ -1,0 +1,198 @@
+---
+title: Stage and camera
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Stage and camera | Tiptap Whiteboard Docs
+  description: Connect a whiteboard to the stage around it, and pan, zoom and fit the board with the camera helpers.
+  category: Whiteboard
+---
+
+A board lives in three elements. The **stage** is the element around the board. It takes pointer and wheel events, and clips everything outside it. Inside the stage, the **viewport** holds the editor. The **camera** moves and scales the viewport.
+
+## The camera
+
+The camera is part of your app's state:
+
+```ts
+type Camera = {
+  x: number
+  y: number
+  zoom: number
+}
+```
+
+`x` and `y` are in screen pixels, and a `zoom` of 1 is 100%. The camera helpers keep the zoom between `minZoom`, which is 10%, and `maxZoom`, which is 400%.
+
+Show the board with the camera: move the viewport with `toCssTransform`, and set `--zoom` to the zoom. Handles read `--zoom` to keep their size at every zoom.
+
+```js
+import { toCssTransform } from '@tiptap-pro/extension-whiteboard'
+
+toCssTransform({ x: 100, y: 50, zoom: 2 }) // 'translate(100px, 50px) scale(2)'
+```
+
+The viewport needs `transform-origin: 0 0`. See [Add the stage CSS](/whiteboard/guides/react#add-the-stage-css) for the CSS of the stage and the viewport.
+
+## Attach the stage
+
+`attachStage` connects the board of an editor to its stage. It returns a function that detaches everything again:
+
+```js
+import { attachStage } from '@tiptap-pro/extension-whiteboard'
+
+const detach = attachStage({ stage, editor, updateCamera: setCamera })
+```
+
+`updateCamera` changes the camera through an update function, like a React state setter. In React, pass the setter of a `useState`. Without React, apply the update yourself, see [Basic setup](/whiteboard/getting-started/overview#basic-setup).
+
+Once attached, users can work with the board in the stage. Its keys work while the focus is in the stage, so the rest of the page, and other boards on it, keep theirs:
+
+- **Pan**: drag with space held, with the middle mouse button, or with the `hand` tool. Turning the wheel or scrolling on a trackpad pans too. A pan wins over drawing and selecting. A pan or a click with the `hand` tool gives the board the keyboard, like a click with `select`, so its keys work right after a toolbar button chose the tool.
+- **Zoom**: <kbd>Control</kbd> + wheel, or <kbd>Cmd</kbd> + wheel on macOS, or a pinch on a trackpad, zooms at the pointer.
+- **Zoom shortcuts**: <kbd>Control</kbd> + <kbd>=</kbd> or <kbd>+</kbd> zooms in, <kbd>Control</kbd> + <kbd>-</kbd> zooms out, and <kbd>Control</kbd> + <kbd>0</kbd> goes back to 100%, around the middle of the stage, instead of zooming the page. On macOS, use <kbd>Cmd</kbd> instead of <kbd>Control</kbd>. Keys in a field are left to the field.
+- **Fit**: <kbd>Shift</kbd> + <kbd>1</kbd> fits all shapes into view while no text is edited.
+- **Draw**: with a shape tool, a drag on the board adds a shape. A click adds a note, text, doc frame or geometric shape at a fixed size for its tool, centered on the pointer. The pen draws lines, and the eraser erases the pen lines it touches. Drawing also works over other shapes.
+- **Select**: with the `select` tool, a drag on the empty board selects the shapes that its box touches. Hold <kbd>Shift</kbd> to add them to the selection. A click on the empty board clears the selection.
+
+<kbd>Escape</kbd> cancels a drag while it runs, except a pan.
+
+### Keep room for your controls
+
+<kbd>Shift</kbd> + <kbd>1</kbd> keeps 64 screen pixels free at each edge of the stage. When panels
+float over the stage, keep more room with `fitInsets`:
+
+```js
+import { attachStage } from '@tiptap-pro/extension-whiteboard'
+
+attachStage({
+  stage,
+  editor,
+  updateCamera: setCamera,
+  // Keeps shapes out from under the toolbar when Shift + 1 fits them into view
+  fitInsets: () => ({ top: 80, right: 24, bottom: 24, left: 24 }),
+})
+```
+
+### Show the tool and the pan in CSS
+
+The stage shows the active tool as `data-tool`, and a pan as `data-pan`: `ready` while space is held, and `active` while the board pans. Use them for cursors:
+
+```css
+.stage:where([data-tool]:not([data-tool='select'], [data-tool='hand'])),
+.stage:where([data-tool]:not([data-tool='select'], [data-tool='hand'])) * {
+  cursor: crosshair;
+}
+
+.stage[data-tool='hand'],
+.stage[data-tool='hand'] *,
+.stage[data-pan='ready'],
+.stage[data-pan='ready'] * {
+  cursor: grab;
+}
+
+.stage[data-pan='active'],
+.stage[data-pan='active'] * {
+  cursor: grabbing;
+}
+```
+
+While a drag runs, the stage holds a preview element: `data-selection-box`, `data-shape-preview`, `data-arrow-preview` or `data-pen-preview`. See [Styling](/whiteboard/api-reference/styling#stage).
+
+## Zoom buttons
+
+`zoomAtStageCenter` changes the zoom around the middle of the stage, so the board stays put there. `stepZoom` returns the next zoom step in a direction, from 10% to 400%:
+
+```js
+import { stepZoom, zoomAtStageCenter } from '@tiptap-pro/extension-whiteboard'
+
+// Zoom in one step
+zoomAtStageCenter({
+  stage,
+  updateCamera: setCamera,
+  nextZoom: (zoom) => stepZoom({ zoom, direction: 1 }),
+})
+
+// Back to 100%
+zoomAtStageCenter({ stage, updateCamera: setCamera, nextZoom: () => 1 })
+```
+
+A zoom between two steps goes to the next step in that direction. For example, `stepZoom({ zoom: 0.8, direction: -1 })` returns `0.75`.
+
+## Fit shapes into view
+
+`zoomToFitShapes` moves and zooms the camera so every shape is in the stage. It never zooms in beyond 100%, or out beyond `minZoom`, and does nothing on an empty board:
+
+```js
+import { zoomToFitShapes } from '@tiptap-pro/extension-whiteboard'
+
+zoomToFitShapes({ stage, editor, updateCamera: setCamera })
+```
+
+`scrollShapesIntoView` moves the camera as little as it can, so the shapes with the given ids are in the stage. It zooms out only when they don't fit:
+
+```js
+import { getSelectedShapeIds, scrollShapesIntoView } from '@tiptap-pro/extension-whiteboard'
+
+scrollShapesIntoView({
+  stage,
+  editor,
+  ids: getSelectedShapeIds(editor.state),
+  updateCamera: setCamera,
+})
+```
+
+Both keep 64 screen pixels free at each edge. Pass `insets` to change that room, with one number for every edge or one for each.
+
+To show a part of the board, like when the board opens, `fitCameraToRect` returns the camera that shows a rectangle in the middle of the stage:
+
+```js
+import { fitCameraToRect } from '@tiptap-pro/extension-whiteboard'
+
+const camera = fitCameraToRect({
+  rect: { x: 0, y: 0, width: 1200, height: 800 },
+  viewport: { width: stage.clientWidth, height: stage.clientHeight },
+})
+```
+
+It zooms out until the rectangle fits, but not beyond `minZoom`, and by default never zooms in beyond 100%. Set `largestZoom` to allow more.
+
+## Convert coordinates
+
+Shapes use board units. `clientToBoard` converts a point in window coordinates, like the `clientX` and `clientY` of a pointer event, to board units. It returns `null` while the board isn't on the page, like before `useEditor`'s editor is mounted, or once the editor is destroyed:
+
+```js
+import { clientToBoard } from '@tiptap-pro/extension-whiteboard'
+
+stage.addEventListener('pointermove', (event) => {
+  const point = clientToBoard({ editor, point: { x: event.clientX, y: event.clientY } })
+
+  if (point) {
+    console.log(`The pointer is at ${point.x}, ${point.y} on the board`)
+  }
+})
+```
+
+`visibleBoardRect` returns the part of the board that the stage shows. Use it to add a shape where users look:
+
+```js
+import { stickyNoteSize, visibleBoardRect } from '@tiptap-pro/extension-whiteboard'
+
+const seen = visibleBoardRect({
+  camera,
+  viewport: { width: stage.clientWidth, height: stage.clientHeight },
+})
+const { width, height } = stickyNoteSize
+
+// A new note in the middle of the stage
+editor.commands.insertStickyNote({
+  x: seen.x + (seen.width - width) / 2,
+  y: seen.y + (seen.height - height) / 2,
+})
+```
+
+## Next steps
+
+- Add and change [shapes, and choose tools](/whiteboard/guides/shapes-and-tools)
+- See all [utilities](/whiteboard/api-reference/utilities), with the stage and camera helpers

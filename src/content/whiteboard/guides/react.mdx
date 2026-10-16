@@ -1,0 +1,204 @@
+---
+title: Set up a board in React
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Set up a board in React | Tiptap Whiteboard Docs
+  description: Set up a whiteboard in React with useEditor, add buttons for its tools, and style the stage and the shapes.
+  category: Whiteboard
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+This guide builds on the [basic setup](/whiteboard/getting-started/overview#basic-setup) and sets up a board in React, with buttons for its tools.
+
+## Install
+
+Next to the Whiteboard extension, install `@tiptap/react`:
+
+```bash
+npm install @tiptap/react
+```
+
+## Set up the board
+
+A board needs three elements: the stage, which takes pointer and wheel events, the viewport inside it, which the camera moves, and the editor inside the viewport. This setup follows the [example](/whiteboard/examples/simple):
+
+```jsx
+import { EditorContent, useEditor } from '@tiptap/react'
+import {
+  attachStage,
+  boardContent,
+  stickyNoteContent,
+  toCssTransform,
+  WhiteboardKit,
+} from '@tiptap-pro/extension-whiteboard'
+import { useEffect, useRef, useState } from 'react'
+
+import { Toolbar } from './Toolbar'
+import './whiteboard.css'
+
+const content = boardContent([
+  stickyNoteContent({ id: 'hello', x: 40, y: 40, text: 'Double-click to write here' }),
+])
+
+export default function Whiteboard() {
+  const stageRef = useRef(null)
+  const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 })
+  const editor = useEditor({ extensions: [WhiteboardKit], content, immediatelyRender: false })
+
+  // Lets the user pan, zoom, draw and select in the stage
+  useEffect(() => {
+    if (!editor || !stageRef.current) {
+      return undefined
+    }
+
+    return attachStage({ stage: stageRef.current, editor, updateCamera: setCamera })
+  }, [editor])
+
+  if (!editor) {
+    return null
+  }
+
+  return (
+    <div className="whiteboard">
+      <Toolbar editor={editor} />
+      <div className="stage" ref={stageRef}>
+        <div
+          className="viewport"
+          style={{ transform: toCssTransform(camera), '--zoom': String(camera.zoom) }}
+        >
+          <EditorContent editor={editor} />
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+With `immediatelyRender: false`, `useEditor` creates the editor after the first render, so `editor` is `null` until then. [Next.js](/editor/getting-started/install/nextjs#integrate-tiptap) needs this, and so does a board that loads lazily, like with `next/dynamic` or `React.lazy`.
+
+`attachStage` returns a function that detaches everything again, so the effect cleans up after itself. Its `updateCamera` option takes a function that turns the old camera into the new one, like a React state setter, so `setCamera` fits.
+
+<Callout title="Stable options" variant="warning">
+
+Keep the options of `useEditor` the same from render to render. Create a configured kit, like `WhiteboardKit.configure({ docs })`, and the content once, outside the component or with `useMemo`. When an option changes, `useEditor` applies its options again, and the board turns read-only.
+
+</Callout>
+
+### Add tools
+
+The board starts with the `select` tool. Your buttons choose another tool with `setTool`, and `getActiveTool` tells which tool is active. `toolKeys` holds the key that chooses each tool:
+
+```jsx
+import { useEditorState } from '@tiptap/react'
+import { focusBoard, getActiveTool, toolKeys } from '@tiptap-pro/extension-whiteboard'
+
+const tools = ['select', 'hand', 'note', 'text', 'rectangle', 'ellipse', 'arrow', 'pen', 'eraser']
+
+export function Toolbar({ editor }) {
+  const activeTool = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => getActiveTool(currentEditor.state),
+  })
+
+  return (
+    <div role="group" aria-label="Tools">
+      {tools.map((tool) => (
+        <button
+          key={tool}
+          type="button"
+          aria-pressed={activeTool === tool}
+          title={`${tool} (${toolKeys[tool].toUpperCase()})`}
+          onClick={() => {
+            editor.commands.setTool(tool)
+            // Focuses the board, so the tool keys keep working
+            focusBoard(editor.view)
+          }}
+        >
+          {tool}
+        </button>
+      ))}
+    </div>
+  )
+}
+```
+
+The `doc` tool adds doc frames, which need the `docs` option. See [Doc frames](/whiteboard/guides/doc-frames).
+
+### Add the stage CSS
+
+The stage clips the board and keeps touches for itself. The viewport sits in the top left corner of the stage and scales from there:
+
+```css
+.stage {
+  height: 32rem;
+  overflow: clip;
+  position: relative;
+  touch-action: none;
+}
+
+.viewport {
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* The board's origin sits in the corner of the viewport, so the editor keeps no margin */
+.viewport .tiptap {
+  margin: 0;
+}
+```
+
+### Style the shapes
+
+The board adds the CSS that it needs to work, like the size of the board and where handles sit. Colors, fonts and cursors are up to your app. A few rules give the shapes a look:
+
+```css
+[data-type='sticky-note'] {
+  background: #fff59d;
+  padding: 12px;
+}
+
+[data-shape-outline] path {
+  fill: #fff;
+  stroke: #1d1d1d;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Arrows and pen lines are drawn in the current color */
+[data-type='arrow'],
+[data-type='freehand'] {
+  color: #1d1d1d;
+}
+
+/* Divided by the zoom, so outlines and handles keep their size */
+[data-shape][data-selected],
+[data-shape][data-editing] {
+  outline: calc(2px / var(--zoom, 1)) solid #6a00f5;
+}
+
+[data-shape-handle='resize'],
+[data-arrow-handle] {
+  background: #fff;
+  border: calc(1.5px / var(--zoom, 1)) solid #6a00f5;
+}
+
+[data-selection-box],
+[data-shape-preview] {
+  background: rgba(106, 0, 245, 0.1);
+  border: 1px dashed #6a00f5;
+}
+```
+
+Shapes store the name of their color in `data-color`, like `data-color="blue"`, so your CSS decides how each color looks. See [Styling](/whiteboard/api-reference/styling) for every attribute that the board sets.
+
+## Next steps
+
+- Learn how the [stage and camera](/whiteboard/guides/stage-and-camera) work
+- Add and change [shapes, and choose tools](/whiteboard/guides/shapes-and-tools)
+- Show documents on the board with [doc frames](/whiteboard/guides/doc-frames)
+- Edit a board together with [collaboration](/whiteboard/guides/collaboration)
