@@ -18,7 +18,6 @@ export type EnterpriseCalloutProps = {
     | 'markdown'
     | 'tracked-changes'
     | 'compare'
-    | 'whiteboard'
     | 'deprecated'
   inline?: boolean
   disableWaitlist?: boolean
@@ -109,14 +108,6 @@ const VARIANT_CONFIG: Record<
       'Compare is an add-on you can purchase and add to your plan. Contact our team to get access.',
     showWaitlist: false,
     contactUrl: 'https://tiptap.dev/contact-sales',
-    buttonText: 'Contact our team',
-  },
-  whiteboard: {
-    title: 'Get access to Whiteboard',
-    description:
-      'Whiteboard is in a pilot program. Contact our team to get early access to the extension.',
-    showWaitlist: false,
-    contactUrl: 'https://tiptap.dev/contact-sales?form=pilot-program',
     buttonText: 'Contact our team',
   },
   deprecated: {
