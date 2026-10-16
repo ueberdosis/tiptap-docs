@@ -26,6 +26,10 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Guides',
       children: [
         {
+          title: 'React',
+          href: '/whiteboard/guides/react',
+        },
+        {
           title: 'Stage and camera',
           href: '/whiteboard/guides/stage-and-camera',
         },
@@ -38,7 +42,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/whiteboard/guides/doc-frames',
         },
         {
-          title: 'Collaboration',
+          title: 'Collaboration on the board',
           href: '/whiteboard/guides/collaboration',
         },
         {
@@ -55,6 +59,17 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple whiteboard',
           href: '/whiteboard/examples/simple',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/ai/ai-toolkit/agents',
+      title: 'AI agents',
+      children: [
+        {
+          title: 'With the Server AI Toolkit',
+          href: '/ai/ai-toolkit/agents/whiteboard',
         },
       ],
     },
