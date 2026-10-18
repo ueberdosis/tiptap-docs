@@ -85,10 +85,7 @@ export const LinkItem = ({
   return (
     <div ref={linkRef}>
       {link.disabled ? (
-        <Sidebar.Button
-          isActive={false}
-          className="opacity-40 cursor-default pointer-events-none"
-        >
+        <Sidebar.Button isActive={false} className="opacity-40 cursor-default pointer-events-none">
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
           </span>
@@ -109,7 +106,9 @@ export const LinkItem = ({
             <span className="flex-grow flex items-baseline">
               <span>{link.title}</span>
               {link.releaseTag && (
-                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">{link.releaseTag.toUpperCase()}</sup>
+                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">
+                  {link.releaseTag.toUpperCase()}
+                </sup>
               )}
             </span>
             <span className="flex gap-1 items-center">

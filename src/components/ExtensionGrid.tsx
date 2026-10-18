@@ -133,7 +133,9 @@ function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: Sea
         <div className="mt-2 leading-[140%] text-grayAlpha-600">{ext.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {/* Always show all tags regardless of filter */}
-          {ext.tags?.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+          {ext.tags?.map((tag) => (
+            <Tag key={tag}>{tag}</Tag>
+          ))}
         </div>
       </Link>
     </Card>
