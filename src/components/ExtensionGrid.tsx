@@ -9,7 +9,7 @@ import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import Link from '@/components/Link'
 import { ExtensionMetaWithUrl } from '@/types'
-import { getIcon } from '@/utils/iconKit'
+import { IconByName } from '@/utils/iconKit'
 import { useQueryParam } from '@/hooks/useQueryParams'
 
 const SEARCH_FILTER = {
@@ -119,12 +119,11 @@ function useFilteredExtensions(
 }
 
 function ExtensionCard({ ext }: { ext: ExtensionMetaWithUrl; currentFilter?: SearchFilter }) {
-  const Icon = getIcon(ext.icon)
   return (
     <Card isClickable asChild>
       <Link href={ext.url} key={ext.path}>
         <div className="flex items-center justify-between gap-2 mb-5">
-          {!!Icon ? <Icon className="w-3.5 h-3.5" /> : null}
+          <IconByName name={ext.icon} className="w-3.5 h-3.5" />
           <div className="ml-auto flex items-center gap-1">
             {ext.isNew ? <Tag variant="info">New</Tag> : null}
           </div>

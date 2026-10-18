@@ -64,11 +64,17 @@ export const LinkItem = ({
     setIsOpen((prev) => !prev)
   }, [])
 
-  useEffect(() => {
+  // Open the entry when navigation makes it (or a page below it) active. Comparing
+  // with the previous render instead of using an effect saves a second render;
+  // a toggle after that keeps until the active state changes again.
+  const activeKey = `${isActive}:${isActiveParent}:${link.href}`
+  const [prevActiveKey, setPrevActiveKey] = useState(activeKey)
+  if (activeKey !== prevActiveKey) {
+    setPrevActiveKey(activeKey)
     if ((isActive || isActiveParent) && link.href !== '') {
       setIsOpen(true)
     }
-  }, [isActive, isActiveParent, link.href])
+  }
 
   // Scroll active item into view when sidebar is fully rendered
   useEffect(() => {

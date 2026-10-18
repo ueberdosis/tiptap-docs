@@ -4,8 +4,8 @@ import remarkGfm from 'remark-gfm'
 import remarkMdx from 'remark-mdx'
 import remarkStringify from 'remark-stringify'
 import { visit } from 'unist-util-visit'
-import { FULL_DOMAIN } from '@/utils/constants'
 import { componentConverters } from './componentConverter'
+import { FULL_DOMAIN } from '@/utils/constants'
 
 const ASSET_PREFIXES = ['/assets', '/api', '/_next', '/docsassets']
 
