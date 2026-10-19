@@ -19,6 +19,7 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Stage and camera', href: '/whiteboard/guides/stage-and-camera' },
             { title: 'Shapes and tools', href: '/whiteboard/guides/shapes-and-tools' },
             { title: 'Doc frames', href: '/whiteboard/guides/doc-frames' },
+            { title: 'Custom shapes', href: '/whiteboard/guides/custom-shapes' },
             { title: 'Collaboration on the board', href: '/whiteboard/guides/collaboration' },
             {
               title: 'Tracked Changes on the board',
@@ -29,7 +30,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Examples',
           href: '/whiteboard/examples/simple',
-          children: [{ title: 'Simple whiteboard', href: '/whiteboard/examples/simple' }],
+          children: [
+            { title: 'Simple whiteboard', href: '/whiteboard/examples/simple' },
+            { title: 'Custom shape', href: '/whiteboard/examples/custom-shape' },
+          ],
         },
         { title: 'AI agents', href: '/ai/ai-toolkit/agents/whiteboard' },
         {
