@@ -1,0 +1,176 @@
+---
+title: 'Renderers'
+intro: 'A Renderer draws a chart with one chart library. Each is its own entry point, so you install only the libraries you use.'
+headerDemo:
+  path: '/Extensions/DiagramsRenderers'
+  isPro: true
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Renderers | Tiptap Diagrams Docs'
+  description: 'A Renderer draws a chart with one chart library.'
+  category: Diagrams
+---
+
+## Quick start
+
+```ts
+import { Diagrams } from '@tiptap-pro/extension-diagrams'
+import { d3Renderer } from '@tiptap-pro/extension-diagrams/d3'
+import { echartsRenderer } from '@tiptap-pro/extension-diagrams/echarts'
+
+Diagrams.configure({
+  renderers: [echartsRenderer(), d3Renderer()],
+  defaultRenderer: 'echarts',
+})
+```
+
+- The extension bundles no chart library.
+- Every library is a peer dependency or a script you serve, used under its own license.
+- A library not listed here can draw through a [Renderer of your own](/diagrams/renderers/custom).
+
+## Chart Renderers
+
+| Entry point                                                             | Library      | Chart types                                                                                                  | Server-side SVG                |
+| ----------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| [`@tiptap-pro/extension-diagrams/echarts`](/diagrams/renderers/echarts) | `echarts` 6  | line, bar, area, scatter, pie, doughnut, matrix, radar, funnel, gauge, treemap, combo, tree, sankey, network | Yes                            |
+| [`@tiptap-pro/extension-diagrams/d3`](/diagrams/renderers/d3)           | `d3` 7       | line, bar, area, scatter, pie, doughnut, radar, combo, tree, network; sankey with `d3-sankey`                | Yes, with a DOM implementation |
+| [`@tiptap-pro/extension-diagrams/mermaid`](/diagrams/renderers/mermaid) | `mermaid` 11 | pie, doughnut (drawn as a pie), line, upright bar, sankey, radar, treemap                                    | No                             |
+
+## Diagram Renderers
+
+Diagrams have Diagram Renderers of their own.
+
+| Entry point                                                                      | Renderer                 | Draws                                         |
+| -------------------------------------------------------------------------------- | ------------------------ | --------------------------------------------- |
+| [`@tiptap-pro/extension-diagrams/mermaid`](/diagrams/renderers/mermaid#diagrams) | `mermaidDiagramRenderer` | Mermaid source                                |
+| [`@tiptap-pro/extension-diagrams/drawio`](/diagrams/renderers/drawio)            | `drawioDiagramRenderer`  | draw.io XML                                   |
+| [`@tiptap-pro/extension-diagrams/bpmn`](/diagrams/renderers/bpmn)                | `bpmnDiagramRenderer`    | BPMN 2.0 XML                                  |
+| [`@tiptap-pro/extension-diagrams/pele`](/diagrams/renderers/pele)                | `peleDiagramRenderer`    | Mermaid source, drawn by Pele in a Web Worker |
+
+## Which Renderer draws a chart
+
+1. The Renderer the chart names (`setChartRenderer`), if it is registered and draws the
+   chart type.
+2. Otherwise `defaultRenderer`, if it draws the type.
+3. Otherwise the first registered Renderer that draws the type.
+
+### When a Renderer declines a chart
+
+A Renderer can decline a chart of a type it draws, through `draws`. The Mermaid Renderer
+declines a bar chart with several series and a line chart with line styles.
+
+- **Another Renderer draws the type:** the next one in the order above draws the chart.
+- **No other Renderer draws the type:** the declining Renderer draws it after all.
+- **The chart** keeps the Renderer it names.
+- **The chart's root** says in `data-tt-chart-renderer` which Renderer drew it.
+- **`export` with an explicit `renderer` option** uses that Renderer as it is.
+
+### When no Renderer draws the type
+
+The chart shows what [`unavailable`](/diagrams/api-reference/options#unavailable) returns and keeps its data.
+
+### When the Renderer changes
+
+- **The picture** changes. Data and spec stay as they are.
+- **Options a chart stores for one Renderer** under `spec.renderer[id]` are ignored by the
+  others.
+- **Colors and fonts** come from the same `--tt-chart-*` custom properties for every
+  Renderer, so charts look alike whichever library draws them. See
+  [Styling](/diagrams/guides/styling).
+
+## Writing a Renderer
+
+A Renderer is a `ChartRenderer` object:
+
+```ts
+import type { ChartRenderer } from '@tiptap-pro/extension-diagrams'
+
+const myRenderer: ChartRenderer = {
+  id: 'my-library',
+  label: 'My library',
+  types: ['line', 'bar'],
+  mount(target, input) {
+    const chart = drawWithMyLibrary(target, input)
+    return {
+      update: (next) => chart.redraw(next),
+      destroy: () => chart.remove(),
+    }
+  },
+  async toSVG(input) {
+    return renderMyLibraryToString(input)
+  },
+}
+```
+
+| Member                  | Type                                                                 | Description                                                                                  |
+| ----------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `id`                    | `string`                                                             | What a chart stores as its `renderer`                                                        |
+| `label`                 | `string`                                                             | Optional. For a menu                                                                         |
+| `types`                 | `readonly ChartType[]`                                               | The chart types it draws                                                                     |
+| `draws({ data, spec })` | `(chart) => boolean`                                                 | Optional. `false` for a chart of its types that it draws badly, so another Renderer takes it |
+| `rules`                 | `RendererRules`                                                      | Optional. See [Rules of your Renderer](/diagrams/renderers/custom#rules-of-your-renderer)    |
+| `mount(target, input)`  | `(target, input) => ChartRenderHandle \| Promise<ChartRenderHandle>` | Draws into `target`, an element inside the editor, and returns `{ update, destroy }`         |
+| `toSVG(input)`          | `(input) => Promise<string>`                                         | Returns a standalone SVG string with concrete colors, used by `export`                       |
+| `toImage(input)`        | `(input) => Promise<Blob>`                                           | Returns a PNG at `input.size`. For a library that draws on a canvas                          |
+
+A Renderer has either `toSVG` or `toImage`:
+
+- **`toSVG`:** every file is made from the SVG. The type is `VectorChartRenderer`; the built-in
+  Renderers are of this kind.
+- **`toImage`:** every file is made from the picture. An SVG file holds the picture, not shapes,
+  and `export` returns `raster: true`. The type is `RasterChartRenderer`.
+
+The frame, the attribution and the size are the same either way.
+
+What `mount` returns:
+
+| Member          | Description                                                                            |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `update(input)` | Draws the chart again with new input. Called for a change of data, spec, theme or size |
+| `destroy()`     | Removes what `mount` added                                                             |
+
+### What a Renderer receives
+
+`input` is a `ChartRenderInput`:
+
+| Field     | Type                | Description                                                                     |
+| --------- | ------------------- | ------------------------------------------------------------------------------- |
+| `data`    | `ChartData`         | The Chart Data                                                                  |
+| `spec`    | `ChartSpec`         | The Chart Spec                                                                  |
+| `theme`   | `ChartTheme`        | Concrete values to draw with, listed below                                      |
+| `size`    | `{ width, height }` | In pixels                                                                       |
+| `animate` | `boolean`           | `true` when the chart may move as it is drawn and changed. A file never gets it |
+
+- `theme` holds `series` colors, `background`, `axisColor`, `gridColor`, `labelColor`,
+  `titleColor`, `fontFamily`, `fontSize`, `titleSize`, `titleWeight`, `legendGap` and
+  `legendMarkerSize`.
+- Draw with the `theme` values, not with `var(…)`, so the picture matches the page and
+  exports correctly.
+- A `spec.palette` takes the place of `theme.series`.
+- `animate` is `true` in the editor, with the `animation` option on and no request for
+  reduced motion.
+
+### What a Renderer must not do
+
+- Run code that comes from the document.
+- Insert markup that comes from the document.
+- Set text such as labels and titles as HTML. Text is data: set it as text.
+
+### Starting points
+
+- [Your own Renderer](/diagrams/renderers/custom) has a complete chart Renderer to start from.
+- [chart-types.md](/diagrams/renderers/custom#register-your-own-chart-type) adds a chart type.
+- [diagram-renderer.md](/diagrams/renderers/custom#a-diagram-renderer-of-your-own) draws a diagram format.
+
+## Where the data comes from
+
+A Renderer never reads the document, a table or a Data Source.
+
+- Typed rows, rows from a table the chart follows and a snapshot of a URL all reach a
+  Renderer as Chart Data, in `input.data`.
+- When the data changes, the Renderer gets `update` with the new input.
+- So a Renderer works with every way data gets into a chart, and a way in works with every
+  Renderer. See [Data](/diagrams/data/overview).
