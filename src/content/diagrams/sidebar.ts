@@ -43,6 +43,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/diagrams/data/quick-input',
               children: [{ title: 'Chart syntax', href: '/diagrams/data/chart-syntax' }],
             },
+            { title: 'Pasting', href: '/diagrams/data/pasting' },
             { title: 'Tables', href: '/diagrams/data/tables' },
             { title: 'Data Sources', href: '/diagrams/data/sources' },
           ],
