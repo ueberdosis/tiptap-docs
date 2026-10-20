@@ -58,7 +58,15 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'draw.io', href: '/diagrams/renderers/drawio' },
             { title: 'BPMN', href: '/diagrams/renderers/bpmn' },
             { title: 'Pele', href: '/diagrams/renderers/pele' },
-            { title: 'Your own Renderer', href: '/diagrams/renderers/custom' },
+            {
+              title: 'Your own Renderer',
+              href: '/diagrams/renderers/custom',
+              children: [
+                { title: 'Drawing on a canvas', href: '/diagrams/renderers/custom-canvas' },
+                { title: 'Your own chart type', href: '/diagrams/renderers/custom-chart-types' },
+                { title: 'Your own Diagram Renderer', href: '/diagrams/renderers/custom-diagrams' },
+              ],
+            },
           ],
         },
         { title: 'Export', href: '/diagrams/export' },

@@ -14,8 +14,6 @@ meta:
   category: Diagrams
 ---
 
-import { CodeDemo } from '@/components/CodeDemo'
-
 ## A chart Renderer
 
 This Renderer draws bar charts as plain SVG, with no library. It reads the colors from
@@ -98,10 +96,73 @@ editor.commands.setChartRenderer({ renderer: 'plain-bars' })
 - A chart that names `plain-bars` is drawn by it.
 - Every other chart keeps its Renderer.
 
-### What to honor in the spec
+### Members
 
-What `mount`, `update`, `toSVG` and `toImage` receive is described in
-[the Renderer overview](/diagrams/renderers/overview#writing-a-renderer).
+| Member                  | Type                                                                 | Description                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | `string`                                                             | What a chart stores as its `renderer`                                                                                                           |
+| `label`                 | `string`                                                             | Optional. For a menu                                                                                                                            |
+| `types`                 | `readonly ChartType[]`                                               | The chart types it draws                                                                                                                        |
+| `draws({ data, spec })` | `(chart) => boolean`                                                 | Optional. `false` for a chart of its types that it draws badly, so another Renderer takes it                                                    |
+| `rules`                 | `RendererRules`                                                      | Optional. See [Rules of your Renderer](/diagrams/renderers/custom#rules-of-your-renderer)                                                       |
+| `mount(target, input)`  | `(target, input) => ChartRenderHandle \| Promise<ChartRenderHandle>` | Draws into `target`, an element inside the editor, and returns `{ update, destroy }`                                                            |
+| `toSVG(input)`          | `(input) => Promise<string>`                                         | Returns a standalone SVG string with concrete colors, used by `export`                                                                          |
+| `toImage(input)`        | `(input) => Promise<Blob>`                                           | Returns a PNG at `input.size`. For a library that draws on a canvas, see [A Renderer that draws on a canvas](/diagrams/renderers/custom-canvas) |
+
+A Renderer has either `toSVG` or `toImage`:
+
+- **`toSVG`:** every file is made from the SVG. The type is `VectorChartRenderer`; the built-in
+  Renderers are of this kind.
+- **`toImage`:** every file is made from the picture. An SVG file holds the picture, not shapes,
+  and `export` returns `raster: true`. The type is `RasterChartRenderer`.
+
+The frame, the attribution and the size are the same either way.
+
+What `mount` returns:
+
+| Member          | Description                                                                            |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `update(input)` | Draws the chart again with new input. Called for a change of data, spec, theme or size |
+| `destroy()`     | Removes what `mount` added                                                             |
+
+### What a Renderer receives
+
+`input` is a `ChartRenderInput`:
+
+| Field     | Type                | Description                                                                     |
+| --------- | ------------------- | ------------------------------------------------------------------------------- |
+| `data`    | `ChartData`         | The Chart Data                                                                  |
+| `spec`    | `ChartSpec`         | The Chart Spec                                                                  |
+| `theme`   | `ChartTheme`        | Concrete values to draw with, listed below                                      |
+| `size`    | `{ width, height }` | In pixels                                                                       |
+| `animate` | `boolean`           | `true` when the chart may move as it is drawn and changed. A file never gets it |
+
+- `theme` holds `series` colors, `background`, `axisColor`, `gridColor`, `labelColor`,
+  `titleColor`, `fontFamily`, `fontSize`, `titleSize`, `titleWeight`, `legendGap` and
+  `legendMarkerSize`.
+- Draw with the `theme` values, not with `var(…)`, so the picture matches the page and
+  exports correctly.
+- A `spec.palette` takes the place of `theme.series`.
+- `animate` is `true` in the editor, with the `animation` option on and no request for
+  reduced motion.
+
+### What a Renderer must not do
+
+- Run code that comes from the document.
+- Insert markup that comes from the document.
+- Set text such as labels and titles as HTML. Text is data: set it as text.
+
+### Where the data comes from
+
+A Renderer never reads the document, a table or a Data Source.
+
+- Typed rows, rows from a table the chart follows and a snapshot of a URL all reach a
+  Renderer as Chart Data, in `input.data`.
+- When the data changes, the Renderer gets `update` with the new input.
+- So a Renderer works with every way data gets into a chart, and a way in works with every
+  Renderer. See [Data](/diagrams/data/overview).
+
+### What to honor in the spec
 
 | Spec field                  | What to draw                                                                                                                |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -170,65 +231,6 @@ mount(target, input) {
 - **Without `onTextDoubleClick`** a double click opens nothing.
 - **The editor decides** whether a field opens: not in a read-only editor, and not for a series
   or a category of read-only data.
-
-## A Renderer that draws on a canvas
-
-Draw the chart with Chart.js, switch its type, and download it as PNG or SVG:
-
-<CodeDemo isPro path="/Extensions/DiagramsChartJs" />
-
-A library that draws pixels, such as Chart.js, has no SVG to give. Its Renderer has `toImage`
-instead of `toSVG` and returns a PNG at `input.size`:
-
-```ts
-import type { RasterChartRenderer } from '@tiptap-pro/extension-diagrams'
-import { Chart, registerables } from 'chart.js'
-
-Chart.register(...registerables)
-
-export const chartJsRenderer: RasterChartRenderer = {
-  id: 'chartjs',
-  label: 'Chart.js',
-  types: ['bar', 'line', 'pie', 'doughnut'],
-  mount(target, input) {
-    const canvas = document.createElement('canvas')
-    target.replaceChildren(canvas)
-    const chart = new Chart(canvas, toChartJsConfig(input))
-    return {
-      update: (next) => {
-        const config = toChartJsConfig(next)
-        chart.data = config.data
-        chart.options = config.options
-        chart.update('none')
-      },
-      destroy: () => chart.destroy(),
-    }
-  },
-  toImage(input) {
-    const canvas = document.createElement('canvas')
-    canvas.width = input.size.width
-    canvas.height = input.size.height
-    const chart = new Chart(canvas, { ...toChartJsConfig(input), options: { animation: false } })
-    return new Promise((resolve, reject) =>
-      canvas.toBlob((blob) => {
-        chart.destroy()
-        blob ? resolve(blob) : reject(new Error('No picture.'))
-      }, 'image/png'),
-    )
-  },
-}
-```
-
-`toChartJsConfig` turns the Chart Data and Spec into a Chart.js configuration, in the colors of
-`input.theme`. The demo has a complete one.
-
-- **PNG, WebP, JPEG and Word** use the picture.
-- **An SVG file** holds the picture, not shapes, and `export` returns `raster: true`.
-- **The frame and the attribution** are added as for any Renderer.
-- **Draw without animation** in `toImage`, and pass `responsive: false` with a fixed
-  `devicePixelRatio`, so the picture has exactly the size it was asked for.
-- **A server** has no canvas, so `toImage` runs only in a browser, or with a canvas library of
-  your own.
 
 ## Rules of your Renderer
 
@@ -300,181 +302,3 @@ Diagrams.configure({
 - **`editor.storage.diagrams.rulesFor(renderer)`** returns the rules in effect.
 - **The built-in Renderers** for ECharts, d3, Mermaid and draw.io declare no attribution and
   allow every format.
-
-## Register your own chart type
-
-A chart type is an id in `spec.type`. Register one with the `chartTypes` option, and list it
-in the `types` of the Renderer that draws it.
-
-### Quick start
-
-```ts
-import { Diagrams, chartLinks, type ChartRenderer } from '@tiptap-pro/extension-diagrams'
-
-const chordRenderer: ChartRenderer = {
-  id: 'chord',
-  label: 'Chord',
-  types: ['chord'],
-  mount(target, input) {
-    // chartLinks(input.data) gives { nodes, links }, read the way sankey and network read them
-  },
-  async toSVG(input) {
-    // ...
-  },
-}
-
-Diagrams.configure({
-  renderers: [echartsRenderer(), chordRenderer],
-  chartTypes: [
-    {
-      id: 'chord',
-      label: 'Chord',
-      shape: 'graph',
-      word: 'image',
-      description: 'Flows between groups drawn around a circle: from, to and how much.',
-    },
-  ],
-})
-```
-
-### Fields of a chart type
-
-| Field         | Type                                                                        | Description                                                                                                          |
-| ------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `id`          | `string`                                                                    | What the chart stores in `spec.type`: letters, digits, `_` and `-`, at most 64 characters                            |
-| `label`       | `string`                                                                    | For a menu                                                                                                           |
-| `shape`       | `'cartesian' \| 'radial' \| 'single' \| 'hierarchy' \| 'matrix' \| 'graph'` | How the type reads its rows. The Quick Input shows example rows of that shape                                        |
-| `word`        | `'chart' \| 'table' \| 'image'`                                             | `'image'`: a Word document gets a picture of the chart. Only the built-in types are written as Word charts or tables |
-| `description` | `string`                                                                    | Optional. One sentence for a model choosing a type                                                                   |
-
-### Where a registered type appears
-
-- **The Quick Input:** it can be typed after `:::`.
-- **`setDiagramInputType`** can choose it.
-- **A model** is offered it by the tools and by `describeCapabilities()`.
-- **An entry with the id of a built-in type** replaces that type's label and description.
-
-### Reading rows like the built-in types
-
-| Function               | Reads rows the way                | Returns                                                                                   |
-| ---------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- |
-| `chartHierarchy(data)` | the built-in `hierarchy` types do | A tree of `{ name, path, value, total, children }`, from paths such as `Europe / Germany` |
-| `chartLinks(data)`     | the built-in `graph` types do     | `{ nodes, links }`, one link per row                                                      |
-
-## A Diagram Renderer of your own
-
-A Diagram Renderer turns the source text of one format into an SVG string. The editor shows
-the result as an image, so its SVG never runs script in the page.
-
-### Quick start
-
-This one sends Mermaid source to a rendering service you host and returns what it answers:
-
-```ts
-import type { DiagramRenderer } from '@tiptap-pro/extension-diagrams'
-
-export function serviceDiagramRenderer(endpoint: string): DiagramRenderer {
-  return {
-    id: 'mermaid-service',
-    label: 'Mermaid (service)',
-    formats: ['mermaid'],
-    async render({ source, theme, raster }) {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ source, theme, htmlLabels: !raster }),
-      })
-      if (!response.ok) throw new Error(`The diagram service answered ${response.status}`)
-      const svg = await response.text()
-      const root = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
-      const width = Number.parseFloat(root.getAttribute('width') ?? '') || 600
-      const height = Number.parseFloat(root.getAttribute('height') ?? '') || 400
-      return { svg, width, height }
-    },
-  }
-}
-```
-
-```ts
-Diagrams.configure({
-  diagramRenderers: [serviceDiagramRenderer('https://diagrams.example.com/mermaid/svg')],
-})
-```
-
-### Members
-
-A Diagram Renderer is `{ id, label?, formats, draws?, render, editing? }`.
-
-| Member    | Type                                         | Description                                                                                                                      |
-| --------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `id`      | `string`                                     | Names the Renderer                                                                                                               |
-| `label`   | `string`                                     | Optional. For a menu                                                                                                             |
-| `formats` | `readonly FlowDiagramFormat[]`               | The diagram formats it draws                                                                                                     |
-| `draws`   | `(source: string) => boolean`                | Optional. Whether it draws this source, such as only some Mermaid kinds. Without it, every source                                |
-| `render`  | `(input) => Promise<{ svg, width, height }>` | Draws the source, described below                                                                                                |
-| `editing` | `DiagramEditing`                             | Optional. Finds text and shapes in its pictures, see [Editing in the picture](/diagrams/renderers/custom#editing-in-the-picture) |
-
-### Which Renderer draws a diagram
-
-- **The first registered Diagram Renderer** whose `formats` include the diagram's format, and
-  whose `draws` does not decline the source, draws the diagram.
-- **A kind no Renderer draws** shows what [`unavailable`](/diagrams/api-reference/options#unavailable) returns,
-  with the reason `'unsupported-kind'`. The source stays in the document.
-- **A format of your own** needs no other registration. See
-  [Other formats](/diagrams/flow-diagrams/formats#other-formats).
-
-### What render receives
-
-| Input    | Type                | Description                                                                                                                               |
-| -------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `format` | `FlowDiagramFormat` | `mermaid`, `drawio`, `bpmn` or a format of your own, one of the Renderer's `formats`                                                      |
-| `source` | `string`            | The diagram source text, as the document stores it                                                                                        |
-| `theme`  | `DiagramTheme`      | Resolved colors and fonts, read from the `--tt-flow-diagram-*` custom properties ([Diagrams](/diagrams/api-reference/selectors#diagrams)) |
-| `raster` | `boolean`           | `true` when the SVG becomes a PNG, a WebP, a JPEG or a picture in Word                                                                    |
-
-When `raster` is `true`, labels must be SVG text: the SVG must hold no `foreignObject`, which
-the browser does not let a canvas export.
-
-### What render returns
-
-| Result            | Type     | Description                                           |
-| ----------------- | -------- | ----------------------------------------------------- |
-| `svg`             | `string` | A standalone SVG string with a `width` and a `height` |
-| `width`, `height` | `number` | The size of the drawing in pixels                     |
-
-### Editing in the picture
-
-A double click on a text and dragging a shape need to know where things are in the picture. Only
-the Renderer knows its markup, so it says so through `editing`. Every function receives the SVG
-it returned, as a string, and the diagram's source.
-
-| Member          | Signature                                         | Without it                                            |
-| --------------- | ------------------------------------------------- | ----------------------------------------------------- |
-| `labelAt`       | `(svg, point, source) => DiagramLabelHit \| null` | A double click opens nothing                          |
-| `nodeAt`        | `(svg, point, source) => DiagramNodeHit \| null`  | No shape can be dragged                               |
-| `movePositions` | `(svg, positions, source) => string \| null`      | No shape can be dragged; stored offsets are not drawn |
-
-- **`point`** is in the SVG's own units, through its `viewBox`.
-- **`DiagramLabelHit`** is `{ target, label, box }`. `target` names the text in the source, such
-  as `{ kind: 'node', id: 'A' }`, and the extension writes the new text there.
-- **`DiagramNodeHit`** is `{ id, label, box }`, `id` as the source names the shape.
-- **`movePositions`** returns the picture with each shape moved by its offset, `null` when
-  nothing moved.
-- **Return `null`** for a kind your Renderer does not handle.
-
-A Renderer that draws with mermaid.js reuses the built-in one:
-
-```ts
-import { mermaidDiagramEditing } from '@tiptap-pro/extension-diagrams/mermaid'
-
-const renderer = { id: 'my-mermaid', formats: ['mermaid'], render, editing: mermaidDiagramEditing }
-```
-
-### Keeping the page safe
-
-- **The SVG** is shown in an `<img>`, so scripts and outside resources in it never run or load
-  in the editor.
-- **The source** must not be evaluated in the page. Render it on a server or in a sandboxed
-  iframe, as the built-in Renderers do.
-- **A library that only parses text** and needs no DOM can draw in a Web Worker instead, as
-  the Pele Renderer does.
