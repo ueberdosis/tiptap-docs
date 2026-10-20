@@ -77,6 +77,18 @@ export type PageFrontmatter = {
   component?: Omit<UIComponentMetaWithUrl, 'path' | 'url'>
   incident?: IncidentMeta
   tags?: PageTag[]
+  /** A short introduction shown right below the title, before the tags. HTML, like `description`. */
+  intro?: string
+  /** A demo shown across the full width of the header, above the content and the table of contents. */
+  headerDemo?: FrontmatterHeaderDemo
+}
+
+export type FrontmatterHeaderDemo = {
+  /** The demo's path, such as `/Extensions/DiagramsChartTypes`. */
+  path: string
+  isPro?: boolean
+  /** A full URL instead of `path`. */
+  src?: string
 }
 
 export type FrontmatterSidebar = {
