@@ -26,7 +26,7 @@ export const redirects = [
   },
   {
     source: '/docs/resources/pricing',
-    destination: '/pricing',
+    destination: 'https://tiptap.dev/pricing',
     permanent: true,
   },
   {
