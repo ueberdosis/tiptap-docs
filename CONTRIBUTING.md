@@ -25,6 +25,20 @@ To contribute, please follow these steps:
    - Any relevant information that will help the maintainers understand your changes.
 8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
+## Moving or Renaming Pages
+
+A published URL has to keep working. When you move, rename or delete a page:
+
+1. Add a redirect to `src/server/redirects.mjs` (`permanent: true`). Point it straight at the new page; don't chain redirects.
+2. Update links in content and sidebars to the new URL.
+3. Run `pnpm urls:update` after adding pages. It records new URLs in `tests/fixtures/known-urls.txt`. Never delete a line from that file.
+
+## Tests
+
+- `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, and that sidebars and internal links point at real pages. It runs on every pull request.
+- `pnpm test:e2e` runs Playwright: every page and its `.md` version answer 200, every old URL redirects to a live page, and one page per page type renders without errors or serious accessibility violations. Locally, build first with `pnpm build:next`; the tests start the server. Against a deployed site, set `DOCS_TEST_URL` (including any base path). In CI they run against each Vercel deployment.
+- `SMOKE_ALL=1 pnpm test:e2e` also loads every page in a browser.
+
 ## Publishing Documentation
 
 The documentation is published automatically when changes are pushed to `main`. The docs do not have versioned releases, so contributions do not need a changeset or a version bump.
