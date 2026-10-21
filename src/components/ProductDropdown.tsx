@@ -19,7 +19,6 @@ const options = [
   { label: 'Pages', href: '/pages/getting-started/overview' },
   { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
   { label: 'Tracked Changes', href: '/tracked-changes/getting-started/overview' },
-  { label: 'Whiteboard', href: '/whiteboard/getting-started/overview' },
 ]
 
 export const ProductDropdown = () => {

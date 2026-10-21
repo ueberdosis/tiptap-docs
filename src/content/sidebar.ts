@@ -80,10 +80,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/tracked-changes/getting-started/overview',
           title: 'Tracked Changes',
         },
-        {
-          href: '/whiteboard/getting-started/overview',
-          title: 'Whiteboard',
-        },
       ],
     },
     {
