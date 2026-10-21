@@ -656,6 +656,7 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Shapes and tools', href: '/editor/whiteboard/guides/shapes-and-tools' },
             { title: 'Doc frames', href: '/editor/whiteboard/guides/doc-frames' },
             { title: 'Custom shapes', href: '/editor/whiteboard/guides/custom-shapes' },
+            { title: 'Export and import', href: '/editor/whiteboard/guides/export-and-import' },
             {
               title: 'Collaboration on the board',
               href: '/editor/whiteboard/guides/collaboration',
