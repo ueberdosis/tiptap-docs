@@ -125,7 +125,13 @@ export const LinkItem = ({
                 </span>
               ) : null}
               {link.children ? (
-                <button className={toggleButtonClassName} onClick={toggleOpen}>
+                <button
+                  type="button"
+                  className={toggleButtonClassName}
+                  onClick={toggleOpen}
+                  aria-expanded={isOpen}
+                  aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${link.title}`}
+                >
                   {isOpen ? (
                     <ChevronDownIcon className="size-4 text-grayAlpha-500" />
                   ) : (

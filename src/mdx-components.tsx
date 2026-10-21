@@ -39,7 +39,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h1 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
@@ -50,7 +50,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h2 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
@@ -61,7 +61,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h3 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
@@ -72,7 +72,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h4 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
@@ -83,7 +83,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h5 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
@@ -94,7 +94,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       const id = getHeadlineId(children)
       return (
         <h6 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
+          <a className={hashClass} href={`#${id}`} aria-label="Link to this section">
             <HashIcon className="w-full h-full" />
           </a>
           {children}{' '}
