@@ -1,20 +1,18 @@
 ---
-title: Add value slots
+title: Value slots
 meta:
   description: Use built-in form controls and custom NodeViews to edit JSON values stored in slot attributes.
 ---
 
 import { CodeDemo } from '@/components/CodeDemo'
 
-Value slots store their answer in `attrs.value`. They have no document children and cannot be edited as rich text. Their NodeView renders a form control instead. Use them alongside ordinary content slots in the same document.
+Value slots let you store any JSON value inside a slot, beyond Tiptap content. Display these values as form fields such as text inputs and checkboxes, or build your own custom input.
 
 <CodeDemo isPro path="/Examples/SlotValues" />
 
-The demo includes every built-in control, a vanilla JavaScript rating input, and a React customer picker. The customer picker saves an object. Lock fields to see both default and custom inputs follow Content Protection.
-
 ## Insert a value slot
 
-Install `Slot` as usual, then pass `mode: 'value'` when inserting:
+When creating a slot, pass `mode: 'value'` to create a value slot:
 
 ```ts
 editor.commands.insertSlot({
@@ -36,49 +34,75 @@ editor.commands.insertSlot({
 })
 ```
 
-Use `kind: 'block'` for a block field. Without `mode`, insertion creates an ordinary content slot. Value slots serialize as `inlineValueSlot` or `blockValueSlot` with `id`, `config`, and `value` attributes and no `content`.
+Use `kind: 'block'` to put the control in its own block. Without `mode: 'value'`, insertion creates an ordinary content slot.
 
-Values may be any finite JSON: `null`, strings, booleans, numbers, arrays, or objects. There is no `valueType` restriction. A custom field can switch between `null`, a string, and an object. Use custom validators for application-specific requirements.
+Values accept any finite JSON: `null`, strings, booleans, numbers, arrays, or objects. Use [validation](/composable-docs/slots/guides/validate-submission) to enforce your application's requirements.
 
 ## Built-in inputs
 
+The Slot extension comes with a set of built-in input types. You can also create your own custom inputs.
+
 Set `config.input.type` to select a control. Omit `input` for a text input.
 
-| Type                          | Control                      | Stored value                       |
-| ----------------------------- | ---------------------------- | ---------------------------------- |
-| `text`, `email`, `url`, `tel` | Native input                 | String                             |
-| `textarea`                    | Multiline text input         | String                             |
-| `number`                      | Native number input          | String, including an empty string  |
-| `date`                        | Native date input            | Date string such as `2026-10-14`   |
-| `time`                        | Native time input            | Time string such as `09:30`        |
-| `datetime-local`              | Native local date-time input | String without timezone conversion |
-| `checkbox`                    | Native checkbox              | Boolean                            |
-| `select`                      | Single select                | String option value                |
-| `multiple-select`             | Multiple select              | Array of string option values      |
+| Type       | Control               | Stored value                     | Options type (`config.input.options`) |
+| ---------- | --------------------- | -------------------------------- | ------------------------------------- |
+| `text`     | Native text input     | `string`                         | Not used                              |
+| `textarea` | Multiline text input  | `string`                         | Not used                              |
+| `number`   | Native number input   | `string`, including `''`         | Not used                              |
+| `date`     | Native date input     | `string`, such as `'2026-10-14'` | Not used                              |
+| `checkbox` | Native checkbox       | `boolean`                        | Not used                              |
+| `select`   | Single select         | `string` option value            | `{ value: string; label: string }[]`  |
+| `radio`    | List of radio buttons | `string` option value            | `{ value: string; label: string }[]`  |
 
-Select options use `{ value: string, label: string }`. Labels do not become the answer. These output conventions do not restrict values written through commands or imported documents. Unsupported values remain stored; controls never overwrite them just because they cannot display them.
+`SlotInput.options` is optional. Only select and radio controls use it; they store the selected option's `value`, not its label.
 
-Number inputs do not coerce values to numbers. Browsers can expose an empty string for an invalid intermediate number, even while displaying typed characters. Use a custom text input with numeric input hints if you need to preserve every intermediate character.
+For a radio group, set `config.input` to:
 
-`config.placeholder` is presentation only. Text controls use it as a native placeholder; selects use it as the unanswered prompt. Native date and time controls determine their own empty presentation. A placeholder never counts as an answer.
+```ts
+{
+  type: 'radio',
+  options: [
+    { value: 'standard', label: 'Standard' },
+    { value: 'express', label: 'Express' },
+  ],
+}
+```
 
-`config.defaultValue` initializes a newly inserted slot only when `value` is omitted. Explicit `null` overrides the default. Loading, clearing, and changing configuration do not restore defaults.
+Each slot is an independent radio group. For multi-select, use a custom NodeView like the demo's chip picker.
+
+Number inputs store values as strings because browsers may return `''` for an incomplete number.
 
 ## Read and update values
 
 ```ts
+import { getSlot } from '@tiptap-pro/extension-slot'
+
 editor.commands.setSlotValue({ id: 'priority', value: 'urgent' })
+// Clearing a slot sets its value to null.
 editor.commands.clearSlot({ id: 'priority' })
+
+// Update multiple slot values in an atomic batch.
+editor.commands.setSlotValues({
+  values: [
+    { id: 'priority', value: 'urgent' },
+    { id: 'name', value: 'Alex' },
+  ],
+})
 
 const slot = getSlot({ snapshot: editor.storage.slot.snapshot, id: 'priority' })
 if (slot?.mode === 'value') console.log(slot.value)
 ```
 
-Import `getSlot` from `@tiptap-pro/extension-slot`. Clearing writes `null`. Use `setSlotValues({ values: [{ id, value }] })` for an atomic batch. Changes participate in document history and collaboration.
+Slots are compatible with collaboration. When collaboration is enabled, updates to slots sync in real time with other users of the collaborative document.
 
 ## Mix custom and default NodeViews
 
-Choose a renderer inside `addNodeView()`. The selection can depend on the input type, slot ID, or metadata. Call `createDefaultSlotValueView` for other fields:
+Follow a complete tutorial to build a custom toggle button, including its UI:
+
+- [Create a custom input with vanilla JavaScript](#create-a-custom-input-with-vanilla-javascript)
+- [Create a custom input with React](#create-a-custom-input-with-react)
+
+Choose a renderer inside `addNodeView()` and keep built-in controls as the fallback:
 
 ```ts
 import { Slot, InlineValueSlot, createDefaultSlotValueView } from '@tiptap-pro/extension-slot'
@@ -107,40 +131,279 @@ Inside a custom view, `createSlotValueController({ editor, getPos })` provides:
 - `focus()` to select the slot when its input receives focus.
 - `destroy()` to release subscriptions when a vanilla view is removed.
 
-`setValue` returns `false` when the write is refused. Disable controls when `editable` is false. Render from the current state after a refused write. Keep input events inside the control, handle IME composition, and release subscriptions when disposing the view.
+Custom views should:
+
+- Disable controls when `editable` is false.
+- Render the current state after `setValue` returns `false` (a refused write).
+- Keep input events inside the control and handle IME composition for text inputs.
+- Release subscriptions when the view is removed.
 
 If changing configuration selects a different renderer, return `false` from your NodeView's `update` method so Tiptap runs `addNodeView`'s factory again. The default view does this when the input type changes.
 
-## React and Vue
+## Create a custom input with vanilla JavaScript
 
-The slot package has no React or Vue dependencies or peer dependencies. Import `ReactNodeViewRenderer` or `VueNodeViewRenderer` in your application and select it inside `addNodeView` just like the vanilla renderer.
+Build a button that switches between **On** and **Off** and stores a boolean. Native buttons provide keyboard support with Enter and Space.
 
-This application-owned React hook connects the controller to `useSyncExternalStore`:
+### 1. Create the UI
 
-```tsx
-import { useMemo, useSyncExternalStore } from 'react'
-import type { NodeViewProps } from '@tiptap/react'
-import { createSlotValueController } from '@tiptap-pro/extension-slot'
+Create `toggle-slot.js`. Use the value controller for reads, guarded writes, and permission changes:
 
-function useSlotValue({ editor, getPos }: NodeViewProps) {
-  const slot = useMemo(() => createSlotValueController({ editor, getPos }), [editor, getPos])
-  const state = useSyncExternalStore(slot.subscribe, slot.getState, slot.getState)
-  return { ...state, getValue: slot.getValue, setValue: slot.setValue, focus: slot.focus }
+```js
+import {
+  BlockValueSlot,
+  createDefaultSlotValueView,
+  createSlotValueController,
+} from '@tiptap-pro/extension-slot'
+
+function createToggleView({ editor, getPos, node }) {
+  const slot = createSlotValueController({ editor, getPos })
+  const dom = document.createElement('div')
+  dom.contentEditable = 'false'
+  const button = document.createElement('button')
+  button.type = 'button'
+  dom.append(button)
+
+  function render() {
+    const { value, editable, available } = slot.getState()
+    const on = value === true
+    button.textContent = `${slot.getState().config?.label ?? 'Notifications'}: ${on ? 'On' : 'Off'}`
+    button.setAttribute('aria-pressed', String(on))
+    button.disabled = !available || !editable
+  }
+
+  button.addEventListener('focus', () => slot.focus())
+  button.addEventListener('click', () => {
+    slot.setValue(slot.getValue() !== true)
+    render() // Also restore the current state if the write was refused.
+  })
+  const unsubscribe = slot.subscribe(render)
+  render()
+
+  return {
+    dom,
+    update(nextNode) {
+      return nextNode.type === node.type && nextNode.attrs.config?.input?.type === 'toggle'
+    },
+    stopEvent: () => true,
+    ignoreMutation: () => true,
+    destroy() {
+      unsubscribe()
+      slot.destroy()
+    },
+  }
 }
 ```
 
-The controller releases its editor listener when the last subscription is removed. The demo's customer component uses this hook inside a `NodeViewWrapper`, and registers through `ReactNodeViewRenderer`. The application keeps control of its React providers and UI library.
+`subscribe` refreshes the button when values or permissions change. It does not call `render` immediately, so call it once yourself. `focus()` selects the slot; the browser keeps focus on the button.
 
-For Vue, create the controller in setup, copy `getState()` into a `shallowRef`, update that ref from `subscribe`, and unsubscribe and destroy the controller in `onBeforeUnmount`. Render a `NodeViewWrapper` without `NodeViewContent`.
+### 2. Register the custom renderer
 
-## Validation and protection
+Add this to the same file. Handle `toggle` inputs and keep the default renderer for built-in inputs:
 
-Validation reports invalid drafts; it does not prevent writing serializable values. Required fields treat `null`, empty or whitespace-only strings, and empty arrays as unanswered. `false` and `0` are answers. Use a custom validator when a checkbox must be checked.
+```js
+export const ToggleSlot = BlockValueSlot.extend({
+  addNodeView() {
+    return (props) =>
+      props.node.attrs.config?.input?.type === 'toggle'
+        ? createToggleView(props)
+        : createDefaultSlotValueView(props)
+  },
+})
+```
 
-Content-only settings such as `allowedBlocks`, `allowedMarks`, `nesting`, and `defaultContent` are invalid on value slots. String constraints apply to string values. Select validation checks option values. Custom and cross-field validators receive the slot's `value`.
+The view's `update` returns `false` when the input type changes so Tiptap can choose another renderer. Keep the leaf schema: do not add `contentDOM`.
 
-`createSlotFillingPolicy()` protects the slot's structure and every attribute except `value` for assigned fields. Objects and arrays are protected as a whole; there are no property-level permissions. Custom controllers use the same guarded commands as built-in inputs.
+### 3. Configure the editor and insert a slot
 
-With the Variable extension, value slots exchange JSON values directly. Explicit variable definitions and resolvers make their bound fields read-only. Runtime-only values that cannot be saved as JSON are refused when synchronizing into value slots.
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Slot } from '@tiptap-pro/extension-slot'
+import { ToggleSlot } from './toggle-slot.js'
 
-NodeViews are editor UI. Exported HTML preserves the value and configuration in `data-slot-*` attributes and renders a static value, without interactive controls. Custom input types without a custom view use a read-only fallback and retain their data.
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Slot.configure({ blockValueSlot: ToggleSlot })],
+  content: '<p>Notification preferences</p>',
+})
+
+editor.commands.insertSlot({
+  mode: 'value',
+  kind: 'block',
+  id: 'notifications',
+  value: false,
+  config: { label: 'Notifications', input: { type: 'toggle' } },
+})
+```
+
+Mount the editor in `<div id="editor"></div>`. Click the button or focus it and press Space: `attrs.value` switches between `true` and `false`. Undo restores the previous answer. With [Content Protection](/composable-docs/slots/guides/fill-only), a locked slot disables the button automatically.
+
+`toggle` is your application's input type, not a built-in. The stored value remains ordinary JSON, and exported HTML renders a static answer.
+
+## Create a custom input with React
+
+Build the same boolean toggle as the [JavaScript tutorial](#create-a-custom-input-with-vanilla-javascript), using a React component. The button supports Enter and Space without custom keyboard handlers.
+
+Use `ReactNodeViewRenderer` from `@tiptap/react` to render the component. The slot package itself has no React or Vue dependency.
+
+### 1. Create the component
+
+Create `ToggleSlot.jsx`. Connect the controller with `useSyncExternalStore` so document and permission changes refresh the UI:
+
+```jsx
+import { useMemo, useSyncExternalStore } from 'react'
+import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
+import {
+  BlockValueSlot,
+  createDefaultSlotValueView,
+  createSlotValueController,
+} from '@tiptap-pro/extension-slot'
+
+function ToggleView({ editor, getPos }) {
+  const slot = useMemo(() => createSlotValueController({ editor, getPos }), [editor, getPos])
+  const { value, config, editable, available } = useSyncExternalStore(
+    slot.subscribe,
+    slot.getState,
+    slot.getState,
+  )
+  const on = value === true
+
+  return (
+    <NodeViewWrapper contentEditable={false}>
+      <button
+        type="button"
+        aria-pressed={on}
+        disabled={!available || !editable}
+        onFocus={() => slot.focus()}
+        onClick={() => slot.setValue(slot.getValue() !== true)}
+      >
+        {config?.label ?? 'Notifications'}: {on ? 'On' : 'Off'}
+      </button>
+    </NodeViewWrapper>
+  )
+}
+```
+
+- `setValue` uses the same guarded commands as built-in controls.
+- The button renders controller state, so refused writes leave its answer unchanged.
+- React unsubscribes on unmount. The controller releases its editor listener when its last subscriber leaves, including during React Strict Mode cleanup.
+
+Do not add `NodeViewContent`: a value slot has no editable children.
+
+### 2. Register the React renderer
+
+Add this to `ToggleSlot.jsx`. Use React only for your `toggle` input and preserve built-in controls:
+
+```jsx
+export const ToggleSlot = BlockValueSlot.extend({
+  addNodeView() {
+    const renderToggle = ReactNodeViewRenderer(ToggleView, {
+      update: ({ newNode, updateProps }) => {
+        if (newNode.attrs.config?.input?.type !== 'toggle') return false
+        updateProps()
+        return true
+      },
+    })
+
+    return (props) =>
+      props.node.attrs.config?.input?.type === 'toggle'
+        ? renderToggle(props)
+        : createDefaultSlotValueView(props)
+  },
+})
+```
+
+Returning `false` when the input type changes lets Tiptap choose another renderer.
+
+### 3. Mount the editor and insert a slot
+
+```jsx
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { Slot } from '@tiptap-pro/extension-slot'
+import { ToggleSlot } from './ToggleSlot.jsx'
+
+export function NotificationEditor() {
+  const editor = useEditor({
+    extensions: [StarterKit, Slot.configure({ blockValueSlot: ToggleSlot })],
+    content: '<p>Notification preferences</p>',
+    immediatelyRender: false,
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={!editor}
+        onClick={() =>
+          editor.commands.insertSlot({
+            mode: 'value',
+            kind: 'block',
+            id: 'notifications',
+            value: false,
+            config: { label: 'Notifications', input: { type: 'toggle' } },
+          })
+        }
+      >
+        Add notifications toggle
+      </button>
+      <EditorContent editor={editor} />
+    </>
+  )
+}
+```
+
+Click **Add notifications toggle** once, then activate the toggle with the mouse, Enter, or Space. Its `attrs.value` switches between `true` and `false`; Undo restores the previous answer. Use a unique slot ID when inserting additional toggles.
+
+Add [Content Protection](/composable-docs/slots/guides/fill-only) to restrict editing. The component follows the controller's `editable` state automatically.
+
+**Using Vue?** Use `VueNodeViewRenderer` instead. Create the controller in setup, copy `getState()` into a `shallowRef`, update that ref from `subscribe`, and unsubscribe and destroy the controller in `onBeforeUnmount`. Render a `NodeViewWrapper` without `NodeViewContent`.
+
+## Validation
+
+Validation checks answers without preventing users from drafting invalid values. For example, require a name and check it before submission:
+
+```ts
+import { isSlotValidationCurrent, validateEditorSlots } from '@tiptap-pro/extension-slot'
+
+editor.commands.insertSlot({
+  mode: 'value',
+  kind: 'block',
+  id: 'name',
+  value: null,
+  config: { label: 'Your name', required: true, input: { type: 'text' } },
+})
+
+// Run in your application's submit handler.
+const result = await validateEditorSlots({ editor })
+if (isSlotValidationCurrent({ editor, result })) {
+  if (result.valid) {
+    save(editor.getJSON()) // Your application's persistence function.
+  } else {
+    console.log(result.issues) // Display these beside the affected inputs.
+  }
+}
+```
+
+- An empty or whitespace-only name fails validation, but users can still draft it.
+- `required` treats `null`, blank strings, and empty arrays as empty. `false` and `0` count as answers; use a custom validator for a checkbox that must be checked.
+- Select and radio answers must match an option value. Content settings such as `allowedBlocks` and `defaultContent` do not apply to value slots.
+
+See [Validate before submission](/composable-docs/slots/guides/validate-submission) for custom validators and cancelled runs.
+
+## Content protection
+
+Use Content Protection to let users fill in answers while protecting the document's structure and slot configuration. After inserting the slots, allow editing only the `name` slot:
+
+```ts
+import { createSlotFillingPolicy } from '@tiptap-pro/extension-slot'
+
+// Requires ContentProtection in the editor's extensions.
+editor.commands.setContentProtectionPolicy({
+  policy: createSlotFillingPolicy({ editableSlotIds: ['name'] }),
+})
+```
+
+Users can change the slot's value, but cannot delete it or change its configuration. Built-in and custom inputs follow the same permissions when using the value controller.
+
+See [Fill-only editing](/composable-docs/slots/guides/fill-only) for protection setup.
