@@ -3,71 +3,31 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronDownIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useMemo } from 'react'
+import { DOCS_AREAS, activeDocsArea } from './DocsSwitcher'
 import { NavLink } from './NavLink'
 import { NavLinkButton } from './ui/NavLinkButton'
-import { cn } from '@/utils'
 
 const options = [
   {
-    label: 'Features',
-    items: [
-      { label: 'Editor', href: '/editor/getting-started/overview' },
-      {
-        label: 'Collaboration',
-        href: '/collaboration/getting-started/overview',
-      },
-      { label: 'Comments', href: '/comments/getting-started/overview' },
-      { label: 'Compare', href: '/compare/getting-started/overview' },
-      { label: 'Composable Docs', href: '/composable-docs/slots/getting-started/overview' },
-      {
-        label: 'Tracked Changes',
-        href: '/tracked-changes/getting-started/overview',
-      },
-      { label: 'AI Toolkit', href: '/ai/ai-toolkit/overview' },
-      { label: 'Snapshots', href: '/collaboration/documents/snapshot' },
-      { label: 'Conversion', href: '/conversion/getting-started/overview' },
-      { label: 'Pages', href: '/pages/getting-started/overview' },
-    ],
+    label: 'Docs',
+    items: DOCS_AREAS.map(({ label, href }) => ({ label, href, target: undefined })),
   },
   {
     label: 'Others',
-    items: [
-      { label: 'Guides', href: '/guides' },
-      { label: 'Examples', href: '/examples' },
-      { label: 'UI Components', href: '/ui-components/getting-started/overview' },
-      { label: 'Website', href: 'https://tiptap.dev', target: '_blank' },
-    ],
+    items: [{ label: 'Website', href: 'https://tiptap.dev', target: '_blank' }],
   },
 ]
 
 export const MobileNavigationDropdown = () => {
   const pathname = usePathname()
 
-  const activeItem = useMemo(() => {
-    const flatOptions = options.flatMap((group) => group.items)
-
-    return flatOptions.find((option) => {
-      if (option.href === '/') {
-        return pathname === '/'
-      } else {
-        const firstPart = option.href.split('/')[1]
-        if (firstPart === '') {
-          return false
-        }
-
-        return pathname.startsWith(`/${firstPart}`)
-      }
-    })
-  }, [pathname])
-
-  const buttonClass = cn('text-base outline-none', !!activeItem ? 'font-semibold' : 'font-normal')
+  const activeItem = activeDocsArea(pathname)
 
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <NavLinkButton className={buttonClass}>
-          {activeItem?.label || 'All docs'}
+        <NavLinkButton className="text-base outline-none font-semibold">
+          {activeItem.label}
           <ChevronDownIcon className="w-3 h-3" />
         </NavLinkButton>
       </DropdownMenu.Trigger>

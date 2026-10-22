@@ -9,10 +9,7 @@ function isSidebarItem(value: unknown): value is { href: string; title: string }
 
   const item = value as Record<string, unknown>
 
-  return (
-    typeof item.href === 'string' &&
-    typeof item.title === 'string'
-  )
+  return typeof item.href === 'string' && typeof item.title === 'string'
 }
 
 function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
@@ -31,117 +28,38 @@ function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
 
 const changelogChildren = loadChangelogSidebarItems()
 
+// The Resources part of the global sidebar (src/content/sidebar.ts)
 export const sidebarConfig: SidebarConfig = {
-  id: 'all-docs',
-  rootHref: '/',
-  title: 'Home',
+  id: 'resources',
+  rootHref: '/resources/changelog',
+  title: 'Resources',
   items: [
     {
       type: 'group',
-      title: 'Getting started',
-      href: '/getting-started',
-      children: [
-        {
-          href: '/',
-          title: 'Overview',
-        },
-        {
-          href: '/resources/whats-new',
-          title: "What's new in 3.0",
-        },
-        {
-          href: '/authentication',
-          title: 'Authentication',
-          tags: ['New'],
-          children: [
-            {
-              href: '/authentication/migrate',
-              title: 'Migrate from legacy',
-            },
-            {
-              href: '/authentication/legacy',
-              title: 'Legacy authentication',
-            },
-          ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      title: 'Browse by feature',
-      href: '/suite-docs',
-      children: [
-        {
-          href: '/editor/getting-started/overview',
-          title: 'Editor',
-        },
-        {
-          href: '/collaboration/getting-started/overview',
-          title: 'Collaboration',
-        },
-        {
-          href: '/comments/getting-started/overview',
-          title: 'Comments',
-        },
-        {
-          href: '/tracked-changes/getting-started/overview',
-          title: 'Tracked Changes',
-        },
-        {
-          href: '/ai/ai-toolkit/overview',
-          title: 'AI Toolkit',
-        },
-        {
-          href: '/collaboration/documents/snapshot',
-          title: 'Snapshots',
-        },
-        {
-          href: '/conversion/getting-started/overview',
-          title: 'Conversion',
-        },
-        {
-          href: '/pages/getting-started/overview',
-          title: 'Pages',
-        },
-      ],
-    },
-    {
-      type: 'group',
       title: 'Resources',
-      href: '/',
+      href: '/resources',
       children: [
-        {
-          href: '/guides',
-          title: 'Guides',
-        },
-        {
-          href: '/examples',
-          title: 'Examples',
-        },
         {
           href: '/resources/agent-skill',
           title: 'Agent skill',
         },
         {
-          href: '/resources/tiptap-trial',
-          title: 'Tiptap trial',
-        },
-        {
-          href: '/resources/contributing',
-          title: 'Contributing',
-        },
-        {
           href: '/resources/changelog',
           title: 'Editor changelog',
-          children: changelogChildren,
+          children: changelogChildren.length > 0 ? changelogChildren : undefined,
         },
         {
           href: '/resources/incidents',
           title: 'Incidents',
         },
         {
+          href: '/resources/contributing',
+          title: 'Contributing',
+        },
+        {
           href: 'https://tiptap.dev/pro-license',
           title: 'Pro license',
+          external: true,
         },
       ],
     },

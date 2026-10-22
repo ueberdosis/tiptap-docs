@@ -20,6 +20,10 @@ export type SidebarGroup = {
   href: string
   tags?: string[]
   children: Omit<SidebarLink, 'type'>[]
+  /** The title folds the group open and closed. It starts open when it holds the current page. */
+  collapsible?: boolean
+  /** A collapsible group that starts open on every page. */
+  defaultOpen?: boolean
 }
 
 export type SidebarConfig = {

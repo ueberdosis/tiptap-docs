@@ -29,6 +29,13 @@ export const DocsSidebar = ({
   )
 }
 
+/** Whether the page is `href` or lies below it. An entry that only folds open (`href: ''`) never matches. */
+function isAtOrBelow(pathname: string, href: string): boolean {
+  if (href === '') return false
+  if (href === '/') return pathname === '/'
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 function hasActiveDescendant(
   children: Omit<SidebarLink, 'type'>[] | undefined,
   pathname: string,
@@ -36,9 +43,7 @@ function hasActiveDescendant(
   if (!children) return false
   return children.some(
     (child) =>
-      pathname === child.href ||
-      pathname.startsWith(child.href) ||
-      hasActiveDescendant(child.children, pathname),
+      isAtOrBelow(pathname, child.href) || hasActiveDescendant(child.children, pathname),
   )
 }
 
@@ -51,8 +56,7 @@ export const LinkItem = ({
 }) => {
   const pathname = usePathname()
   const isExactMatch = link.isActive ?? pathname === link.href
-  // Every path starts with '', so an entry that only folds open would always start open
-  const isActiveParent = link.href !== '' && pathname.startsWith(link.href)
+  const isActiveParent = isAtOrBelow(pathname, link.href)
   const hasActiveChild = hasActiveDescendant(link.children, pathname)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
@@ -143,13 +147,9 @@ export const LinkItem = ({
           </Link>
         </Sidebar.Button>
       )}
-      {link.children ? (
-        <div
-          className={cn(
-            'pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300',
-            isOpen ? 'block' : 'hidden',
-          )}
-        >
+      {/* Closed entries render no children: the global sidebar holds several hundred links */}
+      {link.children && isOpen ? (
+        <div className="pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300">
           {link.children.map((child, i) => (
             <LinkItem
               link={child}
@@ -164,23 +164,56 @@ export const LinkItem = ({
 }
 
 export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: () => void }) => {
+  const pathname = usePathname()
+  const holdsPage = hasActiveDescendant(group.children, pathname)
+  const [isOpen, setIsOpen] = useState(!group.collapsible || !!group.defaultOpen || holdsPage)
+  // Open the group that holds the page after a client-side navigation
+  const [openedFor, setOpenedFor] = useState(pathname)
+  if (openedFor !== pathname) {
+    setOpenedFor(pathname)
+    if (holdsPage) setIsOpen(true)
+  }
+
+  const tags = group.tags ? (
+    <span className="flex items-center gap-0.5">
+      {group.tags.map((tag) => (
+        <Tag key={tag} className="uppercase select-none" size="small">
+          {tag}
+        </Tag>
+      ))}
+    </span>
+  ) : null
+
   return (
     <Sidebar.Group>
-      <Sidebar.GroupTitle>
-        {group.title}
-        {group.tags ? (
-          <span className="flex items-center gap-0.5">
-            {group.tags.map((tag) => (
-              <Tag key={tag} className="uppercase select-none" size="small">
-                {tag}
-              </Tag>
-            ))}
-          </span>
-        ) : null}
-      </Sidebar.GroupTitle>
-      {group.children.map((link, i) => (
-        <LinkItem link={link} key={`${link.href}-${i}`} onClick={onClick} />
-      ))}
+      {group.collapsible ? (
+        <Sidebar.GroupTitle className="pl-0">
+          <button
+            type="button"
+            className="flex items-center gap-1 pl-1 pr-2 py-0.5 -my-0.5 rounded uppercase hover:bg-grayAlpha-100"
+            onClick={() => setIsOpen((open) => !open)}
+            aria-expanded={isOpen}
+          >
+            {isOpen ? (
+              <ChevronDownIcon className="size-3.5 text-grayAlpha-500" aria-hidden="true" />
+            ) : (
+              <ChevronRightIcon className="size-3.5 text-grayAlpha-500" aria-hidden="true" />
+            )}
+            {group.title}
+          </button>
+          {tags}
+        </Sidebar.GroupTitle>
+      ) : (
+        <Sidebar.GroupTitle>
+          {group.title}
+          {tags}
+        </Sidebar.GroupTitle>
+      )}
+      {isOpen
+        ? group.children.map((link, i) => (
+            <LinkItem link={link} key={`${link.href}-${i}`} onClick={onClick} />
+          ))
+        : null}
     </Sidebar.Group>
   )
 }

@@ -59,6 +59,40 @@ for (const [type, route] of Object.entries(PAGE_TYPES)) {
   })
 }
 
+test('breadcrumbs follow the page’s place in the sidebar', async ({ page, baseURL }) => {
+  await page.goto(siteUrl(baseURL, PAGE_TYPES['extension page']))
+  await expect(page.locator('[data-breadcrumb]')).toHaveText(['Editor', 'Extensions', 'Marks'])
+})
+
+test('a folded sidebar category opens on click', async ({ page, baseURL }) => {
+  await page.goto(siteUrl(baseURL, '/'))
+  const category = page.getByRole('button', { name: 'Document Platform' })
+  await expect(category).toHaveAttribute('aria-expanded', 'false')
+  await category.click()
+  await expect(category).toHaveAttribute('aria-expanded', 'true')
+  // The entry's name includes its fold button: "Comments Expand Comments"
+  await expect(
+    page
+      .locator('nav')
+      .getByRole('link', { name: /^Comments\b/ })
+      .first(),
+  ).toBeVisible()
+})
+
+test('the header switches between the documentation and UI Components', async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto(siteUrl(baseURL, PAGE_TYPES['ui component']))
+  const header = page.locator('header nav')
+  await expect(header.getByRole('link', { name: 'UI Components' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  )
+  await header.getByRole('link', { name: 'Documentation' }).click()
+  await expect(page).toHaveURL(siteUrl(baseURL, '/'))
+})
+
 test('the mobile navigation opens on the current page @mobile', async ({ page, baseURL }) => {
   await page.goto(siteUrl(baseURL, PAGE_TYPES['extension page']))
   const button = page.getByRole('button', { name: 'Bold', exact: true })

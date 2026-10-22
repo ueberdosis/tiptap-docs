@@ -92,6 +92,81 @@ test('every sidebar link reaches a page', () => {
   assert.deepEqual(failures, [])
 })
 
+const GLOBAL_SIDEBAR = 'src/content/sidebar.ts'
+const OWN_SIDEBAR = 'src/content/ui-components/sidebar.ts'
+const OUTSIDE_SIDEBAR_FILE = path.join(routes.ROOT, 'tests/fixtures/pages-outside-sidebar.txt')
+
+function sidebarPages(config) {
+  return routes
+    .sidebarLinks(config)
+    .map((link) => ({ ...link, route: routes.normalize(link.href) }))
+    .filter((link) => pages.has(link.route))
+}
+
+test('the global sidebar holds every page of the section sidebars', () => {
+  const sidebars = routes.loadSidebars()
+  const global = new Set(
+    sidebarPages(sidebars.find(({ file }) => file === GLOBAL_SIDEBAR).config).map(
+      (link) => link.route,
+    ),
+  )
+  const missing = sidebars
+    .filter(({ file }) => file !== GLOBAL_SIDEBAR && file !== OWN_SIDEBAR)
+    .flatMap(({ file, config }) =>
+      sidebarPages(config)
+        .filter((link) => !global.has(link.route))
+        .map((link) => `${file}: ${link.trail.join(' › ')} → ${link.href}`),
+    )
+  assert.deepEqual(missing, [], `Place these in ${GLOBAL_SIDEBAR}`)
+})
+
+test('every page sits once in its sidebar', () => {
+  const failures = []
+  for (const file of [GLOBAL_SIDEBAR, OWN_SIDEBAR]) {
+    const { config } = routes.loadSidebars().find((sidebar) => sidebar.file === file)
+    const seen = new Map()
+    for (const link of sidebarPages(config)) {
+      // Links to different sections of one page are different entries
+      const key = `${link.route}${link.href.includes('#') ? link.href.slice(link.href.indexOf('#')) : ''}`
+      seen.set(key, [...(seen.get(key) ?? []), link.trail])
+    }
+    for (const [route, trails] of seen) {
+      // A parent may link to the page of its first child
+      const [first, ...rest] = trails
+      const nested = rest.every((trail) => first.every((title, i) => trail[i] === title))
+      if (trails.length > 1 && !nested) {
+        failures.push(
+          `${file}: ${route} in ${trails.map((trail) => trail.join(' › ')).join(' and ')}`,
+        )
+      }
+    }
+  }
+  assert.deepEqual(failures, [])
+})
+
+test('pages outside every sidebar are exactly the listed ones', () => {
+  const listed = fs
+    .readFileSync(OUTSIDE_SIDEBAR_FILE, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+  const inSidebar = new Set(
+    routes
+      .loadSidebars()
+      .filter(({ file }) => file === GLOBAL_SIDEBAR || file === OWN_SIDEBAR)
+      .flatMap(({ config }) => sidebarPages(config).map((link) => link.route)),
+  )
+  const outside = [...pages].filter((route) => !inSidebar.has(route))
+  assert.deepEqual(
+    {
+      unlisted: outside.filter((route) => !listed.includes(route)),
+      stale: listed.filter((route) => !outside.includes(route)),
+    },
+    { unlisted: [], stale: [] },
+    'Link new pages from a sidebar, or list them in tests/fixtures/pages-outside-sidebar.txt',
+  )
+})
+
 test('every internal link in content and components reaches a page', () => {
   const sources = [
     ...routes.walk(routes.CONTENT_DIR),

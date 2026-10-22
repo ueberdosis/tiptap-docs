@@ -5,74 +5,51 @@ export type Breadcrumb = {
   text: string
 }
 
+type Item = SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>
+
+function isAtOrBelow(pathname: string, href: string): boolean {
+  if (!href) return false
+  if (href === '/') return pathname === '/'
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+/** The first page an item leads to: its own href, or that of its first linked descendant. */
+function firstHref(item: Item): string | undefined {
+  if (item.href && !('type' in item && item.type === 'group')) return item.href
+  for (const child of item.children ?? []) {
+    const href = firstHref(child)
+    if (href) return href
+  }
+  return undefined
+}
+
+/** The chain of items from the top of the sidebar down to the one for `pathname`. */
+function findTrail(items: Item[], pathname: string, exact: boolean): Item[] | null {
+  for (const item of items) {
+    const below = findTrail(item.children ?? [], pathname, exact)
+    if (below) return [item, ...below]
+    const isLink = !('type' in item && item.type === 'group')
+    if (isLink && (exact ? item.href === pathname : isAtOrBelow(pathname, item.href))) return [item]
+  }
+  return null
+}
+
+/**
+ * Breadcrumbs follow the page's place in the sidebar: the group and the
+ * entries above it. A page outside the sidebar takes the deepest entry
+ * whose URL it lies below.
+ */
 export const generateBreadcrumbs = (config: SidebarConfig, pathname: string): Breadcrumb[] => {
-  const isRoot = pathname === config.rootHref
+  // The global sidebar starts at its groups; a section sidebar starts at its own title
+  const root: Breadcrumb[] =
+    config.rootHref === '/' ? [] : [{ text: config.title, href: config.rootHref }]
 
-  if (isRoot) {
-    return [
-      {
-        text: config.title,
-        href: config.rootHref,
-      },
-    ] as Breadcrumb[]
-  }
+  const exact = findTrail(config.items, pathname, true)
+  // The page itself is the title below the breadcrumbs
+  const trail = exact ? exact.slice(0, -1) : (findTrail(config.items, pathname, false) ?? [])
 
-  let breadcrumbs: Breadcrumb[] = [
-    {
-      text: config.title,
-      href: config.rootHref,
-    },
-  ]
-
-  const pathParts = pathname.split('/').filter(Boolean)
-  let currentUrl = ''
-
-  const findItemByPathname = (
-    checkedPathname: string,
-    items: SidebarConfig['items'],
-  ): SidebarLink | SidebarGroup | null => {
-    let currentItem: SidebarLink | SidebarGroup | null = null
-
-    for (const item of items) {
-      if ((item as { isActive: boolean }).isActive === false) {
-        continue
-      }
-
-      if (item.href === checkedPathname && item.href !== pathname) {
-        if (item.type === 'group') {
-          currentItem = { ...item, href: item.children?.[0].href }
-        } else {
-          currentItem = item
-        }
-      }
-
-      if (!currentItem && item.children) {
-        currentItem = findItemByPathname(checkedPathname, item.children as SidebarConfig['items'])
-      }
-    }
-
-    return currentItem
-  }
-
-  for (const part of pathParts) {
-    currentUrl = `${currentUrl}/${part}`
-    const linkForPart = findItemByPathname(currentUrl, config.items)
-
-    if (linkForPart) {
-      const nextBreadcrumb = {
-        href: linkForPart.href,
-        text: linkForPart.title,
-      }
-      const previousBreadcrumb = breadcrumbs[breadcrumbs.length - 1]
-
-      if (
-        previousBreadcrumb?.href !== nextBreadcrumb.href ||
-        previousBreadcrumb?.text !== nextBreadcrumb.text
-      ) {
-        breadcrumbs.push(nextBreadcrumb)
-      }
-    }
-  }
-
-  return breadcrumbs
+  const crumbs = [...root, ...trail.map((item) => ({ text: item.title, href: firstHref(item) }))]
+  return crumbs.filter(
+    (crumb, i) => i === 0 || crumb.text !== crumbs[i - 1].text || crumb.href !== crumbs[i - 1].href,
+  )
 }
