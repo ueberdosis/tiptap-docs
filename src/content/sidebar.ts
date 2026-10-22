@@ -89,10 +89,11 @@ export const sidebarConfig: SidebarConfig = {
       defaultOpen: true,
       children: [
         { href: '/', title: 'Overview' },
+        { href: '/platform', title: 'The Tiptap platform' },
+        { href: '/document-model', title: 'The Tiptap document' },
         { ...link(editorSidebar, ['Get started', 'Overview']), title: 'The editor' },
         { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
         { href: '/configurator', title: 'Plan your editor' },
-        { href: '/document-model', title: 'The Tiptap document' },
         {
           href: '/authentication',
           title: 'Authentication',

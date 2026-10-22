@@ -195,3 +195,10 @@ test('industries only name catalog features, and list_features filters by them',
   assert.match(content[0].text, /Tracked Changes/)
   assert.doesNotMatch(content[0].text, /- Bold /)
 })
+
+test('.md links keep their query after the .md, and the platform page lists plans', async () => {
+  const md = await fileToMarkdown('src/content/platform.mdx')
+  assert.match(md, /\/editor\/extensions\/overview\.md\?plan=Open%20source\)/)
+  assert.match(md, /- \*\*Add-ons:\*\* .*\[Tracked Changes\]/)
+  assert.match(md, /- \*\*Enterprise:\*\* /)
+})

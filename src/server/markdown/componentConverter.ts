@@ -1,3 +1,4 @@
+import { getPlanRows } from '../planOverview'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 /** Open-source demos live in the tiptap repository; Pro demos stay private. */
@@ -119,6 +120,24 @@ export const componentConverters: Record<string, ComponentConverter> = {
       }),
     }
   },
+
+  // <PlanOverview /> → what each plan includes, as a list, from the catalog.
+  PlanOverview: () => ({
+    type: 'list',
+    ...({ ordered: false, spread: false } as object),
+    children: getPlanRows().map((row) => {
+      const items = [
+        ...row.features.map(({ name, url }) => ({ label: name, url })),
+        ...(row.links ?? []),
+      ]
+      const line: MdxNode[] = [strong(`${row.title}:`), text(` ${row.text}`)]
+      if (row.catalog) line.push(text(' '), link(row.catalog.url, `${row.catalog.count} features`))
+      items.forEach((item, i) => {
+        line.push(text(i === 0 ? ' ' : ', '), link(item.url, item.label))
+      })
+      return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
+    }),
+  }),
 
   // <Link href="…">text</Link> → a markdown link.
   Link: (node) => {
