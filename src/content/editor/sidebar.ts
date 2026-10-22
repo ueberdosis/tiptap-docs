@@ -655,6 +655,7 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Stage and camera', href: '/editor/whiteboard/guides/stage-and-camera' },
             { title: 'Shapes and tools', href: '/editor/whiteboard/guides/shapes-and-tools' },
             { title: 'Doc frames', href: '/editor/whiteboard/guides/doc-frames' },
+            { title: 'Images', href: '/editor/whiteboard/guides/images' },
             { title: 'Custom shapes', href: '/editor/whiteboard/guides/custom-shapes' },
             { title: 'Export and import', href: '/editor/whiteboard/guides/export-and-import' },
             {
