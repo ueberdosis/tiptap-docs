@@ -8,6 +8,7 @@ import { transformMdxToMarkdown } from './transformMdx'
 type Frontmatter = {
   title?: string
   description?: string
+  intro?: string
   meta?: { title?: string; description?: string }
 }
 
@@ -96,7 +97,9 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
 
   const parts: string[] = [frontmatter]
   if (title) parts.push(`# ${title}`)
-  if (description) parts.push(description)
+  // The intro is what readers see under the title; the meta description only stands in for it
+  const lead = attributes.intro ? cleanDescription(attributes.intro) : description
+  if (lead) parts.push(lead)
   parts.push(transformed)
 
   return `${parts.join('\n\n').trim()}\n`
