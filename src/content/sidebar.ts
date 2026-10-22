@@ -23,6 +23,11 @@ import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/comp
 // next to its content; this file decides where the sections sit. UI Components
 // keeps a separate sidebar (src/content/ui-components/sidebar.ts).
 
+/** One entry of a section sidebar, by its path of titles. */
+function link(config: SidebarConfig, titles: string[]): SidebarEntry {
+  return toEntries([pick(config, titles)])[0]
+}
+
 /** The catalog groups of an area, each folding open to its features. */
 function catalogGroups(area: CatalogArea): SidebarEntry[] {
   const catalog = getCatalog()
@@ -45,6 +50,8 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
     .filter((group) => group.children.length > 0)
 }
 
+const compare = section('Compare', compareSidebar, { inline: ['Get started'] })
+
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
 export const sidebarConfig: SidebarConfig = {
@@ -60,6 +67,7 @@ export const sidebarConfig: SidebarConfig = {
       defaultOpen: true,
       children: [
         { href: '/', title: 'Introduction' },
+        { href: '/document-model', title: 'The Tiptap document' },
         { href: '/resources/whats-new', title: "What's new in 3.0" },
         {
           href: '/authentication',
@@ -105,14 +113,58 @@ export const sidebarConfig: SidebarConfig = {
       href: '/document-platform',
       collapsible: true,
       children: [
-        section('Collaboration', collaborationSidebar, { inline: ['Get started'] }),
-        section('Comments', commentsSidebar, { inline: ['Get started'] }),
-        section('Tracked Changes', trackedChangesSidebar, {
-          inline: ['Get started'],
-          // Links to Conversion pages, which have their place there
-          omit: ['DOCX conversion'],
-        }),
-        section('Compare', compareSidebar, { inline: ['Get started'] }),
+        // The baseline every capability builds on: managed documents with real-time sync
+        {
+          title: 'Documents',
+          href: '',
+          children: [
+            ...childrenOf(collaborationSidebar, ['Get started']),
+            {
+              title: 'Document API',
+              href: '',
+              children: [
+                { ...link(collaborationSidebar, ['Documents', 'Overview']), title: 'Overview' },
+                link(collaborationSidebar, ['Documents', 'REST API']),
+                link(collaborationSidebar, ['Documents', 'Inject content']),
+              ],
+            },
+            link(collaborationSidebar, ['Documents', 'Snapshots']),
+            {
+              title: 'Real-time sync',
+              href: '',
+              children: [
+                { ...link(collaborationSidebar, ['Provider', 'Integration']), title: 'Provider' },
+                { ...link(collaborationSidebar, ['Provider', 'Events']), title: 'Provider events' },
+                link(collaborationSidebar, ['Features', 'Awareness']),
+              ],
+            },
+            link(collaborationSidebar, ['Features', 'Webhooks']),
+            { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
+          ],
+        },
+        {
+          title: 'Review',
+          href: '',
+          children: [
+            section('Comments', commentsSidebar, { inline: ['Get started'] }),
+            section('Tracked Changes', trackedChangesSidebar, {
+              inline: ['Get started'],
+              // Links to Conversion pages, which have their place there
+              omit: ['DOCX conversion'],
+            }),
+          ],
+        },
+        {
+          ...compare,
+          children: [
+            ...compare.children!,
+            // Compares two snapshots; Compare is taking over its job
+            {
+              ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
+              title: 'Compare snapshots',
+            },
+          ],
+        },
         section('Composable Docs', composableDocsSidebar),
         section('Pages', pagesSidebar, { inline: ['Getting started'] }),
         section('Conversion', conversionSidebar, { inline: ['Get started'] }),
@@ -140,7 +192,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '/hocuspocus',
       tags: ['Open source'],
       collapsible: true,
-      children: [section('Hocuspocus', hocuspocusSidebar, { inline: ['Get started'] })],
+      children: [
+        { href: '/self-hosting', title: 'Hocuspocus or Document Server' },
+        section('Hocuspocus', hocuspocusSidebar, { inline: ['Get started'] }),
+      ],
     },
     {
       type: 'group',

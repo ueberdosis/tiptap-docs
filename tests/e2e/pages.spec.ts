@@ -94,11 +94,11 @@ test('a folded sidebar category opens on click', async ({ page, baseURL }) => {
   await expect(category).toHaveAttribute('aria-expanded', 'false')
   await category.click()
   await expect(category).toHaveAttribute('aria-expanded', 'true')
-  // The entry's name includes its fold button: "Comments Expand Comments"
+  // The entry's name includes its fold button: "Documents Expand Documents"
   await expect(
     page
       .locator('nav')
-      .getByRole('link', { name: /^Comments\b/ })
+      .getByRole('link', { name: /^Documents\b/ })
       .first(),
   ).toBeVisible()
 })
