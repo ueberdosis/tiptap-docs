@@ -1,5 +1,8 @@
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
+/** Open-source demos live in the tiptap repository; Pro demos stay private. */
+const OPEN_SOURCE_DEMOS = 'https://github.com/ueberdosis/tiptap/tree/main/demos/src'
+
 /**
  * Markdown component converter: converters that turn MDX JSX components into plain
  * markdown nodes.
@@ -62,17 +65,27 @@ function demoLabel(node: MdxNode, url: string): string {
 }
 
 export const componentConverters: Record<string, ComponentConverter> = {
-  // <CodeDemo path="/Examples/Minimal" /> → blockquote linking to the live demo.
+  // <CodeDemo path="/Examples/Minimal" /> → blockquote linking to the live demo and,
+  // for open-source demos, to their code on GitHub, which an agent can read.
   CodeDemo: (node) => {
     const src = getAttr(node, 'src')
     const path = getAttr(node, 'path') ?? ''
-    const url = src ?? (hasFlag(node, 'isPro') ? PRO_DEMO_URL : DEMO_URL) + path
-    return {
-      type: 'blockquote',
-      children: [
-        paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))]),
-      ],
+    const isPro = hasFlag(node, 'isPro')
+    const url = src ?? (isPro ? PRO_DEMO_URL : DEMO_URL) + path
+    const children = [
+      paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))]),
+    ]
+    const folder = path.split('?')[0].replace(/\/+$/, '')
+    if (!src && !isPro && folder) {
+      children.push(
+        paragraph([
+          strong('Source code:'),
+          text(' '),
+          link(`${OPEN_SOURCE_DEMOS}${folder}`, `demos/src${folder}`),
+        ]),
+      )
     }
+    return { type: 'blockquote', children }
   },
 
   // <DemoViewer path="…" /> is the same demo in a different frame.

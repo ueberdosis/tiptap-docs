@@ -11,6 +11,7 @@ routes.registerTs()
 const { handleMcpMessage, toRoute } = loadSite('../src/server/mcp.ts')
 const { buildLlmsTxt, markdownUrl } = loadSite('../src/server/llmsText.ts')
 const { getDocsIndex } = loadSite('../src/server/getDocsIndex.ts')
+const { fileToMarkdown } = loadSite('../src/server/markdown/fileToMarkdown.ts')
 
 function loadSite(file) {
   return require(file)
@@ -106,4 +107,16 @@ test('llms.txt lists every page once, grouped like the sidebar', () => {
   assert.match(llms, /\n### Review › Comments\n/)
   assert.doesNotMatch(llms, /\/_[a-z]/, 'partials stay out of llms.txt')
   assert.equal(getDocsIndex().length, new Set(getDocsIndex().map((page) => page.route)).size)
+})
+
+test('.md pages link the code of open-source demos, not of Pro demos', async () => {
+  const bold = await fileToMarkdown('src/content/editor/extensions/marks/bold.mdx')
+  assert.match(
+    bold,
+    /\*\*Source code:\*\* \[demos\/src\/Marks\/Bold\]\(https:\/\/github\.com\/ueberdosis\/tiptap\/tree\/main\/demos\/src\/Marks\/Bold\)/,
+  )
+
+  const comments = await fileToMarkdown('src/content/comments/getting-started/overview.mdx')
+  assert.match(comments, /\*\*Interactive demo:\*\*/)
+  assert.doesNotMatch(comments, /Source code:/)
 })
