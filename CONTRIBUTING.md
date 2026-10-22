@@ -25,6 +25,58 @@ To contribute, please follow these steps:
    - Any relevant information that will help the maintainers understand your changes.
 8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
+## Writing Pages
+
+One text serves people and AI agents: every page is also served as Markdown and listed in `llms.txt`. Write it once, plainly.
+
+### How a page reads
+
+- Open with one or two sentences on what the feature does (`intro` in the frontmatter). Then the demo, then the smallest code that works.
+- Put a demo under the heading whose topic it shows, after one sentence that says what to try in it. Each demo has one home; other pages link to it.
+- One fact per sentence or bullet. Split a paragraph longer than about 60 words, or turn it into a list or a table.
+- Use tables for things with the same shape: options (option, type, description), return values, what is stored where.
+- Describe behavior as labeled bullets (`**Renaming a step** …`) under a heading that names the situation.
+- Every command looks the same: a heading with its name, one sentence, an example, an options table, and one line on when it returns `false`.
+- Headings are plain text that names a task or a thing. No code in headings.
+- Say a thing once and link to it.
+- Give every page a specific one-line `meta.description`. It becomes the meta description and the line in `llms.txt`; leave out "Learn more in our docs".
+
+### Page types
+
+| Type             | Use it for                                      | It holds                                                                                                                       |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Feature overview | The entry to a larger feature, such as Comments | `intro`, demo, "What you can do with it" with links into the details, "Get started" with access and minimal code, "Next steps" |
+| Feature page     | One extension or one topic of a feature         | `intro`, demo, quick start, behavior, its commands, an options table                                                           |
+| Install          | Getting a feature running                       | Requirements, install command, the smallest working setup, next steps                                                          |
+| Chooser          | A decision between options, such as hosting     | A comparison table, a recommendation, then a section per option                                                                |
+| Guide            | A task across several steps or features         | Goal, prerequisites, steps, result                                                                                             |
+| API reference    | Looking things up                               | Tables and the command format above; little prose                                                                              |
+| Example          | Showing a finished use                          | The demo first, a short explanation, links to the features it uses                                                             |
+
+A feature overview starts like this:
+
+```mdx
+---
+title: 'Comment on any part of a document'
+intro: 'Comments lets people discuss a document in threads attached to the text they are about.'
+tags:
+  - type: start
+meta:
+  title: 'Comments | Tiptap Docs'
+  description: 'Add comment threads to Tiptap documents, store them with the document, and manage them from your backend.'
+  category: Comments
+extension: { name, description, type, icon, group } # its catalog entry, see Feature Catalog
+---
+
+## What you can do with it
+
+- **Discuss any part of a document.** Threads on text or nodes, inline or in a sidebar. [Manage threads](/comments/core-concepts/manage-threads)
+
+## Get started
+
+## Next steps
+```
+
 ## Moving or Renaming Pages
 
 A published URL has to keep working. When you move, rename or delete a page:
