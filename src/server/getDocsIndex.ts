@@ -22,6 +22,8 @@ export type DocsPage = {
   plan?: CatalogPlan
   /** Release state from the page tags, such as Beta or Deprecated. */
   status?: string
+  /** The npm packages of a feature page, space-separated. */
+  package?: string
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -71,6 +73,7 @@ function pageFromFile(route: string, file: string, trail: string[], fallbackTitl
     trail,
     plan: planOf(tags, !!attributes.extension),
     status: statusFromTags(tags),
+    package: attributes.extension?.package,
   }
 }
 

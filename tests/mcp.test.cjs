@@ -76,6 +76,7 @@ test('get_page returns Markdown with section and plan, and follows redirects', a
     path: 'https://tiptap.dev/docs/editor/extensions/marks/bold.md',
   })
   assert.match(viaUrl.content[0].text, /title: "Bold extension"/)
+  assert.match(viaUrl.content[0].text, /package: "@tiptap\/extension-bold"/)
 
   // /guides/spellcheck moved to /editor/guides/spellcheck
   const moved = await tool('get_page', { path: '/guides/spellcheck' })
