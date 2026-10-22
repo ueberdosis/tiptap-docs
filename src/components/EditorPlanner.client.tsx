@@ -1,7 +1,7 @@
 'use client'
 
 import { CheckIcon, CopyIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from './ui/Button'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
@@ -191,6 +191,20 @@ export const EditorPlannerView = ({
   )
   const upcoming = (industry?.features ?? []).filter((name) => !byName.has(name))
 
+  // On small screens the summary sits below both steps, so a bar at the bottom
+  // keeps the plan and the next step in view until the summary is reached
+  const summaryRef = useRef<HTMLElement>(null)
+  const [isSummaryReached, setIsSummaryReached] = useState(false)
+  useEffect(() => {
+    const summary = summaryRef.current
+    if (!summary) return
+    const observer = new IntersectionObserver(([entry]) =>
+      setIsSummaryReached(entry.isIntersecting || entry.boundingClientRect.top < 0),
+    )
+    observer.observe(summary)
+    return () => observer.disconnect()
+  }, [])
+
   const needle = query.trim().toLowerCase()
   const visible = entries.filter(
     (entry) =>
@@ -200,7 +214,7 @@ export const EditorPlannerView = ({
   )
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] gap-10 items-start">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] gap-10 items-start pb-20 lg:pb-0">
       <div className="grid gap-12 min-w-0">
         <Step number={1} title="What are you building?">
           <div className="grid sm:grid-cols-2 gap-2">
@@ -381,8 +395,10 @@ export const EditorPlannerView = ({
       </div>
 
       <aside
+        ref={summaryRef}
+        id="your-plan"
         aria-label="Your plan"
-        className="lg:sticky lg:top-24 grid gap-5 p-5 rounded-xl border border-grayAlpha-200 bg-white"
+        className="scroll-mt-24 lg:sticky lg:top-24 grid gap-5 p-5 rounded-xl border border-grayAlpha-200 bg-white"
       >
         <div>
           <div className="text-sm text-grayAlpha-600">Your plan</div>
@@ -461,6 +477,27 @@ export const EditorPlannerView = ({
 
         <CopyButton text={markdown} label="Copy for your agent" />
       </aside>
+
+      <div
+        className={cn(
+          'lg:hidden fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 px-4 py-3 border-t border-grayAlpha-200 bg-white transition-transform',
+          isSummaryReached ? 'translate-y-full' : 'translate-y-0',
+        )}
+        inert={isSummaryReached}
+      >
+        <a href="#your-plan" className="flex-1 min-w-0 no-underline">
+          <div className="text-xs text-grayAlpha-600">
+            Your plan · {selected.size} {selected.size === 1 ? 'feature' : 'features'}
+          </div>
+          <div className="font-bold text-black truncate">
+            {planName(result)}
+            {result.addOns.length ? ' + add-ons' : ''}
+          </div>
+        </a>
+        <Button asChild variant="primary" size="small">
+          <Link href={primary.url}>{primary.label}</Link>
+        </Button>
+      </div>
     </div>
   )
 }

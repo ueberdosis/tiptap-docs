@@ -169,6 +169,23 @@ test('the mobile navigation opens on the current page @mobile', async ({ page, b
   await expect(page.locator('[aria-current="page"]:visible').first()).toBeVisible()
 })
 
+test('Plan your editor keeps the plan in a bar until the summary is reached @mobile', async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto(siteUrl(baseURL, '/configurator?preset=review'))
+  const bar = page.locator('a[href="#your-plan"]')
+  await expect(bar).toBeInViewport()
+  await expect(bar).toContainText('Start + add-ons')
+
+  await page.getByRole('complementary', { name: 'Your plan' }).scrollIntoViewIfNeeded()
+  await expect(bar).not.toBeInViewport()
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect(bar).not.toBeInViewport()
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect(bar).toBeInViewport()
+})
+
 test.describe('every page in the browser', () => {
   test.skip(!process.env.SMOKE_ALL, 'Set SMOKE_ALL=1 to load every page in a browser')
 
