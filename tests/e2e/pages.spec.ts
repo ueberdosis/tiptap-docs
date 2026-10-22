@@ -95,7 +95,7 @@ test('the catalog filters by industry and the configurator adds its features', a
   await expect(catalog.getByRole('link', { name: /^Bold/ })).toHaveCount(0)
 
   await page.goto(siteUrl(baseURL, '/configurator?industry=finance'))
-  await page.getByRole('button', { name: 'Add all for Finance and reporting' }).click()
+  await page.getByRole('button', { name: 'Add all for Finance' }).click()
   await expect(page.getByRole('region', { name: 'What you need' })).toContainText('Team')
 })
 
