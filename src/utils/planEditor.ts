@@ -12,9 +12,12 @@ export type PlannedFeature = {
   package?: string
 }
 
+export type Deployment = 'cloud' | 'on-premises'
+
 export type EditorPlan = {
   /** The smallest plan that covers every selected feature. */
   plan: 'Open source' | 'Start' | 'Team'
+  deployment: Deployment
   addOns: string[]
   pilot: string[]
   services: ServiceNeed[]
@@ -47,6 +50,7 @@ export const SERVICE_TEXT: Record<ServiceNeed, { title: string; text: string; ur
 export function planEditor(
   features: PlannedFeature[],
   template?: EditorPreset['template'],
+  deployment: Deployment = 'cloud',
 ): EditorPlan {
   let plan: EditorPlan['plan'] = 'Open source'
   for (const feature of features) {
@@ -68,6 +72,7 @@ export function planEditor(
 
   return {
     plan,
+    deployment,
     addOns: features.filter((feature) => feature.plan === 'Add-on').map((feature) => feature.name),
     pilot: features
       .filter((feature) => feature.plan === 'Pilot program')
@@ -80,6 +85,43 @@ export function planEditor(
   }
 }
 
+/** The plan to name: on-premises always needs Enterprise. */
+export function planName(result: EditorPlan): string {
+  return result.deployment === 'on-premises' ? 'Enterprise' : result.plan
+}
+
+export type NextStep = { label: string; url: string; text: string }
+
+/** What to do next: build for free, start a trial, or talk to sales. */
+export function nextSteps(result: EditorPlan): { primary: NextStep; secondary?: NextStep } {
+  const trial = {
+    label: 'Start free trial',
+    url: 'https://cloud.tiptap.dev/register',
+    text: 'Try every paid feature for 30 days, without a credit card.',
+  }
+  const sales = {
+    label: 'Talk to sales',
+    url: 'https://tiptap.dev/contact-sales',
+    text: 'Add-ons, the pilot program, and on-premises are set up with the Tiptap team.',
+  }
+  if (result.deployment === 'on-premises' || result.addOns.length || result.pilot.length) {
+    return { primary: sales, secondary: trial }
+  }
+  if (result.plan === 'Open source') {
+    return {
+      primary: {
+        label: 'Start building',
+        url: '/editor/getting-started/install',
+        text: 'Everything you picked is open source.',
+      },
+    }
+  }
+  return {
+    primary: trial,
+    secondary: { label: 'See pricing', url: 'https://tiptap.dev/pricing', text: '' },
+  }
+}
+
 /** The plan as Markdown, for agents and for "Copy for your agent". */
 export function planToMarkdown(
   result: EditorPlan,
@@ -87,7 +129,10 @@ export function planToMarkdown(
   title = 'Editor plan',
 ): string {
   const absolute = (url: string) => (url.startsWith('http') ? url : `${docsRoot}${url}`)
-  const lines = [`# ${title}`, '', '## Plan', '', `- Plan: ${result.plan}`]
+  const lines = [`# ${title}`, '', '## Plan', '', `- Plan: ${planName(result)}`]
+  lines.push(
+    `- Runs on: ${result.deployment === 'on-premises' ? 'your own servers (on-premises, Enterprise)' : 'Tiptap Cloud'}`,
+  )
   if (result.addOns.length) lines.push(`- Add-ons: ${result.addOns.join(', ')}`)
   if (result.pilot.length) lines.push(`- Pilot program: ${result.pilot.join(', ')}`)
 
@@ -116,6 +161,14 @@ export function planToMarkdown(
       `- ${result.template.title}: ${absolute(result.template.url)}.md`,
     )
   }
+
+  const { primary } = nextSteps(result)
+  lines.push(
+    '',
+    '## Next step',
+    '',
+    `- ${primary.label}: ${absolute(primary.url)}. ${primary.text}`.trim(),
+  )
 
   lines.push('', '## Features', '')
   for (const feature of result.features) {

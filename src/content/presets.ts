@@ -9,6 +9,8 @@ export type EditorPreset = {
   features: string[]
   /** A UI Components template that already builds this editor. */
   template?: { title: string; url: string }
+  /** Features people often add to this kind of editor. */
+  suggestions: string[]
 }
 
 export const EDITOR_PRESETS: EditorPreset[] = [
@@ -29,6 +31,7 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Trailing node',
     ],
     template: { title: 'Simple template', url: '/ui-components/templates/simple-editor' },
+    suggestions: ['Placeholder', 'Character count', 'Table kit', 'Mention', 'Typography'],
   },
   {
     id: 'notion',
@@ -57,6 +60,14 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Basic AI Generation',
     ],
     template: { title: 'Notion-like template', url: '/ui-components/templates/notion-like-editor' },
+    suggestions: [
+      'Table kit',
+      'Details',
+      'Table of contents',
+      'Comments',
+      'Snapshots',
+      'AI Toolkit',
+    ],
   },
   {
     id: 'word',
@@ -80,6 +91,14 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Collaboration caret',
     ],
     template: { title: 'DOCX Editor template', url: '/ui-components/templates/docx-editor' },
+    suggestions: [
+      'Tracked Changes',
+      'Comments',
+      'Compare',
+      'Snapshots',
+      'Find and replace',
+      'ODT export',
+    ],
   },
   {
     id: 'review',
@@ -94,24 +113,28 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Compare',
       'Snapshots',
     ],
+    suggestions: ['Pages', 'DOCX import', 'DOCX export', 'AI Toolkit', 'Compare snapshots'],
   },
   {
     id: 'ai',
     title: 'AI writing assistant',
     description: 'An agent that edits the document, with its changes as suggestions to review.',
     features: ['Starter kit', 'AI Toolkit', 'Tracked Changes', 'Comments'],
+    suggestions: ['Basic AI Generation', 'Snapshots', 'Compare', 'Collaboration'],
   },
   {
     id: 'collaboration',
     title: 'Real-time collaboration',
     description: 'Several people in one document, with presence, history, and comments.',
     features: ['Starter kit', 'Collaboration', 'Collaboration caret', 'Snapshots', 'Comments'],
+    suggestions: ['Tracked Changes', 'Compare', 'Mention', 'Basic AI Generation'],
   },
   {
     id: 'templates',
     title: 'Document templates',
     description: 'Fields to fill, values from your data, and parts that only some may edit.',
     features: ['Starter kit', 'Slots', 'Variables', 'Content Protection'],
+    suggestions: ['Pages', 'PDF export', 'DOCX export', 'Compare', 'Tracked Changes'],
   },
 ]
 

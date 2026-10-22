@@ -96,25 +96,39 @@ test('the catalog filters by industry and the configurator adds its features', a
 
   await page.goto(siteUrl(baseURL, '/configurator?industry=finance'))
   await page.getByRole('button', { name: 'Add all for Finance' }).click()
-  await expect(page.getByRole('region', { name: 'What you need' })).toContainText('Team')
+  await expect(page.getByRole('complementary', { name: 'Your plan' })).toContainText('Team')
 })
 
-test('Plan your editor follows the preset and the chosen features', async ({ page, baseURL }) => {
+test('Plan your editor follows the preset, the features and where it runs', async ({
+  page,
+  baseURL,
+}) => {
   const errors = watchErrors(page, new URL(siteRoot(baseURL)).origin)
   await page.goto(siteUrl(baseURL, '/configurator?preset=word'))
-  const summary = page.getByRole('region', { name: 'What you need' })
+  const summary = page.getByRole('complementary', { name: 'Your plan' })
   await expect(summary).toContainText('Team')
+  await expect(summary.getByRole('link', { name: 'Start free trial' })).toBeVisible()
   await expect(summary.locator('pre')).toContainText('@tiptap-pro/extension-pages')
 
   await page.getByRole('button', { name: /^Simple editor/ }).click()
   // The default preset leaves the URL clean
   await expect(page).not.toHaveURL(/preset=/)
   await expect(summary).toContainText('Open source')
+  await expect(summary.getByRole('link', { name: 'Start building' })).toBeVisible()
   await expect(summary.locator('pre')).not.toContainText('@tiptap-pro')
 
+  await page.getByText(/^Browse all \d+ features$/).click()
   await page.getByRole('checkbox', { name: /^Comments/ }).check()
   await expect(summary).toContainText('Document Server')
   await expect(summary.locator('pre')).toContainText('@tiptap-pro/extension-comments')
+
+  await page.getByRole('button', { name: 'Remove Comments' }).click()
+  await expect(summary.locator('pre')).not.toContainText('@tiptap-pro/extension-comments')
+
+  await page.getByRole('button', { name: /^On-premises/ }).click()
+  await expect(page).toHaveURL(/hosting=on-premises/)
+  await expect(summary).toContainText('Enterprise')
+  await expect(summary.getByRole('link', { name: 'Talk to sales' })).toBeVisible()
   expect(errors).toEqual([])
 })
 

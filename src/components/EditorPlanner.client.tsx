@@ -1,9 +1,8 @@
 'use client'
 
-import { CheckIcon, CopyIcon, SearchIcon } from 'lucide-react'
+import { CheckIcon, CopyIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from './ui/Button'
-import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { CATALOG_AREAS, CATALOG_GROUPS, CatalogArea } from '@/content/catalog'
@@ -11,9 +10,25 @@ import { INDUSTRIES } from '@/content/industries'
 import { EDITOR_PRESETS } from '@/content/presets'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import type { CatalogEntry } from '@/server/getCatalog'
-import { PlannedFeature, SERVICE_TEXT, planEditor, planToMarkdown } from '@/utils/planEditor'
+import { cn } from '@/utils'
+import {
+  Deployment,
+  PlannedFeature,
+  SERVICE_TEXT,
+  nextSteps,
+  planName,
+  planEditor,
+  planToMarkdown,
+} from '@/utils/planEditor'
 
 const CUSTOM = 'custom'
+const UNSURE = 'unsure'
+
+const DEPLOYMENTS = [
+  { id: 'cloud', title: 'Tiptap Cloud', text: 'Tiptap runs the services for you.' },
+  { id: 'on-premises', title: 'On-premises', text: 'The services run on your own servers.' },
+  { id: UNSURE, title: 'Not sure yet', text: 'Decide later. The plan assumes Tiptap Cloud.' },
+]
 
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
@@ -37,7 +52,72 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   )
 }
 
-/** Pick a starting point, add or remove features, and see what it takes to build the editor. */
+function Step({
+  number,
+  title,
+  children,
+}: {
+  number: number
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section aria-labelledby={`step-${number}`} className="grid gap-4">
+      <h2
+        id={`step-${number}`}
+        className="flex items-center gap-3 text-xl font-bold leading-[120%]"
+      >
+        <span
+          className="flex-none grid place-items-center size-7 rounded-full bg-black text-white text-sm"
+          aria-hidden="true"
+        >
+          {number}
+        </span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+function ChoiceCard({
+  isActive,
+  onClick,
+  title,
+  text,
+}: {
+  isActive: boolean
+  onClick: () => void
+  title: string
+  text: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={isActive}
+      className={cn(
+        'text-left p-4 rounded-xl border bg-white transition-colors',
+        isActive
+          ? 'border-purple-500 ring-1 ring-purple-500'
+          : 'border-grayAlpha-200 hover:border-grayAlpha-400',
+      )}
+    >
+      <div className="font-semibold text-black">{title}</div>
+      <div className="mt-1 text-sm text-grayAlpha-600">{text}</div>
+    </button>
+  )
+}
+
+function PlanTag({ plan }: { plan?: string }) {
+  return plan && plan !== 'Open source' ? (
+    <Tag size="small" variant="gray">
+      {plan}
+    </Tag>
+  ) : null
+}
+
+/** A guided way to pick an editor's features and see the plan and the next step for it. */
 export const EditorPlannerView = ({
   entries,
   docsRoot,
@@ -46,13 +126,16 @@ export const EditorPlannerView = ({
   docsRoot: string
 }) => {
   const [presetId, setPresetId] = useUrlParam<string>('preset', EDITOR_PRESETS[0].id)
+  const [industryId, setIndustryId] = useUrlParam<string>('industry', '')
+  const [deploymentId, setDeploymentId] = useUrlParam<string>('hosting', 'cloud')
   const preset = EDITOR_PRESETS.find((candidate) => candidate.id === presetId)
+  const industry = INDUSTRIES.find((candidate) => candidate.id === industryId)
+  const deployment: Deployment = deploymentId === 'on-premises' ? 'on-premises' : 'cloud'
+
   // Changes to the preset, so a preset from the URL needs no extra render
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [removed, setRemoved] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
-  const [industryId, setIndustryId] = useUrlParam<string>('industry', '')
-  const industry = INDUSTRIES.find((candidate) => candidate.id === industryId)
 
   const selected = useMemo(() => {
     const names = new Set(preset?.features ?? [])
@@ -66,7 +149,8 @@ export const EditorPlannerView = ({
     .map((name) => byName.get(name))
     .filter((entry): entry is CatalogEntry => !!entry)
     .map(({ name, url, plan, package: pkg }) => ({ name, url, plan, package: pkg }))
-  const result = planEditor(features, preset?.template)
+  const result = planEditor(features, preset?.template, deployment)
+  const { primary, secondary } = nextSteps(result)
   const markdown = planToMarkdown(
     result,
     docsRoot,
@@ -79,35 +163,32 @@ export const EditorPlannerView = ({
     setRemoved(new Set())
   }
 
-  const toggle = (name: string) => {
-    const isOn = selected.has(name)
-    const inPreset = preset?.features.includes(name) ?? false
-    const nextAdded = new Set(added)
-    const nextRemoved = new Set(removed)
-    if (isOn) {
-      nextAdded.delete(name)
-      if (inPreset) nextRemoved.add(name)
-    } else {
-      nextRemoved.delete(name)
-      if (!inPreset) nextAdded.add(name)
-    }
-    setAdded(nextAdded)
-    setRemoved(nextRemoved)
-  }
-
-  const addAll = (names: string[]) => {
+  const setFeatures = (names: string[], on: boolean) => {
     const nextAdded = new Set(added)
     const nextRemoved = new Set(removed)
     for (const name of names) {
-      nextRemoved.delete(name)
-      if (!(preset?.features.includes(name) ?? false)) nextAdded.add(name)
+      const inPreset = preset?.features.includes(name) ?? false
+      if (on) {
+        nextRemoved.delete(name)
+        if (!inPreset) nextAdded.add(name)
+      } else {
+        nextAdded.delete(name)
+        if (inPreset) nextRemoved.add(name)
+      }
     }
     setAdded(nextAdded)
     setRemoved(nextRemoved)
   }
 
-  // Features of the industry that have docs; announced ones are only named
-  const recommended = (industry?.features ?? []).filter((name) => byName.has(name))
+  // Features the industry and the preset suggest, that aren't in the editor yet.
+  // Announced features without docs are only named.
+  const suggested = [...new Set([...(industry?.features ?? []), ...(preset?.suggestions ?? [])])]
+  const recommended = suggested
+    .filter((name) => byName.has(name) && !selected.has(name))
+    .map((name) => byName.get(name) as CatalogEntry)
+  const industryMissing = (industry?.features ?? []).filter(
+    (name) => byName.has(name) && !selected.has(name),
+  )
   const upcoming = (industry?.features ?? []).filter((name) => !byName.has(name))
 
   const needle = query.trim().toLowerCase()
@@ -119,204 +200,267 @@ export const EditorPlannerView = ({
   )
 
   return (
-    <div className="grid gap-10">
-      <section aria-label="Start from" className="grid gap-3">
-        <h2 className="text-xl font-bold leading-[120%]">Start from</h2>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
-          {EDITOR_PRESETS.map((candidate) => (
-            <button
-              key={candidate.id}
-              type="button"
-              onClick={() => choosePreset(candidate.id)}
-              aria-pressed={candidate.id === presetId}
-              className={`text-left p-4 rounded-xl border transition-colors ${
-                candidate.id === presetId
-                  ? 'border-purple-500 bg-white'
-                  : 'border-grayAlpha-200 hover:border-grayAlpha-400'
-              }`}
-            >
-              <div className="font-semibold text-black">{candidate.title}</div>
-              <div className="mt-1 text-sm text-grayAlpha-600">{candidate.description}</div>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => choosePreset(CUSTOM)}
-            aria-pressed={presetId === CUSTOM}
-            className={`text-left p-4 rounded-xl border transition-colors ${
-              presetId === CUSTOM
-                ? 'border-purple-500 bg-white'
-                : 'border-grayAlpha-200 hover:border-grayAlpha-400'
-            }`}
-          >
-            <div className="font-semibold text-black">Start empty</div>
-            <div className="mt-1 text-sm text-grayAlpha-600">Pick every feature yourself.</div>
-          </button>
-        </div>
-      </section>
-
-      <Card>
-        <section aria-label="What you need" className="grid gap-5">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <h2 className="text-xl font-bold leading-[120%]">What you need</h2>
-            <CopyButton text={markdown} label="Copy for your agent" />
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem] gap-10 items-start">
+      <div className="grid gap-12 min-w-0">
+        <Step number={1} title="What are you building?">
+          <div className="grid sm:grid-cols-2 gap-2">
+            {EDITOR_PRESETS.map((candidate) => (
+              <ChoiceCard
+                key={candidate.id}
+                isActive={candidate.id === presetId}
+                onClick={() => choosePreset(candidate.id)}
+                title={candidate.title}
+                text={candidate.description}
+              />
+            ))}
+            <ChoiceCard
+              isActive={presetId === CUSTOM}
+              onClick={() => choosePreset(CUSTOM)}
+              title="Start empty"
+              text="Pick every feature yourself."
+            />
           </div>
 
-          <dl className="grid sm:grid-cols-[10rem_1fr] gap-x-6 gap-y-3 text-sm">
-            <dt className="font-semibold">Plan</dt>
-            <dd>
-              {result.plan}
-              {result.addOns.length ? `, plus the add-ons ${result.addOns.join(', ')}` : ''}
-              {result.pilot.length ? `, and the pilot program for ${result.pilot.join(', ')}` : ''}
-              {result.plan !== 'Open source' || result.addOns.length ? (
-                <>
-                  {' '}
-                  · <Link href="https://tiptap.dev/pricing">Pricing</Link>
-                </>
-              ) : null}
-            </dd>
-            {result.services.map((service) => (
-              <div className="contents" key={service}>
-                <dt className="font-semibold">{SERVICE_TEXT[service].title}</dt>
-                <dd>
-                  {SERVICE_TEXT[service].text} <Link href={SERVICE_TEXT[service].url}>Hosting</Link>
-                </dd>
-              </div>
+          <h3 className="font-semibold mt-4">Your industry (optional)</h3>
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Industry">
+            {INDUSTRIES.map((candidate) => (
+              <Button
+                key={candidate.id}
+                variant="tertiary"
+                size="small"
+                isActive={candidate.id === industryId}
+                aria-pressed={candidate.id === industryId}
+                onClick={() => setIndustryId(candidate.id === industryId ? '' : candidate.id)}
+              >
+                {candidate.title}
+              </Button>
             ))}
-            {result.template ? (
-              <>
-                <dt className="font-semibold">UI template</dt>
-                <dd>
-                  <Link href={result.template.url}>{result.template.title}</Link> already builds
-                  this editor.
-                </dd>
-              </>
-            ) : null}
-            <dt className="font-semibold">Features</dt>
-            <dd className="flex flex-wrap gap-1">
-              {result.features.length === 0 ? 'None selected yet.' : null}
-              {result.features.map((feature) => (
-                <Link key={feature.name} href={feature.url} className="no-underline">
-                  <Tag>{feature.name}</Tag>
-                </Link>
-              ))}
-            </dd>
-          </dl>
+          </div>
+          {industry ? <p className="text-sm text-grayAlpha-600">{industry.description}</p> : null}
 
-          {result.packages.length ? (
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-4">
-                <h3 className="font-semibold text-sm">Install</h3>
-                <CopyButton text={`npm install ${result.packages.join(' ')}`} label="Copy" />
-              </div>
-              <pre className="text-sm bg-grayAlpha-100 rounded-lg p-3 whitespace-pre-wrap break-all">
-                <code>npm install {result.packages.join(' ')}</code>
-              </pre>
+          <h3 className="font-semibold mt-4">Where should it run?</h3>
+          <div className="grid sm:grid-cols-3 gap-2" role="group" aria-label="Where it runs">
+            {DEPLOYMENTS.map((option) => (
+              <ChoiceCard
+                key={option.id}
+                isActive={deploymentId === option.id}
+                onClick={() => setDeploymentId(option.id)}
+                title={option.title}
+                text={option.text}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-grayAlpha-600">
+            The editor always runs in your app. <Link href="/hosting">Hosting</Link> compares where
+            the Document Server, AI, and Conversion can run.
+          </p>
+        </Step>
+
+        <Step number={2} title="Adjust the features">
+          <div className="grid gap-2">
+            <h3 className="font-semibold">In your editor ({selected.size})</h3>
+            {selected.size === 0 ? (
               <p className="text-sm text-grayAlpha-600">
-                Add your framework&apos;s package too, such as <code>@tiptap/react</code> (
-                <Link href="/editor/getting-started/install">Quick start</Link>).
-                {result.hasProPackages ? (
-                  <>
-                    {' '}
-                    Packages under <code>@tiptap-pro</code> come from{' '}
-                    <Link href="/guides/pro-extensions">Tiptap&apos;s private registry</Link>.
-                  </>
-                ) : null}
+                Nothing yet. Add recommended features or browse all of them.
               </p>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5" aria-label="Selected features">
+                {[...selected].map((name) => (
+                  <li
+                    key={name}
+                    className="inline-flex items-center gap-1 rounded-full border border-grayAlpha-200 bg-white pl-3 pr-1 py-0.5 text-sm"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      className="p-1 rounded-full text-grayAlpha-600 hover:bg-grayAlpha-100 hover:text-black"
+                      onClick={() => setFeatures([name], false)}
+                      aria-label={`Remove ${name}`}
+                    >
+                      <XIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {recommended.length ? (
+            <div className="grid gap-3 mt-2">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <h3 className="font-semibold">Recommended</h3>
+                {industry && industryMissing.length ? (
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    onClick={() => setFeatures(industryMissing, true)}
+                  >
+                    Add all for {industry.title}
+                  </Button>
+                ) : null}
+              </div>
+              <ul className="grid sm:grid-cols-2 gap-2">
+                {recommended.map((entry) => (
+                  <li
+                    key={entry.name}
+                    className="flex items-start gap-3 p-3 rounded-xl border border-grayAlpha-200 bg-white"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={entry.url} className="font-semibold text-black">
+                          {entry.name}
+                        </Link>
+                        <PlanTag plan={entry.plan} />
+                      </div>
+                      <div className="mt-1 text-sm text-grayAlpha-600">{entry.description}</div>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => setFeatures([entry.name], true)}
+                      aria-label={`Add ${entry.name}`}
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                      Add
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
-        </section>
-      </Card>
+          {upcoming.length ? (
+            <p className="text-sm text-grayAlpha-600">Coming soon: {upcoming.join(', ')}.</p>
+          ) : null}
 
-      <section aria-label="For your industry" className="grid gap-3">
-        <h2 className="text-xl font-bold leading-[120%]">For your industry</h2>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Industry">
-          {INDUSTRIES.map((candidate) => (
-            <Button
-              key={candidate.id}
-              variant="tertiary"
-              isActive={candidate.id === industryId}
-              aria-pressed={candidate.id === industryId}
-              onClick={() => setIndustryId(candidate.id === industryId ? '' : candidate.id)}
-            >
-              {candidate.title}
-            </Button>
-          ))}
+          <details className="rounded-xl border border-grayAlpha-200 bg-white mt-2">
+            <summary className="cursor-pointer select-none px-4 py-3 font-semibold">
+              Browse all {entries.length} features
+            </summary>
+            <div className="grid gap-6 px-4 pb-4 pt-1">
+              <label className="flex items-center p-2 gap-2 bg-white w-full sm:w-72 rounded-lg border border-neutral-300 focus-within:border-neutral-700">
+                <SearchIcon className="w-4 h-4 text-neutral-500" aria-hidden="true" />
+                <input
+                  type="text"
+                  className="w-full outline-none text-sm"
+                  placeholder="Filter features..."
+                  aria-label="Filter features"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              {(Object.keys(CATALOG_AREAS) as CatalogArea[]).map((area) =>
+                CATALOG_GROUPS.filter((group) => group.area === area).map((group) => {
+                  const items = visible.filter((entry) => entry.group === group.id)
+                  if (items.length === 0) return null
+                  return (
+                    <fieldset key={group.id} className="grid gap-1">
+                      <legend className="font-semibold text-sm mb-1">{group.title}</legend>
+                      <div className="grid sm:grid-cols-2 gap-x-4">
+                        {items.map((entry) => (
+                          <label
+                            key={entry.name}
+                            className="flex items-center gap-2 text-sm py-1 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected.has(entry.name)}
+                              onChange={(event) => setFeatures([entry.name], event.target.checked)}
+                            />
+                            <span>{entry.name}</span>
+                            <PlanTag plan={entry.plan} />
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )
+                }),
+              )}
+            </div>
+          </details>
+        </Step>
+      </div>
+
+      <aside
+        aria-label="Your plan"
+        className="lg:sticky lg:top-24 grid gap-5 p-5 rounded-xl border border-grayAlpha-200 bg-white"
+      >
+        <div>
+          <div className="text-sm text-grayAlpha-600">Your plan</div>
+          <div className="text-2xl font-bold leading-[120%]">{planName(result)}</div>
+          {result.addOns.length ? (
+            <div className="mt-2 text-sm">
+              <span className="font-semibold">Add-ons:</span> {result.addOns.join(', ')}
+            </div>
+          ) : null}
+          {result.pilot.length ? (
+            <div className="mt-1 text-sm">
+              <span className="font-semibold">Pilot program:</span> {result.pilot.join(', ')}
+            </div>
+          ) : null}
         </div>
-        {industry ? (
-          <div className="grid gap-3">
-            <p className="text-sm text-grayAlpha-600">{industry.description}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {recommended.map((name) => (
-                <label key={name} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(name)}
-                    onChange={() => toggle(name)}
-                  />
-                  <span>{name}</span>
-                </label>
-              ))}
-            </div>
-            {upcoming.length ? (
-              <p className="text-sm text-grayAlpha-600">Coming soon: {upcoming.join(', ')}.</p>
-            ) : null}
-            <div>
-              <Button variant="secondary" size="small" onClick={() => addAll(recommended)}>
-                Add all for {industry.title}
-              </Button>
-            </div>
+
+        <div className="grid gap-2">
+          <Button asChild variant="primary">
+            <Link href={primary.url}>{primary.label}</Link>
+          </Button>
+          {primary.text ? <p className="text-xs text-grayAlpha-600">{primary.text}</p> : null}
+          {secondary ? (
+            <Button asChild variant="tertiary" size="small">
+              <Link href={secondary.url}>{secondary.label}</Link>
+            </Button>
+          ) : null}
+        </div>
+
+        {result.services.length ? (
+          <div className="grid gap-1 text-sm">
+            <div className="font-semibold">Services</div>
+            {result.services.map((service) => (
+              <p key={service} className="text-grayAlpha-600">
+                {SERVICE_TEXT[service].text}
+              </p>
+            ))}
           </div>
         ) : null}
-      </section>
 
-      <section aria-label="Features" className="grid gap-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h2 className="text-xl font-bold leading-[120%]">Features ({selected.size} selected)</h2>
-          <label className="flex items-center p-2 gap-2 bg-white w-full sm:w-72 rounded-lg border border-neutral-300 focus-within:border-neutral-700">
-            <SearchIcon className="w-4 h-4 text-neutral-500" aria-hidden="true" />
-            <input
-              type="text"
-              className="w-full outline-none text-sm"
-              placeholder="Filter features..."
-              aria-label="Filter features"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-        </div>
-        {(Object.keys(CATALOG_AREAS) as CatalogArea[]).map((area) =>
-          CATALOG_GROUPS.filter((group) => group.area === area).map((group) => {
-            const items = visible.filter((entry) => entry.group === group.id)
-            if (items.length === 0) return null
-            return (
-              <fieldset key={group.id} className="grid gap-2">
-                <legend className="font-semibold mb-2">{group.title}</legend>
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-1">
-                  {items.map((entry) => (
-                    <label
-                      key={entry.name}
-                      className="flex items-center gap-2 text-sm py-1 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected.has(entry.name)}
-                        onChange={() => toggle(entry.name)}
-                      />
-                      <span>{entry.name}</span>
-                      {entry.plan && entry.plan !== 'Open source' ? (
-                        <Tag size="small" variant="gray">
-                          {entry.plan}
-                        </Tag>
-                      ) : null}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            )
-          }),
-        )}
-      </section>
+        {result.template ? (
+          <div className="grid gap-1 text-sm">
+            <div className="font-semibold">UI template</div>
+            <p className="text-grayAlpha-600">
+              <Link href={result.template.url}>{result.template.title}</Link> already builds this
+              editor.
+            </p>
+          </div>
+        ) : null}
+
+        {result.packages.length ? (
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold text-sm">Install</div>
+              <CopyButton text={`npm install ${result.packages.join(' ')}`} label="Copy" />
+            </div>
+            <pre
+              tabIndex={0}
+              aria-label="Install command"
+              className="text-xs bg-grayAlpha-100 rounded-lg p-3 whitespace-pre-wrap break-all max-h-40 overflow-auto"
+            >
+              <code>npm install {result.packages.join(' ')}</code>
+            </pre>
+            <p className="text-xs text-grayAlpha-600">
+              Add your framework&apos;s package too (
+              <Link href="/editor/getting-started/install">Quick start</Link>).
+              {result.hasProPackages ? (
+                <>
+                  {' '}
+                  <code>@tiptap-pro</code> packages come from{' '}
+                  <Link href="/guides/pro-extensions">the private registry</Link>.
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : null}
+
+        <CopyButton text={markdown} label="Copy for your agent" />
+      </aside>
     </div>
   )
 }

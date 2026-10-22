@@ -85,7 +85,7 @@ const TOOLS = [
     name: 'plan_editor',
     title: 'Plan an editor',
     description:
-      'Given a use case or a list of features, return the Tiptap plan, add-ons, services, npm packages, UI template, and docs pages it takes. Use it before building an editor or a feature.',
+      'Given a use case or a list of features, return the Tiptap plan, add-ons, services, npm packages, UI template, docs pages, and the next step (start building, start a trial, or talk to sales). Use it before building an editor or a feature.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -98,6 +98,12 @@ const TOOLS = [
           type: 'array',
           items: { type: 'string' },
           description: 'Feature names from list_features, added to the preset',
+        },
+        deployment: {
+          type: 'string',
+          enum: ['cloud', 'on-premises'],
+          description:
+            'Where the Tiptap services run: cloud (default, Tiptap Cloud) or on-premises (Enterprise)',
         },
       },
     },
@@ -284,8 +290,9 @@ function planEditorTool(args: Record<string, unknown>): ToolResult {
     .filter((entry) => entry !== undefined)
     .map(({ name, url, plan, package: pkg }) => ({ name, url, plan, package: pkg }))
 
+  const deployment = args.deployment === 'on-premises' ? 'on-premises' : 'cloud'
   const markdown = planToMarkdown(
-    planEditor(features, preset?.template),
+    planEditor(features, preset?.template, deployment),
     FULL_DOMAIN,
     preset ? `Editor plan: ${preset.title}` : 'Editor plan',
   )

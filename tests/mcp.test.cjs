@@ -14,7 +14,7 @@ const { getDocsIndex } = loadSite('../src/server/getDocsIndex.ts')
 const { fileToMarkdown } = loadSite('../src/server/markdown/fileToMarkdown.ts')
 const { getCatalog } = loadSite('../src/server/getCatalog.ts')
 const { EDITOR_PRESETS } = loadSite('../src/content/presets.ts')
-const { planEditor } = loadSite('../src/utils/planEditor.ts')
+const { nextSteps, planEditor } = loadSite('../src/utils/planEditor.ts')
 const { INDUSTRIES } = loadSite('../src/content/industries.ts')
 
 function loadSite(file) {
@@ -138,7 +138,7 @@ test('every documented feature names its npm package', () => {
 test('presets only use documented features', () => {
   const names = new Set(documented().map((entry) => entry.name))
   for (const preset of EDITOR_PRESETS) {
-    const unknown = preset.features.filter((name) => !names.has(name))
+    const unknown = [...preset.features, ...preset.suggestions].filter((name) => !names.has(name))
     assert.deepEqual(unknown, [], `preset ${preset.id}`)
   }
 })
@@ -172,6 +172,18 @@ test('planEditor picks the smallest plan and lists add-ons, services and package
   assert.deepEqual(plan('templates').pilot.sort(), ['Content Protection', 'Slots', 'Variables'])
 })
 
+test('nextSteps sends open source to the docs, plans to the trial, and the rest to sales', () => {
+  const byName = new Map(documented().map((entry) => [entry.name, entry]))
+  const features = (id) =>
+    EDITOR_PRESETS.find((preset) => preset.id === id).features.map((name) => byName.get(name))
+
+  assert.equal(nextSteps(planEditor(features('simple'))).primary.label, 'Start building')
+  assert.equal(nextSteps(planEditor(features('word'))).primary.label, 'Start free trial')
+  assert.equal(nextSteps(planEditor(features('review'))).primary.label, 'Talk to sales')
+  const onPremises = planEditor(features('simple'), undefined, 'on-premises')
+  assert.equal(nextSteps(onPremises).primary.label, 'Talk to sales')
+})
+
 test('plan_editor answers with plan, install command and docs', async () => {
   const { content } = await tool('plan_editor', { preset: 'review', features: ['Mention', 'Nope'] })
   const markdown = content[0].text
@@ -179,6 +191,10 @@ test('plan_editor answers with plan, install command and docs', async () => {
   assert.match(markdown, /- Add-ons: /)
   assert.match(markdown, /npm install .*@tiptap\/extension-mention/)
   assert.match(markdown, /Not in the catalog, so left out: Nope/)
+  assert.match(markdown, /## Next step\n\n- Talk to sales/)
+
+  const onPremises = await tool('plan_editor', { preset: 'simple', deployment: 'on-premises' })
+  assert.match(onPremises.content[0].text, /- Plan: Enterprise/)
 
   const error = await tool('plan_editor', {})
   assert.equal(error.isError, true)
