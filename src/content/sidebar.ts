@@ -219,41 +219,35 @@ export const sidebarConfig: SidebarConfig = {
       ],
     },
     {
+      // Where documents live, sync, and run: the base the features of the platform build on
       type: 'group',
-      title: 'Platform',
-      href: '/platform',
+      title: 'Documents',
+      href: '/documents',
       collapsible: true,
       children: [
-        // The base every feature on the platform builds on: managed documents with real-time sync
+        ...childrenOf(collaborationSidebar, ['Get started']),
         {
-          title: 'Documents',
+          title: 'Document API',
           href: '',
           children: [
-            ...childrenOf(collaborationSidebar, ['Get started']),
-            {
-              title: 'Document API',
-              href: '',
-              children: [
-                { ...link(collaborationSidebar, ['Documents', 'Overview']), title: 'Overview' },
-                link(collaborationSidebar, ['Documents', 'REST API']),
-                link(collaborationSidebar, ['Documents', 'Inject content']),
-              ],
-            },
-            link(collaborationSidebar, ['Documents', 'Snapshots']),
-            {
-              title: 'Real-time sync',
-              href: '',
-              children: [
-                { ...link(collaborationSidebar, ['Provider', 'Integration']), title: 'Provider' },
-                { ...link(collaborationSidebar, ['Provider', 'Events']), title: 'Provider events' },
-                link(collaborationSidebar, ['Features', 'Awareness']),
-              ],
-            },
-            link(collaborationSidebar, ['Features', 'Webhooks']),
-            { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
-            { title: 'Guides', href: '', children: childrenOf(collaborationSidebar, ['Guides']) },
+            { ...link(collaborationSidebar, ['Documents', 'Overview']), title: 'Overview' },
+            link(collaborationSidebar, ['Documents', 'REST API']),
+            link(collaborationSidebar, ['Documents', 'Inject content']),
           ],
         },
+        link(collaborationSidebar, ['Documents', 'Snapshots']),
+        {
+          title: 'Real-time sync',
+          href: '',
+          children: [
+            { ...link(collaborationSidebar, ['Provider', 'Integration']), title: 'Provider' },
+            { ...link(collaborationSidebar, ['Provider', 'Events']), title: 'Provider events' },
+            link(collaborationSidebar, ['Features', 'Awareness']),
+          ],
+        },
+        link(collaborationSidebar, ['Features', 'Webhooks']),
+        { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
+        { title: 'Guides', href: '', children: childrenOf(collaborationSidebar, ['Guides']) },
         {
           href: '/hosting',
           title: 'Hosting',

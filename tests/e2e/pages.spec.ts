@@ -120,15 +120,15 @@ test('Plan your editor follows the preset and the chosen features', async ({ pag
 
 test('a folded sidebar category opens on click', async ({ page, baseURL }) => {
   await page.goto(siteUrl(baseURL, '/'))
-  const category = page.getByRole('button', { name: 'Platform', exact: true })
+  const category = page.getByRole('button', { name: 'Documents', exact: true })
   await expect(category).toHaveAttribute('aria-expanded', 'false')
   await category.click()
   await expect(category).toHaveAttribute('aria-expanded', 'true')
-  // The entry's name includes its fold button: "Documents Expand Documents"
+  // An entry's name can include its plan tag, such as "Snapshots Start"
   await expect(
     page
       .locator('nav')
-      .getByRole('link', { name: /^Documents\b/ })
+      .getByRole('link', { name: /^Snapshots\b/ })
       .first(),
   ).toBeVisible()
 })
