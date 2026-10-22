@@ -43,7 +43,7 @@ The catalog at `/editor/extensions/overview` lists every page whose frontmatter 
 
 ## Tests
 
-- `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, and that sidebars and internal links point at real pages. It runs on every pull request.
+- `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, that sidebars and internal links point at real pages, and that `llms.txt` and the docs MCP server (`/api/mcp`) answer as expected. It runs on every pull request.
 - `pnpm test:e2e` runs Playwright: every page and its `.md` version answer 200, every old URL redirects to a live page, and one page per page type renders without errors or serious accessibility violations. Locally, build first with `pnpm build:next`; the tests start the server. Against a deployed site, set `DOCS_TEST_URL` (including any base path). In CI they run against each Vercel deployment.
 - `SMOKE_ALL=1 pnpm test:e2e` also loads every page in a browser.
 

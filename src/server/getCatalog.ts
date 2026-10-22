@@ -21,7 +21,7 @@ export type CatalogEntry = {
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
 
-function planFromTags(tags: string[]): CatalogPlan {
+export function planFromTags(tags: string[]): CatalogPlan {
   if (tags.includes('restricted')) return 'Pilot program'
   if (tags.includes('addon')) return 'Add-on'
   if (tags.includes('team')) return 'Team'
@@ -29,7 +29,7 @@ function planFromTags(tags: string[]): CatalogPlan {
   return 'Open source'
 }
 
-function statusFromTags(tags: string[]): string | undefined {
+export function statusFromTags(tags: string[]): string | undefined {
   if (tags.includes('deprecated')) return 'Deprecated'
   if (tags.includes('alpha')) return 'Alpha'
   if (tags.includes('beta')) return 'Beta'

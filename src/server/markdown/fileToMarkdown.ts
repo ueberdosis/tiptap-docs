@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
 import frontMatter from 'front-matter'
+import { cleanDescription, findDocsPage } from '../getDocsIndex'
 import { transformMdxToMarkdown } from './transformMdx'
 
 type Frontmatter = {
@@ -34,23 +35,16 @@ function getContentDates(): Record<string, string> {
   return loaded
 }
 
-/** Frontmatter descriptions may contain inline HTML; flatten to plain text. */
-function stripHtml(value: string): string {
-  let previous: string
-  let output = value
-  do {
-    previous = output
-    output = output.replace(/<[^<>]*>/g, '')
-  } while (output !== previous)
-  return output.replace(/\s+/g, ' ').trim()
-}
-
 /** Build the minimal YAML frontmatter block served atop every `.md` response. */
 export function buildFrontmatter(fields: {
   title?: string
   description?: string
   canonicalUrl?: string
   lastUpdated?: string
+  /** Where the page sits in the sidebar, such as `Features › Review › Comments`. */
+  section?: string
+  plan?: string
+  status?: string
 }): string {
   const lines: string[] = []
   // JSON.stringify yields a safely-quoted/escaped scalar (handles colons,
@@ -58,6 +52,9 @@ export function buildFrontmatter(fields: {
   if (fields.title) lines.push(`title: ${JSON.stringify(fields.title)}`)
   if (fields.description) lines.push(`description: ${JSON.stringify(fields.description)}`)
   if (fields.canonicalUrl) lines.push(`canonical_url: ${JSON.stringify(fields.canonicalUrl)}`)
+  if (fields.section) lines.push(`section: ${JSON.stringify(fields.section)}`)
+  if (fields.plan) lines.push(`plan: ${JSON.stringify(fields.plan)}`)
+  if (fields.status) lines.push(`status: ${JSON.stringify(fields.status)}`)
   // Dates are bare YAML scalars (no quotes).
   if (fields.lastUpdated) lines.push(`last_updated: ${fields.lastUpdated}`)
   return `---\n${lines.join('\n')}\n---`
@@ -65,7 +62,8 @@ export function buildFrontmatter(fields: {
 
 /**
  * Read a content `.mdx` file and produce the markdown served to AI agents: a
- * minimal frontmatter block (title, description, canonical_url, last_updated)
+ * frontmatter block (title, description, canonical_url, section, plan, status,
+ * last_updated)
  * followed by an H1 title + description and the filtered body.
  */
 export async function fileToMarkdown(filePath: string, canonicalUrl?: string): Promise<string> {
@@ -75,12 +73,23 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
 
   const title = attributes.title ?? attributes.meta?.title
   const rawDescription = attributes.description ?? attributes.meta?.description
-  const description = rawDescription ? stripHtml(rawDescription) : undefined
+  const description = rawDescription ? cleanDescription(rawDescription) : undefined
 
   const contentKey = path.relative(CONTENT_DIR, filePath).split(path.sep).join('/')
   const lastUpdated = getContentDates()[contentKey]
 
-  const frontmatter = buildFrontmatter({ title, description, canonicalUrl, lastUpdated })
+  const route = `/${contentKey.replace(/\.mdx$/, '').replace(/(^|\/)index$/, '')}`
+  const page = findDocsPage(route)
+
+  const frontmatter = buildFrontmatter({
+    title,
+    description,
+    canonicalUrl,
+    lastUpdated,
+    section: page?.trail.length ? page.trail.join(' › ') : undefined,
+    plan: page?.plan,
+    status: page?.status,
+  })
 
   const parts: string[] = [frontmatter]
   if (title) parts.push(`# ${title}`)

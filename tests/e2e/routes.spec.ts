@@ -65,3 +65,55 @@ test('llms.txt lists pages as Markdown links', async ({ request, baseURL }) => {
   expect(response.status()).toBe(200)
   expect(await response.text()).toContain('.md)')
 })
+
+test('llms-full.txt holds the Markdown of every page', async ({ request, baseURL }) => {
+  const response = await request.get(siteUrl(baseURL, '/llms-full.txt'))
+  expect(response.status()).toBe(200)
+  const text = await response.text()
+  expect(text).toContain('title: "Bold extension"')
+  expect(text).toContain('section: "Features › Review › Comments"')
+})
+
+test('.md pages carry their section and plan in the frontmatter', async ({ request, baseURL }) => {
+  const response = await request.get(siteUrl(baseURL, '/comments/getting-started/install.md'))
+  const text = await response.text()
+  expect(text).toMatch(/^---\n/)
+  expect(text).toContain('section: "Features › Review › Comments"')
+  expect(text).toContain('plan: "Start"')
+})
+
+test('the MCP server answers over HTTP', async ({ request, baseURL }) => {
+  const endpoint = siteUrl(baseURL, '/api/mcp')
+  const post = (data: unknown) =>
+    request.post(endpoint, {
+      data,
+      headers: { Accept: 'application/json, text/event-stream' },
+    })
+
+  const init = await post({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'e2e', version: '1' },
+    },
+  })
+  expect(init.status()).toBe(200)
+  expect((await init.json()).result.serverInfo.name).toBe('tiptap-docs')
+
+  const notification = await post({ jsonrpc: '2.0', method: 'notifications/initialized' })
+  expect(notification.status()).toBe(202)
+
+  const search = await post({
+    jsonrpc: '2.0',
+    id: 2,
+    method: 'tools/call',
+    params: { name: 'search_docs', arguments: { query: 'tracked changes install' } },
+  })
+  expect((await search.json()).result.content[0].text).toContain('/tracked-changes/')
+
+  const get = await request.get(endpoint)
+  expect(get.status()).toBe(405)
+})
