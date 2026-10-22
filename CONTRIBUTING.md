@@ -93,7 +93,7 @@ All documentation shares one sidebar, `src/content/sidebar.ts`; only UI Componen
 
 The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Features, next to the larger features such as Comments or Conversion, which keep their own sections. A page's plan comes from its `tags` (`start`, `team`, `addon`, `restricted`). A new extension page needs a `group` and its npm `package` (as its install command names it), or `pnpm test:structure` fails.
 
-"Plan your editor" (`/configurator`) and the MCP tool `plan_editor` build on the catalog. Their starting points are in `src/content/presets.ts`, with the services each feature needs; tests check that presets name only documented features.
+"Plan your editor" (`/configurator`) and the MCP tool `plan_editor` build on the catalog. Their starting points are in `src/content/presets.ts`, with the services each feature needs; tests check that presets name only documented features. Industries for the catalog filter and the configurator are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
 
 ## Tests
 

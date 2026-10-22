@@ -15,6 +15,7 @@ const { fileToMarkdown } = loadSite('../src/server/markdown/fileToMarkdown.ts')
 const { getCatalog } = loadSite('../src/server/getCatalog.ts')
 const { EDITOR_PRESETS } = loadSite('../src/content/presets.ts')
 const { planEditor } = loadSite('../src/utils/planEditor.ts')
+const { INDUSTRIES } = loadSite('../src/content/industries.ts')
 
 function loadSite(file) {
   return require(file)
@@ -181,4 +182,16 @@ test('plan_editor answers with plan, install command and docs', async () => {
 
   const error = await tool('plan_editor', {})
   assert.equal(error.isError, true)
+})
+
+test('industries only name catalog features, and list_features filters by them', async () => {
+  const names = new Set(getCatalog().map((entry) => entry.name))
+  for (const industry of INDUSTRIES) {
+    const unknown = industry.features.filter((name) => !names.has(name))
+    assert.deepEqual(unknown, [], `industry ${industry.id}`)
+  }
+
+  const { content } = await tool('list_features', { industry: 'legal' })
+  assert.match(content[0].text, /Tracked Changes/)
+  assert.doesNotMatch(content[0].text, /- Bold /)
 })

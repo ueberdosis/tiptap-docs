@@ -13,6 +13,7 @@ import {
   CatalogArea,
   CatalogPlan,
 } from '@/content/catalog'
+import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import type { CatalogEntry } from '@/server/getCatalog'
 import { getIcon } from '@/utils/iconKit'
@@ -37,7 +38,7 @@ function FilterRow<T extends string>({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1" role="group" aria-label={label}>
-      <span className="text-sm text-grayAlpha-600 mr-1 w-12">{label}</span>
+      <span className="text-sm text-grayAlpha-600 mr-1 w-16">{label}</span>
       <Button variant="tertiary" isActive={value === ALL} onClick={() => onChange(ALL)}>
         All
       </Button>
@@ -94,6 +95,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
   const [area, setArea] = useUrlParam<CatalogArea | typeof ALL>('area', ALL)
   const [plan, setPlan] = useUrlParam<CatalogPlan | typeof ALL>('plan', ALL)
   const [type, setType] = useUrlParam<string>('type', ALL)
+  const [industry, setIndustry] = useUrlParam<string>('industry', ALL)
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -102,11 +104,12 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
         (area === ALL || entry.area === area) &&
         (plan === ALL || entry.plan === plan) &&
         (type === ALL || entry.type === type) &&
+        (industry === ALL || (entry.industries ?? []).includes(industry)) &&
         (!needle ||
           entry.name.toLowerCase().includes(needle) ||
           entry.description.toLowerCase().includes(needle)),
     )
-  }, [entries, query, area, plan, type])
+  }, [entries, query, area, plan, type, industry])
 
   const sections = (Object.keys(CATALOG_AREAS) as CatalogArea[])
     .map((areaId) => ({
@@ -157,6 +160,12 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
           onChange={setPlan}
         />
         <FilterRow label="Type" options={TYPES} value={type} onChange={setType} />
+        <FilterRow
+          label="Industry"
+          options={INDUSTRIES.map(({ id, title }) => ({ id, label: title }))}
+          value={industry}
+          onChange={setIndustry}
+        />
       </div>
 
       {sections.length === 0 ? (

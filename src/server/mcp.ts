@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { CATALOG_AREAS, CATALOG_GROUPS, CATALOG_PLANS } from '../content/catalog'
+import { INDUSTRIES } from '../content/industries'
 import { EDITOR_PRESETS } from '../content/presets'
 import { createCanonicalUrl } from './createCanonicalUrl'
 import { getCatalog } from './getCatalog'
@@ -64,13 +65,18 @@ const TOOLS = [
     name: 'list_features',
     title: 'List Tiptap features',
     description:
-      'List features from the catalog with their group, plan, and docs URL. Check this before building something Tiptap may already provide.',
+      'List features from the catalog with their group, plan, and docs URL, optionally for one industry. Check this before building something Tiptap may already provide.',
     inputSchema: {
       type: 'object',
       properties: {
         area: { type: 'string', enum: Object.keys(CATALOG_AREAS) },
         plan: { type: 'string', enum: [...CATALOG_PLANS] },
         group: { type: 'string', enum: CATALOG_GROUPS.map((group) => group.id) },
+        industry: {
+          type: 'string',
+          enum: INDUSTRIES.map((industry) => industry.id),
+          description: INDUSTRIES.map((industry) => `${industry.id}: ${industry.title}`).join('; '),
+        },
         query: { type: 'string', description: 'Filter by name or description' },
       },
     },
@@ -243,6 +249,7 @@ function listFeatures(args: Record<string, unknown>): ToolResult {
       (!args.area || entry.area === args.area) &&
       (!args.plan || entry.plan === args.plan) &&
       (!args.group || entry.group === args.group) &&
+      (!args.industry || (entry.industries ?? []).includes(String(args.industry))) &&
       (!needle ||
         entry.name.toLowerCase().includes(needle) ||
         entry.description.toLowerCase().includes(needle)),

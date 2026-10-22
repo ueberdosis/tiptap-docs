@@ -85,6 +85,20 @@ test('the feature catalog filters by plan and type, from the URL and on click', 
   expect(errors).toEqual([])
 })
 
+test('the catalog filters by industry and the configurator adds its features', async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto(siteUrl(baseURL, '/editor/extensions/overview?industry=legal'))
+  const catalog = page.locator('section[aria-label]')
+  await expect(catalog.getByRole('link', { name: /^Tracked Changes/ })).toBeVisible()
+  await expect(catalog.getByRole('link', { name: /^Bold/ })).toHaveCount(0)
+
+  await page.goto(siteUrl(baseURL, '/configurator?industry=finance'))
+  await page.getByRole('button', { name: 'Add all for Finance and reporting' }).click()
+  await expect(page.getByRole('region', { name: 'What you need' })).toContainText('Team')
+})
+
 test('Plan your editor follows the preset and the chosen features', async ({ page, baseURL }) => {
   const errors = watchErrors(page, new URL(siteRoot(baseURL)).origin)
   await page.goto(siteUrl(baseURL, '/configurator?preset=word'))

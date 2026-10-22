@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { CATALOG_GROUPS, CatalogArea, CatalogPlan, UPCOMING_FEATURES } from '../content/catalog'
+import { INDUSTRIES } from '../content/industries'
 import type { ExtensionType } from '../types'
 import { readFrontmatterSync } from './readFrontmatter'
 
@@ -19,6 +20,8 @@ export type CatalogEntry = {
   url: string
   /** The npm packages to install, space-separated. */
   package?: string
+  /** Industries from src/content/industries.ts where this feature matters most. */
+  industries?: string[]
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -52,7 +55,12 @@ let catalog: CatalogEntry[] | undefined
 
 /** Every catalog entry, in group order and then by name. Read once per process. */
 export function getCatalog(): CatalogEntry[] {
-  catalog ??= sortByGroup([...readCatalog(CONTENT_DIR), ...upcomingEntries()])
+  catalog ??= sortByGroup([...readCatalog(CONTENT_DIR), ...upcomingEntries()]).map((entry) => {
+    const industries = INDUSTRIES.filter((industry) => industry.features.includes(entry.name)).map(
+      (industry) => industry.id,
+    )
+    return industries.length ? { ...entry, industries } : entry
+  })
   return catalog
 }
 

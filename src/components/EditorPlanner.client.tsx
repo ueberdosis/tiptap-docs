@@ -7,6 +7,7 @@ import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { CATALOG_AREAS, CATALOG_GROUPS, CatalogArea } from '@/content/catalog'
+import { INDUSTRIES } from '@/content/industries'
 import { EDITOR_PRESETS } from '@/content/presets'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import type { CatalogEntry } from '@/server/getCatalog'
@@ -50,6 +51,8 @@ export const EditorPlannerView = ({
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [removed, setRemoved] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
+  const [industryId, setIndustryId] = useUrlParam<string>('industry', '')
+  const industry = INDUSTRIES.find((candidate) => candidate.id === industryId)
 
   const selected = useMemo(() => {
     const names = new Set(preset?.features ?? [])
@@ -91,6 +94,21 @@ export const EditorPlannerView = ({
     setAdded(nextAdded)
     setRemoved(nextRemoved)
   }
+
+  const addAll = (names: string[]) => {
+    const nextAdded = new Set(added)
+    const nextRemoved = new Set(removed)
+    for (const name of names) {
+      nextRemoved.delete(name)
+      if (!(preset?.features.includes(name) ?? false)) nextAdded.add(name)
+    }
+    setAdded(nextAdded)
+    setRemoved(nextRemoved)
+  }
+
+  // Features of the industry that have docs; announced ones are only named
+  const recommended = (industry?.features ?? []).filter((name) => byName.has(name))
+  const upcoming = (industry?.features ?? []).filter((name) => !byName.has(name))
 
   const needle = query.trim().toLowerCase()
   const visible = entries.filter(
@@ -209,6 +227,48 @@ export const EditorPlannerView = ({
           ) : null}
         </section>
       </Card>
+
+      <section aria-label="For your industry" className="grid gap-3">
+        <h2 className="text-xl font-bold leading-[120%]">For your industry</h2>
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Industry">
+          {INDUSTRIES.map((candidate) => (
+            <Button
+              key={candidate.id}
+              variant="tertiary"
+              isActive={candidate.id === industryId}
+              aria-pressed={candidate.id === industryId}
+              onClick={() => setIndustryId(candidate.id === industryId ? '' : candidate.id)}
+            >
+              {candidate.title}
+            </Button>
+          ))}
+        </div>
+        {industry ? (
+          <div className="grid gap-3">
+            <p className="text-sm text-grayAlpha-600">{industry.description}</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {recommended.map((name) => (
+                <label key={name} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(name)}
+                    onChange={() => toggle(name)}
+                  />
+                  <span>{name}</span>
+                </label>
+              ))}
+            </div>
+            {upcoming.length ? (
+              <p className="text-sm text-grayAlpha-600">Coming soon: {upcoming.join(', ')}.</p>
+            ) : null}
+            <div>
+              <Button variant="secondary" size="small" onClick={() => addAll(recommended)}>
+                Add all for {industry.title}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <section aria-label="Features" className="grid gap-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
