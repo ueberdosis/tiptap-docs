@@ -89,9 +89,18 @@ export const sidebarConfig: SidebarConfig = {
       defaultOpen: true,
       children: [
         { href: '/', title: 'Overview' },
-        { href: '/platform', title: 'The Tiptap platform' },
-        { href: '/document-model', title: 'The Tiptap document' },
-        { ...link(editorSidebar, ['Get started', 'Overview']), title: 'The editor' },
+        {
+          href: '/platform',
+          title: 'Tiptap Platform',
+          // Where Tiptap services run: the Document Server, the AI Toolkit, and Conversion
+          children: [
+            { href: '/hosting', title: 'Hosting' },
+            { href: '/hosting/cloud', title: 'Tiptap Cloud' },
+            { href: '/hosting/on-premises', title: 'On-premises' },
+          ],
+        },
+        { href: '/document-model', title: 'Tiptap Document' },
+        { ...link(editorSidebar, ['Get started', 'Overview']), title: 'Tiptap Editor' },
         { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
         { href: '/configurator', title: 'Plan your editor' },
         {
@@ -249,14 +258,6 @@ export const sidebarConfig: SidebarConfig = {
         link(collaborationSidebar, ['Features', 'Webhooks']),
         { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
         { title: 'Guides', href: '', children: childrenOf(collaborationSidebar, ['Guides']) },
-        {
-          href: '/hosting',
-          title: 'Hosting',
-          children: [
-            { href: '/hosting/cloud', title: 'Tiptap Cloud' },
-            { href: '/hosting/on-premises', title: 'On-premises' },
-          ],
-        },
         section('Hocuspocus', hocuspocusSidebar, {
           inline: ['Get started'],
           tags: ['Open source'],
