@@ -61,7 +61,31 @@ for (const [type, route] of Object.entries(PAGE_TYPES)) {
 
 test('breadcrumbs follow the page’s place in the sidebar', async ({ page, baseURL }) => {
   await page.goto(siteUrl(baseURL, PAGE_TYPES['extension page']))
-  await expect(page.locator('[data-breadcrumb]')).toHaveText(['Editor', 'Extensions', 'Marks'])
+  await expect(page.locator('[data-breadcrumb]')).toHaveText([
+    'Editor',
+    'Extensions',
+    'Text formatting',
+  ])
+})
+
+test('the feature catalog filters by plan and type, from the URL and on click', async ({
+  page,
+  baseURL,
+}) => {
+  const errors = watchErrors(page, new URL(siteRoot(baseURL)).origin)
+  await page.goto(siteUrl(baseURL, '/editor/extensions/overview?plan=Add-on'))
+  const cards = page.locator('section[aria-label] a')
+  await expect(cards.first()).toBeVisible()
+  for (const card of await cards.all()) await expect(card).toContainText('Add-on')
+
+  await page.getByRole('group', { name: 'Plan' }).getByRole('button', { name: 'All' }).click()
+  await page.getByRole('group', { name: 'Type' }).getByRole('button', { name: 'Marks' }).click()
+  await expect(page).toHaveURL(/[?&]type=mark/)
+  const catalog = page.locator('section[aria-label]')
+  await expect(catalog.getByRole('link', { name: /^Bold/ })).toBeVisible()
+  await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toHaveCount(0)
+  // Rendering with filters from the URL must not break hydration
+  expect(errors).toEqual([])
 })
 
 test('a folded sidebar category opens on click', async ({ page, baseURL }) => {

@@ -14,12 +14,32 @@ import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
+import { CATALOG_GROUPS, CatalogArea } from '@/content/catalog'
+import { getCatalog } from '@/server/getCatalog'
 import { SidebarConfig } from '@/types'
-import { childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
+import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 
 // The one sidebar for all documentation. Each section keeps its own sidebar
 // next to its content; this file decides where the sections sit. UI Components
 // keeps a separate sidebar (src/content/ui-components/sidebar.ts).
+
+/** The catalog groups of an area, each folding open to its features. */
+function catalogGroups(area: CatalogArea): SidebarEntry[] {
+  const catalog = getCatalog()
+  return CATALOG_GROUPS.filter((group) => group.area === area)
+    .map((group) => ({
+      title: group.title,
+      href: '',
+      children: catalog
+        .filter((entry) => entry.group === group.id)
+        .map((entry) => ({
+          title: entry.name,
+          href: entry.url,
+          tags: entry.plan === 'Open source' ? undefined : [entry.plan],
+        })),
+    }))
+    .filter((group) => group.children.length > 0)
+}
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
@@ -62,7 +82,15 @@ export const sidebarConfig: SidebarConfig = {
           href: '',
           children: childrenOf(editorSidebar, ['Core Concepts']),
         },
-        { title: 'Extensions', href: '', children: childrenOf(editorSidebar, ['Extensions']) },
+        {
+          title: 'Extensions',
+          href: '',
+          children: [
+            ...toEntries([pick(editorSidebar, ['Extensions', 'Overview'])]),
+            ...catalogGroups('editor'),
+            ...toEntries([pick(editorSidebar, ['Extensions', 'Custom extensions'])]),
+          ],
+        },
         ...toEntries([pick(editorSidebar, ['Markdown'])]),
         { title: 'API reference', href: '', children: childrenOf(editorSidebar, ['API']) },
       ],

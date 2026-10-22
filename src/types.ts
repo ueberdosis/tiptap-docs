@@ -122,6 +122,8 @@ export type ExtensionMeta = {
   description: string
   type: ExtensionType
   tags?: string[]
+  /** A group from src/content/catalog.ts; pages with a group appear in the feature catalog. */
+  group?: string
   isPro?: boolean
   isBeta?: boolean
   isExperiment?: boolean

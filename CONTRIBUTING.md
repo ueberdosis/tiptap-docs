@@ -37,6 +37,10 @@ A published URL has to keep working. When you move, rename or delete a page:
 
 All documentation shares one sidebar, `src/content/sidebar.ts`; only UI Components keeps its own. Each section still describes its pages in its own `src/content/<section>/sidebar.ts`, and the global sidebar places those sections. A new section needs an entry in the global sidebar; `pnpm test:structure` fails until every page of a section sidebar appears there. A page that no sidebar links to belongs in `tests/fixtures/pages-outside-sidebar.txt`.
 
+## Feature Catalog
+
+The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Editor › Extensions. A page's plan comes from its `tags` (`start`, `team`, `addon`, `restricted`). A new extension page needs a `group`, or `pnpm test:structure` fails.
+
 ## Tests
 
 - `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, and that sidebars and internal links point at real pages. It runs on every pull request.

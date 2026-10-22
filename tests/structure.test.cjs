@@ -186,3 +186,20 @@ test('every internal link in content and components reaches a page', () => {
   }
   assert.deepEqual(failures, [])
 })
+
+test('every extension page is in the catalog, except the examples', () => {
+  routes.registerTs()
+  const { readFrontmatterSync } = require('../src/server/readFrontmatter.ts')
+  const { CATALOG_GROUPS } = require('../src/content/catalog.ts')
+  const groups = new Set(CATALOG_GROUPS.map((group) => group.id))
+  const failures = []
+  for (const file of routes.walk(routes.CONTENT_DIR)) {
+    const route = routes.fileToRoute(file)
+    const { extension } = readFrontmatterSync(file)
+    if (!extension || route.startsWith('/examples/')) continue
+    if (!extension.group) failures.push(`${route}: extension without a group`)
+    else if (!groups.has(extension.group))
+      failures.push(`${route}: unknown group "${extension.group}"`)
+  }
+  assert.deepEqual(failures, [], 'Add a group from src/content/catalog.ts to the extension block')
+})
