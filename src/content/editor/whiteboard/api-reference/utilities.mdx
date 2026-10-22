@@ -1,0 +1,890 @@
+---
+title: Whiteboard utilities
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Whiteboard utilities | Tiptap Editor Docs
+  description: Utility functions and constants of the Tiptap Whiteboard extension, for the stage and camera, content, state, shapes, transactions, board files and images.
+  category: Editor
+---
+
+Import these functions and constants from `@tiptap-pro/extension-whiteboard`.
+
+- Positions and sizes on the board are in board units, and positions on the stage in screen pixels.
+- `insertShapesInFront`, `removeShapes`, `restackShapes` and `keepShapeHeights` are for code that builds its own transaction, like an AI tool.
+
+`Attribute`, `Attributes`, `Editor`, `JSONContent`, `NodeViewRenderer` and `NodeWithPos` come from `@tiptap/core`. `Node` comes from `@tiptap/pm/model`, `EditorState` and `Transaction` from `@tiptap/pm/state`, and `EditorView` from `@tiptap/pm/view`.
+
+## `attachStage`
+
+Lets the user work with the board of `editor` in `stage`: pan and zoom, the zoom shortcuts, drawing with the shape tools and the selection box. A pan, with <kbd>Space</kbd> held, the middle button or the hand tool, wins over drawing and selecting. On touch screens, one finger on the empty board pans while the select tool is active, and two fingers pan and zoom.
+
+```js
+import { attachStage } from '@tiptap-pro/extension-whiteboard'
+
+const detach = attachStage({ stage, editor, updateCamera: setCamera })
+```
+
+### Parameters (`StageOptions`)
+
+- `stage` (`HTMLElement`): The element around the board, which takes its pointer and wheel events.
+- `editor` (`Editor`): The editor of the board.
+- `updateCamera` (`UpdateCamera`): Moves the camera when the user pans, zooms or uses a zoom shortcut.
+- `fitInsets?` (`() => number | Insets`): Returns the room to keep free around the shapes that <kbd>Shift</kbd> + <kbd>1</kbd> fits into view, like under panels. Default: 64 screen pixels at each edge.
+
+### Returns (`() => void`)
+
+A function that detaches everything again.
+
+The stage needs `position: relative`, `overflow: clip` and `touch-action: none`. The viewport, the element that holds the editor, sits in its top left corner, with `position: absolute`, `top: 0`, `left: 0` and `transform-origin: 0 0`. Move it with [`toCssTransform(camera)`](#tocsstransform), and set `--zoom` on it to the zoom.
+
+## `toCssTransform`
+
+Returns the CSS transform that shows the board with the camera. The viewport, which the transform moves, needs `transform-origin: 0 0`.
+
+```js
+import { toCssTransform } from '@tiptap-pro/extension-whiteboard'
+
+toCssTransform({ x: 100, y: 50, zoom: 2 }) // 'translate(100px, 50px) scale(2)'
+```
+
+### Parameters
+
+- `camera` (`Camera`): The camera of the board.
+
+### Returns (`string`)
+
+The value for the viewport's `transform`.
+
+## `zoomAtStageCenter`
+
+Changes the zoom around the middle of the stage, so the board stays put there.
+
+```js
+import { zoomAtStageCenter } from '@tiptap-pro/extension-whiteboard'
+
+resetZoomButton.addEventListener('click', () => {
+  zoomAtStageCenter({ stage, updateCamera: setCamera, nextZoom: () => 1 })
+})
+```
+
+### Parameters (`ZoomAtStageCenterOptions`)
+
+- `stage` (`HTMLElement`): The element around the board.
+- `updateCamera` (`UpdateCamera`): Moves the camera.
+- `nextZoom` (`(zoom: number) => number`): Returns the new zoom for the zoom now.
+
+## `stepZoom`
+
+Returns the next zoom step in a direction, like for the zoom buttons of an app. A zoom between steps goes to the next step in that direction. The steps go from 10% to 400%.
+
+```js
+import { stepZoom } from '@tiptap-pro/extension-whiteboard'
+
+stepZoom({ zoom: 1, direction: 1 }) // 1.25
+stepZoom({ zoom: 0.8, direction: -1 }) // 0.75
+```
+
+### Parameters (`StepZoomOptions`)
+
+- `zoom` (`number`): The zoom now, where 1 is 100%.
+- `direction` (`1 | -1`): `1` to zoom in, `-1` to zoom out.
+
+### Returns (`number`)
+
+The next zoom.
+
+## `zoomToFitShapes`
+
+Moves and zooms the camera so every shape is in the stage. It never zooms in beyond 100%, or out beyond [`minZoom`](#minzoom), and does nothing on an empty board.
+
+```js
+import { zoomToFitShapes } from '@tiptap-pro/extension-whiteboard'
+
+zoomToFitShapes({ stage, editor, updateCamera: setCamera })
+```
+
+### Parameters (`ZoomToFitShapesOptions`)
+
+- `stage` (`HTMLElement`): The element around the board.
+- `editor` (`Editor`): The editor of the board.
+- `updateCamera` (`UpdateCamera`): Moves the camera.
+- `insets?` (`number | Insets`): Room to keep free at the edges, in screen pixels, the same at each edge or one for each, like to keep shapes out from under floating controls. Default: `64`.
+
+## `scrollShapesIntoView`
+
+Moves the camera as little as it can, so the shapes with the given ids are in the stage. It zooms out only when they don't fit, and does nothing when none of them are on the board.
+
+```js
+import { scrollShapesIntoView } from '@tiptap-pro/extension-whiteboard'
+
+scrollShapesIntoView({ stage, editor, ids: ['note-1'], updateCamera: setCamera })
+```
+
+### Parameters (`ScrollShapesIntoViewOptions`)
+
+- `stage` (`HTMLElement`): The element around the board.
+- `editor` (`Editor`): The editor of the board.
+- `ids` (`readonly string[]`): The ids of the shapes to show.
+- `updateCamera` (`UpdateCamera`): Moves the camera.
+- `insets?` (`number | Insets`): Room to keep free at the edges, in screen pixels, the same at each edge or one for each. Default: `64`.
+
+## `fitCameraToRect`
+
+Returns the camera that shows a part of the board in the middle of the stage, inside `insets`. It zooms out until the part fits, but never in beyond `largestZoom`, and keeps to the zoom limits [`minZoom`](#minzoom) and [`maxZoom`](#maxzoom). So a part that needs less than `minZoom` doesn't fit.
+
+```js
+import { fitCameraToRect } from '@tiptap-pro/extension-whiteboard'
+
+const rect = { x: 0, y: 0, width: 1200, height: 800 }
+const camera = fitCameraToRect({ rect, viewport: { width: 1000, height: 800 } })
+```
+
+### Parameters (`FitCameraToRectOptions`)
+
+- `rect` (`Rect`): The part of the board to show, in board units.
+- `viewport` (`Size`): The size of the stage, in screen pixels.
+- `insets?` (`number | Insets`): Room to keep free at the edges, in screen pixels, the same at each edge or one for each. Default: `64`.
+- `largestZoom?` (`number`): How far it may zoom in. Default: `1`, which is 100%.
+
+### Returns (`Camera`)
+
+The camera that shows the part.
+
+## `visibleBoardRect`
+
+Returns the part of the board that the stage shows.
+
+```js
+import { visibleBoardRect } from '@tiptap-pro/extension-whiteboard'
+
+const seen = visibleBoardRect({ camera, viewport: { width: 1000, height: 800 } })
+```
+
+### Parameters (`VisibleBoardRectOptions`)
+
+- `camera` (`Camera`): The camera of the board.
+- `viewport` (`Size`): The size of the stage, in screen pixels.
+
+### Returns (`Rect`)
+
+The part of the board, in board units.
+
+## `clientToBoard`
+
+Converts a point in window coordinates to board units, with the camera that the board shows.
+
+```js
+import { clientToBoard } from '@tiptap-pro/extension-whiteboard'
+
+stage.addEventListener('pointermove', (event) => {
+  const point = clientToBoard({ editor, point: { x: event.clientX, y: event.clientY } })
+
+  if (point) {
+    console.log(`The pointer is at ${point.x}, ${point.y} on the board`)
+  }
+})
+```
+
+### Parameters (`ClientToBoardOptions`)
+
+- `editor` (`Editor`): The editor of the board.
+- `point` (`Point`): A point in window coordinates, like the `clientX` and `clientY` of a pointer event.
+
+### Returns (`Point | null`)
+
+The point in board units, or `null` while the board isn't on the page, like before `useEditor`'s editor is mounted, or once the editor is destroyed.
+
+## `minZoom`
+
+The smallest zoom, 10%. The camera helpers never zoom out further.
+
+Value: `0.1`.
+
+## `maxZoom`
+
+The largest zoom, 400%. The camera helpers never zoom in further.
+
+Value: `4`.
+
+## `boardContent`
+
+Builds the JSON of a board's document with the given shapes, for the content of an editor.
+
+```js
+import { boardContent, stickyNoteContent } from '@tiptap-pro/extension-whiteboard'
+
+editor.commands.setContent(boardContent([stickyNoteContent({ id: 'note', x: 0, y: 0 })]))
+```
+
+### Parameters
+
+- `shapes` (`JSONContent[]`): The JSON of the shapes, like from [`stickyNoteContent()`](#stickynotecontent).
+
+### Returns (`JSONContent`)
+
+The JSON of the document.
+
+## `stickyNoteContent`
+
+Builds the JSON of a sticky note with one paragraph of text, for the content of a board. It takes the options of [`textShapeContent()`](#textshapecontent), without `type` and `kind`.
+
+```js
+import { stickyNoteContent } from '@tiptap-pro/extension-whiteboard'
+
+const note = stickyNoteContent({ id: 'note', x: 0, y: 0, text: 'Hello' })
+```
+
+### Parameters (`StickyNoteContentOptions`)
+
+- `id` (`string`): The id of the note, unique on the board.
+- `x`, `y` (`number`): Where the note goes, in board units.
+- `width?`, `height?` (`number`): The size of the note, in board units. Default: [`stickyNoteSize`](#stickynotesize).
+- `zIndex?` (`string`): The stacking order, as a fractional index. Shapes with a higher one are in front.
+- `color?` (`ShapeColor`): The color of the note, like `blue`. See [`shapeColors`](#shapecolors).
+- `fontSize?` (`ShapeStyleValue<'fontSize'>`): The size of the text, like `s`, `m`, `l` or `xl`.
+- `textAlign?` (`ShapeStyleValue<'textAlign'>`): How the text aligns: `start`, `center` or `end`.
+- `font?` (`ShapeStyleValue<'font'>`): The font of the text, like `sans`, `serif` or `mono`.
+- `text?` (`string`): The text of the note, in one paragraph.
+
+### Returns (`JSONContent`)
+
+The JSON of the note.
+
+## `textShapeContent`
+
+Builds the JSON of a shape with text, for the content of a board.
+
+```js
+import { boardContent, textShapeContent } from '@tiptap-pro/extension-whiteboard'
+
+const shape = textShapeContent({ type: 'geo', id: 'box', x: 0, y: 0, text: 'Hi' })
+
+editor.commands.setContent(boardContent([shape]))
+```
+
+### Parameters (`TextShapeContentOptions`)
+
+- `type` (`string`): The node type of the shape, like `stickyNote`, `geo` or `freeText`.
+- `id` (`string`): The id of the shape, unique on the board.
+- `x`, `y` (`number`): Where the shape goes, in board units.
+- `width?`, `height?` (`number`): The size of the shape, in board units.
+- `zIndex?` (`string`): The stacking order, as a fractional index. Shapes with a higher one are in front.
+- `color?` (`ShapeColor`): The color of the shape, like `blue`. See [`shapeColors`](#shapecolors).
+- `fontSize?` (`ShapeStyleValue<'fontSize'>`): The size of the text, like `s`, `m`, `l` or `xl`.
+- `textAlign?` (`ShapeStyleValue<'textAlign'>`): How the text aligns: `start`, `center` or `end`.
+- `font?` (`ShapeStyleValue<'font'>`): The font of the text, like `sans`, `serif` or `mono`.
+- `kind?` (`GeoKind`): The kind of a geometric shape, a name from [`geoKinds`](#geokinds).
+- `text?` (`string`): The text of the shape, in one paragraph.
+
+### Returns (`JSONContent`)
+
+The JSON of the shape.
+
+## `freehandFromPoints`
+
+Turns a line drawn in board units into the geometry of a pen line. The box leaves room for the stroke width, and the points are relative to its corner.
+
+```js
+import { freehandFromPoints } from '@tiptap-pro/extension-whiteboard'
+
+const line = freehandFromPoints({
+  points: [
+    { x: 0, y: 0 },
+    { x: 100, y: 40 },
+  ],
+  strokeWidth: 3,
+})
+const content = { type: 'freehand', attrs: { id: 'line', ...line, strokeWidth: 3 } }
+```
+
+### Parameters (`FreehandFromPointsOptions`)
+
+- `points` (`readonly Point[]`): The points of the line, in board units. It needs at least one.
+- `strokeWidth` (`number`): The width of the line, in board units.
+
+### Returns (`FreehandShape`)
+
+The box and the points of the pen line.
+
+## `createShapeId`
+
+Returns a new random version 4 UUID, for the id of a shape. Works off secure origins too, which have no `crypto.randomUUID`.
+
+```js
+import { createShapeId, stickyNoteContent } from '@tiptap-pro/extension-whiteboard'
+
+const note = stickyNoteContent({ id: createShapeId(), x: 0, y: 0 })
+```
+
+### Parameters
+
+None.
+
+### Returns (`string`)
+
+The new id.
+
+## `getSelectedShapeIds`
+
+Returns the ids of the selected shapes.
+
+```js
+import { getSelectedShapeIds } from '@tiptap-pro/extension-whiteboard'
+
+editor.commands.bringToFront(getSelectedShapeIds(editor.state))
+```
+
+### Parameters
+
+- `state` (`EditorState`): The state of the board's editor, like `editor.state`.
+
+### Returns (`readonly string[]`)
+
+The ids, in the order the shapes were selected.
+
+## `isBoardEditable`
+
+Tells whether users may change the board, which `editor.setEditable(false)` turns off. Use it instead of `editor.isEditable`, which is `false` whenever the board has the keyboard. See [Custom shapes](/editor/whiteboard/guides/custom-shapes#read-only-boards).
+
+```js
+import { isBoardEditable } from '@tiptap-pro/extension-whiteboard'
+
+// Commands also change a read-only board, so check before a button in your shape runs one
+if (isBoardEditable(editor)) {
+  editor.commands.updateShape({ id, attributes: { votes: votes + 1 } })
+}
+```
+
+### Parameters
+
+- `editor` (`Editor`): The board's editor.
+
+### Returns (`boolean`)
+
+Whether users may change the board.
+
+## `isEditingText`
+
+Tells whether the text of a shape is edited, so keys type into it. Otherwise keys act on the board and the selected shapes. It is `false` while a doc frame's document is edited, see [`getEditedDocEditor()`](#getediteddoceditor).
+
+```js
+import { isEditingText } from '@tiptap-pro/extension-whiteboard'
+
+isEditingText(editor.state) // false while keys act on the board
+```
+
+### Parameters
+
+- `state` (`EditorState`): The state of the board's editor, like `editor.state`.
+
+### Returns (`boolean`)
+
+Whether the text of a shape is edited.
+
+## `getEditedShapeId`
+
+Returns the id of the shape whose text is edited. For the document of a doc frame, see [`getEditedDocEditor()`](#getediteddoceditor).
+
+```js
+import { getEditedShapeId } from '@tiptap-pro/extension-whiteboard'
+
+getEditedShapeId(editor.state) // 'note' while its text is edited
+```
+
+### Parameters
+
+- `state` (`EditorState`): The state of the board's editor, like `editor.state`.
+
+### Returns (`string | null`)
+
+The id, or `null` while keys act on the board or a doc frame's document is edited.
+
+## `getActiveTool`
+
+Returns the tool that a press on the board uses.
+
+```js
+import { getActiveTool } from '@tiptap-pro/extension-whiteboard'
+
+getActiveTool(editor.state) // 'select'
+```
+
+### Parameters
+
+- `state` (`EditorState`): The state of the board's editor, like `editor.state`.
+
+### Returns (`Tool`)
+
+The tool, `select` unless [`setTool`](/editor/whiteboard/api-reference/commands#settool) chose another one.
+
+## `getNextShapeStyles`
+
+Returns the styles for new shapes. A style that is not set keeps the default of each kind of shape.
+
+```js
+import { getNextShapeStyles } from '@tiptap-pro/extension-whiteboard'
+
+getNextShapeStyles(editor.state).color // undefined until `setShapeStyle` chooses one
+```
+
+### Parameters
+
+- `state` (`EditorState`): The state of the board's editor, like `editor.state`.
+
+### Returns (`Partial<ShapeStyles>`)
+
+The styles that [`setShapeStyle`](/editor/whiteboard/api-reference/commands#setshapestyle) chose.
+
+## `getToolShapeType`
+
+Returns the node type of the shapes that a tool adds.
+
+```js
+import { getToolShapeType } from '@tiptap-pro/extension-whiteboard'
+
+getToolShapeType('note') // 'stickyNote'
+getToolShapeType('hand') // null
+```
+
+### Parameters
+
+- `tool` (`Tool`): The tool, like `note` or `hand`.
+
+### Returns (`string | null`)
+
+The node type, or `null` for a tool that adds none.
+
+## `isTypingTarget`
+
+Tells whether keys pressed on a target type text: in a field, or in editable content like the edited text of a shape or the editor of a doc frame.
+
+```js
+import { isTypingTarget } from '@tiptap-pro/extension-whiteboard'
+
+// In a keydown listener for the app's own shortcuts
+if (event.key === '?' && !isTypingTarget(event.target)) showShortcuts()
+```
+
+### Parameters
+
+- `target` (`EventTarget | null`): The target of a keyboard event, like `event.target`.
+
+### Returns (`boolean`)
+
+Whether keys pressed on the target type text.
+
+## `focusBoard`
+
+Focuses the board right away, or the text while it is edited, for code outside a chain, like a toolbar button's click handler. Unlike ProseMirror's `focus`, it also works while the text is read-only. In a chain, use the [`focusBoard()` command](/editor/whiteboard/api-reference/commands#focusboard) instead, which focuses after the chain's transaction.
+
+```js
+import { focusBoard } from '@tiptap-pro/extension-whiteboard'
+
+// In the click handler of a toolbar button
+focusBoard(editor.view)
+```
+
+### Parameters
+
+- `view` (`EditorView`): The view of the board's editor, like `editor.view`.
+
+## `findShapes`
+
+Finds the shapes with the given ids.
+
+```js
+import { findShapes } from '@tiptap-pro/extension-whiteboard'
+
+const [note] = findShapes({ doc: editor.state.doc, ids: ['note-1'] })
+```
+
+### Parameters (`FindShapesOptions`)
+
+- `doc` (`Node`): The document of the board, like `editor.state.doc`.
+- `ids` (`readonly string[]`): The ids of the shapes.
+
+### Returns (`NodeWithPos[]`)
+
+The shapes with their positions, in document order. Unknown ids are skipped.
+
+## `hasBoxGeometry`
+
+Tells whether a shape has a box from `x`, `y`, `width` and `height`. Arrows don't.
+
+```js
+import { findShapes, hasBoxGeometry } from '@tiptap-pro/extension-whiteboard'
+
+const shapes = findShapes({ doc: editor.state.doc, ids })
+const boxes = shapes.filter(({ node }) => hasBoxGeometry(node))
+```
+
+### Parameters
+
+- `shape` (`Node`): The node of the shape.
+
+### Returns (`boolean`)
+
+Whether the shape has a box.
+
+## `docIdOf`
+
+Returns the id of the document that a doc frame shows, from its node or the node's JSON. Frames without one use their shape id, so they still get a document of their own.
+
+```js
+import { docIdOf, findShapes } from '@tiptap-pro/extension-whiteboard'
+
+const [frame] = findShapes({ doc: editor.state.doc, ids: ['frame'] })
+const docId = frame && docIdOf(frame.node)
+```
+
+### Parameters
+
+- `frame` (`Node | JSONContent`): The node of the frame, or its JSON.
+
+### Returns (`string`)
+
+The id of the document.
+
+## `shapeAttributes`
+
+Returns the attributes that every shape needs, for a [custom shape](/editor/whiteboard/guides/custom-shapes): its id, position, size and z-index. They keep numbers as numbers in HTML, also when users copy and paste the shape.
+
+```js
+import { shapeAttributes } from '@tiptap-pro/extension-whiteboard'
+
+// In the node of the shape
+addAttributes: () => ({
+  ...shapeAttributes({ width: 320, height: 200 }),
+  title: { default: '' },
+}),
+```
+
+### Parameters
+
+- `size?` (`Size`): The size of a new shape, in board units. Default: 200 by 200.
+
+### Returns (`Attributes`)
+
+The attributes, for the `addAttributes` of the shape's node.
+
+## `dataAttribute`
+
+Returns an attribute of a [custom shape](/editor/whiteboard/guides/custom-shapes) that HTML keeps as a data attribute, so it stays when users copy and paste the shape. A missing value, or one that doesn't parse, falls back to the default.
+
+```js
+import { dataAttribute, shapeAttributes } from '@tiptap-pro/extension-whiteboard'
+
+// In the node of the shape
+addAttributes: () => ({
+  ...shapeAttributes(),
+  votes: dataAttribute({ name: 'votes', default: 0 }),
+}),
+```
+
+### Parameters (`DataAttributeOptions`)
+
+- `name` (`string`): The name of the attribute, like `votes`. HTML keeps it as `data-votes`, and `chartData` as `data-chart-data`.
+- `default` (`string | number | boolean | null | readonly unknown[] | Record<string, unknown>`): The value of a new shape. Its type decides how HTML keeps the value: a string, a number, a boolean, or JSON for `null`, objects and arrays.
+
+### Returns (`Attribute`)
+
+The attribute, for the `addAttributes` of the shape's node.
+
+## `shapeNodeView`
+
+Turns the node view of a component, like a React component of your app, into a [custom shape](/editor/whiteboard/guides/custom-shapes) without text. The board places, selects, moves and resizes the shape like its own shapes, and the node view draws the component. Presses on links, buttons, fields and editable content in the component go to them, and so do presses inside elements with `data-shape-interactive`. They do on a read-only board too, so the component checks [`isBoardEditable()`](#isboardeditable) before it changes the board.
+
+```js
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { shapeNodeView } from '@tiptap-pro/extension-whiteboard'
+
+// In the node of the shape
+addNodeView: () => shapeNodeView({ dataType: 'poll', view: ReactNodeViewRenderer(PollView) }),
+```
+
+### Parameters (`ShapeNodeViewOptions`)
+
+- `dataType` (`string`): The `data-type` of the shape's element, like the one that the node's `renderHTML` sets.
+- `view` (`NodeViewRenderer`): The node view of the component in the shape, like `ReactNodeViewRenderer(Component)` from `@tiptap/react`. Its element fills the shape.
+
+### Returns (`NodeViewRenderer`)
+
+The node view of the shape, for the `addNodeView` of its node.
+
+## `insertShapesInFront`
+
+Adds shapes in front of all others, from back to front in the order of `shapes`, unless their z-indexes order them otherwise. Throws a `RangeError` when a shape has no id, or an id that the board or another of the shapes has.
+
+```js
+import {
+  createShapeId,
+  insertShapesInFront,
+  stickyNoteContent,
+} from '@tiptap-pro/extension-whiteboard'
+
+const { tr, schema } = editor.state
+const note = stickyNoteContent({ id: createShapeId(), x: 0, y: 0, text: 'Idea' })
+
+insertShapesInFront({ tr, shapes: [schema.nodeFromJSON(note)] })
+editor.view.dispatch(tr)
+```
+
+### Parameters (`InsertShapesInFrontOptions`)
+
+- `tr` (`Transaction`): The transaction to add the shapes in, like `editor.state.tr`.
+- `shapes` (`readonly Node[]`): The nodes of the shapes to add.
+
+### Returns (`number | null`)
+
+The position of the first shape, or `null` when it added none.
+
+It leaves dispatching the transaction to you. With `UndoRedo`, it makes the transaction its own undo step. With collaboration, Yjs joins changes that come quickly after each other into one step.
+
+## `removeShapes`
+
+Deletes the shapes with the given ids. Arrows that connect a deleted shape stay, with a free end where they touched it.
+
+```js
+import { removeShapes } from '@tiptap-pro/extension-whiteboard'
+
+const { tr } = editor.state
+removeShapes({ tr, ids: ['note-1'] })
+editor.view.dispatch(tr)
+```
+
+### Parameters (`RemoveShapesOptions`)
+
+- `tr` (`Transaction`): The transaction to delete the shapes in, like `editor.state.tr`.
+- `ids` (`readonly string[]`): The ids of the shapes.
+
+### Returns (`boolean`)
+
+Whether any of the shapes were on the board.
+
+It leaves dispatching the transaction to you. With `UndoRedo`, it makes the transaction its own undo step. With collaboration, Yjs joins changes that come quickly after each other into one step.
+
+## `restackShapes`
+
+Moves the shapes with the given ids in front of or behind all other shapes, and keeps their order among each other. Only the moved shapes get new z-indexes, unless missing or invalid ones leave no room.
+
+```js
+import { restackShapes } from '@tiptap-pro/extension-whiteboard'
+
+const { tr } = editor.state
+restackShapes({ tr, ids: ['note-1'], place: 'back' })
+editor.view.dispatch(tr)
+```
+
+### Parameters (`RestackShapesOptions`)
+
+- `tr` (`Transaction`): The transaction to move the shapes in, like `editor.state.tr`.
+- `ids` (`readonly string[]`): The ids of the shapes.
+- `place` (`StackPlace`): Where the shapes go: `front`, in front of all others, or `back`, behind them.
+
+### Returns (`boolean`)
+
+Whether any of the shapes are on the board.
+
+It leaves dispatching the transaction to you. With `UndoRedo`, it makes the transaction its own undo step. With collaboration, Yjs joins changes that come quickly after each other into one step.
+
+## `keepShapeHeights`
+
+Keeps the heights that a transaction gives its shapes, for content that arrives later, like the document of a doc frame that an AI writes after it adds the frame. Without it, the board makes free text and doc frames as tall as their content.
+
+```js
+import { keepShapeHeights } from '@tiptap-pro/extension-whiteboard'
+
+const { tr } = editor.state
+// … add a doc frame whose document arrives later
+editor.view.dispatch(keepShapeHeights(tr))
+```
+
+### Parameters
+
+- `tr` (`Transaction`): The transaction, like `editor.state.tr`.
+
+### Returns (`Transaction`)
+
+The same transaction.
+
+It only marks the transaction and makes no undo step.
+
+## `getDocEditors`
+
+Returns the editors of the documents that the doc frames on the board show.
+
+```js
+import { getDocEditors } from '@tiptap-pro/extension-whiteboard'
+
+const documents = getDocEditors(editor).map((docEditor) => docEditor.getJSON())
+```
+
+### Parameters
+
+- `editor` (`Editor`): The board's editor.
+
+### Returns (`Editor[]`)
+
+The editors of the documents, and none once the board's editor is destroyed.
+
+## `getEditedDocEditor`
+
+Returns the editor of the document that a doc frame edits.
+
+```js
+import { getEditedDocEditor } from '@tiptap-pro/extension-whiteboard'
+
+// A bold button that works in documents too
+const textEditor = getEditedDocEditor(editor) ?? editor
+textEditor.commands.toggleBold()
+```
+
+### Parameters
+
+- `editor` (`Editor`): The board's editor.
+
+### Returns (`Editor | null`)
+
+The editor of the document, or `null` while none is edited, like once the board's editor is destroyed.
+
+## `createRemoteMoves`
+
+Shows the drags of other users on the board of `editor`. Their shapes and the arrows that connect them move, but the document doesn't change: the other user's drop changes it.
+
+```js
+import { createRemoteMoves } from '@tiptap-pro/extension-whiteboard'
+
+const moves = createRemoteMoves(editor)
+moves.show({ owner: clientId, ids: ['note'], delta: { x: 40, y: 0 } })
+moves.end(clientId)
+```
+
+### Parameters
+
+- `editor` (`Editor`): The board's editor.
+
+### Returns (`RemoteMoves`)
+
+The moves, with two functions:
+
+- `show({ owner, ids, delta })` shows the shapes of `owner`'s drag, moved by `delta`. `owner` is whose drag it is, like the client id of another user, and `delta` how far the drag has moved the shapes since it began, in board units.
+- `end(owner)` ends the drag of `owner`. Its shapes show as the document has them.
+
+## `exportBoard`
+
+Saves the board as a board file: its JSON, and the documents that its doc frames show. See [Export and import](/editor/whiteboard/guides/export-and-import).
+
+```js
+import { exportBoard } from '@tiptap-pro/extension-whiteboard'
+
+const json = JSON.stringify(exportBoard({ editor }))
+```
+
+### Parameters (`ExportBoardOptions`)
+
+- `editor` (`Editor`): The board's editor.
+
+### Returns (`BoardFile`)
+
+The board file, to write with `JSON.stringify`. See [`BoardFile`](/editor/whiteboard/api-reference/types#boardfile).
+
+## `importBoard`
+
+Opens a board file from `exportBoard`, in one step of the board's history. Each doc frame shows a new document, which [`BoardDocs.load`](/editor/whiteboard/api-reference/types#boarddocs) fills from the file, so other boards keep their documents. Throws a [`BoardFileError`](/editor/whiteboard/api-reference/types#boardfileerror) when the JSON is not a board file, or when a newer version of the whiteboard wrote it.
+
+```js
+import { importBoard } from '@tiptap-pro/extension-whiteboard'
+
+importBoard({ editor, file: JSON.parse(await file.text()) })
+```
+
+### Parameters (`ImportBoardOptions`)
+
+- `editor` (`Editor`): The board's editor.
+- `file` (`unknown`): The parsed JSON of a board file, like `exportBoard` returns it.
+- `mode?` (`'replace' | 'insert'`): `replace` shows the board of the file instead of the current one. `insert` adds copies of its shapes in front of the current ones, like a paste, and selects them. Default: `'replace'`.
+
+### Returns (`ImportBoardResult`)
+
+The ids of the added shapes, and the shapes of the file that the editor can't show. See [`ImportBoardResult`](/editor/whiteboard/api-reference/types#importboardresult).
+
+## `exportBoardSvg`
+
+Draws shapes of the board as an SVG image, as the page shows them: with the app's styles, and with the fonts and images that they use. Selections, handles and carets stay out. Text is HTML in a `foreignObject`, which browsers show, but some vector editors don't.
+
+```js
+import { exportBoardSvg } from '@tiptap-pro/extension-whiteboard'
+
+const image = await exportBoardSvg({ editor, background: '#fff' })
+```
+
+### Parameters (`ExportBoardSvgOptions`)
+
+- `editor` (`Editor`): The board's editor. Its board must be in the page, or the function throws.
+- `ids?` (`readonly string[]`): The ids of the shapes to draw. Default: all shapes.
+- `padding?` (`number`): The space around the shapes, in board units. Default: `16`.
+- `background?` (`string`): A CSS color behind the shapes. Without it, the image is transparent there.
+
+### Returns (`Promise<BoardSvg | null>`)
+
+The SVG and its size, or `null` when there are no shapes to draw. See [`BoardSvg`](/editor/whiteboard/api-reference/types#boardsvg).
+
+## `exportBoardImage`
+
+Draws shapes of the board as a PNG or JPEG image, like [`exportBoardSvg`](#exportboardsvg) draws them. A JPEG gets a white background, unless `background` sets one. In Safari, the image has no box shadows.
+
+```js
+import { exportBoardImage } from '@tiptap-pro/extension-whiteboard'
+
+const png = await exportBoardImage({ editor, background: '#fff' })
+```
+
+### Parameters (`ExportBoardImageOptions`)
+
+The options of [`exportBoardSvg`](#exportboardsvg), and:
+
+- `format?` (`'png' | 'jpeg'`): The file type. Default: `'png'`.
+- `pixelRatio?` (`number`): The pixels per board unit. It is lower when a canvas can't be that large. Default: `2`.
+- `quality?` (`number`): The quality of a JPEG, from 0 to 1.
+
+### Returns (`Promise<Blob | null>`)
+
+The image file, or `null` when there are no shapes to draw.
+
+## `geoKinds`
+
+The kinds of geometric shapes, the names for their `kind`.
+
+Value: `['rectangle', 'ellipse', 'diamond', 'triangle']`.
+
+## `shapeColors`
+
+The default colors of shapes, like for the swatches of a color menu. Shapes store the name, and your CSS decides how it looks. Add colors of your own with the `colors` option of `WhiteboardKit`, see [Colors](/editor/whiteboard/api-reference/styling#colors).
+
+Value: `['black', 'gray', 'red', 'orange', 'yellow', 'green', 'blue', 'violet']`.
+
+## `shapeStyles`
+
+The styles of shapes, with the names of their default values. See [Shapes and tools](/editor/whiteboard/guides/shapes-and-tools#styles-for-new-shapes).
+
+Value: `{ color: shapeColors, fontSize: ['s', 'm', 'l', 'xl'], textAlign: ['start', 'center', 'end'], font: ['sans', 'serif', 'mono'], arrowheads: ['none', 'end', 'both'] }`.
+
+## `stickyNoteSize`
+
+The size of a sticky note that is given none, in board units.
+
+Value: `{ width: 220, height: 160 }`.
+
+## `toolKeys`
+
+The default key that chooses each tool while no text is edited, like for the tooltips of a toolbar. Change them with the `toolKeys` option of [`WhiteboardKit`](/editor/whiteboard/api-reference/extensions#whiteboardkit).
+
+Value: `{ select: 'v', hand: 'h', note: 'n', text: 't', doc: 'w', rectangle: 'r', ellipse: 'o', diamond: 'd', pen: 'p', arrow: 'a', eraser: 'e' }`.
+
+## `boardStyles`
+
+The CSS that the board needs. The board adds it to the page itself, unless its editor has `injectCSS: false`. See [Styling](/editor/whiteboard/api-reference/styling#the-boards-css).
+
+Type: `string`.
