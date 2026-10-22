@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
@@ -16,34 +16,57 @@ export const DocsSidebar = ({
   config: SidebarConfig
   onItemClick?: () => void
 }) => {
+  const listed = useMemo(() => collectHrefs(config.items), [config.items])
+
   return (
-    <Sidebar.Track>
-      {config.items.map((item, i) =>
-        item.type === 'link' ? (
-          <LinkItem link={item} key={`${item.href}-${i}`} onClick={onItemClick} />
-        ) : (
-          <GroupItem group={item} key={`${item.href}-${i}`} onClick={onItemClick} />
-        ),
-      )}
-    </Sidebar.Track>
+    <ListedPages.Provider value={listed}>
+      <Sidebar.Track>
+        {config.items.map((item, i) =>
+          item.type === 'link' ? (
+            <LinkItem link={item} key={`${item.href}-${i}`} onClick={onItemClick} />
+          ) : (
+            <GroupItem group={item} key={`${item.href}-${i}`} onClick={onItemClick} />
+          ),
+        )}
+      </Sidebar.Track>
+    </ListedPages.Provider>
   )
 }
 
-/** Whether the page is `href` or lies below it. An entry that only folds open (`href: ''`) never matches. */
-function isAtOrBelow(pathname: string, href: string): boolean {
+type Item = Omit<SidebarLink, 'type'> | SidebarGroup | SidebarLink
+
+function collectHrefs(items: Item[], out = new Set<string>()): Set<string> {
+  for (const item of items) {
+    if (item.href) out.add(item.href)
+    if (item.children) collectHrefs(item.children, out)
+  }
+  return out
+}
+
+/** Every href in the sidebar. A page that has its own entry opens only the entries above it. */
+const ListedPages = createContext<Set<string>>(new Set())
+
+/**
+ * Whether the page is `href` or, for a page without its own entry, lies below it.
+ * An entry that only folds open (`href: ''`) never matches.
+ */
+function isAtOrBelow(pathname: string, href: string, listed: Set<string>): boolean {
   if (href === '') return false
-  if (href === '/') return pathname === '/'
-  return pathname === href || pathname.startsWith(`${href}/`)
+  if (pathname === href) return true
+  if (href === '/' || listed.has(pathname)) return false
+  return pathname.startsWith(`${href}/`)
 }
 
 function hasActiveDescendant(
   children: Omit<SidebarLink, 'type'>[] | undefined,
   pathname: string,
+  listed: Set<string>,
 ): boolean {
   if (!children) return false
   return children.some(
     (child) =>
-      isAtOrBelow(pathname, child.href) || hasActiveDescendant(child.children, pathname),
+      isAtOrBelow(pathname, child.href, listed) ||
+      hasActiveDescendant(child.children, pathname, listed),
   )
 }
 
@@ -55,9 +78,10 @@ export const LinkItem = ({
   onClick?: () => void
 }) => {
   const pathname = usePathname()
+  const listed = useContext(ListedPages)
   const isExactMatch = link.isActive ?? pathname === link.href
-  const isActiveParent = isAtOrBelow(pathname, link.href)
-  const hasActiveChild = hasActiveDescendant(link.children, pathname)
+  const isActiveParent = isAtOrBelow(pathname, link.href, listed)
+  const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
 
@@ -90,10 +114,7 @@ export const LinkItem = ({
   return (
     <div ref={linkRef}>
       {link.disabled ? (
-        <Sidebar.Button
-          isActive={false}
-          className="opacity-40 cursor-default pointer-events-none"
-        >
+        <Sidebar.Button isActive={false} className="opacity-40 cursor-default pointer-events-none">
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
           </span>
@@ -114,7 +135,9 @@ export const LinkItem = ({
             <span className="flex-grow flex items-baseline">
               <span>{link.title}</span>
               {link.releaseTag && (
-                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">{link.releaseTag.toUpperCase()}</sup>
+                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">
+                  {link.releaseTag.toUpperCase()}
+                </sup>
               )}
             </span>
             <span className="flex gap-1 items-center">
@@ -165,7 +188,7 @@ export const LinkItem = ({
 
 export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: () => void }) => {
   const pathname = usePathname()
-  const holdsPage = hasActiveDescendant(group.children, pathname)
+  const holdsPage = hasActiveDescendant(group.children, pathname, useContext(ListedPages))
   const [isOpen, setIsOpen] = useState(!group.collapsible || !!group.defaultOpen || holdsPage)
   // Open the group that holds the page after a client-side navigation
   const [openedFor, setOpenedFor] = useState(pathname)
