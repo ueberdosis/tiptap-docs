@@ -169,7 +169,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         feature(
-          'Composable Docs',
+          'Composable Documents',
           composableDocsSidebar,
           '/composable-docs/slots/getting-started/overview',
         ),
