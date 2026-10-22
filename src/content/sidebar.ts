@@ -273,21 +273,23 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      title: 'Learn',
-      href: '/learn',
+      title: 'Guides',
+      href: '/guides',
       collapsible: true,
       children: [
-        {
-          title: 'Guides',
-          href: '/guides',
-          // Pro access sits under Getting started
-          children: toEntries(guidesSidebar.items.filter((item) => item.title !== 'First Steps')),
-        },
-        {
-          title: 'Examples',
-          href: '/examples',
-          children: toEntries(examplesSidebar.items.filter((item) => item.title !== 'Get started')),
-        },
+        { href: '/guides', title: 'Overview' },
+        // Pro access sits under Getting started
+        ...toEntries(guidesSidebar.items.filter((item) => item.title !== 'First Steps')),
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Examples',
+      href: '/examples',
+      collapsible: true,
+      children: [
+        { href: '/examples', title: 'Overview' },
+        ...toEntries(examplesSidebar.items.filter((item) => item.title !== 'Get started')),
       ],
     },
     {
