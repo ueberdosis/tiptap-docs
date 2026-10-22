@@ -4,6 +4,77 @@
 
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
+  // Guides that belong to one area moved there; the authentication guide merged into the page it repeated
+  {
+    source: '/guides/naming-documents',
+    destination: '/collaboration/guides/naming-documents',
+    permanent: true,
+  },
+  {
+    source: '/guides/offline-support',
+    destination: '/collaboration/guides/offline-support',
+    permanent: true,
+  },
+  {
+    source: '/guides/collaboration-api',
+    destination: '/collaboration/guides/collaboration-api',
+    permanent: true,
+  },
+  {
+    source: '/guides/output-json-html',
+    destination: '/editor/guides/output-json-html',
+    permanent: true,
+  },
+  {
+    source: '/guides/invalid-schema',
+    destination: '/editor/guides/invalid-schema',
+    permanent: true,
+  },
+  {
+    source: '/guides/react-composable-api',
+    destination: '/editor/guides/react-composable-api',
+    permanent: true,
+  },
+  {
+    source: '/guides/spellcheck',
+    destination: '/editor/guides/spellcheck',
+    permanent: true,
+  },
+  {
+    source: '/guides/find-and-replace',
+    destination: '/editor/guides/find-and-replace',
+    permanent: true,
+  },
+  {
+    source: '/guides/create-mark',
+    destination: '/editor/guides/create-mark',
+    permanent: true,
+  },
+  {
+    source: '/guides/nested-node-view-content',
+    destination: '/editor/guides/nested-node-view-content',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-vanilla',
+    destination: '/editor/guides/decorations-vanilla',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-react',
+    destination: '/editor/guides/decorations-react',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-vue',
+    destination: '/editor/guides/decorations-vue',
+    permanent: true,
+  },
+  {
+    source: '/guides/authentication',
+    destination: '/collaboration/getting-started/authenticate',
+    permanent: true,
+  },
   // Pro features have their own sections; the catalog replaces the per-type index pages
   {
     source: '/editor/extensions/functionality/ai-generation',

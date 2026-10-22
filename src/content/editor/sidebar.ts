@@ -599,6 +599,30 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      title: 'Guides',
+      href: '/editor/guides',
+      children: [
+        { href: '/editor/guides/output-json-html', title: 'Export JSON or HTML' },
+        { href: '/editor/guides/invalid-schema', title: 'Invalid schema handling' },
+        { href: '/editor/guides/react-composable-api', title: 'React Composable API' },
+        { href: '/editor/guides/spellcheck', title: 'Spellcheck' },
+        { href: '/editor/guides/find-and-replace', title: 'Find and replace UI' },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Customization guides',
+      href: '/editor/guides',
+      children: [
+        { href: '/editor/guides/create-mark', title: 'Create a mark' },
+        { href: '/editor/guides/nested-node-view-content', title: 'Nested node views' },
+        { href: '/editor/guides/decorations-vanilla', title: 'Decorations in JavaScript' },
+        { href: '/editor/guides/decorations-react', title: 'Decorations in React' },
+        { href: '/editor/guides/decorations-vue', title: 'Decorations in Vue' },
+      ],
+    },
+    {
+      type: 'group',
       title: 'Resources',
       href: '/editor/resources',
       children: [

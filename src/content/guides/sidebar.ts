@@ -1,5 +1,7 @@
 import { SidebarConfig } from '@/types'
 
+// Guides that span the whole product. Guides for one area live there, such as
+// src/content/editor/guides and src/content/collaboration/guides.
 export const sidebarConfig: SidebarConfig = {
   id: 'guides',
   rootHref: '/guides',
@@ -17,132 +19,38 @@ export const sidebarConfig: SidebarConfig = {
       ],
     },
     {
-      title: 'Essential',
+      title: 'Essentials',
       type: 'group',
       href: '',
       children: [
-        {
-          href: '/guides/faq',
-          title: 'FAQ',
-        },
-        {
-          href: '/guides/accessibility',
-          title: 'Accessibility',
-        },
-        {
-          href: '/guides/performance',
-          title: 'Performance',
-        },
-        {
-          href: '/guides/find-and-replace',
-          title: 'Find and replace UI',
-        },
-        {
-          href: '/guides/spellcheck',
-          title: 'Spellcheck',
-        },
-        {
-          href: '/guides/react-composable-api',
-          title: 'React Composable API',
-        },
-        {
-          href: '/guides/invalid-schema',
-          title: 'Invalid schema handling',
-        },
-        {
-          href: '/guides/output-json-html',
-          title: 'Export JSON or HTML',
-        },
-        {
-          href: '/guides/authentication',
-          title: 'Collaboration Auth',
-        },
-        {
-          href: '/guides/naming-documents',
-          title: 'Naming documents',
-        },
-        {
-          href: '/guides/offline-support',
-          title: 'Offline Collaboration',
-        },
-        {
-          href: '/guides/upgrade-tiptap-v1',
-          title: 'Upgrade Tiptap V1',
-        },
-        {
-          href: '/guides/upgrade-tiptap-v2',
-          title: 'Upgrade Tiptap V2',
-        },
-        {
-          href: '/guides/collaboration-api',
-          title: 'Collaboration API',
-        },
+        { href: '/guides/faq', title: 'FAQ' },
+        { href: '/guides/accessibility', title: 'Accessibility' },
+        { href: '/guides/performance', title: 'Performance' },
+        { href: '/guides/typescript', title: 'TypeScript' },
       ],
     },
     {
-      title: 'Customization',
+      title: 'Upgrade Tiptap',
       type: 'group',
       href: '',
       children: [
-        {
-          href: '/guides/typescript',
-          title: 'Extend with TypeScript',
-        },
-        {
-          href: '/guides/nested-node-view-content',
-          title: 'Nested node views',
-        },
-        {
-          href: '/guides/decorations-vanilla',
-          title: 'Highlight Terms with Decorations in Vanilla JS',
-        },
-        {
-          href: '/guides/decorations-react',
-          title: 'Highlight Terms with Decorations in React',
-        },
-        {
-          href: '/guides/decorations-vue',
-          title: 'Highlight Terms with Decorations in Vue 3',
-        },
+        { href: '/guides/upgrade-tiptap-v2', title: 'From v2 to v3' },
+        { href: '/guides/upgrade-tiptap-v1', title: 'From v1 to v2' },
       ],
     },
     {
-      title: 'Migration',
+      title: 'Migrate from another editor',
       type: 'group',
       href: '',
       children: [
-        {
-          href: '/guides/migrate-from-tinymce',
-          title: 'Migrate from TinyMCE',
-        },
-        {
-          href: '/guides/migrate-from-ckeditor4',
-          title: 'Migrate from CKEditor 4',
-        },
-        {
-          href: '/guides/migrate-from-ckeditor5',
-          title: 'Migrate from CKEditor 5',
-        },
-        {
-          href: '/guides/migrate-from-quill',
-          title: 'Migrate from Quill',
-        },
-        {
-          href: '/guides/migrate-from-slate',
-          title: 'Migrate from Slate',
-        },
-        {
-          href: '/guides/migrate-from-lexical',
-          title: 'Migrate from Lexical',
-        },
-        {
-          href: '/guides/migrate-from-editorjs',
-          title: 'Migrate from Editor.js',
-        },
-        {
-          href: '/guides/migrate-from-draftjs',
-          title: 'Migrate from Draft.js',
-        },
+        { href: '/guides/migrate-from-tinymce', title: 'TinyMCE' },
+        { href: '/guides/migrate-from-ckeditor4', title: 'CKEditor 4' },
+        { href: '/guides/migrate-from-ckeditor5', title: 'CKEditor 5' },
+        { href: '/guides/migrate-from-quill', title: 'Quill' },
+        { href: '/guides/migrate-from-slate', title: 'Slate' },
+        { href: '/guides/migrate-from-lexical', title: 'Lexical' },
+        { href: '/guides/migrate-from-editorjs', title: 'Editor.js' },
+        { href: '/guides/migrate-from-draftjs', title: 'Draft.js' },
       ],
     },
   ],

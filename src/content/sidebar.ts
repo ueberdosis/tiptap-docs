@@ -111,6 +111,7 @@ export const sidebarConfig: SidebarConfig = {
         link(editorSidebar, ['Get started', 'Configure']),
         link(editorSidebar, ['Get started', 'Styling']),
         ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
+        { title: 'Guides', href: '', children: childrenOf(editorSidebar, ['Guides']) },
       ],
     },
     {
@@ -205,6 +206,11 @@ export const sidebarConfig: SidebarConfig = {
           children: undefined,
         },
         ...childrenOf(editorSidebar, ['Extensions', 'Custom extensions']),
+        {
+          title: 'Guides',
+          href: '',
+          children: childrenOf(editorSidebar, ['Customization guides']),
+        },
       ],
     },
     {
@@ -240,6 +246,7 @@ export const sidebarConfig: SidebarConfig = {
             },
             link(collaborationSidebar, ['Features', 'Webhooks']),
             { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
+            { title: 'Guides', href: '', children: childrenOf(collaborationSidebar, ['Guides']) },
           ],
         },
         {

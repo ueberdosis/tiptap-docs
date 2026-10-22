@@ -100,5 +100,24 @@ export const sidebarConfig: SidebarConfig = {
         },
       ],
     },
+    {
+      type: 'group',
+      href: '/collaboration/guides',
+      title: 'Guides',
+      children: [
+        {
+          title: 'Naming documents',
+          href: '/collaboration/guides/naming-documents',
+        },
+        {
+          title: 'Offline support',
+          href: '/collaboration/guides/offline-support',
+        },
+        {
+          title: 'Change documents with the API',
+          href: '/collaboration/guides/collaboration-api',
+        },
+      ],
+    },
   ],
 }
