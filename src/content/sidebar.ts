@@ -188,13 +188,15 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      title: 'Self-hosting',
-      href: '/hocuspocus',
-      tags: ['Open source'],
+      title: 'Hosting',
+      href: '/hosting',
       collapsible: true,
       children: [
-        { href: '/self-hosting', title: 'Hocuspocus or Document Server' },
-        section('Hocuspocus', hocuspocusSidebar, { inline: ['Get started'] }),
+        { href: '/hosting', title: 'Cloud, on-premises, or Hocuspocus' },
+        section('Hocuspocus', hocuspocusSidebar, {
+          inline: ['Get started'],
+          tags: ['Open source'],
+        }),
       ],
     },
     {
