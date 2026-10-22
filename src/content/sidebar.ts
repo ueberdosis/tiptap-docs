@@ -242,7 +242,14 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
           ],
         },
-        { href: '/hosting', title: 'Hosting' },
+        {
+          href: '/hosting',
+          title: 'Hosting',
+          children: [
+            { href: '/hosting/cloud', title: 'Tiptap Cloud' },
+            { href: '/hosting/on-premises', title: 'On-premises' },
+          ],
+        },
         section('Hocuspocus', hocuspocusSidebar, {
           inline: ['Get started'],
           tags: ['Open source'],
