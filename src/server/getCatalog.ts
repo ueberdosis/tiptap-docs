@@ -84,8 +84,13 @@ function upcomingEntries(): CatalogEntry[] {
 
 function sortByGroup(entries: CatalogEntry[]): CatalogEntry[] {
   const order = new Map(CATALOG_GROUPS.map(({ id }, index) => [id, index]))
+  // A kit bundles its group's extensions and is what most people install, so it comes first
+  const isKit = (entry: CatalogEntry) => Number(/ kit$/i.test(entry.name))
   return [...entries].sort(
-    (a, b) => order.get(a.group)! - order.get(b.group)! || a.name.localeCompare(b.name),
+    (a, b) =>
+      order.get(a.group)! - order.get(b.group)! ||
+      isKit(b) - isKit(a) ||
+      a.name.localeCompare(b.name),
   )
 }
 

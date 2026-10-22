@@ -17,7 +17,7 @@ export const CATALOG_AREAS: Record<CatalogArea, string> = {
 }
 
 export const CATALOG_GROUPS: CatalogGroup[] = [
-  { id: 'kits', title: 'Kits', area: 'editor' },
+  { id: 'kits', title: 'Starter kit', area: 'editor' },
   { id: 'text-formatting', title: 'Text formatting', area: 'editor' },
   { id: 'text-styling', title: 'Text styling', area: 'editor' },
   { id: 'text-blocks', title: 'Text blocks', area: 'editor' },

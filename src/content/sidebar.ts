@@ -31,23 +31,27 @@ function link(config: SidebarConfig, titles: string[]): SidebarEntry {
 /** The catalog groups of an area, each folding open to its features. */
 function catalogGroups(area: CatalogArea): SidebarEntry[] {
   const catalog = getCatalog()
-  return CATALOG_GROUPS.filter((group) => group.area === area)
-    .map((group) => ({
-      title: group.title,
-      href: '',
-      children: catalog
-        .filter((entry) => entry.group === group.id)
-        .map((entry) =>
-          entry.url
-            ? {
-                title: entry.name,
-                href: entry.url,
-                tags: entry.plan && entry.plan !== 'Open source' ? [entry.plan] : undefined,
-              }
-            : { title: entry.name, href: '', tags: ['Soon'], disabled: true },
-        ),
-    }))
-    .filter((group) => group.children.length > 0)
+  return (
+    CATALOG_GROUPS.filter((group) => group.area === area)
+      .map((group) => ({
+        title: group.title,
+        href: '',
+        children: catalog
+          .filter((entry) => entry.group === group.id)
+          .map((entry) =>
+            entry.url
+              ? {
+                  title: entry.name,
+                  href: entry.url,
+                  tags: entry.plan && entry.plan !== 'Open source' ? [entry.plan] : undefined,
+                }
+              : { title: entry.name, href: '', tags: ['Soon'], disabled: true },
+          ),
+      }))
+      .filter((group) => group.children.length > 0)
+      // A group of one is just that entry
+      .map((group) => (group.children.length === 1 ? group.children[0] : group))
+  )
 }
 
 /** The plan of a feature page as a sidebar tag, from the catalog. Open source gets none. */
