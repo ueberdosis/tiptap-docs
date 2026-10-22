@@ -163,7 +163,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           href: '/editor/core-concepts/introduction',
-          title: 'Introduction',
+          title: 'Overview',
         },
         {
           href: '/editor/core-concepts/extensions',
@@ -201,7 +201,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Markdown',
       tags: ['beta'],
       children: [
-        { href: '/editor/markdown', title: 'Introduction' },
+        { href: '/editor/markdown', title: 'Overview' },
         {
           href: '/editor/markdown/getting-started',
           title: 'Getting Started',

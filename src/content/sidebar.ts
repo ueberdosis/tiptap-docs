@@ -88,7 +88,7 @@ export const sidebarConfig: SidebarConfig = {
       collapsible: true,
       defaultOpen: true,
       children: [
-        { href: '/', title: 'Introduction' },
+        { href: '/', title: 'Overview' },
         { ...link(editorSidebar, ['Get started', 'Overview']), title: 'The editor' },
         { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
         { href: '/configurator', title: 'Plan your editor' },
