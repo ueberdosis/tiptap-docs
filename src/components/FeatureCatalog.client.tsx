@@ -6,13 +6,7 @@ import { Button } from './ui/Button'
 import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import {
-  CATALOG_AREAS,
-  CATALOG_GROUPS,
-  CATALOG_PLANS,
-  CatalogArea,
-  CatalogPlan,
-} from '@/content/catalog'
+import { CATALOG_GROUPS, CATALOG_PLANS, CatalogPlan } from '@/content/catalog'
 import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import type { CatalogEntry } from '@/server/getCatalog'
@@ -89,10 +83,9 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
   )
 }
 
-/** Every feature, filterable by area, plan, type and text, grouped like the sidebar. */
+/** Every feature, filterable by plan, type, industry and text, grouped like the sidebar. */
 export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => {
   const [query, setQuery] = useUrlParam('search', '')
-  const [area, setArea] = useUrlParam<CatalogArea | typeof ALL>('area', ALL)
   const [plan, setPlan] = useUrlParam<CatalogPlan | typeof ALL>('plan', ALL)
   const [type, setType] = useUrlParam<string>('type', ALL)
   const [industry, setIndustry] = useUrlParam<string>('industry', ALL)
@@ -101,7 +94,6 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
     const needle = query.trim().toLowerCase()
     return entries.filter(
       (entry) =>
-        (area === ALL || entry.area === area) &&
         (plan === ALL || entry.plan === plan) &&
         (type === ALL || entry.type === type) &&
         (industry === ALL || (entry.industries ?? []).includes(industry)) &&
@@ -109,16 +101,13 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
           entry.name.toLowerCase().includes(needle) ||
           entry.description.toLowerCase().includes(needle)),
     )
-  }, [entries, query, area, plan, type, industry])
+  }, [entries, query, plan, type, industry])
 
-  const sections = (Object.keys(CATALOG_AREAS) as CatalogArea[])
-    .map((areaId) => ({
-      areaId,
-      groups: CATALOG_GROUPS.filter((group) => group.area === areaId)
-        .map((group) => ({ group, items: visible.filter((entry) => entry.group === group.id) }))
-        .filter(({ items }) => items.length > 0),
-    }))
-    .filter(({ groups }) => groups.length > 0)
+  // One list of groups, in the order the sidebar shows them
+  const groups = CATALOG_GROUPS.map((group) => ({
+    group,
+    items: visible.filter((entry) => entry.group === group.id),
+  })).filter(({ items }) => items.length > 0)
 
   return (
     <div className="grid gap-8">
@@ -145,15 +134,6 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
           ) : null}
         </label>
         <FilterRow
-          label="Area"
-          options={(Object.keys(CATALOG_AREAS) as CatalogArea[]).map((id) => ({
-            id,
-            label: CATALOG_AREAS[id],
-          }))}
-          value={area}
-          onChange={setArea}
-        />
-        <FilterRow
           label="Plan"
           options={CATALOG_PLANS.map((id) => ({ id, label: id }))}
           value={plan}
@@ -168,26 +148,23 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
         />
       </div>
 
-      {sections.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="text-neutral-700">
           No features match{' '}
           {query ? <span className="font-semibold">&quot;{query}&quot;</span> : 'your filters'}.
         </div>
       ) : null}
 
-      {sections.map(({ areaId, groups }) => (
-        <section key={areaId} className="grid gap-12" aria-label={CATALOG_AREAS[areaId]}>
-          <h2 className="text-2xl font-bold leading-[120%]">{CATALOG_AREAS[areaId]}</h2>
-          {groups.map(({ group, items }) => (
-            <div key={group.id}>
-              <h3 className="text-xl font-bold mb-6 leading-[120%]">{group.title}</h3>
-              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
-                {items.map((entry) => (
-                  <CatalogCard entry={entry} key={entry.url || entry.name} />
-                ))}
-              </div>
-            </div>
-          ))}
+      {groups.map(({ group, items }) => (
+        <section key={group.id} aria-label={group.title}>
+          <h2 id={group.id} className="text-[1.5rem] font-bold leading-[120%] mb-6">
+            {group.title}
+          </h2>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
+            {items.map((entry) => (
+              <CatalogCard entry={entry} key={entry.url || entry.name} />
+            ))}
+          </div>
         </section>
       ))}
     </div>

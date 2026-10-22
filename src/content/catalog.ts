@@ -33,13 +33,14 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'document-helpers', title: 'Document helpers', area: 'editor' },
   { id: 'clipboard-and-files', title: 'Clipboard and files', area: 'editor' },
   { id: 'collaboration', title: 'Real-time collaboration', area: 'editor' },
-  { id: 'documents', title: 'Documents', area: 'platform' },
   { id: 'review', title: 'Review', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Docs', area: 'platform' },
   { id: 'page-layout', title: 'Page layout', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'ai', title: 'AI', area: 'platform' },
+  // Snapshots belong to the Document Server, under Platform in the sidebar
+  { id: 'documents', title: 'Documents', area: 'platform' },
 ]
 
 /** Plans in the order the filter shows them. A page's plan comes from its tags. */
