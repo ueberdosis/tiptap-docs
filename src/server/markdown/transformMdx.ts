@@ -21,10 +21,12 @@ function rewriteUrl(url: string): string {
   const isAsset = ASSET_PREFIXES.some((p) => url === p || url.startsWith(`${p}/`))
   if (isAsset) return `${FULL_DOMAIN}${url}`
   
-  const [pathPart, hash] = url.split('#')
+  const [beforeHash, hash] = url.split('#')
+  // The `.md` goes on the path, before any query
+  const [pathPart, query] = beforeHash.split('?')
   const withMd = /\.[a-z0-9]+$/i.test(pathPart) ? pathPart : `${pathPart}.md`
-  
-  return `${FULL_DOMAIN}${withMd}${hash ? `#${hash}` : ''}`
+
+  return `${FULL_DOMAIN}${withMd}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`
 }
 
 // mdast phrasing (inline) node types. Anything else is flow (block) content.
