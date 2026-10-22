@@ -59,21 +59,30 @@ function FilterRow<T extends string>({
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
   // Icons come by name from the frontmatter
   const icon = createElement(getIcon(entry.icon), { className: 'w-3.5 h-3.5', 'aria-hidden': true })
-  return (
-    <Card isClickable asChild>
-      <Link href={entry.url}>
-        <div className="flex items-center justify-between gap-2 mb-5">
-          {icon}
-          <div className="ml-auto flex items-center gap-1">
-            {entry.status ? <Tag variant="info">{entry.status}</Tag> : null}
-          </div>
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2 mb-5">
+        {icon}
+        <div className="ml-auto flex items-center gap-1">
+          {entry.status ? <Tag variant="info">{entry.status}</Tag> : null}
         </div>
-        <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{entry.description}</div>
+      </div>
+      <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
+      <div className="mt-2 leading-[140%] text-grayAlpha-600">{entry.description}</div>
+      {entry.plan ? (
         <div className="mt-5 flex items-center flex-wrap gap-1">
           <Tag>{entry.plan}</Tag>
         </div>
-      </Link>
+      ) : null}
+    </>
+  )
+
+  // A feature without docs yet has no page to link to
+  if (!entry.url) return <Card className="opacity-60">{content}</Card>
+
+  return (
+    <Card isClickable asChild>
+      <Link href={entry.url}>{content}</Link>
     </Card>
   )
 }
@@ -164,7 +173,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
               <h3 className="text-xl font-bold mb-6 leading-[120%]">{group.title}</h3>
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
                 {items.map((entry) => (
-                  <CatalogCard entry={entry} key={entry.url} />
+                  <CatalogCard entry={entry} key={entry.url || entry.name} />
                 ))}
               </div>
             </div>

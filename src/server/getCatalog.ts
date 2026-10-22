@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { CATALOG_GROUPS, CatalogArea, CatalogPlan } from '../content/catalog'
+import { CATALOG_GROUPS, CatalogArea, CatalogPlan, UPCOMING_FEATURES } from '../content/catalog'
 import type { ExtensionType } from '../types'
 import { readFrontmatterSync } from './readFrontmatter'
 
@@ -11,9 +11,11 @@ export type CatalogEntry = {
   type: ExtensionType
   group: string
   area: CatalogArea
-  plan: CatalogPlan
-  /** Release state from the page tags, such as Beta or Alpha. */
+  /** Unknown for features that are announced but not documented yet. */
+  plan?: CatalogPlan
+  /** Release state from the page tags, such as Beta or Alpha, or "Coming soon". */
   status?: string
+  /** Empty for features that are announced but not documented yet. */
   url: string
 }
 
@@ -48,14 +50,39 @@ let catalog: CatalogEntry[] | undefined
 
 /** Every catalog entry, in group order and then by name. Read once per process. */
 export function getCatalog(): CatalogEntry[] {
-  catalog ??= readCatalog(CONTENT_DIR)
+  catalog ??= sortByGroup([...readCatalog(CONTENT_DIR), ...upcomingEntries()])
   return catalog
+}
+
+/** Announced features without docs pages, from UPCOMING_FEATURES. */
+function upcomingEntries(): CatalogEntry[] {
+  return UPCOMING_FEATURES.map((feature) => {
+    const group = CATALOG_GROUPS.find(({ id }) => id === feature.group)
+    if (!group) throw new Error(`Unknown catalog group "${feature.group}" for ${feature.name}`)
+    return {
+      name: feature.name,
+      description: feature.description,
+      icon: feature.icon,
+      type: 'extension' as ExtensionType,
+      group: group.id,
+      area: group.area,
+      status: 'Coming soon',
+      url: '',
+    }
+  })
+}
+
+function sortByGroup(entries: CatalogEntry[]): CatalogEntry[] {
+  const order = new Map(CATALOG_GROUPS.map(({ id }, index) => [id, index]))
+  return [...entries].sort(
+    (a, b) => order.get(a.group)! - order.get(b.group)! || a.name.localeCompare(b.name),
+  )
 }
 
 /** Reads the catalog from the headers of the MDX files in `contentDir`. */
 export function readCatalog(contentDir: string): CatalogEntry[] {
-  const groups = new Map(CATALOG_GROUPS.map((group, index) => [group.id, { ...group, index }]))
-  const entries: { order: number; entry: CatalogEntry }[] = []
+  const groups = new Map(CATALOG_GROUPS.map((group) => [group.id, group]))
+  const entries: CatalogEntry[] = []
 
   for (const file of walk(contentDir)) {
     const attributes = readFrontmatterSync(file)
@@ -73,21 +100,17 @@ export function readCatalog(contentDir: string): CatalogEntry[] {
       .replace(/(^|\/)index$/, '')
 
     entries.push({
-      order: group.index,
-      entry: {
-        name: extension.name,
-        description: extension.description,
-        icon: extension.icon,
-        type: extension.type,
-        group: group.id,
-        area: group.area,
-        plan: planFromTags(tags),
-        status: statusFromTags(tags),
-        url: `/${route}`,
-      },
+      name: extension.name,
+      description: extension.description,
+      icon: extension.icon,
+      type: extension.type,
+      group: group.id,
+      area: group.area,
+      plan: planFromTags(tags),
+      status: statusFromTags(tags),
+      url: `/${route}`,
     })
   }
 
-  entries.sort((a, b) => a.order - b.order || a.entry.name.localeCompare(b.entry.name))
-  return entries.map(({ entry }) => entry)
+  return sortByGroup(entries)
 }

@@ -23,6 +23,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'text-blocks', title: 'Text blocks', area: 'editor' },
   { id: 'lists', title: 'Lists', area: 'editor' },
   { id: 'tables', title: 'Tables', area: 'editor' },
+  { id: 'document-structure', title: 'Document structure', area: 'editor' },
   { id: 'code-and-math', title: 'Code and math', area: 'editor' },
   { id: 'media', title: 'Media and embeds', area: 'editor' },
   { id: 'mentions-and-emoji', title: 'Mentions and emoji', area: 'editor' },
@@ -45,3 +46,67 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
 export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot program'] as const
 
 export type CatalogPlan = (typeof CATALOG_PLANS)[number]
+
+export type UpcomingFeature = {
+  name: string
+  description: string
+  icon: string
+  group: string
+}
+
+/**
+ * MOCK: packages that exist in tiptap-pro but have no docs pages yet. They show
+ * as "Coming soon" in the catalog and the sidebar. Replace an entry with a page
+ * (frontmatter `extension.group`) once its docs exist; drop the list before it
+ * ships if the packages aren't announced.
+ */
+export const UPCOMING_FEATURES: UpcomingFeature[] = [
+  {
+    name: 'Bookmark',
+    description: 'Named anchors in the document that links and references can point to.',
+    icon: 'Bookmark',
+    group: 'document-structure',
+  },
+  {
+    name: 'Columns',
+    description: 'Lay out content in side-by-side columns.',
+    icon: 'Columns2',
+    group: 'document-structure',
+  },
+  {
+    name: 'Cross-references',
+    description: 'Refer to headings, figures, or bookmarks with references that stay up to date.',
+    icon: 'Link2',
+    group: 'document-structure',
+  },
+  {
+    name: 'Document styles',
+    description: 'Define paragraph and character styles once for the whole document.',
+    icon: 'Paintbrush',
+    group: 'document-structure',
+  },
+  {
+    name: 'Footnotes',
+    description: 'Add numbered footnotes that renumber themselves as the text changes.',
+    icon: 'Superscript',
+    group: 'document-structure',
+  },
+  {
+    name: 'Number formats',
+    description: 'Number lists and headings as 1.1, a), i., or in your own format.',
+    icon: 'ListOrdered',
+    group: 'document-structure',
+  },
+  {
+    name: 'Outline numbering',
+    description: 'Number headings as a legal or technical outline, like 1, 1.1, 1.1.1.',
+    icon: 'ListTree',
+    group: 'document-structure',
+  },
+  {
+    name: 'Whole blocks',
+    description: 'Select, move, and delete a block as one unit.',
+    icon: 'Square',
+    group: 'document-structure',
+  },
+]

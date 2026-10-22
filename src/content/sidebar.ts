@@ -32,11 +32,15 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
       href: '',
       children: catalog
         .filter((entry) => entry.group === group.id)
-        .map((entry) => ({
-          title: entry.name,
-          href: entry.url,
-          tags: entry.plan === 'Open source' ? undefined : [entry.plan],
-        })),
+        .map((entry) =>
+          entry.url
+            ? {
+                title: entry.name,
+                href: entry.url,
+                tags: entry.plan && entry.plan !== 'Open source' ? [entry.plan] : undefined,
+              }
+            : { title: entry.name, href: '', tags: ['Soon'], disabled: true },
+        ),
     }))
     .filter((group) => group.children.length > 0)
 }
