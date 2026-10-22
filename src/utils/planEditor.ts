@@ -97,7 +97,7 @@ export function nextSteps(result: EditorPlan): { primary: NextStep; secondary?: 
   const trial = {
     label: 'Start free trial',
     url: 'https://cloud.tiptap.dev/register',
-    text: 'Try every paid feature for 30 days, without a credit card.',
+    text: 'Try the plan for 30 days, without a credit card.',
   }
   const sales = {
     label: 'Talk to sales',
