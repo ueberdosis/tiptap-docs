@@ -78,7 +78,8 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
   )
 
   // A feature without docs yet has no page to link to
-  if (!entry.url) return <Card className="opacity-60">{content}</Card>
+  if (!entry.url)
+    return <Card className="border border-dashed border-grayAlpha-300 shadow-none">{content}</Card>
 
   return (
     <Card isClickable asChild>
