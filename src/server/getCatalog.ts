@@ -17,6 +17,8 @@ export type CatalogEntry = {
   status?: string
   /** Empty for features that are announced but not documented yet. */
   url: string
+  /** The npm packages to install, space-separated. */
+  package?: string
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -109,6 +111,7 @@ export function readCatalog(contentDir: string): CatalogEntry[] {
       plan: planFromTags(tags),
       status: statusFromTags(tags),
       url: `/${route}`,
+      ...(extension.package ? { package: extension.package } : {}),
     })
   }
 

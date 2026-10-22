@@ -1,5 +1,6 @@
 import fs from 'fs'
 import { CATALOG_AREAS, CATALOG_GROUPS, CATALOG_PLANS } from '../content/catalog'
+import { EDITOR_PRESETS } from '../content/presets'
 import { createCanonicalUrl } from './createCanonicalUrl'
 import { getCatalog } from './getCatalog'
 import { DocsPage, fileForRoute, getDocsIndex } from './getDocsIndex'
@@ -7,7 +8,8 @@ import { DOCS_SUMMARY, markdownUrl, usageNotes } from './llmsText'
 import { changelogToMarkdown } from './markdown/changelogToMarkdown'
 import { fileToMarkdown } from './markdown/fileToMarkdown'
 import { resolveContentPath } from './markdown/resolveContentPath'
-import { BASE_PATH } from '@/utils/constants'
+import { BASE_PATH, FULL_DOMAIN } from '@/utils/constants'
+import { planEditor, planToMarkdown } from '@/utils/planEditor'
 
 // A read-only MCP server for the docs, over Streamable HTTP with plain JSON
 // responses (no event stream). Stateless: every request stands alone.
@@ -70,6 +72,27 @@ const TOOLS = [
         plan: { type: 'string', enum: [...CATALOG_PLANS] },
         group: { type: 'string', enum: CATALOG_GROUPS.map((group) => group.id) },
         query: { type: 'string', description: 'Filter by name or description' },
+      },
+    },
+  },
+  {
+    name: 'plan_editor',
+    title: 'Plan an editor',
+    description:
+      'Given a use case or a list of features, return the Tiptap plan, add-ons, services, npm packages, UI template, and docs pages it takes. Use it before building an editor or a feature.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        preset: {
+          type: 'string',
+          enum: EDITOR_PRESETS.map((preset) => preset.id),
+          description: EDITOR_PRESETS.map((preset) => `${preset.id}: ${preset.title}`).join('; '),
+        },
+        features: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Feature names from list_features, added to the preset',
+        },
       },
     },
   },
@@ -236,6 +259,35 @@ function listFeatures(args: Record<string, unknown>): ToolResult {
   )
 }
 
+function planEditorTool(args: Record<string, unknown>): ToolResult {
+  const preset = EDITOR_PRESETS.find((candidate) => candidate.id === args.preset)
+  if (args.preset && !preset) return text(`Unknown preset "${String(args.preset)}".`, true)
+  const extra = Array.isArray(args.features) ? args.features.map(String) : []
+  if (!preset && extra.length === 0) return text('Pass a preset, features, or both.', true)
+
+  const byName = new Map(
+    getCatalog()
+      .filter((entry) => entry.url)
+      .map((entry) => [entry.name.toLowerCase(), entry]),
+  )
+  const names = [...new Set([...(preset?.features ?? []), ...extra])]
+  const unknown = names.filter((name) => !byName.has(name.toLowerCase()))
+  const features = names
+    .map((name) => byName.get(name.toLowerCase()))
+    .filter((entry) => entry !== undefined)
+    .map(({ name, url, plan, package: pkg }) => ({ name, url, plan, package: pkg }))
+
+  const markdown = planToMarkdown(
+    planEditor(features, preset?.template),
+    FULL_DOMAIN,
+    preset ? `Editor plan: ${preset.title}` : 'Editor plan',
+  )
+  const note = unknown.length
+    ? `\nNot in the catalog, so left out: ${unknown.join(', ')}. See list_features for names.\n`
+    : ''
+  return text(markdown + note)
+}
+
 async function callTool(name: unknown, args: Record<string, unknown>): Promise<ToolResult> {
   switch (name) {
     case 'search_docs': {
@@ -248,6 +300,8 @@ async function callTool(name: unknown, args: Record<string, unknown>): Promise<T
       return getPage(String(args.path ?? ''))
     case 'list_features':
       return listFeatures(args)
+    case 'plan_editor':
+      return planEditorTool(args)
     default:
       throw Object.assign(new Error(`Unknown tool: ${String(name)}`), { code: -32602 })
   }

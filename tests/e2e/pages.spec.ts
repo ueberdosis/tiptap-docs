@@ -17,6 +17,7 @@ const PAGE_TYPES: Record<string, string> = {
   example: '/examples/basics/default-text-editor',
   'ui component': '/ui-components/components/mark-button',
   changelog: '/resources/changelog',
+  configurator: '/configurator',
 }
 
 /** Collects uncaught errors and console errors from the docs origin, not from demo iframes. */
@@ -81,6 +82,25 @@ test('the feature catalog filters by plan and type, from the URL and on click', 
   await expect(catalog.getByRole('link', { name: /^Bold/ })).toBeVisible()
   await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toHaveCount(0)
   // Rendering with filters from the URL must not break hydration
+  expect(errors).toEqual([])
+})
+
+test('Plan your editor follows the preset and the chosen features', async ({ page, baseURL }) => {
+  const errors = watchErrors(page, new URL(siteRoot(baseURL)).origin)
+  await page.goto(siteUrl(baseURL, '/configurator?preset=word'))
+  const summary = page.getByRole('region', { name: 'What you need' })
+  await expect(summary).toContainText('Team')
+  await expect(summary.locator('pre')).toContainText('@tiptap-pro/extension-pages')
+
+  await page.getByRole('button', { name: /^Simple editor/ }).click()
+  // The default preset leaves the URL clean
+  await expect(page).not.toHaveURL(/preset=/)
+  await expect(summary).toContainText('Open source')
+  await expect(summary.locator('pre')).not.toContainText('@tiptap-pro')
+
+  await page.getByRole('checkbox', { name: /^Comments/ }).check()
+  await expect(summary).toContainText('Document Server')
+  await expect(summary.locator('pre')).toContainText('@tiptap-pro/extension-comments')
   expect(errors).toEqual([])
 })
 

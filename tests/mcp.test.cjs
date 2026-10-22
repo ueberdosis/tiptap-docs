@@ -12,6 +12,9 @@ const { handleMcpMessage, toRoute } = loadSite('../src/server/mcp.ts')
 const { buildLlmsTxt, markdownUrl } = loadSite('../src/server/llmsText.ts')
 const { getDocsIndex } = loadSite('../src/server/getDocsIndex.ts')
 const { fileToMarkdown } = loadSite('../src/server/markdown/fileToMarkdown.ts')
+const { getCatalog } = loadSite('../src/server/getCatalog.ts')
+const { EDITOR_PRESETS } = loadSite('../src/content/presets.ts')
+const { planEditor } = loadSite('../src/utils/planEditor.ts')
 
 function loadSite(file) {
   return require(file)
@@ -47,11 +50,11 @@ test('notifications get no answer and unknown methods an error', async () => {
   assert.equal((await handleMcpMessage({ id: 1, method: 'ping' })).error.code, -32600)
 })
 
-test('tools/list offers search_docs, get_page and list_features', async () => {
+test('tools/list offers search_docs, get_page, list_features and plan_editor', async () => {
   const { result } = await call('tools/list')
   assert.deepEqual(
     result.tools.map((t) => t.name),
-    ['search_docs', 'get_page', 'list_features'],
+    ['search_docs', 'get_page', 'list_features', 'plan_editor'],
   )
 })
 
@@ -119,4 +122,62 @@ test('.md pages link the code of open-source demos, not of Pro demos', async () 
   const comments = await fileToMarkdown('src/content/comments/getting-started/overview.mdx')
   assert.match(comments, /\*\*Interactive demo:\*\*/)
   assert.doesNotMatch(comments, /Source code:/)
+})
+
+const documented = () => getCatalog().filter((entry) => entry.url)
+
+test('every documented feature names its npm package', () => {
+  const missing = documented()
+    .filter((entry) => !entry.package)
+    .map((entry) => entry.url)
+  assert.deepEqual(missing, [], 'Add `package` to the extension block of these pages')
+})
+
+test('presets only use documented features', () => {
+  const names = new Set(documented().map((entry) => entry.name))
+  for (const preset of EDITOR_PRESETS) {
+    const unknown = preset.features.filter((name) => !names.has(name))
+    assert.deepEqual(unknown, [], `preset ${preset.id}`)
+  }
+})
+
+test('planEditor picks the smallest plan and lists add-ons, services and packages', () => {
+  const byName = new Map(documented().map((entry) => [entry.name, entry]))
+  const plan = (id) =>
+    planEditor(
+      EDITOR_PRESETS.find((preset) => preset.id === id).features.map((name) => byName.get(name)),
+    )
+
+  const simple = plan('simple')
+  assert.equal(simple.plan, 'Open source')
+  assert.equal(simple.hasProPackages, false)
+  assert.deepEqual(simple.services, [])
+
+  const word = plan('word')
+  assert.equal(word.plan, 'Team')
+  assert.ok(word.packages.includes('@tiptap-pro/extension-pages'))
+  assert.ok(word.services.includes('tiptap-service'))
+  // Open-source packages come first
+  assert.ok(
+    word.packages.indexOf('@tiptap/starter-kit') <
+      word.packages.indexOf('@tiptap-pro/extension-pages'),
+  )
+
+  const review = plan('review')
+  assert.deepEqual(review.addOns.sort(), ['Compare', 'Tracked Changes'])
+  assert.ok(review.services.includes('document-server'))
+
+  assert.deepEqual(plan('templates').pilot.sort(), ['Content Protection', 'Slots', 'Variables'])
+})
+
+test('plan_editor answers with plan, install command and docs', async () => {
+  const { content } = await tool('plan_editor', { preset: 'review', features: ['Mention', 'Nope'] })
+  const markdown = content[0].text
+  assert.match(markdown, /# Editor plan: Review workflow/)
+  assert.match(markdown, /- Add-ons: /)
+  assert.match(markdown, /npm install .*@tiptap\/extension-mention/)
+  assert.match(markdown, /Not in the catalog, so left out: Nope/)
+
+  const error = await tool('plan_editor', {})
+  assert.equal(error.isError, true)
 })

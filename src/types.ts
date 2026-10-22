@@ -124,6 +124,8 @@ export type ExtensionMeta = {
   tags?: string[]
   /** A group from src/content/catalog.ts; pages with a group appear in the feature catalog. */
   group?: string
+  /** The npm packages to install, space-separated, as the page's install command names them. */
+  package?: string
   isPro?: boolean
   isBeta?: boolean
   isExperiment?: boolean
