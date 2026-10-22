@@ -50,7 +50,25 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
     .filter((group) => group.children.length > 0)
 }
 
-const compare = section('Compare', compareSidebar, { inline: ['Get started'] })
+/** The plan of a feature page as a sidebar tag, from the catalog. Open source gets none. */
+function planTags(href: string): string[] | undefined {
+  const plan = getCatalog().find((entry) => entry.url === href)?.plan
+  return plan && plan !== 'Open source' ? [plan] : undefined
+}
+
+/** A section as one feature entry, tagged with its plan. */
+function feature(
+  title: string,
+  config: SidebarConfig,
+  overview: string,
+  options: Parameters<typeof section>[2] = {},
+): SidebarEntry {
+  return section(title, config, { ...options, tags: planTags(overview) })
+}
+
+const compare = feature('Compare', compareSidebar, '/compare/getting-started/overview', {
+  inline: ['Get started'],
+})
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
@@ -67,8 +85,9 @@ export const sidebarConfig: SidebarConfig = {
       defaultOpen: true,
       children: [
         { href: '/', title: 'Introduction' },
+        { ...link(editorSidebar, ['Get started', 'Overview']), title: 'The editor' },
+        { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
         { href: '/document-model', title: 'The Tiptap document' },
-        { href: '/resources/whats-new', title: "What's new in 3.0" },
         {
           href: '/authentication',
           title: 'Authentication',
@@ -77,43 +96,124 @@ export const sidebarConfig: SidebarConfig = {
             { href: '/authentication/legacy', title: 'Legacy authentication' },
           ],
         },
-        { href: '/guides/pro-extensions', title: 'Pro extensions' },
+        { href: '/guides/pro-extensions', title: 'Pro access' },
         { href: '/resources/tiptap-trial', title: 'Tiptap trial' },
+        { href: '/resources/whats-new', title: "What's new in 3.0" },
       ],
     },
     {
       type: 'group',
-      title: 'Editor',
-      href: '/editor',
-      tags: ['Open source'],
+      title: 'Concepts',
+      href: '/concepts',
       collapsible: true,
       children: [
-        ...childrenOf(editorSidebar, ['Get started']),
+        ...childrenOf(editorSidebar, ['Core Concepts']).slice(0, 1),
+        link(editorSidebar, ['Get started', 'Configure']),
+        link(editorSidebar, ['Get started', 'Styling']),
+        ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Features',
+      href: '/features',
+      collapsible: true,
+      children: [
+        { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
+        ...catalogGroups('editor'),
+        ...toEntries([pick(editorSidebar, ['Markdown'])]),
         {
-          title: 'Core concepts',
-          href: '',
-          children: childrenOf(editorSidebar, ['Core Concepts']),
-        },
-        {
-          title: 'Extensions',
+          title: 'Review',
           href: '',
           children: [
-            ...toEntries([pick(editorSidebar, ['Extensions', 'Overview'])]),
-            ...catalogGroups('editor'),
-            ...toEntries([pick(editorSidebar, ['Extensions', 'Custom extensions'])]),
+            feature('Comments', commentsSidebar, '/comments/getting-started/overview', {
+              inline: ['Get started'],
+            }),
+            feature(
+              'Tracked Changes',
+              trackedChangesSidebar,
+              '/tracked-changes/getting-started/overview',
+              {
+                inline: ['Get started'],
+                // Links to Conversion pages, which have their place there
+                omit: ['DOCX conversion'],
+              },
+            ),
           ],
         },
-        ...toEntries([pick(editorSidebar, ['Markdown'])]),
-        { title: 'API reference', href: '', children: childrenOf(editorSidebar, ['API']) },
+        {
+          ...compare,
+          children: [
+            ...compare.children!,
+            // Compares two snapshots; Compare is taking over its job
+            {
+              ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
+              title: 'Compare snapshots',
+            },
+          ],
+        },
+        feature(
+          'Composable Docs',
+          composableDocsSidebar,
+          '/composable-docs/slots/getting-started/overview',
+        ),
+        feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
+          inline: ['Getting started'],
+        }),
+        feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
+          inline: ['Get started'],
+        }),
+        {
+          title: 'AI',
+          href: '',
+          children: [
+            {
+              title: 'AI Toolkit',
+              href: '',
+              tags: planTags('/ai/ai-toolkit/overview'),
+              children: childrenOf(aiSidebar, ['AI Toolkit']),
+            },
+            {
+              ...link(aiSidebar, ['Other Options', 'Client Toolkit']),
+              href: '',
+              title: 'AI Toolkit client',
+            },
+            { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
+            {
+              title: 'AI Legacy',
+              href: '',
+              tags: ['Deprecated'],
+              children: [
+                section('AI Assistant', aiAssistantSidebar, legacyOptions),
+                section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
+                section('AI Changes', aiChangesSidebar, legacyOptions),
+              ],
+            },
+          ],
+        },
       ],
     },
     {
       type: 'group',
-      title: 'Document Platform',
-      href: '/document-platform',
+      title: 'Build your own',
+      href: '/build-your-own',
       collapsible: true,
       children: [
-        // The baseline every capability builds on: managed documents with real-time sync
+        {
+          ...link(editorSidebar, ['Extensions', 'Custom extensions']),
+          title: 'Overview',
+          children: undefined,
+        },
+        ...childrenOf(editorSidebar, ['Extensions', 'Custom extensions']),
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Platform',
+      href: '/platform',
+      collapsible: true,
+      children: [
+        // The base every feature on the platform builds on: managed documents with real-time sync
         {
           title: 'Documents',
           href: '',
@@ -142,62 +242,19 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
           ],
         },
-        {
-          title: 'Review',
-          href: '',
-          children: [
-            section('Comments', commentsSidebar, { inline: ['Get started'] }),
-            section('Tracked Changes', trackedChangesSidebar, {
-              inline: ['Get started'],
-              // Links to Conversion pages, which have their place there
-              omit: ['DOCX conversion'],
-            }),
-          ],
-        },
-        {
-          ...compare,
-          children: [
-            ...compare.children!,
-            // Compares two snapshots; Compare is taking over its job
-            {
-              ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
-              title: 'Compare snapshots',
-            },
-          ],
-        },
-        section('Composable Docs', composableDocsSidebar),
-        section('Pages', pagesSidebar, { inline: ['Getting started'] }),
-        section('Conversion', conversionSidebar, { inline: ['Get started'] }),
-        { title: 'AI Toolkit', href: '', children: childrenOf(aiSidebar, ['AI Toolkit']) },
-        { ...toEntries([pick(aiSidebar, ['Other Options', 'Client Toolkit'])])[0], href: '' },
-        {
-          ...toEntries([pick(aiSidebar, ['Other Options', 'Basic AI Generation'])])[0],
-          href: '',
-        },
-        {
-          title: 'AI Legacy',
-          href: '',
-          tags: ['Deprecated'],
-          children: [
-            section('AI Assistant', aiAssistantSidebar, legacyOptions),
-            section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
-            section('AI Changes', aiChangesSidebar, legacyOptions),
-          ],
-        },
-      ],
-    },
-    {
-      type: 'group',
-      title: 'Hosting',
-      href: '/hosting',
-      collapsible: true,
-      children: [
-        { href: '/hosting', title: 'Cloud, on-premises, or Hocuspocus' },
+        { href: '/hosting', title: 'Hosting' },
         section('Hocuspocus', hocuspocusSidebar, {
           inline: ['Get started'],
           tags: ['Open source'],
         }),
       ],
+    },
+    {
+      type: 'group',
+      title: 'API reference',
+      href: '/api-reference',
+      collapsible: true,
+      children: childrenOf(editorSidebar, ['API']),
     },
     {
       type: 'group',
@@ -208,7 +265,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Guides',
           href: '/guides',
-          // Pro extensions sits under Getting started
+          // Pro access sits under Getting started
           children: toEntries(guidesSidebar.items.filter((item) => item.title !== 'First Steps')),
         },
         {

@@ -1,6 +1,6 @@
 // The feature catalog: every page whose frontmatter has an `extension` block
 // with a `group` appears in /editor/extensions/overview and, for editor
-// groups, in the sidebar under Editor › Extensions. The order here is the
+// groups, in the sidebar under Features. The order here is the
 // order on the page and in the sidebar.
 
 export type CatalogArea = 'editor' | 'platform'

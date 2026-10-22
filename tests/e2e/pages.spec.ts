@@ -61,11 +61,7 @@ for (const [type, route] of Object.entries(PAGE_TYPES)) {
 
 test('breadcrumbs follow the page’s place in the sidebar', async ({ page, baseURL }) => {
   await page.goto(siteUrl(baseURL, PAGE_TYPES['extension page']))
-  await expect(page.locator('[data-breadcrumb]')).toHaveText([
-    'Editor',
-    'Extensions',
-    'Text formatting',
-  ])
+  await expect(page.locator('[data-breadcrumb]')).toHaveText(['Features', 'Text formatting'])
 })
 
 test('the feature catalog filters by plan and type, from the URL and on click', async ({
@@ -90,7 +86,7 @@ test('the feature catalog filters by plan and type, from the URL and on click', 
 
 test('a folded sidebar category opens on click', async ({ page, baseURL }) => {
   await page.goto(siteUrl(baseURL, '/'))
-  const category = page.getByRole('button', { name: 'Document Platform' })
+  const category = page.getByRole('button', { name: 'Platform', exact: true })
   await expect(category).toHaveAttribute('aria-expanded', 'false')
   await category.click()
   await expect(category).toHaveAttribute('aria-expanded', 'true')

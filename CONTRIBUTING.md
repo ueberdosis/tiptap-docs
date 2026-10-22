@@ -39,7 +39,7 @@ All documentation shares one sidebar, `src/content/sidebar.ts`; only UI Componen
 
 ## Feature Catalog
 
-The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Editor › Extensions. A page's plan comes from its `tags` (`start`, `team`, `addon`, `restricted`). A new extension page needs a `group`, or `pnpm test:structure` fails.
+The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Features, next to the larger features such as Comments or Conversion, which keep their own sections. A page's plan comes from its `tags` (`start`, `team`, `addon`, `restricted`). A new extension page needs a `group`, or `pnpm test:structure` fails.
 
 ## Tests
 
