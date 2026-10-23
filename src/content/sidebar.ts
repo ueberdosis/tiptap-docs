@@ -35,7 +35,8 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
     CATALOG_GROUPS.filter((group) => group.area === area)
       .map((group) => ({
         title: group.title,
-        href: '',
+        // A click shows the group's cards in the feature catalog
+        href: `/editor/extensions/overview#${group.id}`,
         children: catalog
           .filter((entry) => entry.group === group.id)
           .map((entry) =>
@@ -171,11 +172,14 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
-        feature(
-          'Composable Documents',
-          composableDocsSidebar,
-          '/composable-docs/slots/getting-started/overview',
-        ),
+        {
+          ...feature(
+            'Composable Documents',
+            composableDocsSidebar,
+            '/composable-docs/slots/getting-started/overview',
+          ),
+          href: '/composable-docs',
+        },
         {
           // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
           // Pages stays at its URLs for existing projects, labeled Legacy.

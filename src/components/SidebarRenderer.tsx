@@ -106,6 +106,17 @@ function isAtOrBelow(pathname: string, href: string, listed: Set<string>): boole
   return pathname.startsWith(`${href}/`)
 }
 
+/**
+ * Where an entry leads: its own page or, for an entry that only folds open, the page of its
+ * first entry, so that a click always shows something. An entry whose first entry has no page
+ * yet only folds.
+ */
+function targetOf(link: Omit<SidebarLink, 'type'>): string {
+  if (link.href) return link.href
+  const [first] = link.children ?? []
+  return first && !first.disabled ? targetOf(first) : ''
+}
+
 function hasActiveDescendant(
   children: Omit<SidebarLink, 'type'>[] | undefined,
   pathname: string,
@@ -134,6 +145,7 @@ export const LinkItem = ({
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
   const label = sidebarLabel(link.tags, link.releaseTag)
+  const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent || hasActiveChild)
 
@@ -175,10 +187,11 @@ export const LinkItem = ({
           asChild
           isActive={isActive}
           className="relative pl-5"
-          onClick={link.href === '' ? toggleOpen : undefined}
+          // An entry with a page opens as well, so its entries show next to the page
+          onClick={target === '' ? toggleOpen : link.children ? () => setIsOpen(true) : undefined}
         >
           <Link
-            href={link.href}
+            href={target}
             onClick={onClick}
             className="flex items-center justify-between w-full"
             target={link.external ? '_blank' : undefined}
