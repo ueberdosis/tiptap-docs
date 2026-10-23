@@ -2,16 +2,16 @@
 title: Image handling
 meta:
   title: Image handling | Tiptap Conversion
-  description: Set up the upload endpoint that receives the images of an imported Word file, and see what the request and the response look like.
+  description: Set up the upload endpoint that receives the images of an imported .docx file, and see what the request and the response look like.
   category: Conversion
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-A Word file holds its images inside the file. Convert can't give you a URL for them, so it uploads each image to an endpoint on your server and puts the URL you return into the `image` node.
+A `.docx` file holds its images inside the file. Convert can't give you a URL for them, so it uploads each image to an endpoint on your server and puts the URL you return into the `image` node.
 
 <Callout title="You need your own upload endpoint" variant="info">
-  Tiptap doesn't store images for you. Without `imageUploadConfig`, imported images are skipped.
+  Tiptap doesn't store images for you. Without `imageUploadConfig`, import skips every image.
 </Callout>
 
 For the editor setup and what an image keeps, see [images](/conversion/v3/content-reference/structures-and-media/images).
@@ -39,7 +39,7 @@ ImportDocx.configure({
 | `method`      | `string`                 | The HTTP method of the upload. Defaults to `POST`.                |
 | `queryParams` | `Record<string, string>` | Query parameters Convert adds to `url`.                           |
 
-An invalid `url` or `headers` value fails the import with an `ImageUploadConfigValidationError` before any request is sent.
+An invalid `url` or `headers` value fails the import with an `ImageUploadConfigValidationError` before it sends any request.
 
 ## Handle the upload request
 
@@ -56,15 +56,15 @@ Your `headers` and `queryParams` come with it. Convert sets `Content-Type` and `
 
 Convert sets `Content-Type` from the file extension for `png`, `jpg`, `jpeg`, `gif`, `bmp`, `tiff`, `tif`, `emf`, `wmf`, `svg` and `webp`. It sends `application/octet-stream` for anything else. Decide on your side which types you keep.
 
-`File-Name` comes from inside the Word file. Word numbers images `image1`, `image2` and so on, and starts at 1 in every file. Add something unique to your storage key, or two files will overwrite each other's images.
+`File-Name` comes from inside the `.docx` file. Word numbers images `image1`, `image2` and so on, and starts at 1 in every file. Add something unique to your storage key, or two files will overwrite each other's images.
 
-By default, Convert uploads up to three images at a time and waits 10 seconds for each answer. A slower answer counts as a failed upload. It doesn't retry.
+By default, Convert uploads up to three images at a time and waits 10 seconds for each response. A slower response counts as a failed upload. It doesn't retry.
 
 The endpoint must be reachable from the internet. Convert refuses addresses that aren't public, such as `localhost`.
 
 ## Return the URL
 
-Answer with a `2xx` status and a JSON body that has a `url` string.
+Respond with a `2xx` status and a JSON body that has a `url` string.
 
 ```json
 { "url": "https://example.com/images/photo.png" }
@@ -72,7 +72,7 @@ Answer with a `2xx` status and a JSON body that has a `url` string.
 
 The `url` must be an absolute `http` or `https` address with a host. Convert uses it as you return it, without re-encoding, so a signed URL stays valid. It trims whitespace around the value.
 
-This is a handler that reads the request and answers with the URL. `saveImage` stands for your own storage code.
+This handler reads the request and returns the URL. `saveImage` stands for your own storage code.
 
 ```ts
 export async function handleUpload(request: Request): Promise<Response> {
@@ -94,35 +94,36 @@ Keep the images available. The editor content stores the URL, and anyone who ope
 Convert skips an image, and the rest of the document imports normally, in these cases.
 
 - You didn't set `imageUploadConfig`.
-- The endpoint answered with a status that isn't `2xx`, took too long or couldn't be reached.
-- The answer wasn't JSON, or `url` was missing or unusable.
+- The endpoint returned a status that isn't `2xx`, took too long or couldn't be reached.
+- The response wasn't JSON, or `url` was missing or unusable.
 
-For every skipped image, `onWarning` receives a `server-warning` that says the image was skipped. The cause is in `logs.error` of the `onImport` context. It names the file. When your endpoint answered with an unusable `url`, it also has a `reason` field.
+For every skipped image, `onWarning` receives a `server-warning` that says the image was skipped. The cause is in the `logs.error` field of the `onImport` context. It names the file. When your endpoint returned an unusable `url`, it also has a `reason` field.
 
-| Reason in `logs.error`                            | Typical cause                                                 |
-| ------------------------------------------------- | ------------------------------------------------------------- |
-| The response did not contain a `url` field        | The JSON has no `url` key, or `url` is `null`.                |
-| The `url` field was not a string                  | `url` holds a number or an object.                            |
-| The `url` field was empty                         | `url` is `""` or only whitespace.                             |
-| The URL contains a space or a control character   | An unencoded space or line break. Percent-encode it.          |
-| The URL is relative                               | A path such as `/uploads/image1.png`, or `//host/image1.png`. |
-| The URL is not a well-formed absolute http(s) URL | A missing slash, as in `https:/host/image1.png`, or no host.  |
-| Only http and https URLs can be used              | A scheme such as `s3://` or `data:`.                          |
+| Reason in `logs.error`                              | Typical cause                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| ``the response did not contain a `url` field``      | The JSON has no `url` key, or `url` is `null`.                |
+| ``the `url` field was not a string``                | `url` holds a number or an object.                            |
+| ``the `url` field was empty``                       | `url` is `""` or only whitespace.                             |
+| `the URL contains a space or a control character`   | An unencoded space or line break. Percent-encode it.          |
+| `the URL is relative`                               | A path such as `/uploads/image1.png`, or `//host/image1.png`. |
+| `the URL is not a well-formed absolute http(s) URL` | A missing slash, as in `https:/host/image1.png`, or no host.  |
+| `only http and https URLs can be used`              | A scheme such as `s3://` or `data:`.                          |
 
-The log cuts the URL before its query string, so a token in a signed URL isn't written to it.
+The log cuts the URL before its query string, so it never holds the token of a signed URL.
 
 ```ts
 editor.commands.importDocx({
   file,
-  onImport: ({ logs, setEditorContent }) => {
-    setEditorContent()
-    console.log(logs.error)
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.logs.error)
   },
 })
 ```
 
-## Limits
+## Limitations
 
 - Convert doesn't resolve relative URLs. It has no page to resolve them against.
 - A failed upload is never retried.
-- Images behind the text are skipped. See [images](/conversion/v3/content-reference/structures-and-media/images).
+- Import skips images behind the text. See [images](/conversion/v3/content-reference/structures-and-media/images).
