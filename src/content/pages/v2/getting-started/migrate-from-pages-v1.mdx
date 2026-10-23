@@ -1,0 +1,348 @@
+---
+title: Migrate from Pages 1
+meta:
+  title: Migrate from Pages 1 | Tiptap Pages
+  description: Move an editor from the Pages extension to Page Layout. Each change shows the Pages 1 code and its replacement, and what happens to saved documents.
+  category: Pages
+---
+
+Page Layout replaces the `Pages` extension. The editor is built differently, and headers, footers and notes now live in the document. Work through the sections in order. Each one shows the Pages 1 code and what replaces it.
+
+## 1. Swap the packages and build the editor
+
+Pages 1 is an extension in a normal editor:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Pages } from '@tiptap-pro/extension-pages'
+import { PageBreak } from '@tiptap-pro/extension-pagebreak'
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, TableKit, PageBreak, Pages.configure({ pageFormat: 'A4' })],
+})
+```
+
+In Page Layout, the editor comes from `createPageLayoutEditor`. It already includes page breaks, and tables come from the open source table extension.
+
+```js
+import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [StarterKit, TableKit, PageLayout.configure({ setup: pageSetup('A4') })],
+})
+```
+
+Uninstall `@tiptap-pro/extension-pages`, `@tiptap-pro/extension-pagebreak`, `@tiptap-pro/extension-pages-tablekit` and `@tiptap-pro/extension-pages-pagekit`. Install `@tiptap-pro/extension-page-layout`. See [install](/pages/v2/getting-started/install).
+
+`PageKit` has no replacement, because `PageLayout` does what it bundled. In React, use `usePageLayoutEditor` instead of `useEditor`. See [Page Layout in React](/pages/v2/getting-started/react).
+
+`PageLayout` in an editor made with `new Editor` draws no pages. Read the document through the engine and not through `editor.state`. See [move an existing editor](/pages/v2/getting-started/install#move-an-existing-editor-to-page-layout).
+
+## 2. Page format
+
+Pages 1 took a format name or an object, and a command changed it:
+
+```js
+Pages.configure({ pageFormat: 'Letter' })
+
+editor.commands.setPageFormat({
+  id: 'wide',
+  width: 1056,
+  height: 816,
+  margins: { top: 96, right: 96, bottom: 96, left: 96 },
+})
+```
+
+In Page Layout, `pageSetup` builds the paper. Orientation and margins are part of it. `pageFormat` defines a size of your own.
+
+```js
+import { pageFormat, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+PageLayout.configure({ setup: pageSetup('Letter') })
+
+const wide = pageFormat({ id: 'wide', width: 1056, height: 816 })
+
+editor.commands.setPageSetup(
+  pageSetup(wide, { margins: { top: 96, right: 96, bottom: 96, left: 96 } }),
+)
+```
+
+The built-in formats of Pages 1 had margins. `A4` used 2.5 cm on top and bottom and 2 cm at the sides. The built-in formats of Page Layout have none, so a setup falls back to 1 inch on every side. To keep the old margins, pass them:
+
+```js
+import { cmToPixels, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+pageSetup('A4', {
+  margins: {
+    top: cmToPixels(2.5),
+    right: cmToPixels(2),
+    bottom: cmToPixels(2.5),
+    left: cmToPixels(2),
+  },
+})
+```
+
+`setPageSetup` is not saved with the document. To save a format in the document, use `setSectionSetup`. See [page format](/pages/v2/core-concepts/page-format).
+
+The `pageGap` and `pageGapBackground` options are gone. The space between sheets is the CSS variable `--tt-page-sheet-gap`. See [styling](/pages/v2/core-concepts/styling).
+
+## 3. Header and footer
+
+Pages 1 took the content as an option, or set it with a command:
+
+```js
+Pages.configure({
+  header: 'Company report',
+  footer: 'Page {page} of {total}',
+  differentFirstPage: true,
+  headerFirstPage: '',
+  headerTopMargin: 48,
+})
+
+editor.commands.setFooter('Confidential')
+```
+
+Page Layout has no option for the content. A header and a footer are editable content in the document, one set for each section. A reader double-clicks a band to edit it, and your code opens it with a command. A page number is a field, not a `{page}` token.
+
+```js
+editor.commands.openFurniture({ zone: 'footer', reveal: true })
+editor
+  .chain()
+  .insertContent('Page ')
+  .insertPageNumber('page')
+  .insertContent(' of ')
+  .insertPageNumber('pages')
+  .run()
+editor.commands.closeFurniture()
+```
+
+A different first page, different odd and even pages and the distance from the edge are settings of a section:
+
+```js
+editor.commands.setFurnitureFlags(0, { differentFirstPage: true, differentOddEven: false })
+editor.commands.setFurnitureOffsets(0, { header: 48, footer: 48 })
+```
+
+The `placeholders` option is gone, and so is the overlay that opened for editing. See [header and footer](/pages/v2/core-concepts/header-and-footer) and [page numbers](/pages/v2/core-concepts/page-numbers).
+
+## 4. Page breaks
+
+Pages 1 had a `pageBreak` block node from `@tiptap-pro/extension-pagebreak`:
+
+```js
+editor.commands.insertPageBreak()
+```
+
+The command has the same name in Page Layout. The node has changed. It now sits inside a paragraph, where the author put it, and it can sit between two words. `Mod-Enter` inserts it.
+
+```js
+editor.commands.insertPageBreak()
+editor.commands.insertColumnBreak()
+editor.commands.insertSectionBreak('nextPage')
+```
+
+Page Layout also has column and section breaks. See [breaks](/pages/v2/core-concepts/breaks). For documents you saved with the block node, see [saved documents](#9-saved-documents).
+
+## 5. Footnotes and endnotes
+
+In Pages 1, notes were options of `Pages`, and each kind had its own command:
+
+```js
+Pages.configure({
+  footnotes: { enabled: true },
+  endnotes: { enabled: true },
+})
+
+editor.commands.insertFootnote()
+editor.commands.insertEndnote()
+```
+
+In Page Layout, notes come from `@tiptap-pro/extension-footnotes`. A note is a footnote or an endnote by its placement. Without a `defaultPlacement`, `insertFootnote()` inserts an endnote.
+
+```js
+import { Footnotes } from '@tiptap-pro/extension-footnotes'
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [
+    StarterKit,
+    Footnotes.configure({ defaultPlacement: 'footnote' }),
+    PageLayout.configure({ setup: pageSetup('A4') }),
+  ],
+})
+
+editor.commands.insertFootnote()
+editor.commands.insertFootnote({ placement: 'endnote' })
+```
+
+Numbering is a setting of each section, and a footnote can restart on every page. See [numbering on pages](/pages/v2/extensions/footnotes#numbering-on-pages). The options `footnotes.enabled`, `footnotes.initialContent` and `setFootnotes` are gone, because the note text is part of the document. See [footnotes](/pages/v2/extensions/footnotes).
+
+## 6. Zoom
+
+Pages 1 had an option and a command:
+
+```js
+Pages.configure({ zoom: 0.75 })
+
+editor.commands.setZoom(1.5)
+```
+
+Page Layout has an engine method. It is not a command, because zoom changes nothing in the document. There is no option, so call it once the editor has mounted.
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.setZoom(0.75)
+engine.setZoom('fit')
+```
+
+`'fit'` keeps the pages fitted to the width as the window changes. `engine.getZoom()` and `engine.getScale()` read it back. See [zoom](/pages/v2/core-concepts/zoom).
+
+## 7. Tables
+
+Pages 1 needed its own table kit:
+
+```js
+import { TableKit } from '@tiptap-pro/extension-pages-tablekit'
+
+const kit = TableKit.configure({ experimentalRowFragmentation: true })
+```
+
+Page Layout uses `@tiptap/extension-table` as it is. A row breaks across pages by default. Two settings of the table and its rows replace the experiment:
+
+```js
+editor.commands.setRowBreakAcrossPages(false)
+editor.commands.setRepeatHeaderRow(true)
+```
+
+The commands of the table extension keep working. See [tables across pages](/pages/v2/extensions/tables).
+
+## 8. Collaboration
+
+Pages 1 used the `Collaboration` extension, and a callback that gave each header and footer editor its own field of the shared document:
+
+```js
+const extensions = [
+  StarterKit,
+  Collaboration.configure({ document: ydoc }),
+  Pages.configure({
+    headerFooterExtensions: (ctx) => [
+      StarterKit,
+      Collaboration.configure({ document: ctx.ydoc, field: ctx.field }),
+    ],
+  }),
+]
+```
+
+In Page Layout, you don't add any collaboration extension. `createPageLayoutEditor` throws if you do. The shared document goes through the `source` option.
+
+```js
+import { createSourceCollaboration } from '@tiptap-pro/extension-page-layout'
+
+const collaboration = createSourceCollaboration({
+  document: ydoc,
+  awareness: provider.awareness,
+  user: { name: 'Ada', color: '#e11d48' },
+})
+
+PageLayout.configure({ setup: pageSetup('A4'), source: collaboration })
+```
+
+Headers, footers and notes are in the shared content now, so `headerFooterExtensions` has no use. `createSourceCollaboration` binds one `field`, which is `default` unless you set it. Pages 1 kept header, footer and note text in other fields of the shared document. Page Layout doesn't read those fields, so copy their content into the document before you switch. See [collaboration](/pages/v2/guides/collaboration).
+
+## 9. Saved documents
+
+Start with what Pages 1 wrote down. The JSON from `getJSON()` held three Pages nodes:
+
+- `pageBreak`, as a block.
+- `footnoteReference`, with a `noteId` attribute.
+- `endnoteReference`, with a `noteId` attribute.
+
+Headers, footers and the text of every note were not in it. They sat in `editor.storage.pages`, and your app saved them next to the document. Page format and zoom were options and not part of the JSON.
+
+Page Layout stores all of it in the document:
+
+- `pageBreak` is inline, inside a paragraph.
+- `footnoteReference` has a `footnoteId` attribute. It reads no `noteId`.
+- There is no `endnoteReference`. An endnote is a `footnoteReference` whose note has the `endnote` placement.
+- The text of a note is in a `footnote` node. Notes sit in a `footnoteCollection` at the end of the document, one for each placement.
+- Headers and footers are in the document, inside the section break of their section.
+
+So an old document doesn't load as it is. Tiptap can't build a node type it doesn't know. It logs a warning and loads an empty document. That is what happens to `endnoteReference`, because Page Layout has no node by that name. A block `pageBreak` can also fail to load. Test every kind of saved document you have before you ship.
+
+The function below turns a Pages 1 document and its saved notes into one that Page Layout holds. Treat it as a start, and run it over your own samples. It doesn't touch headers and footers. Write those into the document yourself, with the commands in [header and footer](#3-header-and-footer).
+
+```js
+function migrateDocument({ content, footnotes = {}, endnotes = {} }) {
+  const notes = { footnote: [], endnote: [] }
+
+  const convert = (node) => {
+    if (node.type === 'pageBreak') {
+      return { type: 'paragraph', content: [{ type: 'pageBreak' }] }
+    }
+
+    if (node.type === 'footnoteReference' || node.type === 'endnoteReference') {
+      const placement = node.type === 'endnoteReference' ? 'endnote' : 'footnote'
+      const footnoteId = node.attrs.noteId
+      const text = (placement === 'endnote' ? endnotes : footnotes)[footnoteId]
+
+      if (text) {
+        notes[placement].push({
+          type: 'footnote',
+          attrs: { footnoteId, placement },
+          content: text.content,
+        })
+      }
+
+      return { type: 'footnoteReference', attrs: { footnoteId } }
+    }
+
+    return node.content ? { ...node, content: node.content.map(convert) } : node
+  }
+
+  const blocks = content.content.map(convert)
+
+  for (const placement of ['footnote', 'endnote']) {
+    if (notes[placement].length > 0) {
+      blocks.push({ type: 'footnoteCollection', attrs: { placement }, content: notes[placement] })
+    }
+  }
+
+  return { ...content, content: blocks }
+}
+
+const migrated = migrateDocument({
+  content: saved.content,
+  footnotes: saved.footnotes,
+  endnotes: saved.endnotes,
+})
+```
+
+`saved.footnotes` and `saved.endnotes` are the maps your app took from `footnotesJSON` and `endnotesJSON`. A reference with no saved text becomes a reference without a note. Page Layout does not repair that for you.
+
+Tables keep the standard table nodes. Check a few saved tables for their column widths and cell attributes.
+
+## Word files
+
+Import and export are separate packages with their own changes. See [migrate import from 0.x](/conversion/v3/getting-started/migrate-import-from-0x) and [migrate export from 0.x](/conversion/v3/getting-started/migrate-export-from-0x). For Page Layout and Word together, read [Word documents](/pages/v2/guides/word).
+
+## What has no replacement
+
+These options of Pages 1 are not in the [options reference](/pages/v2/api/options) and have no equivalent:
+
+- The overlay editors, and their options: `accentColor`, `headerAccentColor`, `footerAccentColor`, `toolbarGradient`, `overlayLabels`, `renderOverlayActions` and the `onDblClick*PreventClose` callbacks. Headers and footers are edited in place.
+- `placeholders`, because a page number is a field.
+- `headerFooterExtensions` and `headerFooterParseOptions`. A header uses the extensions of the editor.
+- `editableHeader` and `editableFooter`. No option locks a header. `furnitureClicks: false` only stops the double-click from opening one.
+- `onPageFormatChange` and `onZoomChange`. Read the setup and the zoom from the engine when you need them.
+- `PageKit`.
+
+Page Layout has limits of its own, such as no widow and orphan control. See [limitations](/pages/v2/core-concepts/limitations).

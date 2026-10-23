@@ -34,6 +34,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Live demo',
           href: '/pages/v2/getting-started/live-demo',
         },
+        {
+          title: 'Migrate from Pages 1',
+          href: '/pages/v2/getting-started/migrate-from-pages-v1',
+        },
       ],
     },
     {
