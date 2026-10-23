@@ -66,6 +66,34 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
+// One label per entry. A status changes how a reader should use a page, so it
+// wins over the plan; the plan stays on the page and in the catalog.
+const LABEL_ORDER = [
+  ['deprecated', 'legacy'],
+  ['alpha', 'beta', 'experimental'],
+  ['new', 'soon'],
+  ['start', 'team', 'add-on', 'pilot program', 'enterprise'],
+]
+
+/** The one label an entry shows: its status if it has one, its plan otherwise. */
+export function sidebarLabel(tags: string[] | undefined, releaseTag?: string): string | undefined {
+  const candidates = [...(releaseTag ? [releaseTag] : []), ...(tags ?? [])]
+  if (candidates.length === 0) return undefined
+  const rank = (tag: string) => {
+    const index = LABEL_ORDER.findIndex((names) => names.includes(tag.toLowerCase()))
+    return index === -1 ? LABEL_ORDER.length : index
+  }
+  const [label] = [...candidates].sort((a, b) => rank(a) - rank(b))
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+/** Shows the full title on hover, but only when it doesn't fit. */
+function showTitleIfCut(event: React.MouseEvent<HTMLElement>) {
+  const element = event.currentTarget
+  if (element.scrollWidth > element.clientWidth) element.title = element.textContent ?? ''
+  else element.removeAttribute('title')
+}
+
 /** Every href in the sidebar. A page that has its own entry opens only the entries above it. */
 const ListedPages = createContext<Set<string>>(new Set())
 
@@ -107,6 +135,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
+  const label = sidebarLabel(link.tags, link.releaseTag)
 
   const [isOpen, setIsOpen] = useState(isActive || isActiveParent || hasActiveChild)
 
@@ -136,9 +165,12 @@ export const LinkItem = ({
           isActive={false}
           className="pl-5 opacity-40 cursor-default pointer-events-none"
         >
-          <span className="flex-grow flex items-baseline">
-            <span>{link.title}</span>
-          </span>
+          <span className="flex-grow min-w-0 truncate">{link.title}</span>
+          {label ? (
+            <Tag className="flex-none ml-2 select-none" variant="gray" size="small">
+              {label}
+            </Tag>
+          ) : null}
         </Sidebar.Button>
       ) : (
         <Sidebar.Button
@@ -165,24 +197,15 @@ export const LinkItem = ({
                 <FoldArrow isOpen={isOpen} />
               </button>
             ) : null}
-            <span className="flex-grow flex items-baseline">
-              <span>{link.title}</span>
-              {link.releaseTag && (
-                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">
-                  {link.releaseTag.toUpperCase()}
-                </sup>
-              )}
+            <span className="flex-grow min-w-0 truncate" onMouseEnter={showTitleIfCut}>
+              {link.title}
             </span>
-            <span className="flex gap-1 items-center">
+            <span className="flex-none flex gap-1 items-center ml-2">
               {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
-              {link.tags ? (
-                <span className="flex items-center gap-0.5">
-                  {link.tags.map((tag) => (
-                    <Tag key={tag} className="select-none" variant="gray" size="small">
-                      {tag}
-                    </Tag>
-                  ))}
-                </span>
+              {label ? (
+                <Tag className="select-none" variant="gray" size="small">
+                  {label}
+                </Tag>
               ) : null}
             </span>
           </Link>
@@ -216,14 +239,11 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
     if (holdsPage) setIsOpen(true)
   }
 
-  const tags = group.tags ? (
-    <span className="flex items-center gap-0.5">
-      {group.tags.map((tag) => (
-        <Tag key={tag} className="uppercase select-none" size="small">
-          {tag}
-        </Tag>
-      ))}
-    </span>
+  const label = sidebarLabel(group.tags)
+  const tags = label ? (
+    <Tag className="flex-none select-none" variant="gray" size="small">
+      {label}
+    </Tag>
   ) : null
 
   // Folded groups sit close together; an open group gets room below

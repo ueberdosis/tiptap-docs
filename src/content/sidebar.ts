@@ -43,7 +43,7 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
               ? {
                   title: entry.name,
                   href: entry.url,
-                  tags: entry.plan && entry.plan !== 'Open source' ? [entry.plan] : undefined,
+                  tags: catalogTags(entry),
                 }
               : { title: entry.name, href: '', tags: ['Soon'], disabled: true },
           ),
@@ -54,10 +54,18 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
   )
 }
 
-/** The plan of a feature page as a sidebar tag, from the catalog. Open source gets none. */
+/** A feature's status and plan as sidebar tags; the sidebar shows the one that matters most. */
+function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
+  const tags = [entry.status, entry.plan !== 'Open source' ? entry.plan : undefined].filter(
+    (tag): tag is string => !!tag,
+  )
+  return tags.length ? tags : undefined
+}
+
+/** The status and plan of a feature page as sidebar tags, from the catalog. */
 function planTags(href: string): string[] | undefined {
-  const plan = getCatalog().find((entry) => entry.url === href)?.plan
-  return plan && plan !== 'Open source' ? [plan] : undefined
+  const entry = getCatalog().find((candidate) => candidate.url === href)
+  return entry ? catalogTags(entry) : undefined
 }
 
 /** A section as one feature entry, tagged with its plan. */
@@ -85,6 +93,8 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       title: 'Getting started',
       href: '/getting-started',
+      collapsible: true,
+      defaultOpen: true,
       children: [
         { href: '/', title: 'Overview' },
         {
