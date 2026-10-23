@@ -1,5 +1,6 @@
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
+import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
 /** Open-source demos live in the tiptap repository; Pro demos stay private. */
@@ -61,7 +62,12 @@ const link = (url: string, label: string): MdxNode => ({
 /** Derive a human label for a demo from its props or path. */
 function demoLabel(node: MdxNode, url: string): string {
   const explicit = getAttr(node, 'externalTitle') || getAttr(node, 'caption')
-  if (explicit) return explicit
+  // A JSX caption such as `<><strong>Try it</strong> …</>` keeps only its text
+  const plain = explicit
+    ?.replace(/<[^<>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (plain) return plain
   const last = url.split('?')[0].split('/').filter(Boolean).pop()
   return last ? last.replace(/[-_]/g, ' ') : 'Open demo'
 }
@@ -141,23 +147,21 @@ export const componentConverters: Record<string, ComponentConverter> = {
   }),
 
   // <CatalogGroup id="…" /> → the group's features as a list, with plan and status.
-  CatalogGroup: (node) => {
-    const id = getAttr(node, 'id')
-    return {
-      type: 'list',
-      ...({ ordered: false, spread: false } as object),
-      children: getCatalog()
-        .filter((entry) => entry.group === id)
-        .map((entry) => {
-          const notes = [entry.status, entry.plan].filter(Boolean).join(', ')
-          const line: MdxNode[] = [
-            entry.url ? link(entry.url, entry.name) : strong(entry.name),
-            text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),
-          ]
-          return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
-        }),
-    }
-  },
+  CatalogGroup: (node) => catalogList(getAttr(node, 'id')),
+
+  // <FeatureCatalog /> → every group with a heading and its features, as on the page.
+  FeatureCatalog: () =>
+    CATALOG_GROUPS.filter((group) =>
+      getCatalog().some((entry) => entry.group === group.id),
+    ).flatMap((group) => {
+      const url = catalogGroupUrl(group)
+      const heading: MdxNode = {
+        type: 'heading',
+        ...({ depth: 2 } as object),
+        children: [url ? link(url, group.title) : text(group.title)],
+      }
+      return [heading, catalogList(group.id)]
+    }),
 
   // <Link href="…">text</Link> → a markdown link.
   Link: (node) => {
@@ -165,4 +169,39 @@ export const componentConverters: Record<string, ComponentConverter> = {
     if (!url) return undefined
     return { type: 'link', ...({ url } as object), children: node.children ?? [] }
   },
+
+  // <a href="…">text</a> in MDX → a markdown link, like Link.
+  a: (node) => componentConverters.Link(node),
+}
+
+/** The features of a catalog group as a list, with plan and status. */
+function catalogList(id: string | undefined): MdxNode {
+  return {
+    type: 'list',
+    ...({ ordered: false, spread: false } as object),
+    children: getCatalog()
+      .filter((entry) => entry.group === id)
+      .map((entry) => {
+        const notes = [entry.status, entry.plan].filter(Boolean).join(', ')
+        const line: MdxNode[] = [
+          entry.url ? link(entry.url, entry.name) : strong(entry.name),
+          text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),
+        ]
+        return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
+      }),
+  }
+}
+
+/**
+ * A self-closing card with `href` and `title`, such as a card component a page
+ * defines for itself, as a list item: `[title](href): description`.
+ */
+export function cardItem(node: MdxNode): MdxNode | undefined {
+  if (node.children?.length) return undefined
+  const url = getAttr(node, 'href')
+  const title = getAttr(node, 'title')
+  if (!url || !title) return undefined
+  const description = getAttr(node, 'description')
+  const line = [link(url, title), ...(description ? [text(`: ${description}`)] : [])]
+  return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
 }

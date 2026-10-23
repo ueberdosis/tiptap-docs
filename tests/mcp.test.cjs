@@ -147,6 +147,21 @@ test('.md pages link the code of open-source demos, not of Pro demos', async () 
 
 const documented = () => getCatalog().filter((entry) => entry.url)
 
+test('.md pages keep raw links, page-defined cards, the feature catalog and JSX captions', async () => {
+  const toolkit = await fileToMarkdown('src/content/ai/ai-toolkit/overview.mdx')
+  assert.match(toolkit, /\[Contact our team\]\(https:\/\/tiptap\.dev\/contact-sales/)
+
+  const reference = await fileToMarkdown('src/content/conversion/content-types/overview.mdx')
+  assert.match(reference, /- \[Paragraphs\]\([^)]+paragraphs\.md\): Text content/)
+
+  const catalog = await fileToMarkdown('src/content/editor/extensions/overview.mdx')
+  assert.match(catalog, /## \[Text formatting\]/)
+  assert.match(catalog, /- \[Comments\]\([^)]+\) \([^)]*(Start|Team)[^)]*\)/)
+
+  const pages = await fileToMarkdown('src/content/pages/getting-started/overview.mdx')
+  assert.doesNotMatch(pages, /\\<strong>|<strong>/)
+})
+
 test('every documented feature names its npm package', () => {
   const missing = documented()
     .filter((entry) => !entry.package)

@@ -4,8 +4,8 @@ import remarkGfm from 'remark-gfm'
 import remarkMdx from 'remark-mdx'
 import remarkStringify from 'remark-stringify'
 import { visit } from 'unist-util-visit'
+import { cardItem, componentConverters } from './componentConverter'
 import { FULL_DOMAIN } from '@/utils/constants'
-import { componentConverters } from './componentConverter'
 
 const ASSET_PREFIXES = ['/assets', '/api', '/_next', '/docsassets']
 
@@ -20,7 +20,7 @@ function rewriteUrl(url: string): string {
 
   const isAsset = ASSET_PREFIXES.some((p) => url === p || url.startsWith(`${p}/`))
   if (isAsset) return `${FULL_DOMAIN}${url}`
-  
+
   const [beforeHash, hash] = url.split('#')
   // The `.md` goes on the path, before any query
   const [pathPart, query] = beforeHash.split('?')
@@ -77,6 +77,29 @@ function normalizeFlowChildren(nodes: any[]): any[] {
   return out
 }
 
+const isJsx = (node: any): boolean =>
+  node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement'
+
+/**
+ * Turn self-closing cards without a converter (`<ContentCard href title description />`)
+ * into list items, and each run of them into one list. Without this they vanish:
+ * an element with no children unwraps to nothing.
+ */
+function cardsToLists(nodes: any[]): any[] {
+  const out: any[] = []
+  for (const node of nodes) {
+    const item = isJsx(node) && !componentConverters[node.name] ? cardItem(node) : undefined
+    if (!item) {
+      if (!isWhitespaceText(node)) out.push(node)
+      continue
+    }
+    const last = out.at(-1)
+    if (last?.type === 'list' && last.cards) last.children.push(item)
+    else out.push({ type: 'list', ordered: false, spread: false, cards: true, children: [item] })
+  }
+  return out
+}
+
 /**
  * Unified plugin implementing the filter pipeline: drop imports/expressions,
  * convert JSX components via the registry (unknown ones are unwrapped), and
@@ -109,8 +132,10 @@ function remarkFilter() {
 
         let replacement: any[]
         if (result === null) replacement = []
-        else if (result === undefined) replacement = node.children ?? [] // default: unwrap
-        else replacement = Array.isArray(result) ? result : [result]
+        else if (result !== undefined) replacement = Array.isArray(result) ? result : [result]
+        // No converter: unwrap the children, or keep a childless element only as a card
+        else if (node.children?.length) replacement = cardsToLists(node.children)
+        else replacement = cardsToLists([node]).filter((child) => child !== node)
 
         // A flow element sits in a block context, so its replacement must be
         // block-level: wrap any inline nodes in paragraphs.

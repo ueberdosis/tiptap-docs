@@ -1,5 +1,5 @@
-import { getChangelogData } from '@/server/getChangelogData'
 import { buildFrontmatter } from './fileToMarkdown'
+import { getChangelogData } from '@/server/getChangelogData'
 
 /**
  * Build the `.md` response for a changelog page. Changelog pages are generated
