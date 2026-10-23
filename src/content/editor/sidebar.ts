@@ -350,6 +350,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'exitCode',
                 },
                 {
+                  href: '/editor/api/commands/nodes-and-marks/insert-default-block',
+                  title: 'insertDefaultBlock',
+                },
+                {
                   href: '/editor/api/commands/nodes-and-marks/join-backward',
                   title: 'joinBackward',
                 },
