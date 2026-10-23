@@ -168,6 +168,7 @@ export const sidebarConfig: SidebarConfig = {
             {
               ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
               title: 'Compare snapshots',
+              tags: planTags('/collaboration/documents/snapshot-compare'),
             },
           ],
         },
