@@ -46,7 +46,16 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/pages/v2/api',
       title: 'API',
-      children: [],
+      children: [
+        {
+          title: 'Options',
+          href: '/pages/v2/api/options',
+        },
+        {
+          title: 'Commands',
+          href: '/pages/v2/api/commands',
+        },
+      ],
     },
     {
       type: 'group',
