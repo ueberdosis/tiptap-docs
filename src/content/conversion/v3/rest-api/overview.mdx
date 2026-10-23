@@ -1,0 +1,149 @@
+---
+title: REST API overview
+tags:
+  - type: beta
+meta:
+  title: REST API overview | Tiptap Conversion
+  description: Call the Convert v3 REST API directly. Base URLs, regions, authentication, errors, rate limits and the export warnings headers.
+  category: Conversion
+---
+
+import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
+
+Call the Convert v3 REST API when you export from your own server instead of the editor extension. This page covers what every v3 call shares. The only v3 endpoint today is [Export DOCX](/conversion/v3/rest-api/export-docx).
+
+Import still uses the v2 API. See [install](/conversion/v3/getting-started/install#which-url-each-extension-calls) for the URL the import extension calls.
+
+<RegionalEndpoints />
+
+## Base URL
+
+Every v3 endpoint lives under `/v3`. The same endpoints also answer under `/v3/convert`, which matches the path the editor extensions call.
+
+| Where       | Base URL                                  |
+| ----------- | ----------------------------------------- |
+| Cloud, EU   | `https://api.tiptap.dev/v3/convert`       |
+| Cloud, US   | `https://api-us.tiptap.dev/v3/convert`    |
+| On-premises | `https://<your-host>/v3` or `/v3/convert` |
+
+## Authenticate
+
+Send a JWT in the `Authorization` header as `Bearer <token>`. The token must allow the action of the endpoint you call. Export DOCX needs `Convert:Export:Docx`.
+
+```bash
+curl -H "Authorization: Bearer $CONVERT_TOKEN" ...
+```
+
+### Cloud
+
+A token for the Convert service names `Convert` as its audience, and Convert checks its permissions for each route. The call also needs a Convert feature on your plan.
+
+A token for your Tiptap Cloud app works too. Send the app id in the `X-App-Id` header with it. Without the header, the call fails with `missing_app_id`.
+
+If your app restricts allowed origins, a request must send an `Origin` header from that list. Calls from a server often don't send one, so they fail with `forbidden`. Add your own origin to the list, or remove the restriction.
+
+### On-premises
+
+Convert checks your license on every call and answers `503` when it is invalid. A token for the Convert service is checked for its permissions. Any other token only needs a valid signature. The `Authorization` header must use the `Bearer` scheme.
+
+Your administrator can turn authentication off. Then a call needs no token, but the license check still applies.
+
+## Errors
+
+Convert answers failures as JSON, and the shape depends on where the failure happens. Read the status first, then `code`.
+
+### Request errors
+
+Export DOCX answers `400` and `422` with this shape.
+
+```json
+{
+  "success": false,
+  "code": "INVALID_EXPORT_OPTIONS",
+  "error": "Expected a Tiptap document with `type: \"doc\"` (document)",
+  "path": "document"
+}
+```
+
+| Field     | Type     | What it holds                                                                      |
+| --------- | -------- | ---------------------------------------------------------------------------------- |
+| `success` | `false`  | Always `false`.                                                                    |
+| `code`    | `string` | `INVALID_EXPORT_OPTIONS`, `REMOVED_EXPORT_OPTION` or `FAILED_TO_EXPORT_DOCX_FILE`. |
+| `error`   | `string` | The reason, safe to show to a developer.                                           |
+| `path`    | `string` | The option that caused the error. Left out when none applies.                      |
+| `docsUrl` | `string` | A page that explains the replacement. Left out when none applies.                  |
+
+A failure inside the custom node rules returns `error` and `code` without `success`. The `code` starts with `DOCX_DSL_`. It also carries `dslPath`, and on a `422`, `nodePath` and `nodeType`. See [render custom nodes](/conversion/v3/export/docx/custom-nodes#validation-and-limits).
+
+### Authentication errors
+
+Authentication and origin checks answer with `message` and `code`.
+
+```json
+{
+  "message": "Missing token. You need to provide a valid JWT within the Tiptap Convert extension.",
+  "code": "missing_token"
+}
+```
+
+| Status | `code`                   | When                                                         |
+| ------ | ------------------------ | ------------------------------------------------------------ |
+| 401    | `missing_token`          | The `Authorization` header is missing or has no token.       |
+| 401    | `missing_app_id`         | Cloud, with an app token and no `X-App-Id` header.           |
+| 401    | `auth_failed_internally` | Authentication failed on Convert's side.                     |
+| 401    | Other                    | The token is invalid, expired or not signed by a known key.  |
+| 403    | `permission_denied`      | The token lacks the permission for this route.               |
+| 403    | `feature_not_available`  | Cloud, and Convert isn't available for your environment.     |
+| 403    | `forbidden`              | The request `Origin` isn't in your allowed origins.          |
+| 429    | `rate_limited`           | Cloud, and authentication is rate limited.                   |
+| 500    | `auth_not_configured`    | On-premises, and authentication isn't set up.                |
+| 503    | `license_invalid`        | On-premises, and the license is invalid or can't be reached. |
+| 503    | `service_unavailable`    | Cloud, and the authentication service is unavailable.        |
+
+### Request size
+
+A body over the limit is refused with `413` before Convert reads it. The limit is 100 MB by default. On-premises, your administrator can change it.
+
+```json
+{ "error": "Request body exceeds the 100MB limit", "code": "REQUEST_BODY_TOO_LARGE" }
+```
+
+## Rate limits
+
+Rate limits are on in the cloud. On-premises they are off until your administrator turns them on. The defaults are 100 requests per 10 seconds for your environment and 500 for one IP address.
+
+A request over the limit answers `429` with this body.
+
+```json
+{
+  "message": "Too many requests. Retry after the number of seconds in the Retry-After header.",
+  "code": "RATE_LIMITED"
+}
+```
+
+Wait for the number of seconds in the `Retry-After` header before you retry. Every response also carries `RateLimit` and `RateLimit-Policy` headers with your remaining requests and the window.
+
+## Export warnings headers
+
+An export that succeeds can still leave content out. Convert reports it in two response headers.
+
+| Header                        | What it holds                                                             |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `X-Export-Warnings`           | A base64 string of a JSON array of warnings. Missing when there are none. |
+| `X-Export-Warnings-Truncated` | `true` when more warnings existed than fit in the header.                 |
+
+The header is limited to about 8 KB. Convert keeps whole warnings, in order, so the value always decodes. Decode it like this.
+
+```ts
+const header = response.headers.get('X-Export-Warnings')
+const warnings = header ? JSON.parse(Buffer.from(header, 'base64').toString('utf8')) : []
+```
+
+Each warning has `code` and `message`. The codes are in the [Export DOCX API](/conversion/v3/export/docx/api#warnings-and-errors).
+
+A browser reads these headers only when the server exposes them. Convert v3 allows any origin and exposes both headers.
+
+## Next steps
+
+- [Export DOCX](/conversion/v3/rest-api/export-docx)
+- [Install Conversion](/conversion/v3/getting-started/install)

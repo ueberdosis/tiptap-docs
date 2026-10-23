@@ -225,9 +225,18 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/v3/rest-api',
+      href: '/conversion/v3/rest-api/overview',
       title: 'REST API',
-      children: [],
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/v3/rest-api/overview',
+        },
+        {
+          title: 'Export DOCX',
+          href: '/conversion/v3/rest-api/export-docx',
+        },
+      ],
     },
   ],
 }
