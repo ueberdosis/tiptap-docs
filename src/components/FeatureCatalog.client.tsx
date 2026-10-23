@@ -126,7 +126,7 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
         </div>
       </div>
       <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
-      <div className="mt-2 leading-[140%] text-grayAlpha-600">{entry.description}</div>
+      <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
       {entry.plan ? (
         <div className="mt-5 flex items-center flex-wrap gap-1">
           <Tag>{entry.plan}</Tag>

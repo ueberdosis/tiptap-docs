@@ -35,7 +35,7 @@ export const DocsSidebar = ({
             <LinkItem link={item} key={`${item.href}-${i}`} onClick={onItemClick} />
           ) : (
             <Fragment key={`${item.href}-${i}`}>
-              {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-300" /> : null}
+              {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
               <GroupItem group={item} onClick={onItemClick} />
             </Fragment>
           ),
@@ -59,9 +59,10 @@ function collectHrefs(items: Item[], out = new Set<string>()): Set<string> {
 const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   <ChevronRightIcon
     className={cn(
-      'size-3.5 text-grayAlpha-500 transition-transform duration-150',
+      'size-3 text-grayAlpha-500 transition-transform duration-150',
       isOpen ? 'rotate-90' : undefined,
     )}
+    strokeWidth={2.75}
     aria-hidden="true"
   />
 )
@@ -211,7 +212,7 @@ export const LinkItem = ({
       {/* Closed entries render no children: the global sidebar holds several hundred links */}
       {link.children && isOpen ? (
         // The second level starts with a line, under the text of its parent
-        <div className="my-1 ml-[1.125rem] space-y-0.5 border-l border-grayAlpha-200">
+        <div className="my-1 ml-6 pl-1 space-y-0.5 border-l border-grayAlpha-200">
           {link.children.map((child, i) => (
             <LinkItem
               link={child}
@@ -250,7 +251,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
         <Sidebar.GroupTitle className="mb-0 pl-0">
           <button
             type="button"
-            className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 rounded-md uppercase text-left hover:bg-grayAlpha-100"
+            className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 leading-5 rounded-md uppercase text-left hover:bg-grayAlpha-100"
             onClick={() => setIsOpen((open) => !open)}
             aria-expanded={isOpen}
           >
@@ -262,7 +263,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
           {tags}
         </Sidebar.GroupTitle>
       ) : (
-        <Sidebar.GroupTitle className="mb-0 pl-5 py-1.5">
+        <Sidebar.GroupTitle className="mb-0 pl-5 py-1.5 leading-5">
           {group.title}
           {tags}
         </Sidebar.GroupTitle>

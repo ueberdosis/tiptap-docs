@@ -87,7 +87,7 @@ export type CardGridItemParagraphProps = {
 
 export const ItemParagraph = forwardRef<HTMLParagraphElement, CardGridItemParagraphProps>(
   ({ asChild, children, className, ...rest }, ref) => {
-    const cardGridParagraphClass = cn('leading-[140%] mt-2', className)
+    const cardGridParagraphClass = cn('text-sm leading-[140%] mt-2 text-grayAlpha-600', className)
     const Component = asChild ? Slot : 'div'
 
     return (
