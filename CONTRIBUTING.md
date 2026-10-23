@@ -32,6 +32,8 @@ One text serves people and AI agents: every page is also served as Markdown and 
 ### How a page reads
 
 - Open with one or two sentences on what the feature does (`intro` in the frontmatter). Then the demo, then the smallest code that works.
+- Nothing but the intro comes before the first heading: no paragraph that restates it in other words. A demo, a callout, or requirements may follow it directly. A short fact the reader needs first goes into the intro; anything longer gets a heading of its own.
+- Name a thing once per paragraph. Don't list features in one sentence and the same features again in the next.
 - Put a demo under the heading whose topic it shows, after one sentence that says what to try in it. Each demo has one home; other pages link to it.
 - One fact per sentence or bullet. Split a paragraph longer than about 60 words, or turn it into a list or a table.
 - Use tables for things with the same shape: options (option, type, description), return values, what is stored where.
