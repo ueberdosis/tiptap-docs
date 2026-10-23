@@ -225,25 +225,6 @@ export const sidebarConfig: SidebarConfig = {
       ],
     },
     {
-      type: 'group',
-      title: 'Build your own',
-      href: '/build-your-own',
-      collapsible: true,
-      children: [
-        {
-          ...link(editorSidebar, ['Extensions', 'Custom extensions']),
-          title: 'Overview',
-          children: undefined,
-        },
-        ...childrenOf(editorSidebar, ['Extensions', 'Custom extensions']),
-        {
-          title: 'Guides',
-          href: '',
-          children: childrenOf(editorSidebar, ['Customization guides']),
-        },
-      ],
-    },
-    {
       // Where documents live, sync, and run: the base the features of the platform build on
       type: 'group',
       title: 'Documents',
@@ -290,6 +271,25 @@ export const sidebarConfig: SidebarConfig = {
         link(editorSidebar, ['Get started', 'Styling']),
         ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
         { title: 'Guides', href: '', children: childrenOf(editorSidebar, ['Guides']) },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Custom extensions',
+      href: '/custom-extensions',
+      collapsible: true,
+      children: [
+        {
+          ...link(editorSidebar, ['Extensions', 'Custom extensions']),
+          title: 'Overview',
+          children: undefined,
+        },
+        ...childrenOf(editorSidebar, ['Extensions', 'Custom extensions']),
+        {
+          title: 'Guides',
+          href: '',
+          children: childrenOf(editorSidebar, ['Customization guides']),
+        },
       ],
     },
     {
