@@ -1,8 +1,17 @@
 'use client'
 
-import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
+import { ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
@@ -20,12 +29,15 @@ export const DocsSidebar = ({
 
   return (
     <ListedPages.Provider value={listed}>
-      <Sidebar.Track>
+      <Sidebar.Track className="gap-0">
         {config.items.map((item, i) =>
           item.type === 'link' ? (
             <LinkItem link={item} key={`${item.href}-${i}`} onClick={onItemClick} />
           ) : (
-            <GroupItem group={item} key={`${item.href}-${i}`} onClick={onItemClick} />
+            <Fragment key={`${item.href}-${i}`}>
+              {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-300" /> : null}
+              <GroupItem group={item} onClick={onItemClick} />
+            </Fragment>
           ),
         )}
       </Sidebar.Track>
@@ -42,6 +54,17 @@ function collectHrefs(items: Item[], out = new Set<string>()): Set<string> {
   }
   return out
 }
+
+/** The arrow that folds an entry open, on the left of its text like in a file tree. */
+const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
+  <ChevronRightIcon
+    className={cn(
+      'size-3.5 text-grayAlpha-500 transition-transform duration-150',
+      isOpen ? 'rotate-90' : undefined,
+    )}
+    aria-hidden="true"
+  />
+)
 
 /** Every href in the sidebar. A page that has its own entry opens only the entries above it. */
 const ListedPages = createContext<Set<string>>(new Set())
@@ -106,15 +129,13 @@ export const LinkItem = ({
     }
   }, [isActive])
 
-  const toggleButtonClassName = cn(
-    'p-0.5 rounded',
-    !isOpen ? 'hover:bg-grayAlpha-100' : 'bg-grayAlpha-100',
-  )
-
   return (
     <div ref={linkRef}>
       {link.disabled ? (
-        <Sidebar.Button isActive={false} className="opacity-40 cursor-default pointer-events-none">
+        <Sidebar.Button
+          isActive={false}
+          className="pl-5 opacity-40 cursor-default pointer-events-none"
+        >
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
           </span>
@@ -123,6 +144,7 @@ export const LinkItem = ({
         <Sidebar.Button
           asChild
           isActive={isActive}
+          className="relative pl-5"
           onClick={link.href === '' ? toggleOpen : undefined}
         >
           <Link
@@ -132,6 +154,17 @@ export const LinkItem = ({
             target={link.external ? '_blank' : undefined}
             rel={link.external ? 'noopener noreferrer' : undefined}
           >
+            {link.children ? (
+              <button
+                type="button"
+                className="absolute left-0.5 inset-y-0 grid place-items-center w-4"
+                onClick={toggleOpen}
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${link.title}`}
+              >
+                <FoldArrow isOpen={isOpen} />
+              </button>
+            ) : null}
             <span className="flex-grow flex items-baseline">
               <span>{link.title}</span>
               {link.releaseTag && (
@@ -151,28 +184,14 @@ export const LinkItem = ({
                   ))}
                 </span>
               ) : null}
-              {link.children ? (
-                <button
-                  type="button"
-                  className={toggleButtonClassName}
-                  onClick={toggleOpen}
-                  aria-expanded={isOpen}
-                  aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${link.title}`}
-                >
-                  {isOpen ? (
-                    <ChevronDownIcon className="size-4 text-grayAlpha-500" />
-                  ) : (
-                    <ChevronRightIcon className="size-4 text-grayAlpha-500" />
-                  )}
-                </button>
-              ) : null}
             </span>
           </Link>
         </Sidebar.Button>
       )}
       {/* Closed entries render no children: the global sidebar holds several hundred links */}
       {link.children && isOpen ? (
-        <div className="pl-2 my-2 space-y-1 ml-2 border-l border-grayAlpha-300">
+        // The second level starts with a line, under the text of its parent
+        <div className="my-1 ml-[1.125rem] space-y-0.5 border-l border-grayAlpha-200">
           {link.children.map((child, i) => (
             <LinkItem
               link={child}
@@ -207,27 +226,26 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
     </span>
   ) : null
 
+  // Folded groups sit close together; an open group gets room below
   return (
-    <Sidebar.Group>
+    <Sidebar.Group className={cn('gap-0.5', isOpen ? 'pb-5' : undefined)}>
       {group.collapsible ? (
-        <Sidebar.GroupTitle className="pl-0">
+        <Sidebar.GroupTitle className="mb-0 pl-0">
           <button
             type="button"
-            className="flex items-center gap-1 pl-1 pr-2 py-0.5 -my-0.5 rounded uppercase hover:bg-grayAlpha-100"
+            className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 rounded-md uppercase text-left hover:bg-grayAlpha-100"
             onClick={() => setIsOpen((open) => !open)}
             aria-expanded={isOpen}
           >
-            {isOpen ? (
-              <ChevronDownIcon className="size-3.5 text-grayAlpha-500" aria-hidden="true" />
-            ) : (
-              <ChevronRightIcon className="size-3.5 text-grayAlpha-500" aria-hidden="true" />
-            )}
+            <span className="absolute left-0.5 inset-y-0 grid place-items-center w-4">
+              <FoldArrow isOpen={isOpen} />
+            </span>
             {group.title}
           </button>
           {tags}
         </Sidebar.GroupTitle>
       ) : (
-        <Sidebar.GroupTitle>
+        <Sidebar.GroupTitle className="mb-0 pl-5 py-1.5">
           {group.title}
           {tags}
         </Sidebar.GroupTitle>

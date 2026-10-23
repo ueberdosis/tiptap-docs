@@ -24,6 +24,8 @@ export type SidebarGroup = {
   collapsible?: boolean
   /** A collapsible group that starts open on every page. */
   defaultOpen?: boolean
+  /** Draws a line above the group, to separate it from the groups before. */
+  divider?: boolean
 }
 
 export type SidebarConfig = {

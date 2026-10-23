@@ -85,8 +85,6 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       title: 'Getting started',
       href: '/getting-started',
-      collapsible: true,
-      defaultOpen: true,
       children: [
         { href: '/', title: 'Overview' },
         {
@@ -118,22 +116,10 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      title: 'Concepts',
-      href: '/concepts',
-      collapsible: true,
-      children: [
-        ...childrenOf(editorSidebar, ['Core Concepts']).slice(0, 1),
-        link(editorSidebar, ['Get started', 'Configure']),
-        link(editorSidebar, ['Get started', 'Styling']),
-        ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
-        { title: 'Guides', href: '', children: childrenOf(editorSidebar, ['Guides']) },
-      ],
-    },
-    {
-      type: 'group',
       title: 'Features',
       href: '/features',
       collapsible: true,
+      divider: true,
       children: [
         { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
         ...catalogGroups('editor'),
@@ -262,6 +248,19 @@ export const sidebarConfig: SidebarConfig = {
           inline: ['Get started'],
           tags: ['Open source'],
         }),
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Concepts',
+      href: '/concepts',
+      collapsible: true,
+      children: [
+        ...childrenOf(editorSidebar, ['Core Concepts']).slice(0, 1),
+        link(editorSidebar, ['Get started', 'Configure']),
+        link(editorSidebar, ['Get started', 'Styling']),
+        ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
+        { title: 'Guides', href: '', children: childrenOf(editorSidebar, ['Guides']) },
       ],
     },
     {
