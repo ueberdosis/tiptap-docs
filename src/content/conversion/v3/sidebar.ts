@@ -19,6 +19,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/getting-started/install',
         },
         {
+          title: 'Feature support matrix',
+          href: '/conversion/v3/getting-started/feature-support-matrix',
+        },
+        {
           title: 'Migrate export from 0.x',
           href: '/conversion/v3/getting-started/migrate-export-from-0x',
         },
