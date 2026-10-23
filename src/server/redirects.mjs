@@ -4,6 +4,12 @@
 
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
+  // An empty page; installing the server is part of the Hocuspocus overview
+  {
+    source: '/hocuspocus/server/install',
+    destination: '/hocuspocus/getting-started/overview',
+    permanent: true,
+  },
   // Guides that belong to one area moved there; the authentication guide merged into the page it repeated
   {
     source: '/guides/naming-documents',
