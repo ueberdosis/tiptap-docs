@@ -1,0 +1,353 @@
+---
+title: Outline numbering
+meta:
+  title: Outline numbering | Tiptap Pages
+  description: Number headings and clauses as 1.1.1 or Article I, Section 1.01, (a), and see how the numbers behave across page boundaries.
+  category: Pages
+---
+
+Outline numbering puts numbers on headings and clauses, such as `1`, `1.1` and `1.1.1`, or `Article I`, `Section 1.01` and `(a)`. The numbers follow from where each block stands. Insert a heading and every one after it renumbers. Nothing is stored on the headings.
+
+`@tiptap-pro/extension-outline-numbering` works without pages.
+
+## Install
+
+```bash
+npm install @tiptap-pro/extension-outline-numbering
+```
+
+The package comes from Tiptap's private registry. See [set up the registry](/pages/v2/getting-started/install#set-up-the-registry) if you haven't yet.
+
+## Add it to an editor
+
+You decide which of your node types carry a number, because the schema is yours. Register them by name, with how deep each one sits:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { OutlineNumbering } from '@tiptap-pro/extension-outline-numbering'
+
+new Editor({
+  extensions: [
+    StarterKit,
+    OutlineNumbering.configure({
+      types: {
+        heading: { level: (node) => node.attrs.level },
+      },
+    }),
+  ],
+})
+```
+
+Each entry in `types` takes two settings:
+
+- `level` is a number, `'nested'`, or a function of the node and `{ ancestors }` that returns either one or `null`. Level 1 is the outermost. `ancestors` are the nodes around it, outermost first. `null` leaves that node unnumbered. A number that isn't a whole number from 1 is read as the nearest level there is. The default is `1`.
+- `marker` is `'inline'` to draw the number in front of the text, or `'gutter'` to draw it in the margin before the node. The default is `'inline'`.
+
+`'nested'` means one level below the last node before it that has a number level of its own, and one more for each `'nested'` node it stands in. That is how a [list of clauses](#lists-as-clauses) is numbered.
+
+The editor logs a console warning when a type you registered isn't in the schema.
+
+### Number by style
+
+A level that comes from somewhere other than the node, such as a paragraph style that says where its paragraphs sit in the outline, comes in through `lookupOf`. It is a function of the document that returns an object, and that object reaches every `level` function as `lookup`:
+
+```js
+import { styleOutlineLevelOf, styleOutlineLevels } from '@tiptap-pro/extension-document-styles'
+
+OutlineNumbering.configure({
+  lookupOf: (doc) => styleOutlineLevels(doc, [houseStyle]),
+  types: {
+    heading: {
+      level: (node, { lookup }) => {
+        const level = styleOutlineLevelOf(lookup, node)
+        return level === undefined ? node.attrs.level : level
+      },
+    },
+    paragraph: { level: (node, { lookup }) => styleOutlineLevelOf(lookup, node) ?? null },
+  },
+})
+```
+
+A heading whose style is body text stays unnumbered. A heading without a style is numbered by its own level.
+
+The editor counts again whenever `lookupOf` returns another object. Return the same object for as long as what it holds is the same. `lookupOf` is `null` by default, and `lookup` is `null` then.
+
+## How a level reads
+
+Each level has a template. `{n}` is the count at level `n`, and a format after a colon spells it differently:
+
+| Placeholder       | Reads                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `{2}` or `{2:1}`  | `1`, `2`, `3`                                                                            |
+| `{2:01}`          | `01`, `02`, ... `10`                                                                     |
+| `{2:a}` / `{2:A}` | `a`, `b`, ... `z`, `aa` / `A`, `B`, ...                                                  |
+| `{2:i}` / `{2:I}` | `i`, `ii`, `iii` / `I`, `II`, `III`                                                      |
+| `{2:*}`           | `*`, `†`, `‡`, `§`, `**`, ...                                                            |
+| `{2:lowerGreek}`  | Any [number format](/pages/v2/extensions/number-formats) by its name, including your own |
+
+Everything else in a template is text. A level you leave out reads `{1}.{2}...` down to its own level. With no `levels` at all, headings read `1`, `1.1` and `1.1.1`. A level whose template is `''` isn't numbered: its headings show nothing, and they still count. A placeholder that names a format neither your code nor the document defines, such as `{2:clause}`, is written as it stands until someone defines the format.
+
+```js
+OutlineNumbering.configure({
+  types: { heading: { level: (node) => node.attrs.level } },
+  levels: [
+    'Article {1:I}',
+    'Section {1}.{2:01}',
+    { label: '({3:a})', full: '{1}.{2:01}({3:a})' },
+    { label: '({4:i})', full: '{1}.{2:01}({3:a})({4:i})' },
+  ],
+})
+```
+
+A level is a string, or an object with a `label` and a `full` form. `label` is what the heading shows. `full` names the heading from anywhere else in the document, as a cross-reference does. `full` is the label when you leave it out.
+
+### Word's numbering gallery
+
+`OUTLINE_PRESETS` holds the schemes of Word's Outline Numbered gallery, with nine levels each. Pass one as `levels`:
+
+```js
+import { OUTLINE_PRESETS, OutlineNumbering } from '@tiptap-pro/extension-outline-numbering'
+
+OutlineNumbering.configure({
+  types: { heading: { level: (node) => node.attrs.level } },
+  levels: OUTLINE_PRESETS.legal,
+})
+```
+
+| Preset          | Levels 1, 2 and 3 read                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `parenthesized` | `1)`, `a)`, `i)`, then `(1)`, `(a)`, `(i)`, `1.`, `a.`, `i.`                                |
+| `decimal`       | `1.`, `1.1.`, `1.1.1.`                                                                      |
+| `bullets`       | `❖`, `➢`, `▪`, then `●`, `◆`, `■`                                                           |
+| `legal`         | `Article I.`, `Section 1.01`, `(a)`, then `(i)`, `(A)`, `(1)`. A reference names `1.01(a)`. |
+| `headings`      | `1`, `1.1`, `1.1.1`, the same as no `levels`                                                |
+| `outline`       | `I.`, `A.`, `1.`, then `a)`, `(1)`, `(a)`, `(i)`                                            |
+| `chapter`       | `Chapter 1`, and no number below it                                                         |
+
+A preset is an array like any other, so a scheme of your own can start from one: `[...OUTLINE_PRESETS.decimal.slice(0, 2), '{1}.{2}.{3:a}']`.
+
+### Store a scheme in the document
+
+`levels` is the scheme every document gets. A document can carry its own scheme instead. It then keeps its numbering wherever it goes, to another editor, to everyone editing it with you and into a file, and a reader can change it while editing. Register `OutlineScheme` for that:
+
+```js
+import {
+  OUTLINE_PRESETS,
+  OutlineNumbering,
+  OutlineScheme,
+} from '@tiptap-pro/extension-outline-numbering'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    OutlineNumbering.configure({ types: { heading: { level: (node) => node.attrs.level } } }),
+    OutlineScheme,
+  ],
+})
+
+editor.commands.setOutlineLevels(OUTLINE_PRESETS.legal) // the whole scheme
+editor.commands.setOutlineLevel(2, 'Section {1}.{2:01}') // one level, the first being 1
+editor.commands.setOutlineLevels(null) // back to `levels`
+```
+
+The document keeps the scheme in one hidden block at the end, `outlineScheme`. The block shows nothing and holds a template per level in its `levels` attribute. In HTML it is `<div data-tt-outline-scheme hidden data-tt-levels="[...]">`.
+
+`setOutlineLevel` keeps the other levels as the document has them, or as `levels` has them where the document has none yet. Both commands return `false` for a template that isn't a string or `{ label, full? }`, so `editor.can()` tells a toolbar whether a value is acceptable. `setOutlineLevels` also returns `false` when the scheme already is the one you pass.
+
+A level stored in the document that isn't a template, written by hand or by an older version, is read as `levels` has that level. When two documents that each have a scheme are combined, the first scheme counts.
+
+For code that writes outside an editor command, the same writes are transaction functions: `setOutlineLevelsTransaction(tr, levels)` and `setOutlineLevelTransaction(tr, level, template, current)`. `current` is the scheme to start from where the document has none. `outlineLevelsOf(doc, levels)` returns the scheme a document is numbered by, and `outlineSchemeAt(doc)` returns the block and its position, or `null`.
+
+`outlineLabelFor(scheme, counts, context?)` returns `{ label, fullLabel }`, what a heading with these counts reads in a scheme. A dialog can show it as a preview beside each level. `outlineLabelFor(OUTLINE_PRESETS.legal, [1, 1, 1])` returns `(a)` and `1.01(a)`.
+
+### Counting
+
+- A level counts from one again under every new heading above it.
+- A level skipped on the way down, such as a level 3 heading directly under a level 1, isn't counted and reads `0`. In `1`, `1.0.1`, the next level 2 heading is `1.1`. That is what cutting a heading and leaving its clauses produces. In a format with digits, the `0` is padded like the other numbers (`1.00(a)`). A format of letters or Roman numerals writes `0` as well.
+- The levels a document skips before its first number count as their first. A document that starts at level 2 reads `1.1`, `1.2`, and a level 1 heading after them is `2`.
+- `skippedLevel: 'zeroEverywhere'` leaves those levels uncounted as well, so a document reads `0.1`, `0.2`, then `1`. Word draws numbers this way.
+- `skippedLevel: 'first'` counts a skipped level as its first everywhere, so a document reads `1`, `1.1.1`, `1.2`.
+- Headings nested in other blocks, such as a blockquote or a list, are counted where they stand.
+
+The default for `skippedLevel` is `'zero'`.
+
+## Lists as clauses
+
+A numbered list can belong to the outline, as a list linked to a heading style does in Word. Its items are numbered a level below the heading before them, and an item indented under another is a level below that. Under `Section 1.01` the items read `(a)`, `(b)`, and `(i)` under `(b)`. Under an `Article` heading the same list reads one level higher.
+
+```js
+import { OutlineNumbering, outlineListItem } from '@tiptap-pro/extension-outline-numbering'
+
+OutlineNumbering.configure({
+  types: {
+    heading: { level: (node) => node.attrs.level },
+    listItem: outlineListItem,
+  },
+  lists: ['orderedList'],
+})
+
+editor.commands.setOutlineList(true) // the list around the cursor becomes clauses
+editor.commands.setOutlineList(false) // and a plain list again
+```
+
+- `lists` names the list types that can belong to the outline. Each gets a boolean `outlineList` attribute, which is `data-tt-outline-list` in HTML. The default is `[]`.
+- `outlineListItem` is the registration for a list item. It is `'nested'` inside a list that has `outlineList`, `null` anywhere else, and drawn in the gutter.
+
+The setting sits on the outermost list, and the lists inside it count as part of it, so an item indented with Tab is a clause too. `setOutlineList` sets it on the outermost list of one of the `lists` types around the selection and clears it on the lists inside. It returns `false` outside such a list, so `editor.can().setOutlineList(true)` tells a toolbar whether to offer it.
+
+`outlineListAt(doc, pos)` returns that list as `{ pos, node, linked }`, or `null`. `setOutlineListTransaction(state, linked)` makes the same write as a transaction, and returns `null` outside a list.
+
+Clauses count together with the headings. `(a)` starts again under every heading above it, and a second list under the same heading goes on with `(c)` where the first stopped at `(b)`.
+
+A clause's number stands in the margin before the item, and the editor doesn't draw the list's own marker. The number is no part of a line, so a label that grows from `(ix)` to `(x)` moves no text. The stylesheet indents a linked list by `--tt-outline-list-indent` (`2.5em`) to make room for it. A rule of yours that sets `padding-inline-start` on the list more specifically wins.
+
+Say `ignore` returns `'descend'` for an item, as it does for the rest of a clause continued on the next page. The item then has no number of its own and draws no list marker either. It gets `data-tt-outline-marker="gutter"` without a `data-tt-outline-number`.
+
+## How a number is shown
+
+A numbered node gets two attributes in the editor, and never in the document. `data-tt-outline-number` holds its label and `data-tt-outline-level` holds its level. CSS prints the label:
+
+```js
+import { mountOutlineStyles } from '@tiptap-pro/extension-outline-numbering'
+
+mountOutlineStyles(document) // or put outlineStyleRules() in your own stylesheet
+```
+
+Under a Content Security Policy, pass the nonce you give the editor as `injectNonce`: `mountOutlineStyles(document, { nonce })`.
+
+A node registered with `marker: 'gutter'` also gets `data-tt-outline-marker="gutter"`.
+
+The rule prints the label in front of the text, followed by a gap. For `gutter`, it prints the label in the margin before the node, the same gap away from it. Two custom properties change the look without replacing it:
+
+| Custom property             | Default   | What it does                            |
+| --------------------------- | --------- | --------------------------------------- |
+| `--tt-outline-number-gap`   | `0.5em`   | The gap between the label and the text. |
+| `--tt-outline-number-color` | `inherit` | The color of the label.                 |
+
+Because the number isn't in the document, `getHTML()` and `getJSON()` don't contain it.
+
+A heading selected as a whole gets the editor's `ProseMirror-selectednode` class, and the same stylesheet tints it. Two more properties set the tint: `--tt-outline-selected-background` (`Highlight`) and `--tt-outline-selected-color` (`HighlightText`).
+
+### When a number changes without an edit
+
+The editor counts again whenever the document changes. If your `level` or `ignore` function answers differently for another reason, tell the editor:
+
+```js
+editor.commands.refreshOutlineNumbers()
+```
+
+The same is the transaction meta `tr.setMeta(outlineLabelsKey, 'refresh')`.
+
+## Delete a numbered heading
+
+You can't select the number on its own, since it isn't text. Deleting works the way Word deletes a numbered paragraph:
+
+- A click on the number, or a triple click in the heading, selects the whole heading. Cut or delete it and the heading is gone, number and all.
+- A selection from the first character of the heading into the next block deletes the heading whole with Backspace, Delete or Cut. The rest of the next block keeps its own type instead of becoming a numbered heading.
+- A selection inside the text of the heading deletes the text and keeps the heading and its number.
+- Typing over a selection replaces it the usual way and keeps the heading.
+
+## Copy and paste
+
+A copy writes each heading's label in front of its text, so a heading copied into a mail or another program reads `1.2 Scope`. A heading counts as copied when the selection holds it from its first character. A heading that the selection begins inside of is copied without its label.
+
+The copied HTML marks the heading with `data-tt-outline-label="1.2"`. Pasted into an editor that has `OutlineNumbering`, the label is taken out of the text again and the heading is numbered where it lands. A heading whose text really begins with its number keeps it, because only the marked label is taken out.
+
+For that mark, each registered type has a `copiedOutlineLabel` attribute. It is `null` in every document and appears in `getJSON()` as `null`.
+
+A clause takes its label along the same way. The label goes in front of the text of the first paragraph of the item, so a copied clause reads `(a) charge interest...`. An item whose first child isn't a paragraph is copied without it.
+
+## Leave nodes out
+
+`ignore` is a function of a node, and `null` by default. A node it returns `true` for isn't numbered, and nothing inside it is. A node it returns `'descend'` for isn't numbered, but what is inside it is counted as usual. `false` counts the node.
+
+A node that returns `'descend'` still counts for depth. A `'nested'` item inside it is a level below, as it would be inside the node it stands for.
+
+With Page Layout, pass its `ignoreLayoutArtifacts` here. See [on pages](#on-pages).
+
+## Read the numbers
+
+```js
+import { outlineNumbersIn, outlineNumberAt } from '@tiptap-pro/extension-outline-numbering'
+
+const registry = editor.storage.outlineNumbering
+
+for (const { pos, level, counts, label, fullLabel } of outlineNumbersIn(
+  editor.state.doc,
+  registry,
+)) {
+  // counts is [1, 1, 2] for 1.1.2, the outermost first
+}
+
+outlineNumberAt(editor.state.doc, registry, pos) // the number of the node starting at pos, or null
+```
+
+Both functions read the document you pass. The editor counts a document once for each editor, however often you ask. Each number also has `marker`, `'inline'` or `'gutter'`, from the registration of its type.
+
+`outlineLevelOf(registry.types, node, { ancestors })` returns what the registration of a node answers. That is a level, `'nested'`, or `null` for a type that isn't registered or a node that isn't numbered.
+
+## Commands
+
+| Command                            | What it does                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `setOutlineLevels(levels)`         | Sets the scheme of the document, or `null` for `levels`. Needs `OutlineScheme`.                                     |
+| `setOutlineLevel(level, template)` | Sets one level of the scheme of the document. Needs `OutlineScheme`.                                                |
+| `refreshOutlineNumbers()`          | Counts again with the document unchanged.                                                                           |
+| `setOutlineList(linked)`           | Makes the list around the selection a list of clauses, or not. It returns `false` outside one of the `lists` types. |
+
+## Names
+
+| Name                       | Value                             | What it is                                                                                 |
+| -------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `OUTLINE_PRESETS`          | `{ parenthesized, decimal, ... }` | Word's gallery of outline numberings, as `levels`.                                         |
+| `OUTLINE_NUMBER_ATTRIBUTE` | `data-tt-outline-number`          | The label, on the element of a numbered node in the editor.                                |
+| `OUTLINE_LEVEL_ATTRIBUTE`  | `data-tt-outline-level`           | The level, on the same element.                                                            |
+| `OUTLINE_MARKER_ATTRIBUTE` | `data-tt-outline-marker`          | `gutter` on the same element, for a number drawn in the margin.                            |
+| `OUTLINE_LIST_ATTRIBUTE`   | `outlineList`                     | The attribute of a list that belongs to the outline. It is `data-tt-outline-list` in HTML. |
+| `COPIED_LABEL_ATTRIBUTE`   | `copiedOutlineLabel`              | The attribute a copied heading carries its label in. It is `null` in a document.           |
+| `OUTLINE_SCHEME_NODE`      | `outlineScheme`                   | The type name of the block a document keeps its scheme in.                                 |
+| `OUTLINE_SCHEME_ATTRIBUTE` | `data-tt-outline-scheme`          | The element of that block in HTML.                                                         |
+| `outlineLabelsKey`         | a `PluginKey`                     | The key the `'refresh'` meta is set under.                                                 |
+
+## On pages
+
+With Page Layout, outline numbering needs to be told what to leave out. Page Layout also needs to know where the number of a heading is drawn from, so it measures a number again when it gets a digit longer:
+
+```js
+import {
+  createPageLayoutEditor,
+  defineNodeLayout,
+  ignoreLayoutArtifacts,
+  PageLayout,
+  pageSetup,
+} from '@tiptap-pro/extension-page-layout'
+import { OUTLINE_NUMBER_ATTRIBUTE, OutlineNumbering } from '@tiptap-pro/extension-outline-numbering'
+
+defineNodeLayout('heading', { labelAttribute: OUTLINE_NUMBER_ATTRIBUTE })
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [
+    StarterKit,
+    OutlineNumbering.configure({
+      types: { heading: { level: (node) => node.attrs.level } },
+      ignore: ignoreLayoutArtifacts,
+    }),
+    PageLayout.configure({ setup: pageSetup('A4') }),
+  ],
+})
+```
+
+`ignoreLayoutArtifacts` is described in [extensions on pages](/pages/v2/extensions/overview#packages-that-work-without-pages).
+
+A heading cut across two pages is numbered once, on the page it begins on. The scheme a document stores is a block of no height, on no page.
+
+`setOutlineLevels`, `setOutlineLevel` and `setOutlineList` write the document, not the pages, and `can()` answers from the document. `outlineListAt` and `outlineNumberAt` take positions in the document the engine keeps, which is `editor.storage.pageLayout.engine.getSourceDocument()`.
+
+The chapter number in front of a page number, as in `2-7`, follows the headings without any of this. See [write the chapter in front](/pages/v2/core-concepts/page-numbers#write-the-chapter-in-front).
+
+### Lists of clauses on pages
+
+A [list of clauses](#lists-as-clauses) cut by a page goes on counting on the next one. Its numbers stand in the margin, so they need no `defineNodeLayout`. An item cut inside its text is numbered on the page it begins on. Its rest on the next page draws neither a number nor the marker of the list.

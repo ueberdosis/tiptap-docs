@@ -106,7 +106,36 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/pages/v2/extensions',
       title: 'Extensions',
-      children: [],
+      children: [
+        {
+          title: 'Overview',
+          href: '/pages/v2/extensions/overview',
+        },
+        {
+          title: 'Tables',
+          href: '/pages/v2/extensions/tables',
+        },
+        {
+          title: 'Column layout',
+          href: '/pages/v2/extensions/columns',
+        },
+        {
+          title: 'Footnotes',
+          href: '/pages/v2/extensions/footnotes',
+        },
+        {
+          title: 'Outline numbering',
+          href: '/pages/v2/extensions/outline-numbering',
+        },
+        {
+          title: 'Number formats',
+          href: '/pages/v2/extensions/number-formats',
+        },
+        {
+          title: 'Whole blocks',
+          href: '/pages/v2/extensions/whole-blocks',
+        },
+      ],
     },
     {
       type: 'group',
