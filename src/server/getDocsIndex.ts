@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { sidebarConfig as globalSidebar } from '../content/sidebar'
 import { sidebarConfig as uiComponentsSidebar } from '../content/ui-components/sidebar'
-import type { CatalogPlan } from '../content/catalog'
+import { CATALOG_PLANS, type CatalogPlan } from '../content/catalog'
 import type { SidebarConfig, SidebarGroup, SidebarLink } from '../types'
 import { planFromTags, statusFromTags } from './getCatalog'
 import { readFrontmatterSync } from './readFrontmatter'
@@ -18,9 +18,12 @@ export type DocsPage = {
   description?: string
   /** The sidebar entries above the page, such as `['Features', 'Review', 'Comments']`. */
   trail: string[]
-  /** A paid plan from the page tags, or `Open source` for free features. Unset for other pages. */
+  /**
+   * A paid plan, or `Open source` for free features. Comes from the page tags, or else
+   * from the nearest sidebar entry above it, so a feature's subpages share its plan.
+   */
   plan?: CatalogPlan
-  /** Release state from the page tags, such as Beta or Deprecated. */
+  /** Release state, such as Beta or Deprecated, from the page tags or inherited like `plan`. */
   status?: string
   /** The npm packages of a feature page, space-separated. */
   package?: string
@@ -30,6 +33,33 @@ const CONTENT_DIR = path.join(process.cwd(), 'src/content')
 const CHANGELOG_PREFIX = '/resources/changelog/'
 
 type Item = SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>
+
+/** What a page inherits from the sidebar entries above it. */
+type Inherited = Pick<DocsPage, 'plan' | 'status'>
+
+// "New" and "Soon" describe one entry, not the pages under it
+const INHERITED_STATUSES = ['Deprecated', 'Legacy', 'Alpha', 'Beta']
+
+/** The plan and status a sidebar entry's labels pass on, over what it inherited itself. */
+function inheritFrom(tags: string[] | undefined, inherited: Inherited): Inherited {
+  if (!tags?.length) return inherited
+  const plan = CATALOG_PLANS.find((candidate) => tags.includes(candidate))
+  const status = INHERITED_STATUSES.find((candidate) => tags.includes(candidate))
+  return { plan: plan ?? inherited.plan, status: status ?? inherited.status }
+}
+
+function withInherited(page: DocsPage, inherited: Inherited): DocsPage {
+  return { ...page, plan: page.plan ?? inherited.plan, status: page.status ?? inherited.status }
+}
+
+/** The number of leading route segments two routes share. */
+function sharedSegments(a: string, b: string): number {
+  const left = a.split('/').filter(Boolean)
+  const right = b.split('/').filter(Boolean)
+  let count = 0
+  while (count < left.length && left[count] === right[count]) count++
+  return count
+}
 
 /** The MDX file of a route, if it has one. */
 export function fileForRoute(route: string): string | undefined {
@@ -105,15 +135,16 @@ export function getDocsIndex(): DocsPage[] {
   const pages: DocsPage[] = []
   const seen = new Set<string>()
 
-  const visit = (items: Item[], trail: string[]) => {
+  const visit = (items: Item[], trail: string[], inherited: Inherited) => {
     for (const item of items) {
       const route = item.href?.split('#')[0]
       const isPage = !('type' in item && item.type === 'group') && route && !item.external
+      const own = inheritFrom(item.tags, inherited)
       if (isPage && !seen.has(route)) {
         const file = fileForRoute(route)
         if (file) {
           seen.add(route)
-          pages.push(pageFromFile(route, file, trail, item.title))
+          pages.push(withInherited(pageFromFile(route, file, trail, item.title), own))
         } else if (route.startsWith(CHANGELOG_PREFIX)) {
           // Changelog pages come from data, not MDX, and have no frontmatter
           seen.add(route)
@@ -122,7 +153,7 @@ export function getDocsIndex(): DocsPage[] {
       }
       // A section sidebar may repeat the title it sits under, such as UI Components
       const next = trail.at(-1) === item.title ? trail : [...trail, item.title]
-      if (item.children) visit(item.children, next)
+      if (item.children) visit(item.children, next, own)
     }
   }
 
@@ -130,14 +161,23 @@ export function getDocsIndex(): DocsPage[] {
     [globalSidebar, []],
     [uiComponentsSidebar, ['UI Components']],
   ]
-  for (const [config, trail] of sidebars) visit(config.items, trail)
+  for (const [config, trail] of sidebars) visit(config.items, trail, {})
 
+  const inSidebar = [...pages]
   for (const file of walk(CONTENT_DIR)) {
     const route = fileToRoute(file)
     // Segments starting with `_` are partials that other pages import
     if (seen.has(route) || route.split('/').some((segment) => segment.startsWith('_'))) continue
     seen.add(route)
-    pages.push(pageFromFile(route, file, []))
+    // A page outside the sidebar inherits from the sidebar page whose route it shares most of
+    const nearest = inSidebar.reduce<DocsPage | undefined>((best, candidate) => {
+      const shared = sharedSegments(route, candidate.route)
+      return shared >= 2 && shared > (best ? sharedSegments(route, best.route) : 0)
+        ? candidate
+        : best
+    }, undefined)
+    const inherited = nearest ? { plan: nearest.plan, status: nearest.status } : {}
+    pages.push(withInherited(pageFromFile(route, file, []), inherited))
   }
 
   index = pages

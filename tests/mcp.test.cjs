@@ -114,6 +114,25 @@ test('llms.txt lists every page once, grouped like the sidebar', () => {
   assert.equal(getDocsIndex().length, new Set(getDocsIndex().map((page) => page.route)).size)
 })
 
+test('subpages of paid features carry their plan, and legacy AI pages are deprecated', () => {
+  const pages = getDocsIndex()
+  const under = (prefix) => pages.filter((page) => page.route.startsWith(prefix))
+  const paid = ['/comments/', '/tracked-changes/', '/compare/', '/collaboration/', '/conversion/']
+  for (const prefix of [...paid, '/ai/ai-toolkit/', '/ai/basic/', '/pages/', '/composable-docs/']) {
+    const missing = under(prefix).filter((page) => !page.plan || page.plan === 'Open source')
+    assert.deepEqual(
+      missing.map((page) => page.route),
+      [],
+      `${prefix} pages without a paid plan`,
+    )
+  }
+  const current = under('/ai/deprecated/').filter((page) => page.status !== 'Deprecated')
+  assert.deepEqual(
+    current.map((page) => page.route),
+    [],
+  )
+})
+
 test('.md pages link the code of open-source demos, not of Pro demos', async () => {
   const bold = await fileToMarkdown('src/content/editor/extensions/marks/bold.mdx')
   assert.match(
