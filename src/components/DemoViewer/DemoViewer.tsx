@@ -306,6 +306,18 @@ export const DemoViewer = ({
     handle.addEventListener('pointerup', onUp)
   }
 
+  // The resize handle tells assistive technology the demo's height
+  const [shownHeight, setShownHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const card = demoCard.current
+    if (!card) return
+    const observer = new ResizeObserver(([entry]) =>
+      setShownHeight(Math.round(entry.contentRect.height)),
+    )
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [])
+
   const resizeByKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const step = event.key === 'ArrowDown' ? 40 : event.key === 'ArrowUp' ? -40 : 0
     if (!step) return
@@ -528,6 +540,8 @@ export const DemoViewer = ({
               role="separator"
               aria-orientation="horizontal"
               aria-label="Resize the demo"
+              aria-valuenow={shownHeight ?? (typeof frameHeight === 'number' ? frameHeight : 384)}
+              aria-valuemin={120}
               title="Drag to resize the demo"
               tabIndex={0}
               onPointerDown={startResize}

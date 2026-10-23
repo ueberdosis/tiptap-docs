@@ -149,6 +149,9 @@ export default async function MarkdownPage({ params }: Props) {
             isLarge
             view="preview"
           />
+          {headerDemo.caption ? (
+            <p className="mt-3 text-sm text-grayAlpha-600">{headerDemo.caption}</p>
+          ) : null}
         </div>
       ) : null}
     </PageHeader.Wrapper>

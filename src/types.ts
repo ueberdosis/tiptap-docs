@@ -96,6 +96,8 @@ export type FrontmatterHeaderDemo = {
   isPro?: boolean
   /** A full URL instead of `path`. */
   src?: string
+  /** One sentence below the demo on what to try in it. */
+  caption?: string
 }
 
 export type FrontmatterSidebar = {

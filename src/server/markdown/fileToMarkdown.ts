@@ -10,6 +10,7 @@ type Frontmatter = {
   description?: string
   intro?: string
   meta?: { title?: string; description?: string }
+  headerDemo?: { path?: string; isPro?: boolean; src?: string; caption?: string }
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -72,7 +73,14 @@ export function buildFrontmatter(fields: {
 export async function fileToMarkdown(filePath: string, canonicalUrl?: string): Promise<string> {
   const raw = await fs.readFile(filePath, 'utf8')
   const { attributes, body } = frontMatter<Frontmatter>(raw)
-  const transformed = await transformMdxToMarkdown(body)
+  // A demo in the page header leads the body, as it does on the page
+  const demo = attributes.headerDemo
+  const headerDemo = demo
+    ? `<CodeDemo${demo.isPro ? ' isPro' : ''} path=${JSON.stringify(demo.path ?? '')}${
+        demo.src ? ` src=${JSON.stringify(demo.src)}` : ''
+      }${demo.caption ? ` caption=${JSON.stringify(demo.caption)}` : ''} />\n\n`
+    : ''
+  const transformed = await transformMdxToMarkdown(headerDemo + body)
 
   const title = attributes.title ?? attributes.meta?.title
   const rawDescription = attributes.description ?? attributes.meta?.description
