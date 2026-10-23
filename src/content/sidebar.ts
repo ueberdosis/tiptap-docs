@@ -54,6 +54,13 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
   )
 }
 
+/** Features of a catalog group that have no docs yet, shown as disabled "Soon" entries. */
+function upcoming(group: string): SidebarEntry[] {
+  return getCatalog()
+    .filter((entry) => entry.group === group && !entry.url)
+    .map((entry) => ({ title: entry.name, href: '', tags: ['Soon'], disabled: true }))
+}
+
 /** A feature's status and plan as sidebar tags; the sidebar shows only the status. */
 function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
   const tags = [entry.status, entry.plan !== 'Open source' ? entry.plan : undefined].filter(
@@ -169,9 +176,18 @@ export const sidebarConfig: SidebarConfig = {
           composableDocsSidebar,
           '/composable-docs/slots/getting-started/overview',
         ),
-        feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
-          inline: ['Getting started'],
-        }),
+        {
+          // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
+          // Pages stays at its URLs for existing projects, labeled Legacy.
+          title: 'Page Layout',
+          href: '',
+          children: [
+            ...upcoming('page-layout'),
+            feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
+              inline: ['Getting started'],
+            }),
+          ],
+        },
         feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
           inline: ['Get started'],
         }),

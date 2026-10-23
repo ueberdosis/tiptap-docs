@@ -255,6 +255,14 @@ export const PageHeaderTag = ({
     )
   }
 
+  if (tag.type === 'legacy') {
+    return (
+      <Tag tooltip={tag.tooltip || 'Still supported. Page Layout replaces it for new projects.'}>
+        Legacy
+      </Tag>
+    )
+  }
+
   if (tag.type === 'version') {
     return (
       <Tag variant="gray" tooltip={tag.tooltip}>

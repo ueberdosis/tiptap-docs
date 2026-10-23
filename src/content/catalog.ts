@@ -23,7 +23,6 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'text-blocks', title: 'Text blocks', area: 'editor' },
   { id: 'lists', title: 'Lists', area: 'editor' },
   { id: 'tables', title: 'Tables', area: 'editor' },
-  { id: 'document-structure', title: 'Document structure', area: 'editor' },
   { id: 'code-and-math', title: 'Code and math', area: 'editor' },
   { id: 'media', title: 'Media and embeds', area: 'editor' },
   { id: 'mentions-and-emoji', title: 'Mentions and emoji', area: 'editor' },
@@ -36,7 +35,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'review', title: 'Review', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Documents', area: 'platform' },
-  { id: 'page-layout', title: 'Page layout', area: 'platform' },
+  { id: 'page-layout', title: 'Page Layout', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'ai', title: 'AI', area: 'platform' },
   // Snapshots belong to the Document Server, under Platform in the sidebar
@@ -56,7 +55,7 @@ export type UpcomingFeature = {
 }
 
 /**
- * MOCK: packages that exist in tiptap-pro but have no docs pages yet. They show
+ * MOCK: Page Layout packages that exist in tiptap-pro but have no docs pages yet. They show
  * as "Coming soon" in the catalog and the sidebar. Replace an entry with a page
  * (frontmatter `extension.group`) once its docs exist; drop the list before it
  * ships if the packages aren't announced.
@@ -66,48 +65,48 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
     name: 'Bookmark',
     description: 'Named anchors in the document that links and references can point to.',
     icon: 'Bookmark',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Columns',
     description: 'Lay out content in side-by-side columns.',
     icon: 'Columns2',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Cross-references',
     description: 'Refer to headings, figures, or bookmarks with references that stay up to date.',
     icon: 'Link2',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Document styles',
     description: 'Define paragraph and character styles once for the whole document.',
     icon: 'Paintbrush',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Footnotes',
     description: 'Add numbered footnotes that renumber themselves as the text changes.',
     icon: 'Superscript',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Number formats',
     description: 'Number lists and headings as 1.1, a), i., or in your own format.',
     icon: 'ListOrdered',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Outline numbering',
     description: 'Number headings as a legal or technical outline, like 1, 1.1, 1.1.1.',
     icon: 'ListTree',
-    group: 'document-structure',
+    group: 'page-layout',
   },
   {
     name: 'Whole blocks',
     description: 'Select, move, and delete a block as one unit.',
     icon: 'Square',
-    group: 'document-structure',
+    group: 'page-layout',
   },
 ]
