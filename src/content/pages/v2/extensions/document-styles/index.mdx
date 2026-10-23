@@ -1,0 +1,255 @@
+---
+title: Document styles
+meta:
+  title: Document styles | Tiptap Pages
+  description: Add named styles to a Tiptap editor, as a word processor has them, and keep them in the document, with or without Page Layout.
+  category: Pages
+---
+
+Named styles work as they do in a word processor: "Heading 1", "Body Text", "Quote", "Emphasis". A paragraph refers to its style by id, and the style says how it looks. Change the style and every paragraph that refers to it changes with it.
+
+`@tiptap-pro/extension-document-styles` works in any editor, with or without pages.
+
+## Install
+
+```bash
+npm install @tiptap-pro/extension-document-styles
+```
+
+The package comes from Tiptap's private registry. See [set up the registry](/pages/v2/getting-started/install#set-up-the-registry) if you haven't yet.
+
+## Add it to an editor
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { DocumentStyles } from '@tiptap-pro/extension-document-styles'
+
+const editor = new Editor({
+  extensions: [StarterKit, TextStyle, DocumentStyles],
+})
+
+editor.commands.applyStyle('heading-1')
+```
+
+That is all it takes. `TextStyle` is what character styles go on.
+
+Word's built-in styles come with it: Normal, Title, Subtitle, Heading 1 to 3, Quote and four character styles. See [Word's built-in styles](/pages/v2/extensions/document-styles/libraries#words-built-in-styles). A paragraph nobody styled is drawn in Normal. A heading is drawn in the Heading of its level.
+
+Styles go on the `paragraph`, `heading`, `blockquote` and `table` types and on the `textStyle` mark, wherever the schema has them.
+
+A style of your own is a definition stored in the document:
+
+```js
+editor.commands.setStyleDefinition({
+  id: 'body',
+  name: 'Body Text',
+  kind: 'paragraph',
+  props: { fontFamily: 'Georgia, serif', fontSize: 16, lineHeight: 1.6 },
+})
+
+editor.commands.applyStyle('body')
+```
+
+To choose the types yourself, list them. `types` is the node types a paragraph style can go on. `markTypes` is the mark types a character style can go on. A type the schema doesn't have is skipped. `wordStyles: false` leaves Word's styles out.
+
+| Page                                                               | What it covers                                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| [Definitions](/pages/v2/extensions/document-styles/definitions)    | What a style is, what it inherits, and changing one.                                    |
+| [Apply styles](/pages/v2/extensions/document-styles/applying)      | A style on a block or on text, and what one paragraph overrides.                        |
+| [Colors and fonts](/pages/v2/extensions/document-styles/values)    | Every color and font a document uses, and one replaced by another everywhere.           |
+| [Themes](/pages/v2/extensions/document-styles/themes)              | Two fonts and twelve colors a style can refer to, and changing them all at once.        |
+| [Table styles](/pages/v2/extensions/document-styles/tables)        | A table's header row, total row, first column and bands, and which a table shows.       |
+| [Libraries](/pages/v2/extensions/document-styles/libraries)        | Styles from outside the document, such as a house style or a template.                  |
+| [Clean up](/pages/v2/extensions/document-styles/cleanup)           | Deleting a style, missing and unused styles, and finding formatting that should be one. |
+| [Everything at a glance](/pages/v2/extensions/document-styles/api) | Every option, command and function on one page.                                         |
+
+## What is stored
+
+Each node and mark type listed in `types` and `markTypes` gets two attributes:
+
+- `styleId` is the id of its style, or `null`.
+- `styleOverrides` holds the values this one node or mark sets apart from its style, such as `{ color: 'red' }`, or `null`.
+
+The definitions are stored in the document, in a hidden `styleDefinitions` node at its end. `DocumentStyles` adds that node to the schema. The definitions are saved with the document, undone with the history, and shared with everyone editing the same document through Tiptap Collaboration. Nothing about them is on the page.
+
+```json
+{
+  "type": "doc",
+  "content": [
+    { "type": "paragraph", "attrs": { "styleId": "body", "styleOverrides": null }, "content": [] },
+    {
+      "type": "styleDefinitions",
+      "content": [
+        {
+          "type": "styleDefinition",
+          "attrs": { "definition": { "id": "body", "name": "Body Text", "kind": "paragraph" } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Each definition is a `styleDefinition` node of its own, so two people changing two different styles at the same time both keep their change. `styleDefinitionsContent(definitions, theme)` builds that JSON for content you put together yourself, such as a document's first content.
+
+## How it is drawn
+
+`DocumentStyles` writes a stylesheet for the editor with one rule per style. The `data-tt-style-id` attribute on the content selects the rule. The stylesheet is rewritten whenever a definition changes. An override is written inline on its element and wins over the rule.
+
+```html
+<p data-tt-style-id="body" data-tt-style-overrides='{"color":"red"}' style="color: red">...</p>
+```
+
+The rules are scoped to the editor's own element, which carries `data-tt-document-styles`. Two editors on one page with different styles don't draw each other's. Set `stylesheet: false` to write the CSS yourself, for example from `documentStylesStylesheet`.
+
+A block without a style is drawn in its type's [default style](/pages/v2/extensions/document-styles/definitions#the-default-style) where there is one. In the editor it carries `data-tt-style-default` beside the default's id.
+
+A value is written as the CSS property it names. `fontSize` becomes `font-size` and `marginTop` becomes `margin-top`. A number is in pixels where the property takes a length, and stays as it is for `fontWeight`, `lineHeight` and `opacity`.
+
+A value that isn't a plain CSS value is left out, because the definitions come with the document. That covers a value containing `;`, `{`, `}`, `<`, `>` or a comment. A value such as `'theme:accent1'` is the theme's, written as a custom property. See [themes](/pages/v2/extensions/document-styles/themes).
+
+A character style alone is written with an empty `style` attribute, as in `<span data-tt-style-id="marker" style="">`. `TextStyle` reads a `<span>` back only where it has one.
+
+## Paste from Word
+
+Text pasted from Word keeps its styles where the document has a style of the same kind. Word writes a paragraph's style as a class, such as `class=MsoTitle` or `class=Fazit`, and a heading as `<h1>` to `<h6>`. Each becomes a reference to:
+
+1. The style whose [`builtIn`](/pages/v2/extensions/document-styles/definitions#words-built-in-styles) is that style of Word's, such as `'Title'` or `'heading 1'`. Failing that:
+2. The style whose `name` is the one Word gives it, in any case. This is how a style the author made in Word comes back.
+
+A paragraph in Word's Normal gets no reference where Normal is the default for paragraphs, since it is drawn in it anyway. A style the document has nothing for isn't created. The text arrives with whatever formatting the rest of the HTML carries. Text styles come back on the first mark type in `markTypes`.
+
+The first pasted paragraph goes into the paragraph at the cursor and keeps that paragraph's style. The ones after it keep their own.
+
+`wordStylesToHtml(html, styleIdOf)` is the same rewrite on a string. `styleIdOfWordNameIn(doc, libraries, precedence)` is the lookup it uses.
+
+## Options
+
+| Option                 | Default                | What it does                                                                                                                                                                                |
+| ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types`                | `[]`                   | Node types a style can go on. Left empty, it is `paragraph`, `heading`, `blockquote` and `table`, those the schema has.                                                                     |
+| `markTypes`            | `[]`                   | Mark types a character style can go on. The first is the one `applyStyle` uses for a style that names none. Left empty, it is `textStyle`, if the schema has it.                            |
+| `libraries`            | `[]`                   | Read-only sources of styles. See [libraries](/pages/v2/extensions/document-styles/libraries).                                                                                               |
+| `wordStyles`           | `true`                 | Word's built-in styles under the libraries. `{ defaults: false }` offers them without drawing unstyled blocks in Normal.                                                                    |
+| `precedence`           | `'document'`           | Whether the document's own definition of an id wins over a library's, or `'libraries'`.                                                                                                     |
+| `partialSelection`     | `'apply-as-mark'`      | What `applyStyle` does with part of a paragraph. See [apply styles](/pages/v2/extensions/document-styles/applying).                                                                         |
+| `onMissingStyle`       | `'preserve-reference'` | What `applyStyle` does with an id nothing defines.                                                                                                                                          |
+| `fallbackStyleId`      | `null`                 | The style `onMissingStyle: 'fallback'` applies instead.                                                                                                                                     |
+| `transformNodeOnApply` | `false`                | Whether `applyStyle` also turns the block into the style's `node` type, and `removeStyle` takes blocks out of a blockquote a style made.                                                    |
+| `stylesheet`           | `true`                 | Whether the editor draws the styles with a stylesheet of its own, a block's default style included.                                                                                         |
+| `followNextStyle`      | `true`                 | Whether Enter at the end of a paragraph gives the new one the style's `nextStyle`. See [the next paragraph](/pages/v2/extensions/document-styles/definitions#the-next-paragraph).           |
+| `repair`               | `true`                 | Whether a second `styleDefinitions` node is merged into the first. See [shared styles](/pages/v2/extensions/document-styles/api#shared-styles).                                             |
+| `tableTypes`           | `[]`                   | Table node types whose parts a table style formats, each with a `styleLook`. Left empty, it is `table`, if `types` has it. See [table styles](/pages/v2/extensions/document-styles/tables). |
+| `continuesNode`        | `null`                 | Whether a table, or its first row, continues the one before it, where a table is shown in pieces.                                                                                           |
+| `repeatedRowSelector`  | `null`                 | The selector of a row drawn as a copy of a table's header row, formatted as the header row.                                                                                                 |
+| `theme`                | `null`                 | The theme a document without one of its own is drawn in. See [themes](/pages/v2/extensions/document-styles/themes).                                                                         |
+| `colorScheme`          | `'light'`              | `'auto-dark'` or `{ darkSelector }` gives every color a dark counterpart. See [dark mode](/pages/v2/extensions/document-styles/themes#dark-mode).                                           |
+| `printColorScheme`     | `'light'`              | What print and a PDF get with a dark `colorScheme`: `'light'`, or `'screen'` for the scheme shown.                                                                                          |
+| `directFormatting`     | `DIRECT_FORMATTING`    | How Tiptap's own formatting extensions write a property, which the styles read it by. See [Tiptap's own formatting](/pages/v2/extensions/document-styles/values#tiptaps-own-formatting).    |
+| `keepPastedFormatting` | `true`                 | Whether pasted formatting no extension holds is kept as an override. See [pasted formatting](/pages/v2/extensions/document-styles/values#pasted-formatting).                                |
+
+## Read the styles
+
+```js
+const styles = editor.storage.documentStyles.stylesOf(editor.state.doc)
+
+styles.getStyles() // every style the document can use, its own and its libraries'
+styles.getStyle('body') // one, or null
+styles.originOf('body') // 'document', 'library' or null
+```
+
+## On pages
+
+Changing a style moves text from page to page. In an editor with Page Layout, the readers need the document from the engine, and `PageLayout` needs to be told where a style says a page breaks.
+
+### Set it up
+
+```js
+import StarterKit from '@tiptap/starter-kit'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { DocumentStyles, styleBlockBreaks } from '@tiptap-pro/extension-document-styles'
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const types = ['paragraph', 'heading']
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [
+    StarterKit,
+    TextStyle,
+    DocumentStyles.configure({ types }),
+    PageLayout.configure({
+      setup: pageSetup('A4'),
+      blockBreaksOf: styleBlockBreaks({ types }),
+    }),
+  ],
+})
+```
+
+Pass `styleBlockBreaks` the same `types` and `libraries` you give `DocumentStyles`. Without it, the pages don't read a style's `pagination`.
+
+### Text moves with a style
+
+Make the body style larger and every paragraph using it gets taller. The pages are laid out again, for the whole document, as for a change of paper width. A paragraph that fitted at the bottom of page 4 starts page 5.
+
+The definitions are a block of no height, on no page. A [theme](/pages/v2/extensions/document-styles/themes) is kept in the same block, so `setDocumentTheme` lays the pages out again as a changed style does. A theme with a wider heading font moves the text after every heading.
+
+### Read the document from the engine
+
+In a paginated editor, `editor.state` holds the pages. A paragraph split by a page boundary is two pieces there. Pass the document itself to the readers:
+
+```js
+import { analyzeStyleUsage, discoverStyles } from '@tiptap-pro/extension-document-styles'
+
+const doc = editor.storage.pageLayout.engine.getSourceState().doc
+const styles = editor.storage.documentStyles.stylesOf(doc)
+
+analyzeStyleUsage(doc, styles)
+discoverStyles(doc)
+```
+
+A candidate found this way is what `createStyleFromCandidate` takes. The commands themselves need nothing. They act on the document, and a style applied to a paragraph split by a page boundary is applied to both halves.
+
+### A library change is not a document change
+
+Replacing a library's styles redraws them. The pages are laid out again once the engine is asked to measure:
+
+```js
+house.setStyles(next)
+editor.storage.pageLayout.engine.refresh()
+```
+
+Writing the definitions without the commands goes through the engine:
+
+```js
+import { setStyleDefinitionTransaction } from '@tiptap-pro/extension-document-styles'
+
+const engine = editor.storage.pageLayout.engine
+const transaction = setStyleDefinitionTransaction(engine.getSourceState().tr, definition)
+
+engine.applySourceTransaction(transaction, { addToHistory: true })
+```
+
+### Line and page breaks
+
+A style's `pagination` is read by the pages only when you pass `styleBlockBreaks` to `PageLayout`, as in the setup above. Then:
+
+- A paragraph in a style with `keepWithNext` moves to the next page with the first line of the paragraph after it.
+- A paragraph in a style with `keepLinesTogether` isn't divided between pages.
+- A paragraph in a style with `pageBreakBefore` starts a page.
+
+A paragraph without a style of its own follows its type's default style. See [line and page breaks](/pages/v2/extensions/document-styles/definitions#line-and-page-breaks) for the field. Changing a style's `pagination` lays out the pages again, like any change to a definition.
+
+### Tables
+
+A table style counts a table divided between pages as one:
+
+- The bands of the rows on the next page go on from where the page before stopped.
+- Only the last page holds the total row.
+- The header row a table repeats on every page is drawn in the style's header row format.
+- A row divided between two pages is one row in its band on both.
+
+Nothing needs to be configured for this. `PageLayout` sets `continuesNode` and `repeatedRowSelector` in the paginated editor. A change to a table's look, or to a table style, lays out the pages again, since a bold header row can be taller. See [table styles](/pages/v2/extensions/document-styles/tables).

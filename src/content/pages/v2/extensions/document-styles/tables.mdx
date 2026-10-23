@@ -1,0 +1,145 @@
+---
+title: Table styles
+meta:
+  title: Table styles | Tiptap Pages
+  description: Format a table's header row, total row, columns and bands with a table style, and choose which parts each table shows.
+  category: Pages
+---
+
+A table style formats a whole table, as Word's table styles do. It also formats parts of it: the header row, the total row, the first and last column and the bands. Each table chooses which of those parts it shows.
+
+```js
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
+
+DocumentStyles.configure({
+  types: ['paragraph', 'heading', 'table'],
+  tableTypes: ['table'],
+})
+
+editor.commands.setStyleDefinition({
+  id: 'grid-table',
+  name: 'Grid Table',
+  kind: 'table',
+  targets: [{ kind: 'node', types: ['table'] }],
+  props: { borderCollapse: 'collapse' },
+  tableConditions: {
+    firstRow: { backgroundColor: '#536dfe', color: '#ffffff', fontWeight: 700 },
+    lastRow: { borderTop: '2px solid #536dfe', fontWeight: 700 },
+    oddRows: { backgroundColor: '#eef1ff' },
+  },
+})
+
+editor.commands.applyStyle('grid-table') // the table around the cursor
+```
+
+`tableTypes` names the table node types whose parts a table style formats. List them in `types` as well, which lets `applyStyle` put a style on one. With the cursor in a cell, a table style goes on the table around it. A table type needs the `tableRole` the table extension gives it.
+
+## The cursor in a cell
+
+With the cursor in a cell, the selection is in the paragraph there, not in the table. The commands that act on the selection's style act on that paragraph. These are `removeStyle`, `setStyleOverride`, `clearStyleOverrides` and `detachStyle`. They leave the table's style alone even where the paragraph has none.
+
+A paragraph style applied in a cell goes on the paragraph. A table style goes on the table.
+
+`tableStyleAt(selection, tableTypes)` reads the style of the table around the selection. It returns `null` where the table has none or the selection is in no table:
+
+```js
+import { tableStyleAt } from '@tiptap-pro/extension-document-styles'
+
+tableStyleAt(editor.state.selection, ['table']) // 'grid-table'
+```
+
+## removeTableStyle()
+
+This takes the style and every override off the table around the selection:
+
+```js
+editor.commands.removeTableStyle()
+```
+
+It returns `false` outside a table of `tableTypes` and where the table has neither.
+
+## Conditional formats
+
+`props` are the table's own, on its element. `tableConditions` are on the cells:
+
+| Condition                           | The cells                            |
+| ----------------------------------- | ------------------------------------ |
+| `firstRow`                          | Of the header row                    |
+| `lastRow`                           | Of the total row                     |
+| `firstColumn`, `lastColumn`         | Of the first and the last column     |
+| `oddRows`, `evenRows`               | Of the row bands, the first band odd |
+| `oddColumns`, `evenColumns`         | Of the column bands                  |
+| `topLeftCell`, `topRightCell`       | The corners of the header row        |
+| `bottomLeftCell`, `bottomRightCell` | The corners of the total row         |
+
+Where a cell is in several conditions, the later one in this order wins a value they both set. The order is column bands, row bands, first and last column, header and total row, corners. A cell of the first column in a band row gets both, so its band's background shows unless the column sets its own.
+
+The bands count the rows between the header row and the total row, so the first row under the header is odd. A cell that spans the last row is in it. A corner is a corner only where the table shows both its row and its column. Without a first column, the top left cell is in the header row and nothing more.
+
+### Bands of more than one row
+
+`tableBands` says how many rows and how many columns make one band. The default is one of each:
+
+```js
+editor.commands.setStyleDefinition({
+  id: 'ledger',
+  name: 'Ledger',
+  kind: 'table',
+  basedOn: 'grid-table',
+  tableBands: { rows: 2 }, // two rows shaded, two rows not
+})
+```
+
+Each count is inherited through `basedOn` on its own. Anything but a whole number of one or more is ignored. `resolveStyle` returns them as `result.style.tableBands`.
+
+Each condition is inherited through `basedOn` on its own, value by value. A value of `null` removes one it inherits. `resolveStyle` returns them as `result.style.tableConditions`.
+
+## The table's look
+
+Which parts a table shows is Word's "Table Style Options". The table keeps it in a `styleLook` attribute. Without one, a table shows a header row, a first column and banded rows, as a new table in Word does:
+
+| Key             | Default |
+| --------------- | ------- |
+| `firstRow`      | `true`  |
+| `lastRow`       | `false` |
+| `firstColumn`   | `true`  |
+| `lastColumn`    | `false` |
+| `bandedRows`    | `true`  |
+| `bandedColumns` | `false` |
+
+## setTableLook()
+
+This changes the look of the table around the selection and keeps the rest of it:
+
+```js
+editor.commands.setTableLook({ lastRow: true, bandedRows: false })
+```
+
+The table stores only what differs from the defaults, and `null` once nothing does. The command returns `false` outside a table of `tableTypes` and where the look is already as asked. The look is written into the HTML as `data-tt-style-look`, so a copy and paste keeps it. `tableLookOf(value)` reads one with the defaults filled in.
+
+## How it is drawn
+
+Each cell of a table in a table style carries `data-tt-table-style` with the style's id and `data-tt-table-cell` with the conditions it is in. The table carries `data-tt-table-look` with the parts it shows:
+
+```html
+<table data-tt-style-id="grid-table" data-tt-table-look="first-row first-column banded-rows">
+  <tr>
+    <td data-tt-table-style="grid-table" data-tt-table-cell="first-column first-row top-left-cell">
+      Item
+    </td>
+    ...
+  </tr>
+  <tr>
+    <td data-tt-table-style="grid-table" data-tt-table-cell="odd-rows first-column">Paper</td>
+    ...
+  </tr>
+</table>
+```
+
+These attributes are in the editor only. `getHTML()` and `getJSON()` have none of them, and adding a row counts the bands again. A table inside a cell is a table of its own.
+
+With `stylesheet: false`, `documentStylesStylesheet` writes the rules. `tableCellConditions(place, look, bands)` says which conditions a cell is in.
+
+Where a table is shown in pieces, `continuesNode` tells which piece continues the one before it. That is a table, or the first row of one, for a row divided between two pieces. The bands go on counting from the piece before, and only the last piece holds the total row.
+
+`repeatedRowSelector` is the selector of a row drawn as a copy of the header row, which gets the header row's format. Page Layout sets both for you. See [document styles on pages](/pages/v2/extensions/document-styles#tables).

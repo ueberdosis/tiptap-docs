@@ -1,0 +1,139 @@
+---
+title: Style libraries
+meta:
+  title: Style libraries | Tiptap Pages
+  description: Offer styles from outside the document, such as a house style or a template, and decide which definition wins.
+  category: Pages
+---
+
+A library is a set of styles from outside the document, such as an organization's house style, a template or a design system. Every document configured with it can use its styles, and none of them changes it.
+
+```js
+import { DocumentStyles, styleLibrary } from '@tiptap-pro/extension-document-styles'
+
+const house = styleLibrary(
+  [{ id: 'body', name: 'House Body', kind: 'paragraph', props: { fontFamily: 'Inter' } }],
+  { scope: 'organization' },
+)
+
+DocumentStyles.configure({
+  types: ['paragraph', 'heading'],
+  libraries: [house],
+})
+```
+
+Replace a library's styles and every editor using it draws them again:
+
+```js
+house.setStyles(await fetchHouseStyles())
+```
+
+Nothing of a library is stored in the document. A document opened without it keeps its references. It draws them by whatever else defines those ids, or as [missing](/pages/v2/extensions/document-styles/cleanup#missing-styles).
+
+## Word's built-in styles
+
+An editor has the styles a new Word document starts with, unless `wordStyles` is `false`. They sit under every library you configure. A library of yours, or the document's own, that defines the same id is the one drawn:
+
+| id                                                          | Name                 | Kind              | On                                                                 |
+| ----------------------------------------------------------- | -------------------- | ----------------- | ------------------------------------------------------------------ |
+| `normal`                                                    | Normal               | paragraph         | The default of every paragraph                                     |
+| `no-spacing`                                                | No Spacing           | paragraph         |                                                                    |
+| `title`, `subtitle`                                         | Title, Subtitle      | paragraph, linked |                                                                    |
+| `heading-1` to `heading-3`                                  | Heading 1 to 3       | paragraph, linked | A heading of that level, and the default of headings of that level |
+| `quote`, `intense-quote`                                    | Quote, Intense Quote | paragraph         | Puts the paragraphs in a blockquote                                |
+| `subtle-emphasis`, `emphasis`, `intense-emphasis`, `strong` | Matching names       | character         |                                                                    |
+
+A document with no styles of its own is drawn in them. A paragraph is drawn in Normal, and a heading of the second level in Heading 2. Their fonts and colors refer to the [theme](/pages/v2/extensions/document-styles/themes). Each has the `builtIn` name a `.docx` knows it by. A style for a type the editor doesn't style is left out. That means the quotes without `blockquote` in `types`, and the character styles without a mark.
+
+```js
+DocumentStyles.configure({
+  libraries: [house], // house wins; Word's styles fill in what it does not define
+})
+
+DocumentStyles.configure({
+  wordStyles: false, // none of Word's styles
+})
+
+DocumentStyles.configure({
+  wordStyles: { defaults: false }, // to apply, but a paragraph nobody styled stays as it was
+})
+```
+
+With `defaults: false`, Normal and the headings are no type's default. Content that has no styles keeps the look it had, and Word's styles are there to apply. `wordStyleLibrary({ defaults: false })` is the same as a library.
+
+`wordStyleLibrary(options)` gives the same styles as a library of your own. Use it with `wordStyles: false` for types named differently, or to put them somewhere other than last:
+
+```js
+wordStyleLibrary({
+  paragraphType: 'paragraph',
+  headingType: 'heading',
+  quoteType: null,
+  markType: 'textStyle',
+})
+```
+
+`wordStyles(options)` gives the same definitions as an array. `WORD_STYLES` holds those for the default types. Use them to store in a document or to start a library of your own from.
+
+## A library's theme
+
+A library can bring the [theme](/pages/v2/extensions/document-styles/themes) its styles are meant to be drawn in, and publish a new one the same way as new styles:
+
+```js
+const house = styleLibrary(houseStyles, {
+  scope: 'organization',
+  theme: { name: 'House', colors: { accent1: '#536dfe' } },
+})
+
+house.setTheme({ name: 'House 2026', colors: { accent1: '#0f766e' } })
+```
+
+Its theme is under the document's own and over the `theme` option, font by font and color by color. With `precedence: 'libraries'` it wins over the document's. Among libraries, the first one's wins.
+
+## Which definition wins
+
+The same id can be defined by the document and by a library. `precedence` decides:
+
+- `'document'`, the default. If the document defines the id, the document's definition is used. Otherwise the first library that defines it is used.
+- `'libraries'`. If a library defines the id, the first such library is used. Otherwise the document's is used.
+
+With the default, a style changed in one document stays as it was changed when the library is updated later. With `'libraries'`, the house style wins over a document's own of the same id.
+
+```js
+const styles = editor.storage.documentStyles.stylesOf(editor.state.doc)
+
+styles.getStyle('body')?.scope // 'document', or the library's scope
+styles.originOf('body') // 'document' or 'library'
+```
+
+## Read only
+
+A command that would change a library's style returns `false`. These are `setStyleDefinition` with its id, `renameStyle`, `deprecateStyle`, `updateStyleFromSelection` and `deleteStyle`.
+
+You can apply a style from a library and inherit from it like any other. `duplicateStyle` gives the document a copy of its own to change:
+
+```js
+editor.commands.duplicateStyle('body', 'my-body', 'Body, adjusted')
+```
+
+## A library of your own
+
+Anything with `getStyles()` is a library. `getTheme()` is optional. `subscribe` is how the editor learns of a change to either:
+
+```js
+const library = {
+  scope: 'workspace',
+  getStyles: () => cache.styles,
+  getTheme: () => cache.theme,
+  subscribe: (listener) => cache.on('change', listener),
+}
+```
+
+`subscribe` returns the function that unsubscribes.
+
+Outside an editor, `styleLookupOf(doc, libraries, precedence)` gives the same lookup for any document of the schema:
+
+```js
+import { styleLookupOf } from '@tiptap-pro/extension-document-styles'
+
+styleLookupOf(state.doc, [house]).getStyles()
+```

@@ -135,6 +135,80 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Whole blocks',
           href: '/pages/v2/extensions/whole-blocks',
         },
+        {
+          title: 'Cross-references',
+          href: '/pages/v2/extensions/cross-references',
+          children: [
+            {
+              title: 'Sources',
+              href: '/pages/v2/extensions/cross-references/sources',
+            },
+            {
+              title: 'What a reference shows',
+              href: '/pages/v2/extensions/cross-references/displays',
+            },
+            {
+              title: 'Several targets',
+              href: '/pages/v2/extensions/cross-references/joins',
+            },
+            {
+              title: 'Commands',
+              href: '/pages/v2/extensions/cross-references/commands',
+            },
+            {
+              title: 'Word fields',
+              href: '/pages/v2/extensions/cross-references/docx',
+            },
+          ],
+        },
+        {
+          title: 'Bookmarks',
+          href: '/pages/v2/extensions/bookmarks',
+          children: [
+            {
+              title: 'Commands',
+              href: '/pages/v2/extensions/bookmarks/commands',
+            },
+          ],
+        },
+        {
+          title: 'Document styles',
+          href: '/pages/v2/extensions/document-styles',
+          children: [
+            {
+              title: 'Definitions',
+              href: '/pages/v2/extensions/document-styles/definitions',
+            },
+            {
+              title: 'Apply styles',
+              href: '/pages/v2/extensions/document-styles/applying',
+            },
+            {
+              title: 'Colors and fonts',
+              href: '/pages/v2/extensions/document-styles/values',
+            },
+            {
+              title: 'Themes',
+              href: '/pages/v2/extensions/document-styles/themes',
+            },
+            {
+              title: 'Table styles',
+              href: '/pages/v2/extensions/document-styles/tables',
+            },
+            {
+              title: 'Libraries',
+              href: '/pages/v2/extensions/document-styles/libraries',
+            },
+            {
+              title: 'Clean up',
+              href: '/pages/v2/extensions/document-styles/cleanup',
+            },
+            {
+              title: 'At a glance',
+              href: '/pages/v2/extensions/document-styles/api',
+            },
+          ],
+        },
       ],
     },
     {
