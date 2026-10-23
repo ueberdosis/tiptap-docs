@@ -66,25 +66,22 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
-// One label per entry. A status changes how a reader should use a page, so it
-// wins over the plan; the plan stays on the page and in the catalog.
-const LABEL_ORDER = [
+// The sidebar only shows a page's status: it changes how a reader should use the
+// page. The plan stays on the page and in the catalog, so a label always means
+// the same thing.
+const STATUS_ORDER = [
   ['deprecated', 'legacy'],
   ['alpha', 'beta', 'experimental'],
   ['new', 'soon'],
-  ['start', 'team', 'add-on', 'pilot program', 'enterprise'],
 ]
 
-/** The one label an entry shows: its status if it has one, its plan otherwise. */
+/** The status label an entry shows, the most important one if it has several. */
 export function sidebarLabel(tags: string[] | undefined, releaseTag?: string): string | undefined {
-  const candidates = [...(releaseTag ? [releaseTag] : []), ...(tags ?? [])]
-  if (candidates.length === 0) return undefined
-  const rank = (tag: string) => {
-    const index = LABEL_ORDER.findIndex((names) => names.includes(tag.toLowerCase()))
-    return index === -1 ? LABEL_ORDER.length : index
-  }
-  const [label] = [...candidates].sort((a, b) => rank(a) - rank(b))
-  return label.charAt(0).toUpperCase() + label.slice(1)
+  const rank = (tag: string) => STATUS_ORDER.findIndex((names) => names.includes(tag.toLowerCase()))
+  const [label] = [...(releaseTag ? [releaseTag] : []), ...(tags ?? [])]
+    .filter((tag) => rank(tag) !== -1)
+    .sort((a, b) => rank(a) - rank(b))
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : undefined
 }
 
 /** Shows the full title on hover, but only when it doesn't fit. */

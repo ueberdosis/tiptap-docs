@@ -54,7 +54,7 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
   )
 }
 
-/** A feature's status and plan as sidebar tags; the sidebar shows the one that matters most. */
+/** A feature's status and plan as sidebar tags; the sidebar shows only the status. */
 function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
   const tags = [entry.status, entry.plan !== 'Open source' ? entry.plan : undefined].filter(
     (tag): tag is string => !!tag,
