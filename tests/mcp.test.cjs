@@ -162,6 +162,14 @@ test('.md pages keep raw links, page-defined cards, the feature catalog and JSX 
   assert.doesNotMatch(pages, /\\<strong>|<strong>/)
 })
 
+test('.md pages include the partials they import', async () => {
+  const styles = await fileToMarkdown('src/content/conversion/export/odt/styles.mdx')
+  assert.ok(styles.split('\n').length > 200, 'the styles guide partial is inlined')
+  const rest = await fileToMarkdown('src/content/conversion/export/docx/rest-api.mdx')
+  assert.match(rest, /api-us\.tiptap\.dev/)
+  assert.doesNotMatch(rest, /^import /m)
+})
+
 test('every documented feature names its npm package', () => {
   const missing = documented()
     .filter((entry) => !entry.package)

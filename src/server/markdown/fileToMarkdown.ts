@@ -37,6 +37,33 @@ function getContentDates(): Record<string, string> {
   return loaded
 }
 
+// `import Name from './_partial.mdx'`: a shared MDX section that pages place with `<Name />`
+const PARTIAL_IMPORT = /^import\s+(\w+)\s+from\s+['"]([^'"]*\/_[^/'"]+\.mdx)['"]/gm
+
+/**
+ * Put the content of imported partials where a page places them. The transform
+ * drops components without children, so without this a page that consists of a
+ * partial would be empty in Markdown.
+ */
+export async function inlinePartials(body: string, filePath: string, depth = 0): Promise<string> {
+  if (depth > 3) return body
+  let result = body
+  for (const [, name, source] of body.matchAll(PARTIAL_IMPORT)) {
+    const partialPath = path.resolve(path.dirname(filePath), source)
+    // Its own imports would clash with the page's; the transform drops them anyway
+    const partial = frontMatter(await fs.readFile(partialPath, 'utf8')).body.replace(
+      /^import\s.*$/gm,
+      '',
+    )
+    const content = await inlinePartials(partial, partialPath, depth + 1)
+    result = result.replace(
+      new RegExp(`<${name}(\\s[^>]*)?\\s*/>`, 'g'),
+      () => `\n\n${content}\n\n`,
+    )
+  }
+  return result
+}
+
 /** Build the minimal YAML frontmatter block served atop every `.md` response. */
 export function buildFrontmatter(fields: {
   title?: string
@@ -80,7 +107,9 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
         demo.src ? ` src=${JSON.stringify(demo.src)}` : ''
       }${demo.caption ? ` caption=${JSON.stringify(demo.caption)}` : ''} />\n\n`
     : ''
-  const transformed = await transformMdxToMarkdown(headerDemo + body)
+  const transformed = await transformMdxToMarkdown(
+    headerDemo + (await inlinePartials(body, filePath)),
+  )
 
   const title = attributes.title ?? attributes.meta?.title
   const rawDescription = attributes.description ?? attributes.meta?.description
