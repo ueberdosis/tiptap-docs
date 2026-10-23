@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -26,13 +27,20 @@ export const DocsSidebar = ({
   onItemClick?: () => void
 }) => {
   const listed = useMemo(() => collectHrefs(config.items), [config.items])
+  const track = useRef<HTMLDivElement>(null)
+  useKeptScroll(track, onItemClick ? 'mobile' : 'desktop')
 
   return (
     <ListedPages.Provider value={listed}>
-      <Sidebar.Track className="gap-0">
+      <Sidebar.Track className="gap-0" ref={track}>
         {config.items.map((item, i) =>
           item.type === 'link' ? (
-            <LinkItem link={item} key={`${item.href}-${i}`} onClick={onItemClick} />
+            <LinkItem
+              link={item}
+              path={item.title}
+              key={`${item.href}-${i}`}
+              onClick={onItemClick}
+            />
           ) : (
             <Fragment key={`${item.href}-${i}`}>
               {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
@@ -46,6 +54,52 @@ export const DocsSidebar = ({
 }
 
 type Item = Omit<SidebarLink, 'type'> | SidebarGroup | SidebarLink
+
+// The sidebar renders again with every page. What the reader opened or closed, and how far they
+// scrolled, lives here for the whole visit, so moving between pages keeps the sidebar as it was.
+const rememberedOpen = new Map<string, boolean>()
+const rememberedScroll = new Map<string, number>()
+
+// eslint-disable-next-line no-unused-vars
+type SetOpen = (next: boolean | ((prev: boolean) => boolean)) => void
+
+/** Open state that survives navigation. A page inside the entry always opens it. */
+function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [boolean, SetOpen] {
+  const [isOpen, setIsOpenState] = useState(() =>
+    mustOpen ? true : (rememberedOpen.get(key) ?? initial),
+  )
+  const setIsOpen = useCallback<SetOpen>(
+    (next) =>
+      setIsOpenState((prev) => {
+        const value = typeof next === 'function' ? next(prev) : next
+        rememberedOpen.set(key, value)
+        return value
+      }),
+    [key],
+  )
+  return [isOpen, setIsOpen]
+}
+
+/** Keeps the scroll position of the sidebar's scrolling container across pages. */
+function useKeptScroll(track: React.RefObject<HTMLElement | null>, key: string) {
+  useLayoutEffect(() => {
+    let scroller: HTMLElement | null = track.current?.parentElement ?? null
+    while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+      scroller = scroller.parentElement
+    }
+    if (!scroller) return
+    const element = scroller
+    const saved = rememberedScroll.get(key)
+    if (saved !== undefined) element.scrollTo({ top: saved })
+    const save = () => rememberedScroll.set(key, element.scrollTop)
+    element.addEventListener('scroll', save, { passive: true })
+    // Also when the page changes, in case no scroll event came since the last scroll
+    return () => {
+      save()
+      element.removeEventListener('scroll', save)
+    }
+  }, [track, key])
+}
 
 function collectHrefs(items: Item[], out = new Set<string>()): Set<string> {
   for (const item of items) {
@@ -132,9 +186,12 @@ function hasActiveDescendant(
 
 export const LinkItem = ({
   link,
+  path,
   onClick,
 }: {
   link: Omit<SidebarLink, 'type'>
+  /** The titles above the entry and its own, which name it for the remembered open state. */
+  path: string
   onClick?: () => void
 }) => {
   const pathname = usePathname()
@@ -147,19 +204,23 @@ export const LinkItem = ({
   const label = sidebarLabel(link.tags, link.releaseTag)
   const target = targetOf(link)
 
-  const [isOpen, setIsOpen] = useState(isActive || isActiveParent || hasActiveChild)
+  const [isOpen, setIsOpen] = useRememberedOpen(
+    path,
+    isActive || isActiveParent || hasActiveChild,
+    false,
+  )
 
   const toggleOpen = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsOpen((prev) => !prev)
-  }, [])
+  }, [setIsOpen])
 
   useEffect(() => {
     if ((isActive || isActiveParent) && link.href !== '') {
       setIsOpen(true)
     }
-  }, [isActive, isActiveParent, link.href])
+  }, [isActive, isActiveParent, link.href, setIsOpen])
 
   // Scroll active item into view when sidebar is fully rendered
   useEffect(() => {
@@ -229,6 +290,7 @@ export const LinkItem = ({
           {link.children.map((child, i) => (
             <LinkItem
               link={child}
+              path={`${path}/${child.title}`}
               key={`${link.href}-child-${child.href}-${i}`}
               onClick={onClick}
             />
@@ -242,7 +304,11 @@ export const LinkItem = ({
 export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: () => void }) => {
   const pathname = usePathname()
   const holdsPage = hasActiveDescendant(group.children, pathname, useContext(ListedPages))
-  const [isOpen, setIsOpen] = useState(!group.collapsible || !!group.defaultOpen || holdsPage)
+  const [isOpen, setIsOpen] = useRememberedOpen(
+    group.title,
+    holdsPage,
+    !group.collapsible || !!group.defaultOpen,
+  )
   // Open the group that holds the page after a client-side navigation
   const [openedFor, setOpenedFor] = useState(pathname)
   if (openedFor !== pathname) {
@@ -283,7 +349,12 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
       )}
       {isOpen
         ? group.children.map((link, i) => (
-            <LinkItem link={link} key={`${link.href}-${i}`} onClick={onClick} />
+            <LinkItem
+              link={link}
+              path={`${group.title}/${link.title}`}
+              key={`${link.href}-${i}`}
+              onClick={onClick}
+            />
           ))
         : null}
     </Sidebar.Group>
