@@ -75,12 +75,26 @@ test('the feature catalog filters by plan and type, from the URL and on click', 
   await expect(cards.first()).toBeVisible()
   for (const card of await cards.all()) await expect(card).toContainText('Add-on')
 
-  await page.getByRole('group', { name: 'Plan' }).getByRole('button', { name: 'All' }).click()
-  await page.getByRole('group', { name: 'Type' }).getByRole('button', { name: 'Marks' }).click()
+  // Several plans at once, picked in a dropdown that stays open
+  await page.getByRole('button', { name: 'Plan: Add-on' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Team' }).click()
+  await expect(page).toHaveURL(/[?&]plan=Add-on,Team/)
+  await page.getByRole('menuitemcheckbox', { name: 'Add-on' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Team' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page).not.toHaveURL(/plan=/)
+
+  await page.getByRole('button', { name: 'Type', exact: true }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Marks' }).click()
+  await page.keyboard.press('Escape')
   await expect(page).toHaveURL(/[?&]type=mark/)
   const catalog = page.locator('section[aria-label]')
   await expect(catalog.getByRole('link', { name: /^Bold/ })).toBeVisible()
   await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Reset', exact: true }).click()
+  await expect(page).not.toHaveURL(/type=/)
+  await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toBeVisible()
   // Rendering with filters from the URL must not break hydration
   expect(errors).toEqual([])
 })

@@ -33,7 +33,8 @@ export function useUrlParam<T extends string = string>(
       const params = new URLSearchParams(window.location.search)
       if (next === defaultValue || next === '') params.delete(key)
       else params.set(key, next)
-      const search = params.toString()
+      // Commas separate the values of a list filter; they need no escaping in a query
+      const search = params.toString().replace(/%2C/gi, ',')
       window.history.replaceState(
         null,
         '',
