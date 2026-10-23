@@ -43,7 +43,7 @@ Uninstall `@tiptap-pro/extension-pages`, `@tiptap-pro/extension-pagebreak`, `@ti
 
 `PageKit` has no replacement, because `PageLayout` does what it bundled. In React, use `usePageLayoutEditor` instead of `useEditor`. See [Page Layout in React](/pages/v2/getting-started/react).
 
-`PageLayout` in an editor made with `new Editor` draws no pages. Read the document through the engine and not through `editor.state`. See [move an existing editor](/pages/v2/getting-started/install#move-an-existing-editor-to-page-layout).
+`PageLayout` in an editor made with `new Editor` draws no pages, and its commands return `false`. Build the editor with `createPageLayoutEditor`. Then save what `getJSON()` returns, and read positions through the engine and not through `editor.state`. See [move an existing editor](/pages/v2/getting-started/install#move-an-existing-editor-to-page-layout).
 
 ## 2. Page format
 
@@ -91,7 +91,7 @@ pageSetup('A4', {
 
 `setPageSetup` is not saved with the document. To save a format in the document, use `setSectionSetup`. See [page format](/pages/v2/core-concepts/page-format).
 
-The `pageGap` and `pageGapBackground` options are gone. The space between sheets is the CSS variable `--tt-page-sheet-gap`. See [styling](/pages/v2/core-concepts/styling).
+The `pageGap` option is gone. The space between sheets is the CSS variable `--tt-page-sheet-gap`. `pageGapBackground` has no option. Style the element that holds the pages. See [styling](/pages/v2/core-concepts/styling).
 
 ## 3. Header and footer
 
@@ -256,7 +256,7 @@ const collaboration = createSourceCollaboration({
 PageLayout.configure({ setup: pageSetup('A4'), source: collaboration })
 ```
 
-Headers, footers and notes are in the shared content now, so `headerFooterExtensions` has no use. `createSourceCollaboration` binds one `field`, which is `default` unless you set it. Pages 1 kept header, footer and note text in other fields of the shared document. Page Layout doesn't read those fields, so copy their content into the document before you switch. See [collaboration](/pages/v2/guides/collaboration).
+Headers, footers and notes are in the shared content now, so `headerFooterExtensions` has no use. `createSourceCollaboration` binds one `field`, which is `default` unless you set it. Pages 1 kept header, footer and note text in other fields of the shared document. Page Layout collaboration reads one field. Write that content into the document with the commands in [header and footer](#3-header-and-footer), and there is no helper for the notes. See [collaboration](/pages/v2/guides/collaboration).
 
 ## 9. Saved documents
 
@@ -273,60 +273,20 @@ Page Layout stores all of it in the document:
 - `pageBreak` is inline, inside a paragraph.
 - `footnoteReference` has a `footnoteId` attribute. It reads no `noteId`.
 - There is no `endnoteReference`. An endnote is a `footnoteReference` whose note has the `endnote` placement.
-- The text of a note is in a `footnote` node. Notes sit in a `footnoteCollection` at the end of the document, one for each placement.
+- The text of a note is in a `footnote` node. Notes sit in a `footnoteCollection`, one for each placement and section, at the end of its section.
 - Headers and footers are in the document, inside the section break of their section.
 
-So an old document doesn't load as it is. Tiptap can't build a node type it doesn't know. It logs a warning and loads an empty document. That is what happens to `endnoteReference`, because Page Layout has no node by that name. A block `pageBreak` can also fail to load. Test every kind of saved document you have before you ship.
+So an old document doesn't load as it is. Page Layout throws `Unknown node type: endnoteReference` when it builds the editor, because it has no node by that name. A `pageBreak` is a block in Pages 1 and inline in Page Layout, so put each break inside a paragraph.
 
-The function below turns a Pages 1 document and its saved notes into one that Page Layout holds. Treat it as a start, and run it over your own samples. It doesn't touch headers and footers. Write those into the document yourself, with the commands in [header and footer](#3-header-and-footer).
+Convert the saved JSON before you load it:
 
-```js
-function migrateDocument({ content, footnotes = {}, endnotes = {} }) {
-  const notes = { footnote: [], endnote: [] }
+- Block `pageBreak` becomes an inline `pageBreak` inside a paragraph.
+- `noteId` becomes `footnoteId`.
+- `endnoteReference` becomes `footnoteReference`, and its note gets `placement: 'endnote'`.
+- The saved text of each note becomes a `footnote` node in a `footnoteCollection`.
+- Headers and footers are written into the document with the commands in [header and footer](#3-header-and-footer).
 
-  const convert = (node) => {
-    if (node.type === 'pageBreak') {
-      return { type: 'paragraph', content: [{ type: 'pageBreak' }] }
-    }
-
-    if (node.type === 'footnoteReference' || node.type === 'endnoteReference') {
-      const placement = node.type === 'endnoteReference' ? 'endnote' : 'footnote'
-      const footnoteId = node.attrs.noteId
-      const text = (placement === 'endnote' ? endnotes : footnotes)[footnoteId]
-
-      if (text) {
-        notes[placement].push({
-          type: 'footnote',
-          attrs: { footnoteId, placement },
-          content: text.content,
-        })
-      }
-
-      return { type: 'footnoteReference', attrs: { footnoteId } }
-    }
-
-    return node.content ? { ...node, content: node.content.map(convert) } : node
-  }
-
-  const blocks = content.content.map(convert)
-
-  for (const placement of ['footnote', 'endnote']) {
-    if (notes[placement].length > 0) {
-      blocks.push({ type: 'footnoteCollection', attrs: { placement }, content: notes[placement] })
-    }
-  }
-
-  return { ...content, content: blocks }
-}
-
-const migrated = migrateDocument({
-  content: saved.content,
-  footnotes: saved.footnotes,
-  endnotes: saved.endnotes,
-})
-```
-
-`saved.footnotes` and `saved.endnotes` are the maps your app took from `footnotesJSON` and `endnotesJSON`. A reference with no saved text becomes a reference without a note. Page Layout does not repair that for you.
+There is no helper for this. Test every kind of saved document you have before you ship.
 
 Tables keep the standard table nodes. Check a few saved tables for their column widths and cell attributes.
 
@@ -345,4 +305,10 @@ These options of Pages 1 are not in the [options reference](/pages/v2/api/option
 - `onPageFormatChange` and `onZoomChange`. Read the setup and the zoom from the engine when you need them.
 - `PageKit`.
 
-Page Layout has limits of its own, such as no widow and orphan control. See [limitations](/pages/v2/core-concepts/limitations).
+Page Layout has limits of its own. These matter most if you come from Pages 1:
+
+- There is no widow and orphan control, and a heading has no keep-with-next rule of its own.
+- The footnote area has no columns, and a note can't have a mark of its own.
+- Safari prints every sheet on the paper of the first page.
+
+See [limitations](/pages/v2/core-concepts/limitations) for the full list.
