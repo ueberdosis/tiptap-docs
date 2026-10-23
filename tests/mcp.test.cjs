@@ -220,6 +220,11 @@ test('planEditor picks the smallest plan and lists add-ons, services and package
   const review = plan('review')
   assert.deepEqual(review.addOns.sort(), ['Compare', 'Tracked Changes'])
   assert.ok(review.services.includes('document-server'))
+  // The Document Server needs the provider and the Collaboration extension to connect
+  assert.ok(review.packages.includes('@tiptap-pro/provider'))
+  const comments = planEditor([byName.get('Comments')])
+  assert.ok(comments.packages.includes('@tiptap-pro/provider'))
+  assert.ok(comments.packages.includes('@tiptap/extension-collaboration'))
 
   assert.deepEqual(plan('templates').pilot.sort(), ['Content Protection', 'Slots', 'Variables'])
 })

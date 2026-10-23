@@ -29,10 +29,19 @@ export type EditorPlan = {
 
 const PLAN_ORDER = ['Open source', 'Start', 'Team'] as const
 
+/** What an editor needs to connect to the Document Server: the Collaboration extension and its provider. */
+const DOCUMENT_SERVER_PACKAGES = [
+  '@tiptap/extension-collaboration',
+  '@tiptap/y-tiptap',
+  'yjs',
+  'y-protocols',
+  '@tiptap-pro/provider',
+]
+
 export const SERVICE_TEXT: Record<ServiceNeed, { title: string; text: string; url: string }> = {
   'document-server': {
     title: 'Document Server',
-    text: 'Comments and snapshots are stored on the Document Server, in Tiptap Cloud or on-premises.',
+    text: 'Comments and snapshots are stored on the Document Server, in Tiptap Cloud or on-premises. The editor connects to it with the Collaboration extension and the TiptapCollabProvider.',
     url: '/hosting',
   },
   'sync-server': {
@@ -58,17 +67,20 @@ export function planEditor(
     if (rank > PLAN_ORDER.indexOf(plan)) plan = PLAN_ORDER[rank]
   }
 
+  const services = [
+    ...new Set(features.map((feature) => SERVICE_NEEDS[feature.name]).filter(Boolean)),
+  ]
+
   const packages = [
-    ...new Set(features.flatMap((feature) => feature.package?.split(/\s+/).filter(Boolean) ?? [])),
+    ...new Set([
+      ...features.flatMap((feature) => feature.package?.split(/\s+/).filter(Boolean) ?? []),
+      ...(services.includes('document-server') ? DOCUMENT_SERVER_PACKAGES : []),
+    ]),
   ].sort(
     (a, b) =>
       Number(a.startsWith('@tiptap-pro/')) - Number(b.startsWith('@tiptap-pro/')) ||
       a.localeCompare(b),
   )
-
-  const services = [
-    ...new Set(features.map((feature) => SERVICE_NEEDS[feature.name]).filter(Boolean)),
-  ]
 
   return {
     plan,
