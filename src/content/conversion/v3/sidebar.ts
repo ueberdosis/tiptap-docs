@@ -34,9 +34,60 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/v3/content-reference',
+      href: '/conversion/v3/content-reference/overview',
       title: 'Content reference',
-      children: [],
+      children: [
+        {
+          title: 'Overview',
+          href: '/conversion/v3/content-reference/overview',
+        },
+        {
+          title: 'Text and formatting',
+          href: '/conversion/v3/content-reference/text-and-formatting/paragraphs',
+          children: [
+            {
+              title: 'Paragraphs',
+              href: '/conversion/v3/content-reference/text-and-formatting/paragraphs',
+            },
+            {
+              title: 'Headings',
+              href: '/conversion/v3/content-reference/text-and-formatting/headings',
+            },
+            {
+              title: 'Text alignment',
+              href: '/conversion/v3/content-reference/text-and-formatting/text-alignment',
+            },
+            {
+              title: 'Bold, italic, underline, strike',
+              href: '/conversion/v3/content-reference/text-and-formatting/bold-italic-underline-strike',
+            },
+            {
+              title: 'Subscript and superscript',
+              href: '/conversion/v3/content-reference/text-and-formatting/subscript-superscript',
+            },
+            {
+              title: 'Text color and highlight',
+              href: '/conversion/v3/content-reference/text-and-formatting/text-color-highlight',
+            },
+            {
+              title: 'Font family and size',
+              href: '/conversion/v3/content-reference/text-and-formatting/font-family-size',
+            },
+            {
+              title: 'Lists',
+              href: '/conversion/v3/content-reference/text-and-formatting/lists',
+            },
+            {
+              title: 'Task lists',
+              href: '/conversion/v3/content-reference/text-and-formatting/task-lists',
+            },
+            {
+              title: 'Tabs',
+              href: '/conversion/v3/content-reference/text-and-formatting/tabs',
+            },
+          ],
+        },
+      ],
     },
     {
       type: 'group',
