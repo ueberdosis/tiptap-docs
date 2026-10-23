@@ -1,0 +1,135 @@
+---
+title: Positions and events
+meta:
+  title: Positions and events | Tiptap Pages
+  description: Save the document, listen to events, work with positions in the document instead of the pages, and use undo and redo.
+  category: Pages
+---
+
+A Page Layout editor holds two documents. The document you save has no pages. The editor view holds the pages the reader sees. This page shows which readers and writers use which.
+
+## Save the document
+
+`getJSON()`, `getHTML()`, `getText()` and `isEmpty` answer for the document the author wrote. No page, no half of a paragraph cut at a page boundary and no generated break ends up in what they return. Saving works as before:
+
+```js
+const json = editor.getJSON() // the same JSON you would save without pages
+const html = editor.getHTML()
+```
+
+`getText()` leaves out headers and footers. The document stores them, but they aren't part of its text.
+
+`editor.state.doc` isn't the document. It holds the pages the reader sees, and saving it would store them. Read the document from the methods above. When you need the node itself, read `editor.storage.pageLayout.engine.getSourceState().doc`.
+
+Loading works as before. `setContent()` and `clearContent()` replace the document and Page Layout lays out the pages again. `setContent(content, { emitUpdate: false })` replaces it without an `update` event.
+
+## Events
+
+| Event                                    | Emitted                                                                                                                                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `update`                                 | Once for every change to the document, including one a collaborator made. Not when only the pages change, such as a reflow after a resize, a zoom or a font that finished loading. |
+| `selectionUpdate`                        | When the cursor or the selection moves in the document.                                                                                                                            |
+| `transaction`                            | For every change of the editor state, including the redrawing of the pages after an edit.                                                                                          |
+| `focus`, `blur`                          | As on any editor.                                                                                                                                                                  |
+| `beforeTransaction`, `create`, `destroy` | As on any editor.                                                                                                                                                                  |
+
+The transaction that an `update` or `selectionUpdate` listener receives is a change to the document. Its positions are positions in `getJSON()`.
+
+To read page numbers after a change, use the `onChange` option of `createPageLayoutEditor`. It runs once the pages are drawn. See [the toolbar guide](/pages/v2/getting-started/toolbar#read-where-the-cursor-is).
+
+## Positions
+
+Positions in the editor state are positions in the pages: `editor.state.selection.from`, `editor.$pos()` and `editor.view.coordsAtPos()`. They differ from positions in the document you save, and the difference grows with every page. Anything that keeps a position, such as a comment anchor, a search result or a table of contents, keeps one in the document. Ask the engine for it:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+// Before
+const { from, to } = editor.state.selection
+const heading = editor.state.doc.nodeAt(pos)
+
+// After
+const { from, to } = engine.getSourceState().selection
+const heading = engine.getSourceState().doc.nodeAt(pos)
+```
+
+To go to a position, which also draws the page it is on and scrolls to it:
+
+```js
+// Before
+editor.commands.setTextSelection(pos)
+editor.commands.scrollIntoView()
+
+// After
+editor.commands.revealSourcePosition(pos)
+```
+
+Writing at a position is a transaction on the document:
+
+```js
+// Before
+editor.view.dispatch(editor.state.tr.insertText('Note: ', pos))
+
+// After
+const state = engine.getSourceState()
+engine.applySourceTransaction(state.tr.insertText('Note: ', pos), { addToHistory: true })
+```
+
+Without `addToHistory: true`, undo doesn't take the write back. To run a command, or a `...Transaction` function that builds a transaction from a state, on the document:
+
+```js
+engine.runSourceCommand((state, dispatch) => {
+  dispatch?.(state.tr.insertText('Note: ', pos))
+  return true
+})
+```
+
+That is the reader's own edit. It is undoable, it keeps the selection it sets, and it scrolls to where the transaction asks.
+
+A component that reads `editor.state` and dispatches on `editor.view`, such as a table menu or a NodeView, runs its commands with `editor.commands.onSourceDocument(command)` and its own transactions with `engine.dispatchSourceTransaction(tr)`. The second one throws for a transaction built on `editor.state`, because those steps hold positions in the pages. See [components that change the document](/pages/v2/getting-started/components).
+
+Commands that act at the cursor aren't affected. `toggleBold()`, `insertContent()`, `setLink()`, `toggleBulletList()` and the rest of a toolbar work as before. To keep the focus in the editor when a toolbar button is pressed, see [build a toolbar](/pages/v2/getting-started/toolbar#buttons).
+
+With the experimental `experimentalSourceState` option, `editor.state` holds the document instead of the pages. See [options](/pages/v2/api/options#the-document).
+
+### From the screen to the document and back
+
+The readers of the editor view take and return positions in the pages. The engine has the same four, in positions of the document:
+
+```js
+// Before
+const hit = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+const pos = editor.view.posAtDOM(node, offset)
+const element = editor.view.nodeDOM(pos)
+const rect = editor.view.coordsAtPos(pos)
+
+// After
+const hit = engine.sourcePositionAtCoords({ left: event.clientX, top: event.clientY })
+const pos = engine.sourcePositionOfDOM(node, offset)
+const element = engine.domOfSourceNode(pos)
+const rect = engine.coordsAtSourcePosition(pos)
+```
+
+They differ from the ones of the editor view in what they answer:
+
+- `sourcePositionAtCoords` returns `{ pos, inside }` like `posAtCoords`. `inside` is the node the point is in, or `-1`. It returns `null` where the point is on nothing of the document: a header or footer, the paper between two pages, or outside the editor.
+- `sourcePositionOfDOM` returns `null` for a place in a header or footer, or in an element the editor didn't render.
+- `domOfSourceNode` returns the element or `null`, like `nodeDOM`. A node that a page boundary divides is drawn once per page. This returns its first piece on a page that is drawn.
+- `domsOfSourceNode` returns every piece, the first one first. Pages scrolled far out of view aren't drawn, and their pieces are left out.
+- `coordsAtSourcePosition(pos, side)` takes `side` as `coordsAtPos` does. It also decides where a page boundary runs through the text. `-1`, the default, is the end of the page above and `1` is the top of the page below. It returns `null` for a position on a page that isn't drawn. `revealSourcePosition(pos)` draws it and scrolls to it.
+
+```js
+for (const piece of engine.domsOfSourceNode(pos)) {
+  piece.classList.add('is-highlighted')
+}
+```
+
+To go the other way, from a position in the pages, call `sourceNodeOfView(pos)` with a NodeView's `getPos()` or the position of a node in `editor.view.state`. It returns the node of the document drawn there as `{ pos, node, piece: { index, count } }`. `piece` says which piece of the node this is and how many there are. It returns `null` for a page, a header or a footer.
+
+All of these return `null`, or an empty array, while the pages are redrawn after an edit.
+
+## Undo and redo
+
+`editor.commands.undo()` and `editor.commands.redo()` undo what the author did, never the pagination that followed. `editor.can().undo()` and `editor.can().redo()` are `false` when there is nothing to undo or redo, so a toolbar can disable its buttons with them.
+
+Tiptap's own undo and redo extension doesn't run on the pages, because it would record the pagination. Page Layout routes the keyboard shortcuts to the history of the document. Nothing else needs to change.

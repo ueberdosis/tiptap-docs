@@ -40,7 +40,52 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/pages/v2/core-concepts',
       title: 'Core concepts',
-      children: [],
+      children: [
+        {
+          title: 'Page format',
+          href: '/pages/v2/core-concepts/page-format',
+        },
+        {
+          title: 'Breaks',
+          href: '/pages/v2/core-concepts/breaks',
+        },
+        {
+          title: 'Sections',
+          href: '/pages/v2/core-concepts/sections',
+        },
+        {
+          title: 'Section columns',
+          href: '/pages/v2/core-concepts/section-columns',
+        },
+        {
+          title: 'Header and footer',
+          href: '/pages/v2/core-concepts/header-and-footer',
+        },
+        {
+          title: 'Page numbers',
+          href: '/pages/v2/core-concepts/page-numbers',
+        },
+        {
+          title: 'Page colors',
+          href: '/pages/v2/core-concepts/page-colors',
+        },
+        {
+          title: 'Zoom',
+          href: '/pages/v2/core-concepts/zoom',
+        },
+        {
+          title: 'Styling',
+          href: '/pages/v2/core-concepts/styling',
+        },
+        {
+          title: 'Positions and events',
+          href: '/pages/v2/core-concepts/positions-and-events',
+        },
+        {
+          title: 'Limitations',
+          href: '/pages/v2/core-concepts/limitations',
+        },
+      ],
     },
     {
       type: 'group',
