@@ -69,7 +69,9 @@ export const componentConverters: Record<string, ComponentConverter> = {
     const url = src ?? (hasFlag(node, 'isPro') ? PRO_DEMO_URL : DEMO_URL) + path
     return {
       type: 'blockquote',
-      children: [paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))])],
+      children: [
+        paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))]),
+      ],
     }
   },
 

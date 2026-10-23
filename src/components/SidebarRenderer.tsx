@@ -64,11 +64,17 @@ export const LinkItem = ({
     setIsOpen((prev) => !prev)
   }, [])
 
-  useEffect(() => {
+  // Open the entry when navigation makes it (or a page below it) active. Comparing
+  // with the previous render instead of using an effect saves a second render;
+  // a toggle after that keeps until the active state changes again.
+  const activeKey = `${isActive}:${isActiveParent}:${link.href}`
+  const [prevActiveKey, setPrevActiveKey] = useState(activeKey)
+  if (activeKey !== prevActiveKey) {
+    setPrevActiveKey(activeKey)
     if ((isActive || isActiveParent) && link.href !== '') {
       setIsOpen(true)
     }
-  }, [isActive, isActiveParent, link.href])
+  }
 
   // Scroll active item into view when sidebar is fully rendered
   useEffect(() => {
@@ -85,10 +91,7 @@ export const LinkItem = ({
   return (
     <div ref={linkRef}>
       {link.disabled ? (
-        <Sidebar.Button
-          isActive={false}
-          className="opacity-40 cursor-default pointer-events-none"
-        >
+        <Sidebar.Button isActive={false} className="opacity-40 cursor-default pointer-events-none">
           <span className="flex-grow flex items-baseline">
             <span>{link.title}</span>
           </span>
@@ -109,7 +112,9 @@ export const LinkItem = ({
             <span className="flex-grow flex items-baseline">
               <span>{link.title}</span>
               {link.releaseTag && (
-                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">{link.releaseTag.toUpperCase()}</sup>
+                <sup className="inline-block ml-1 text-[10px] text-grayAlpha-600">
+                  {link.releaseTag.toUpperCase()}
+                </sup>
               )}
             </span>
             <span className="flex gap-1 items-center">
