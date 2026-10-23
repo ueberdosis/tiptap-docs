@@ -215,7 +215,32 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/pages/v2/guides',
       title: 'Guides',
-      children: [],
+      children: [
+        {
+          title: 'Custom nodes',
+          href: '/pages/v2/guides/custom-nodes',
+        },
+        {
+          title: 'Collaboration',
+          href: '/pages/v2/guides/collaboration',
+        },
+        {
+          title: 'Long documents',
+          href: '/pages/v2/guides/long-documents',
+        },
+        {
+          title: 'Printing and PDF',
+          href: '/pages/v2/guides/printing-and-pdf',
+        },
+        {
+          title: 'On a server',
+          href: '/pages/v2/guides/on-a-server',
+        },
+        {
+          title: 'Word documents',
+          href: '/pages/v2/guides/word',
+        },
+      ],
     },
   ],
 }

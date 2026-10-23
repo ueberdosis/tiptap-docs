@@ -1,0 +1,178 @@
+---
+title: On a server
+meta:
+  title: On a server | Tiptap Pages
+  description: Read and change a Page Layout document without a browser, and learn what a server can and can't know about pages.
+  category: Pages
+---
+
+A document saved from a paginated editor is ordinary Tiptap JSON. A server loads, reads, changes and stores it like any Tiptap document, with no browser and no pages.
+
+One thing needs text to be laid out: which page something ends up on. Page Layout has no ready-made way to answer that on a server. See [pages without a browser](#pages-without-a-browser).
+
+| To                                  | You need                  | See                                                 |
+| ----------------------------------- | ------------------------- | --------------------------------------------------- |
+| Read the paper and the sections     | The document              | [Read the format](#read-the-format)                 |
+| Change the text or the page options | The document              | [Change a document](#change-a-document)             |
+| Edit the shared document            | Your collaboration server | [The shared document](#the-shared-document)         |
+| Convert to or from .docx            | The document              | [Word documents](/pages/v2/guides/word)             |
+| Know which page something is on     | Measurements of the text  | [Pages without a browser](#pages-without-a-browser) |
+
+## The extensions
+
+A server uses the same list of extensions that the client builds its editor from. Pass it through `createSourceSchema` or `createSourceExtensions`. Both add what `PageLayout` brings, which is the section break, the page break, and headers and footers, so a document that holds one of them loads:
+
+```js
+import { createSourceSchema } from '@tiptap-pro/extension-page-layout'
+import { extensions } from './extensions.js' // the list of the client
+
+const schema = createSourceSchema(extensions)
+const doc = schema.nodeFromJSON(json)
+```
+
+Keep that list in one module that the client and the server both import. A server that knows fewer node types than the client fails on the first document that has one.
+
+## Read the format
+
+```js
+import { documentPageSetup, sectionsDeclaredBy } from '@tiptap-pro/extension-page-layout'
+
+const setup = documentPageSetup(doc) // the paper of the first section, or null
+const sections = sectionsDeclaredBy(doc) // every section, or null
+```
+
+Both are `null` for a document that never had a format chosen. An editor shows such a document in the setup it is configured with. See [the document's own format](/pages/v2/core-concepts/sections#the-documents-own-format).
+
+## Change a document
+
+Change text as you would without pages, through a Tiptap `Editor` with no element or by editing the JSON. Neither knows about pages, and neither has to.
+
+```js
+import { Editor } from '@tiptap/core'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+
+const editor = new Editor({
+  element: null,
+  extensions: createSourceExtensions(extensions),
+  content: json,
+})
+
+editor.commands.insertContentAt(editor.state.doc.content.size, {
+  type: 'paragraph',
+  content: [{ type: 'text', text: 'Appendix' }],
+})
+
+const changed = editor.getJSON()
+```
+
+The commands of `PageLayout`, such as `insertSectionBreak`, `setSectionSetup` and `setRowBreakAcrossPages`, return `false` in such an editor. They act on pages, and there are none. Each has a function that writes the same change into a transaction instead:
+
+```js
+import { EditorState } from '@tiptap/pm/state'
+import { insertSectionBreakTransaction, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const state = EditorState.create({ doc, schema })
+const tr = insertSectionBreakTransaction({
+  tr: state.tr,
+  documentSetup: pageSetup('A4'), // the setup the editors configure PageLayout with
+  position: doc.child(0).nodeSize, // behind the first block
+  setup: pageSetup('A4', { orientation: 'landscape' }),
+})
+
+const changed = state.apply(tr).doc.toJSON()
+```
+
+| Command                                 | Function                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| `insertSectionBreak(kind)`              | `insertSectionBreakTransaction({ tr, documentSetup, position, setup?, kind? })` |
+| `setSectionSetup(index, setup)`         | `setSectionSetupTransaction({ tr, documentSetup, sectionIndex, setup })`        |
+| `removeSection(index)`                  | `removeSectionTransaction({ tr, documentSetup, sectionIndex })`                 |
+| `insertPageBreak()`                     | `insertPageBreakTransaction(tr, tr.doc, position, schema)`                      |
+| `setRowBreakAcrossPages(allowed)`       | `setRowBreakAcrossPagesTransaction(tr, tr.doc, rowPosition, allowed)`           |
+| `setRepeatHeaderRow(repeated)`          | `setRepeatHeaderRowTransaction(tr, tr.doc, tablePosition, repeated)`            |
+| `setListKeepTogether(kept)`             | `setListKeepTogetherTransaction(tr, tr.doc, listPosition, kept)`                |
+| `setListBreakItems(allowed)`            | `setListBreakItemsTransaction(tr, tr.doc, listPosition, allowed)`               |
+| `setColumnLayoutKeepTogether(together)` | `setColumnLayoutKeepTogetherTransaction(tr, tr.doc, layoutPosition, together)`  |
+
+Where a command acts at the cursor, the function takes a position. For the attributes it is the position of the row, table, list or column layout itself. For a break it is any position. Each function returns the transaction it was given, so you can apply several in one step. A change that can't be made, such as removing the first section or a position that isn't a table, leaves it unchanged. `tr.docChanged` tells you.
+
+`documentSetup` makes a section written on a server come out the same in every editor. A document that names no format is shown in the setup each editor is configured with. The first time it gets a second section, the format of the first section is written into it as well. If you write the section break node yourself, you skip that, and the first section is then Letter in one editor and A4 in another.
+
+Headers and footers have no such function. A band is stored as a `PAGE_FURNITURE_NODE_NAME` node with a `zone` (`'header'` or `'footer'`) and a `slot`, inside the section break of the section it belongs to. The slots are on [header and footer](/pages/v2/core-concepts/header-and-footer#different-pages-different-bands).
+
+### Check a document before you store it
+
+Check a document from a client like any input. `isPureSourceDocument` says whether it holds only what a document may hold, with no pages and no rest of a block cut by a page:
+
+```js
+import { isPureSourceDocument } from '@tiptap-pro/extension-page-layout'
+
+if (!isPureSourceDocument(doc, schema)) {
+  throw new Error('Not a document')
+}
+```
+
+## The shared document
+
+With collaboration, the document lives in the shared document on your collaboration server, and a server-side change is made there, as without pages. Wherever Hocuspocus is given a list of extensions, pass it through `createSourceExtensions`:
+
+```js
+import { TiptapTransformer } from '@hocuspocus/transformer'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+
+const transformer = TiptapTransformer.extensions(createSourceExtensions(extensions))
+const json = transformer.fromYdoc(ydoc, 'default')
+```
+
+`'default'` is the field that `createSourceCollaboration` binds unless you give it another. See [collaboration](/pages/v2/guides/collaboration#set-it-up). Every client lays out the pages again from what arrives, so a change made on the server is drawn on each screen like the change of a collaborator.
+
+## Pages without a browser
+
+Which page a passage is on depends on how its text wraps. Page Layout can only measure that where text is laid out.
+
+`paginate` is the layout pass with the browser taken out. It is DOM-free. It reads the format and sections of the document, resolves its headers and footers, plans the pages, and returns the page map and the projection. You bring the measurements:
+
+```js
+import { createSourceSchema, paginate } from '@tiptap-pro/extension-page-layout'
+
+const sourceDoc = createSourceSchema(extensions).nodeFromJSON(json)
+
+const { pages, setup, sections } = paginate({
+  sourceDoc,
+  extensions,
+  measure: {
+    blockHeight: (block, index, contentWidth) => heightFromYourMeasurement(block, contentWidth),
+  },
+})
+```
+
+`paginate` takes these fields:
+
+| Field             | What it does                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `sourceDoc`       | The document. Build it with `createSourceSchema(extensions)` where it arrives as JSON.                                     |
+| `extensions`      | The extensions of your integration.                                                                                        |
+| `measure`         | The measurements. See below.                                                                                               |
+| `setup`           | The paper for a document that names none. `null` plans no pages at all. A document's own format wins over any other value. |
+| `chapterNumberOf` | The chapter a page number is written with. Same as the [option](/pages/v2/api/options).                                    |
+| `blockBreaksOf`   | How a block meets a page boundary. Same as the [option](/pages/v2/api/options).                                            |
+
+`blockHeight` is the only measurement `paginate` can't do without. Each of the others is optional, and each one you leave out is something the pages then don't know:
+
+| `measure` field | What it answers                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `blockHeight`   | Required. How tall a block is at a content width.                                                                                              |
+| `blockLines`    | Where a block may be cut. Without it no paragraph continues on the next page and no table row is divided.                                      |
+| `blockMargins`  | The room a block asks for above and below itself. Needed when your stylesheet writes spacing above each block, or the pages come out too full. |
+| `bandHeight`    | How tall a header or footer is. Without it every band is assumed to fit inside its margin.                                                     |
+| `notes`         | What notes cost the page they are referred from. Without it a note is paginated where it is kept, which is what an endnote is.                 |
+
+What comes back is `pages` (the [page map](/pages/v2/core-concepts/page-numbers#read-the-map)), `setup`, `sections` and `projection`.
+
+The pages are only as good as the measurements. A client measures text in a browser with its fonts and stylesheets. A server that measures any other way can get different pages from the client for the same document. A page number is true of one layout, so run it again after a change to the document.
+
+## What isn't available
+
+- There is no server package that measures text for you. Page Layout doesn't render a document in a headless browser.
+- Header and footer content has no transaction function.
+- Page Layout doesn't write a PDF on a server. See [printing and PDF](/pages/v2/guides/printing-and-pdf).
