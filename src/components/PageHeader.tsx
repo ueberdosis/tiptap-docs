@@ -179,22 +179,6 @@ export const PageHeaderTag = ({
     )
   }
 
-  if (tag.type === 'ai') {
-    return <Tag tooltip={tag.tooltip}>AI Toolkit</Tag>
-  }
-
-  if (tag.type === 'collaboration') {
-    return <Tag tooltip={tag.tooltip}>Collaboration</Tag>
-  }
-
-  if (tag.type === 'documents') {
-    return <Tag tooltip={tag.tooltip}>Documents</Tag>
-  }
-
-  if (tag.type === 'editor') {
-    return <Tag tooltip={tag.tooltip}>Editor</Tag>
-  }
-
   if (tag.type === 'new') {
     return (
       <Tag variant="info" tooltip={tag.tooltip}>
