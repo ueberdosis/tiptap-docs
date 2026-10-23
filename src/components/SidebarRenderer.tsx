@@ -173,7 +173,7 @@ export const LinkItem = ({
       {link.disabled ? (
         <Sidebar.Button
           isActive={false}
-          className="pl-5 opacity-40 cursor-default pointer-events-none"
+          className="pl-5 text-left opacity-40 cursor-default pointer-events-none"
         >
           <span className="flex-grow min-w-0 truncate">{link.title}</span>
           {label ? (
@@ -224,8 +224,8 @@ export const LinkItem = ({
       )}
       {/* Closed entries render no children: the global sidebar holds several hundred links */}
       {link.children && isOpen ? (
-        // The second level starts with a line, under the text of its parent
-        <div className="my-1 ml-6 pl-1 space-y-0.5 border-l border-grayAlpha-200">
+        // The next level starts with a line under the fold arrow of its parent
+        <div className="my-1 ml-[0.5625rem] pl-1 space-y-0.5 border-l border-grayAlpha-200">
           {link.children.map((child, i) => (
             <LinkItem
               link={child}
