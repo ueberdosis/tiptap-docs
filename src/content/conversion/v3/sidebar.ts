@@ -147,9 +147,50 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/v3/import-docx',
+      href: '/conversion/v3/import/docx/editor-extension',
       title: 'Import DOCX',
-      children: [],
+      children: [
+        {
+          title: 'Editor extension',
+          href: '/conversion/v3/import/docx/editor-extension',
+        },
+        {
+          title: 'Import with Page Layout',
+          href: '/conversion/v3/import/docx/page-layout',
+        },
+        {
+          title: 'Import without Page Layout',
+          href: '/conversion/v3/import/docx/without-page-layout',
+        },
+        {
+          title: 'CSS styles',
+          href: '/conversion/v3/import/docx/css-styles',
+        },
+        {
+          title: 'Image handling',
+          href: '/conversion/v3/import/docx/image-handling',
+        },
+        {
+          title: 'Custom node mapping',
+          href: '/conversion/v3/import/docx/custom-node-mapping',
+        },
+        {
+          title: 'Tracked changes',
+          href: '/conversion/v3/import/docx/tracked-changes',
+        },
+        {
+          title: 'Task lists',
+          href: '/conversion/v3/import/docx/task-lists',
+        },
+        {
+          title: 'Warnings and errors',
+          href: '/conversion/v3/import/docx/warnings-and-errors',
+        },
+        {
+          title: 'API',
+          href: '/conversion/v3/import/docx/api',
+        },
+      ],
     },
     {
       type: 'group',
