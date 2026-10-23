@@ -194,9 +194,34 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
-      href: '/conversion/v3/export-docx',
+      href: '/conversion/v3/export/docx/editor-extension',
       title: 'Export DOCX',
-      children: [],
+      children: [
+        {
+          title: 'Editor extension',
+          href: '/conversion/v3/export/docx/editor-extension',
+        },
+        {
+          title: 'Control the output',
+          href: '/conversion/v3/export/docx/usage',
+        },
+        {
+          title: 'Render custom nodes',
+          href: '/conversion/v3/export/docx/custom-nodes',
+        },
+        {
+          title: 'Custom node builder',
+          href: '/conversion/v3/export/docx/custom-node-builder',
+        },
+        {
+          title: 'API',
+          href: '/conversion/v3/export/docx/api',
+        },
+        {
+          title: 'Types',
+          href: '/conversion/v3/export/docx/types',
+        },
+      ],
     },
     {
       type: 'group',

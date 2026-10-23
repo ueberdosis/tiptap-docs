@@ -1,0 +1,234 @@
+---
+title: Render custom nodes
+meta:
+  title: Render custom nodes | Tiptap Conversion
+  description: Describe how your own node types are written to Word with customNodeDsl, using the builder or plain JSON.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+A custom node is a node type your application adds, such as a callout or a mention. Convert doesn't know how to write it to Word, so you describe its output with `customNodeDsl`. The description is JSON, because it travels to Convert with the request.
+
+## Describe a node with the builder
+
+The builder from `@tiptap-pro/extension-export-docx/dsl` creates the JSON and gives you autocomplete.
+
+```ts
+import { ExportDocx, type CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
+import { docxNode, paragraph, ref, textOp } from '@tiptap-pro/extension-export-docx/dsl'
+
+const customNodeDsl: CustomNodeDsl = {
+  dslVersion: '1.0',
+  nodes: [
+    docxNode('notice')
+      .block()
+      .emit(paragraph().children(textOp(ref('node.attrs.message', { default: 'Notice' }))))
+      .toJSON(),
+  ],
+}
+
+const exportExtension = ExportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  customNodeDsl,
+  onCompleteExport: (result) => console.log(result),
+})
+```
+
+Add `exportExtension` to the editor from [Export DOCX](/conversion/v3/export/docx/editor-extension), next to the extension that defines the `notice` node. A `notice` node with `attrs.message` set to `'Remember to save.'` becomes a paragraph with that text. Without the attribute, the paragraph reads "Notice".
+
+Calling `toJSON()` creates JSON. It doesn't export anything. See the [builder reference](/conversion/v3/export/docx/custom-node-builder) for every function.
+
+## More examples
+
+These examples use these imports.
+
+```ts
+import {
+  childrenBlock,
+  childrenInline,
+  docxNode,
+  externalHyperlink,
+  paragraph,
+  ref,
+  switchValue,
+  table,
+  tableCell,
+  tableRow,
+  template,
+  textRun,
+} from '@tiptap-pro/extension-export-docx/dsl'
+```
+
+An inline node that keeps its own marks. `applyMarks('node')` copies the marks of the node onto the run, so a bold `mention` exports in bold.
+
+```ts
+docxNode('mention')
+  .inline()
+  .emit(
+    textRun({
+      text: template('@{node.attrs.label}'),
+      color: ref('node.attrs.color', { default: '4472C4', transform: 'hexNoHash' }),
+    }).applyMarks('node'),
+  )
+  .toJSON()
+```
+
+A block node that keeps its inline content. `childrenInline` renders the text and marks inside the node.
+
+```ts
+docxNode('tip')
+  .block()
+  .emit(
+    paragraph({ shading: { type: 'solid', fill: 'FFF4CE' }, spacing: { after: 120 } }).children(
+      childrenInline({ marks: 'default' }),
+    ),
+  )
+  .toJSON()
+```
+
+A block node that holds blocks, written as a one-cell table. `childrenBlock` renders the paragraphs inside the cell.
+
+```ts
+docxNode('callout')
+  .block()
+  .emit(
+    table({ width: { size: 100, type: 'pct' } }).rows(
+      tableRow().children([
+        tableCell({ shading: { type: 'solid', fill: 'FFF4CE' } }).children(childrenBlock()),
+      ]),
+    ),
+  )
+  .toJSON()
+```
+
+A node that picks a value from an attribute.
+
+```ts
+docxNode('badge')
+  .inline()
+  .emit(
+    textRun({
+      text: ref('node.attrs.label'),
+      bold: true,
+      color: switchValue({
+        on: ref('node.attrs.level'),
+        cases: { high: 'C00000', low: '2E7D32' },
+        default: '000000',
+      }),
+    }),
+  )
+  .toJSON()
+```
+
+A link built from an attribute.
+
+```ts
+docxNode('ticket')
+  .inline()
+  .emit(
+    externalHyperlink({ link: template('https://example.com/tickets/{node.attrs.id}') }).children(
+      textRun({ text: template('#{node.attrs.id}') }),
+    ),
+  )
+  .toJSON()
+```
+
+## Write the JSON by hand
+
+The `notice` rule without the builder:
+
+```ts
+import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
+
+const customNodeDsl: CustomNodeDsl = {
+  dslVersion: '1.0',
+  nodes: [
+    {
+      type: 'notice',
+      nodeKind: 'block',
+      render: {
+        emit: {
+          element: 'Paragraph',
+          children: {
+            $text: { $ref: 'node.attrs.message', default: 'Notice' },
+          },
+        },
+      },
+    },
+  ],
+}
+```
+
+The only accepted version is `'1.0'`.
+
+## Choose the output shape
+
+The elements are `Paragraph`, `TextRun`, `ExternalHyperlink`, `Table`, `TableRow`, `TableCell` and `PageBreak`. Each container takes the matching child kind. A `Paragraph` takes inline content and a `Table` takes rows.
+
+| Operation   | What it does                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `$children` | Renders the children of the original node as `inline`, `block`, `table-row` or `table-cell`. |
+| `$text`     | Emits text.                                                                                  |
+| `$fragment` | Groups siblings. A plain array of render nodes does the same.                                |
+| `$if`       | Picks a branch from a test.                                                                  |
+| `$switch`   | Picks a branch by exact string match.                                                        |
+
+Set `render: null` to drop a node and everything inside it. `emit: null` writes nothing for the node. Its content doesn't appear either.
+
+`nodeKind` is `'block'`, `'inline'` or `'auto'`. The default is `'auto'`.
+
+### Marks
+
+Mark policies keep, ignore or override text formatting.
+
+- `marks` on `$children` takes `'default'`, `'none'`, `'node'` or an object. `'default'` uses the marks of each child. `'node'` uses the marks of the custom node.
+- `marks` on `$text` takes `'default'` or `'none'`.
+- `applyMarks` on `TextRun` and `ExternalHyperlink` takes `'node'` or an object with `mode: 'node'`.
+- Without `applyMarks`, the marks of the custom node are ignored.
+
+The mark names are `bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `textStyle`, `highlight` and `link`. An object policy can `disable` marks and set `overrides` per mark. An override has `props` for the run and `replace`, which skips the standard mapping of that mark.
+
+### Value expressions
+
+A value can be a literal, an array, an object or one of these expressions.
+
+| Expression  | Result                                                     |
+| ----------- | ---------------------------------------------------------- |
+| `$ref`      | A value from the node. Takes `default` and `transform`.    |
+| `$template` | A string with `{path}` slots. `{{` and `}}` escape braces. |
+| `$op`       | A computed value from `args`.                              |
+| `$unit`     | A converted measurement or color.                          |
+| `$switch`   | A value picked by exact match, inside element props.       |
+
+A reference starts with `node` and reads one of `node.type`, `node.attrs`, `node.attrs.<key>`, `node.text` or `node.textContent`. Array indexes, wildcards and JavaScript expressions aren't accepted.
+
+- Transforms: `hexNoHash`, `lower`, `upper`, `trim`, `parseIntStrict`, `parseFloatStrict`, `boolean` and `nullableString`.
+- Operators: `add`, `sub`, `mul`, `div`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `and`, `or`, `not` and `coalesce`. `add`, `mul` and `coalesce` take two or more arguments. `sub`, `div` and the comparisons take two. `not` takes one.
+- Units: `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips`, `lineHeightToDocx`, `universalMeasureToTwips`, `normalizeColor`, `inchesToTwips`, `cmToTwips` and `mmToTwips`.
+
+Numeric properties use Word units. Font sizes are half-points, spacing and indents are twips. The [builder reference](/conversion/v3/export/docx/custom-node-builder) lists every property.
+
+## Nodes without a rule
+
+A node type with no rule is left out of the file with all of its content. The export reports no warning for it.
+
+<Callout title="Content that needs a rule" variant="warning">
+  Export drops `crossReference`, the Bookmarks mark, `bookmarkPoint`, `columnLayout` and `column`
+  unless a rule renders them. A `codeBlock` is dropped too. See the [feature support
+  matrix](/conversion/v3/getting-started/feature-support-matrix).
+</Callout>
+
+## Validation and limits
+
+Convert validates the description and applies its own limits. You can't set them from the browser.
+
+Convert limits the number of rules, the depth of the render tree, the number of render nodes, the length of strings and templates, and the size of tables.
+
+Reserved root fields such as `requiresStyles`, `contributedStyles`, `externalRefs` and `limits` aren't accepted.
+
+When Convert refuses the description, `onError` receives an [`ExportDocxRequestError`](/conversion/v3/export/docx/api#warnings-and-errors).
+
+- A rule that fails validation answers with status 400.
+- A rule that fails while it renders a node answers with status 422.
+- The `code` starts with `DOCX_DSL_`, such as `DOCX_DSL_INVALID_PROP`, and the message names the field.

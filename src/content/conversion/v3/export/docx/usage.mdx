@@ -1,0 +1,181 @@
+---
+title: Control the output
+meta:
+  title: Control the output | Tiptap Conversion
+  description: Match your editor's formatting, set page size and margins, keep notes, comments and list numbering, embed fonts, handle images and read warnings on export.
+  category: Conversion
+---
+
+Every example on this page calls `editor.commands.exportDocx` on an editor set up as in [Export DOCX](/conversion/v3/export/docx/editor-extension). An option you pass to the command wins over the same option in `ExportDocx.configure`.
+
+## Match your editor's formatting
+
+By default the command measures the CSS your mounted editor renders with and sends it along. Convert turns it into Word styles for text, paragraphs, tables and lists. A headless or unmounted editor has nothing to measure, so the command skips this step.
+
+Set `documentStyles: false` to skip the measurement and rely on your own styles. If the measurement fails, the export goes on without it and reports a `document-styles-failed` warning.
+
+Use explicit Word styles for output that doesn't depend on the browser.
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const exportExtension = ExportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  documentStyles: false,
+  styleOverrides: {
+    default: {
+      document: { run: { font: 'Arial', size: 24 } },
+    },
+  },
+  onCompleteExport: (result) => console.log(result),
+})
+```
+
+Word font sizes use half-points, so `24` means 12pt.
+
+`cssStyles` is experimental. It describes styles with CSS properties for a fixed set of selectors, such as `p`, `h1` and `blockquote`. Set `cssStyles.extractFromDocument: true` to also read matching `.tiptap` rules from the page's stylesheets. Convert applies `styleOverrides` after `cssStyles`. See [`CssStylesOptions`](/conversion/v3/export/docx/types#cssstylesoptions).
+
+## Set page size and margins
+
+```ts
+editor.commands.exportDocx({
+  pageSize: { width: '21cm', height: '29.7cm' },
+  pageMargins: { top: '2cm', bottom: '2cm', left: '2cm', right: '2cm' },
+  pageColor: '#fff8e8',
+})
+```
+
+A measure is a string with a unit, such as `'2cm'`, `'1in'` or `'12pt'`, or a number of twips. A twip is 1/1440 inch. Top and bottom margins may be negative.
+
+Word prints a page color only when its **Print background colors and images** setting is on.
+
+## Headers, footers and page layout
+
+When the editor runs Page Layout, the command sends the Source Document and its page setup. Convert builds the page geometry, headers and footers from that setup. There is no separate option for header or footer content. Pass `pageSetup` to send a different setup.
+
+`headerFooterOverrides` sets formatting for header and footer content. It takes the same six override fields as the body, such as `paragraphOverrides`. A field you leave out uses the body value.
+
+## Set default formatting with overrides
+
+The override options apply fixed properties to every element of one kind. They are `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides` and `imageOverrides`.
+
+```ts
+editor.commands.exportDocx({
+  paragraphOverrides: { spacing: { after: 120 } },
+  tableCellOverrides: { margins: { top: 80, bottom: 80 } },
+})
+```
+
+Each override must be a plain object. The command can't send a function to Convert, so it drops a function override and reports an `unsupported` warning that names the option.
+
+## Keep notes and comments
+
+Pass `footnotes` and `endnotes` as maps from note id to a Tiptap JSON document. The body needs matching `footnoteReference` or `endnoteReference` nodes with `attrs.noteId`.
+
+With Page Layout, the export takes the footnotes and endnotes from the document and writes them as Word notes. It ignores the `footnotes` and `endnotes` options and reports each one through `onWarning`. A note without a reference in the text is left out with an `unsupported` warning that names its `noteId`.
+
+The command reads unarchived threads from the comments extension's provider. Pass `comments: { threads }` to send your own threads, or `comments: { threads: [] }` to export no comments. See [`SourceThread`](/conversion/v3/export/docx/types#sourcethread) for the thread shape.
+
+## Keep list numbering
+
+A numbering format sets the marker of each list depth, such as `1)` then `a)`. Pass custom formats in `numberingFormats`.
+
+```ts
+editor.commands.exportDocx({
+  numberingFormats: [
+    {
+      id: 'report',
+      levels: [
+        { baseStyle: 'decimal', textTemplate: '%1)' },
+        { baseStyle: 'lowerLetter', textTemplate: '%2)' },
+      ],
+    },
+  ],
+})
+```
+
+A list uses a format through its `numberingFormat` attribute. In `textTemplate`, `%1` to `%9` stand for the counter at that depth. A depth deeper than the levels you define reuses them in order.
+
+The command also sends the formats the editor has registered. When ids clash:
+
+- Formats you pass to the command replace the ones set in `ExportDocx.configure`.
+- A registered format replaces a configured one with the same `id`.
+- A format you pass to the command wins over a registered one with the same `id`.
+
+A list without a matching format exports with Word's default numbering. See [lists](/conversion/v3/content-reference/text-and-formatting/lists).
+
+Use `listLevels` to set the positions of bullet, ordered and task list levels. A level can set `textIndent`, `numberIndent` and `rightIndent` in twips. See [`ListLevels`](/conversion/v3/export/docx/types#listlevels).
+
+### Outline numbering
+
+Numbered headings come from the [Outline Numbering](/pages/v2/extensions/outline-numbering) extension. The command reads its `outlineNumbering` storage and sends it. Pass `outline` to send other data.
+
+## Embed fonts
+
+Pass font files with `fonts`. The command uploads them with the request.
+
+```ts
+const data = await fetch('/fonts/example-regular.ttf').then((response) => response.arrayBuffer())
+
+editor.commands.exportDocx({
+  fonts: [{ name: 'Example Font', data }],
+})
+```
+
+Replace the URL and family name with your font. The name must match the family your document uses. Pass TTF, OTF or WOFF2 bytes as a `Uint8Array` or an `ArrayBuffer`. Word embeds the regular variant and synthesizes bold and italic.
+
+Set `embedFonts: true` to embed the families your document uses. The command downloads each family's file from the page's `@font-face` rules and uploads it. For a family without a `@font-face` rule, Convert looks it up on Google Fonts. A font that can't be read or is over a limit is left out with a `font-fetch-failed` warning, and Word substitutes another font.
+
+## Handle images
+
+Convert downloads images that have a public URL. The command uploads the images Convert can't reach:
+
+- `blob:` URLs.
+- `data:` URLs longer than 64 KB.
+- Images on the page's own origin.
+
+Images in notes and comments count too. By default an image that can't be used is left out and reported through `onWarning`. Set `onImageError: 'throw'` to fail the export instead.
+
+```ts
+editor.commands.exportDocx({
+  onImageError: 'throw',
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+  onError: (error) => console.error(error),
+})
+```
+
+Browser downloads follow CORS rules. A private image host must let the page or Convert read its files.
+
+## Tracked changes
+
+Text with a `suggestion` mark from the tracked changes extension becomes a Word revision.
+
+| Mark `type`                 | Word revision |
+| --------------------------- | ------------- |
+| `add`, `replaceInsertion`   | Insertion     |
+| `delete`, `replaceDeletion` | Deletion      |
+
+The author is `userMetadata.name`, then `userId`, then `anonymous`. The date is `createdAt`. A missing or invalid date becomes `1970-01-01T00:00:00Z`.
+
+Whole-block changes, such as an inserted image, carry the same data as node attributes: `suggestionType`, `suggestionUserId`, `suggestionUserMetadata` and `suggestionCreatedAt`.
+
+A `markChange` suggestion records a formatting change. Export doesn't write it.
+
+## Read warnings
+
+The export reports content it skipped through `onWarning`, from the browser and from Convert. Without `onWarning`, it logs each warning to the console. An error thrown inside `onWarning` is ignored, so it can't stop the export. See [warning codes](/conversion/v3/export/docx/api#warnings-and-errors).
+
+## Limits
+
+- Every export calls the Convert service. It needs a token and a network connection.
+- One request carries at most 64 uploaded files, fonts and images together. Files over the cap are left out with a warning.
+- An uploaded image can be at most 20 MB. A font can be at most 25 MB.
+- Function overrides and the other removed 0.x options aren't supported. The command leaves them out and reports an `unsupported` warning. See [removed options](/conversion/v3/export/docx/api#removed-0x-options).
+- Browser layout and Word layout differ. The CSS measurement can't reproduce every custom node view or pseudo-element. Set page options yourself and describe custom nodes with [`customNodeDsl`](/conversion/v3/export/docx/custom-nodes).
+- Suggestions on formatting changes aren't exported.
+
+## Troubleshoot
+
+- **The export fails with a missing token error.** Set `token` in `ExportDocx.configure` or pass it to the command.
+- **`onError` receives an `ExportDocxRequestError`.** Read its `code`, `status` and `path`. `NETWORK_ERROR` means the request didn't reach Convert. `HTTP_ERROR` means Convert answered with a failure and no error code. Any other code comes from Convert, and `docsUrl` may link to an explanation.
+- **Styles look different from the editor.** Call `getDocumentCss({ editor })` to inspect what the command measures. Use `adjustProbe` when a custom node view needs a matching element in the measurement, and keep its `data-css` attributes.
