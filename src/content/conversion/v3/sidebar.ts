@@ -87,6 +87,62 @@ export const sidebarConfig: SidebarConfig = {
             },
           ],
         },
+        {
+          title: 'Structures and media',
+          href: '/conversion/v3/content-reference/structures-and-media/tables',
+          children: [
+            {
+              title: 'Tables',
+              href: '/conversion/v3/content-reference/structures-and-media/tables',
+            },
+            {
+              title: 'Images',
+              href: '/conversion/v3/content-reference/structures-and-media/images',
+            },
+            {
+              title: 'Hyperlinks and bookmarks',
+              href: '/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks',
+            },
+            {
+              title: 'Block elements',
+              href: '/conversion/v3/content-reference/structures-and-media/block-elements',
+            },
+            {
+              title: 'Math and equations',
+              href: '/conversion/v3/content-reference/structures-and-media/math-equations',
+            },
+            {
+              title: 'Footnotes and endnotes',
+              href: '/conversion/v3/content-reference/structures-and-media/footnotes-endnotes',
+            },
+            {
+              title: 'Comments',
+              href: '/conversion/v3/content-reference/structures-and-media/comments',
+            },
+            {
+              title: 'Word styles',
+              href: '/conversion/v3/content-reference/structures-and-media/word-styles',
+            },
+          ],
+        },
+        {
+          title: 'Page layout',
+          href: '/conversion/v3/content-reference/page-layout/headers-footers',
+          children: [
+            {
+              title: 'Headers and footers',
+              href: '/conversion/v3/content-reference/page-layout/headers-footers',
+            },
+            {
+              title: 'Page breaks',
+              href: '/conversion/v3/content-reference/page-layout/page-breaks',
+            },
+            {
+              title: 'Page structure',
+              href: '/conversion/v3/content-reference/page-layout/page-structure',
+            },
+          ],
+        },
       ],
     },
     {
