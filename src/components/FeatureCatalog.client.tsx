@@ -6,7 +6,7 @@ import { createElement, useMemo } from 'react'
 import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { CATALOG_GROUPS, CATALOG_PLANS } from '@/content/catalog'
+import { CATALOG_GROUPS, CATALOG_PLANS, catalogGroupUrl } from '@/content/catalog'
 import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import type { CatalogEntry } from '@/server/getCatalog'
@@ -146,6 +146,15 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
   )
 }
 
+/** The cards of some features, such as one group on its own page. */
+export const CatalogCards = ({ entries }: { entries: CatalogEntry[] }) => (
+  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
+    {entries.map((entry) => (
+      <CatalogCard entry={entry} key={entry.url || entry.name} />
+    ))}
+  </div>
+)
+
 /** Every feature, filterable by plan, type, industry and text, grouped like the sidebar. */
 export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => {
   const [query, setQuery] = useUrlParam('search', '')
@@ -256,13 +265,15 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
             id={group.id}
             className="text-[1.5rem] font-bold leading-[120%] mb-6 scroll-mt-[calc(var(--catalog-sticky-top,4.25rem)+5rem)]"
           >
-            {group.title}
+            {catalogGroupUrl(group) ? (
+              <Link href={catalogGroupUrl(group)!} className="hover:underline">
+                {group.title}
+              </Link>
+            ) : (
+              group.title
+            )}
           </h2>
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
-            {items.map((entry) => (
-              <CatalogCard entry={entry} key={entry.url || entry.name} />
-            ))}
-          </div>
+          <CatalogCards entries={items} />
         </section>
       ))}
     </div>

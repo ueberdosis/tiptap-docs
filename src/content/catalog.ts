@@ -11,6 +11,13 @@ export type CatalogGroup = {
   area: CatalogArea
 }
 
+/** A group of editor features that has its own page, `/editor/extensions/<id>`. */
+export function catalogGroupUrl(group: CatalogGroup): string | undefined {
+  return group.area === 'editor' && group.id !== 'kits'
+    ? `/editor/extensions/${group.id}`
+    : undefined
+}
+
 export const CATALOG_AREAS: Record<CatalogArea, string> = {
   editor: 'Editor',
   platform: 'Document Platform',

@@ -14,7 +14,7 @@ import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
-import { CATALOG_GROUPS, CatalogArea } from '@/content/catalog'
+import { CATALOG_GROUPS, catalogGroupUrl, CatalogArea } from '@/content/catalog'
 import { getCatalog } from '@/server/getCatalog'
 import { SidebarConfig } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
@@ -35,8 +35,7 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
     CATALOG_GROUPS.filter((group) => group.area === area)
       .map((group) => ({
         title: group.title,
-        // A click shows the group's cards in the feature catalog
-        href: `/editor/extensions/overview#${group.id}`,
+        href: catalogGroupUrl(group) ?? '',
         children: catalog
           .filter((entry) => entry.group === group.id)
           .map((entry) =>

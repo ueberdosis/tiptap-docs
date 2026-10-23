@@ -1,3 +1,4 @@
+import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
@@ -138,6 +139,25 @@ export const componentConverters: Record<string, ComponentConverter> = {
       return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
     }),
   }),
+
+  // <CatalogGroup id="…" /> → the group's features as a list, with plan and status.
+  CatalogGroup: (node) => {
+    const id = getAttr(node, 'id')
+    return {
+      type: 'list',
+      ...({ ordered: false, spread: false } as object),
+      children: getCatalog()
+        .filter((entry) => entry.group === id)
+        .map((entry) => {
+          const notes = [entry.status, entry.plan].filter(Boolean).join(', ')
+          const line: MdxNode[] = [
+            entry.url ? link(entry.url, entry.name) : strong(entry.name),
+            text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),
+          ]
+          return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
+        }),
+    }
+  },
 
   // <Link href="…">text</Link> → a markdown link.
   Link: (node) => {
