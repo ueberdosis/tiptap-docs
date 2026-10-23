@@ -1,0 +1,148 @@
+---
+title: Migrate import from 0.x
+meta:
+  title: Migrate import from 0.x | Tiptap Conversion
+  description: Move from Import DOCX 0.x to 1.0. Add a token, replace removed options, handle warnings and errors, and import into Page Layout.
+  category: Conversion
+---
+
+In 1.0 the `importDocx` command writes into Page Layout when the editor has it. Several 0.x options are gone, and warnings and errors have their own callbacks.
+
+Work through the steps below. Each one shows the 0.x code and its 1.0 replacement.
+
+## 1. Pass a token
+
+The import needs a `token` for the Convert service. Without it, the import fails before it sends a request. Add `appId`, and `region` or `endpoint`, as you did for export. See [install](/conversion/v3/getting-started/install#connect-to-convert).
+
+```ts
+// 0.x
+ImportDocx.configure({
+  appId: 'APP_ID',
+})
+
+// 1.0
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  appId: 'APP_ID',
+})
+```
+
+An `endpoint` that ends in `/v2` still works. One base serves both the import and the export extension.
+
+## 2. Replace imageUploadCallbackUrl
+
+`imageUploadCallbackUrl` is gone. Pass `imageUploadConfig` with the upload URL instead.
+
+```ts
+// 0.x
+ImportDocx.configure({
+  imageUploadCallbackUrl: 'https://example.com/upload',
+})
+
+// 1.0
+ImportDocx.configure({
+  imageUploadConfig: { url: 'https://example.com/upload' },
+})
+```
+
+`imageUploadConfig` also takes `headers`, `method` and `queryParams`.
+
+## 3. Replace verbose with onWarning
+
+`verbose` is gone. `onWarning` receives everything the import had to leave out. A warning never stops the import.
+
+```ts
+// 0.x
+ImportDocx.configure({ verbose: 1 })
+
+// 1.0
+ImportDocx.configure({
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+A warning has one of two codes:
+
+- `unsupported`: a node or mark type the schema has no extension for, or a note without a reference.
+- `server-warning`: a warning the Convert service logged while it read the file.
+
+Without `onWarning`, warnings go to the console.
+
+## 4. Remove placeholders
+
+The `placeholders` option is gone, on the configuration and on the command. Word page fields such as `PAGE` and `NUMPAGES` now arrive as their cached text.
+
+```ts
+// 0.x
+editor
+  .chain()
+  .importDocx({ file, placeholders: { total: 'pages' } })
+  .run()
+
+// 1.0
+editor.chain().importDocx({ file }).run()
+```
+
+## 5. Take headers, footers and page setup from onImport
+
+The Pages 1 extension is no longer bound to the import. The import does not write headers, footers, page size or notes into the editor for you. They arrive in the `onImport` context, and you place them yourself.
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: ({ error, setEditorContent, header, footer, pageLayout }) => {
+    if (error) return
+    setEditorContent()
+    // Place header, footer and pageLayout where your app keeps them.
+  },
+})
+```
+
+The context also has `footnotes`, `endnotes` and the other header and footer fields. To keep using the Pages 1 extension, stay on 0.x.
+
+## 6. Write into Page Layout
+
+When the Page Layout engine is on the editor, `setEditorContent` replaces the source document and brings the footnotes and endnotes with it. Without Page Layout, the document goes into the editor with `setContent`, and the notes stay in the `onImport` context.
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: ({ error, setEditorContent }) => {
+    if (error) return
+    setEditorContent()
+  },
+})
+```
+
+An editor that has Page Layout registered but no engine yet fails the import. This happens before the editor mounts. Import after it has mounted. See [Page Layout](/pages/v2/getting-started/overview) and [footnotes](/pages/v2/extensions/footnotes).
+
+## 7. Handle errors with onError
+
+Errors go to `onError`. Set it on the command or on `ImportDocx.configure`. The command's callback wins.
+
+Without `onError`, the error reaches `onImport` as `{ content: null, error }`. Without `onImport` too, the error is rethrown from the async work as an unhandled rejection.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError: (error) => console.error(error),
+})
+```
+
+A refused request or a network failure gives an `ImportDocxRequestError`. It has a `code` and, when the server answered, a `status`.
+
+## 8. Expect a newer import to win
+
+When you start a second import before the first response arrives, the first one writes nothing. It reports an `ImportDocxSupersededError`. Calling `setEditorContent` from an older import throws the same error.
+
+```ts
+import { ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError(error) {
+    if (error instanceof ImportDocxSupersededError) return
+    console.error(error)
+  },
+})
+```

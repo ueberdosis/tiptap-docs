@@ -1,0 +1,224 @@
+---
+title: Migrate export from 0.x
+meta:
+  title: Migrate export from 0.x | Tiptap Conversion
+  description: Move from Export DOCX 0.x to 1.0. Add a token, replace removed options and exports, and handle warnings.
+  category: Conversion
+---
+
+In 1.0 the browser no longer builds the DOCX file. The `exportDocx` command sends the document to the Tiptap Convert service and gets the file back. Options that only worked in the browser, such as JavaScript renderers and function overrides, are gone.
+
+Work through the steps below. Each one shows the 0.x code and its 1.0 replacement.
+
+## 1. Add your Convert token
+
+Every export needs a `token`. Add `appId` if you have one, and `region` or `endpoint` if you don't use the EU region.
+
+```ts
+// 0.x
+ExportDocx.configure({
+  onCompleteExport: (result) => save(result),
+})
+
+// 1.0
+ExportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  appId: 'APP_ID',
+  region: 'eu',
+  onCompleteExport: (result) => save(result),
+})
+```
+
+An `endpoint` that ends in `/v2` now points at `/v3`. You don't need to change it. [Install](/conversion/v3/getting-started/install#which-url-each-extension-calls) lists the rules.
+
+## 2. Replace the standalone exportDocx function
+
+The `exportDocx` function is gone. Load the JSON into an editor and run the command. The editor doesn't need to be mounted.
+
+```ts
+// 0.x
+import { exportDocx } from '@tiptap-pro/extension-export-docx'
+
+const file = await exportDocx({
+  document: json,
+  exportType: 'buffer',
+  customNodes: [],
+  styleOverrides: {},
+})
+
+// 1.0
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const file = await new Promise((resolve, reject) => {
+  const editor = new Editor({
+    element: null,
+    content: json,
+    extensions: [
+      StarterKit,
+      ExportDocx.configure({
+        token: 'CONVERT_TOKEN',
+        exportType: 'buffer',
+        onCompleteExport: resolve,
+        onError: reject,
+      }),
+    ],
+  })
+  editor.commands.exportDocx()
+})
+```
+
+Call `editor.destroy()` when you no longer need the editor.
+
+## 3. Read buffers as Uint8Array and drop stream output
+
+`exportType: 'buffer'` now gives a `Uint8Array` instead of a Node.js `Buffer`. `exportType: 'stream'` is gone and fails the export.
+
+```ts
+// 0.x
+if (Buffer.isBuffer(file)) await writeFile('report.docx', file)
+
+// 1.0
+if (file instanceof Uint8Array) await writeFile('report.docx', file)
+```
+
+Use `'buffer'` or `'blob'` where you used `'stream'`.
+
+## 4. Move custom nodes to customNodeDsl
+
+The `customNodes` JavaScript renderers are gone. Describe each node with `customNodeDsl`. Build the rules with the helpers from `@tiptap-pro/extension-export-docx/dsl`.
+
+```ts
+// 0.x
+import { Docx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'notice',
+      render: (node) => new Docx.Paragraph(String(node.attrs?.message ?? '')),
+    },
+  ],
+})
+
+// 1.0
+import { docxNode, paragraph, ref, textOp } from '@tiptap-pro/extension-export-docx/dsl'
+
+ExportDocx.configure({
+  customNodeDsl: {
+    dslVersion: '1.0',
+    nodes: [
+      docxNode('notice')
+        .block()
+        .emit(paragraph().children(textOp(ref('node.attrs.message', { default: '' }))))
+        .toJSON(),
+    ],
+  },
+})
+```
+
+Remove `customNodeDslLimits` too. Convert applies its own limits.
+
+## 5. Turn function overrides into plain objects
+
+The override options only take plain objects. A function is dropped with an `unsupported` warning. This applies to `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides` and each field of `headerFooterOverrides`.
+
+```ts
+// 0.x
+ExportDocx.configure({
+  paragraphOverrides: (node, context) => (context.table ? {} : { spacing: { after: 120 } }),
+})
+
+// 1.0
+ExportDocx.configure({
+  paragraphOverrides: { spacing: { after: 120 } },
+})
+```
+
+If an override depended on the node or its table, describe that node with `customNodeDsl` instead.
+
+## 6. Remove headers, footers and placeholders
+
+`headers`, `footers` and `placeholders` are gone. So are `Docx.Header`, `Docx.Footer`, `convertHeader` and `convertFooter`. Headers and footers now come from the Page Layout setup of the document. See [headers and footers](/pages/v2/core-concepts/header-and-footer).
+
+```ts
+// 0.x
+editor.commands.exportDocx({
+  headers: { default: new Docx.Header({ children: [new Docx.Paragraph('Example report')] }) },
+  footers: { default: new Docx.Footer({ children: [new Docx.Paragraph('Confidential')] }) },
+})
+
+// 1.0
+editor.commands.exportDocx()
+```
+
+Keep `headerFooterOverrides` for header and footer formatting.
+
+The command no longer reads headers, footers, notes or page geometry from the Pages 1 extension. Pass `footnotes`, `endnotes`, `pageSize` and `pageMargins` yourself if you relied on that.
+
+## 7. Replace removed exports
+
+The package no longer exports the `docx` library or its own converters.
+
+| 0.x export                                                                                                                                                                                                          | 1.0 replacement                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `Docx`                                                                                                                                                                                                              | None. Use plain objects in overrides and `customNodeDsl` for custom output. |
+| `CharacterSet`                                                                                                                                                                                                      | The charset string, such as `'00'` for ANSI.                                |
+| `LevelFormat`                                                                                                                                                                                                       | The format string, such as `'decimal'` or `'lowerRoman'`.                   |
+| `IRunOptions`, `PositiveUniversalMeasure`                                                                                                                                                                           | `TextRunOverrides` and `PageMeasure`.                                       |
+| `convertNode`, `convertParagraph`, `convertTable`, `convertTextNode` and the other `convert*` helpers                                                                                                               | None. Convert renders every node.                                           |
+| `processCssStyles`, `createExportStyles`, `exportStylesFromCss`, `ExportStyles`                                                                                                                                     | Pass `cssStyles`, or keep `documentStyles` on. Convert compiles the styles. |
+| `compileCustomNodeDsl`, `DEFAULT_LIMITS`, `DslCompileError`, `DslRuntimeError`                                                                                                                                      | None. Convert validates `customNodeDsl`.                                    |
+| `CustomNode`, `CustomNodeResult`, `OverrideContext`, `*OverridesConfig`, `ResolvedHeaderFooterOverrides`, `DocxPlaceholders`, `DocxPlaceholderField`, `DocxPlaceholderRegistry`, `ConvertConfig`, `ImageDimensions` | None.                                                                       |
+| `hash31` and the `/hash31` entry                                                                                                                                                                                    | `hash31` from `@tiptap-pro/extension-convert-kit/hash31`.                   |
+
+```ts
+// 0.x
+import { LevelFormat } from '@tiptap-pro/extension-export-docx'
+
+const format = LevelFormat.LOWER_ROMAN
+
+// 1.0
+const format = 'lowerRoman'
+```
+
+## 8. Import unit helpers from the registry package
+
+The unit helpers moved to `@tiptap-pro/extension-convert-kit/ooxml-registry`.
+
+```ts
+// 0.x
+import { pixelsToPoints, pointsToTwips } from '@tiptap-pro/extension-export-docx'
+
+// 1.0
+import { pixelsToPoints, pointsToTwips } from '@tiptap-pro/extension-convert-kit/ooxml-registry'
+```
+
+| 0.x helper           | 1.0 replacement                                       |
+| -------------------- | ----------------------------------------------------- |
+| `pixelsToPoints`     | `pixelsToPoints`                                      |
+| `pixelsToHalfPoints` | `pixelsToHalfPoints`                                  |
+| `pointsToTwips`      | `pointsToTwips`                                       |
+| `lineHeightToDocx`   | `multiplierToLineSpacingUnits`. It rounds the result. |
+| `pointsToHalfPoints` | No helper. Multiply the points by 2.                  |
+
+## 9. Check images and fonts
+
+The command now uploads some images with the request. These are `blob:` URLs, `data:` URLs longer than 64 KB, and images on the page's own origin. Convert downloads the rest, so their URLs must be public.
+
+`fonts` now takes WOFF2 bytes as well as TTF and OTF. `embedFonts` uploads the `@font-face` files of the page with the request. One request carries at most 64 files.
+
+## 10. Handle warnings
+
+Content the export skips reaches `onWarning`. That includes the removed options above. Add a handler to catch leftover 0.x options.
+
+```ts
+ExportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onWarning(warning) {
+    if (warning.code === 'unsupported') console.warn(warning.attribute, warning.message)
+  },
+  onCompleteExport: (result) => save(result),
+})
+```
