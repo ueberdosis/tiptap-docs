@@ -196,7 +196,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
       <div
         role="search"
         aria-label="Filter features"
-        className="sticky top-[var(--catalog-sticky-top)] z-20 -mx-3 px-3 py-2 sm:py-3 [--catalog-sticky-top:7.125rem] lg:[--catalog-sticky-top:4.25rem] bg-warmGray/95 backdrop-blur border-b border-grayAlpha-100"
+        className="sticky top-[var(--catalog-sticky-top)] z-20 -mx-3 px-3 py-2 sm:py-3 [--catalog-sticky-top:6.6875rem] lg:[--catalog-sticky-top:3.875rem] bg-warmGray/95 backdrop-blur border-b border-grayAlpha-100"
       >
         <div className="flex flex-wrap items-center gap-2">
           <label className="order-1 flex-1 min-w-[10rem] sm:flex-none sm:order-none flex items-center h-9 px-2.5 gap-2 bg-white sm:w-64 rounded-lg border border-neutral-300 focus-within:border-neutral-700">
