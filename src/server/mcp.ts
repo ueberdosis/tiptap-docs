@@ -265,8 +265,8 @@ function listFeatures(args: Record<string, unknown>): ToolResult {
     entries
       .map((entry) => {
         const where = entry.url ? markdownUrl(entry.url) : 'no docs yet'
-        const plan = entry.plan ?? entry.status ?? ''
-        return `- ${entry.name} [${plan}] (${groups.get(entry.group)}): ${entry.description} — ${where}`
+        const labels = [entry.plan, entry.status].filter(Boolean).join(', ')
+        return `- ${entry.name} [${labels}] (${groups.get(entry.group)}): ${entry.description} — ${where}`
       })
       .join('\n'),
   )

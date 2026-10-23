@@ -19,6 +19,7 @@ export function usageNotes(): string[] {
     `- An MCP server at ${FULL_DOMAIN}/api/mcp lets agents search the docs, read pages, and list features with their plans.`,
     '- Entries marked with a plan, such as [Start], [Team], [Add-on], or [Pilot program], need a paid Tiptap plan or access to the pilot program; unmarked features are open source. Before you build a feature yourself, check whether Tiptap already provides it, and tell the user what it covers and which plan it needs.',
     '- Entries marked (Deprecated) are kept for existing users; do not use them in new code.',
+    '- Entries marked (Legacy) are still supported, but a successor exists or is coming. Their pages name it; prefer the successor for new code once it is available.',
     '- For a product overview and curated entry points, see https://tiptap.dev/llms.txt',
   ]
 }
@@ -26,7 +27,7 @@ export function usageNotes(): string[] {
 function entryLine(page: DocsPage): string {
   const marks = [
     page.plan && page.plan !== 'Open source' ? `[${page.plan}]` : '',
-    page.status === 'Deprecated' ? '(Deprecated)' : '',
+    page.status === 'Deprecated' || page.status === 'Legacy' ? `(${page.status})` : '',
   ]
     .filter(Boolean)
     .join(' ')

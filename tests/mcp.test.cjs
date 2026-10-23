@@ -94,6 +94,16 @@ test('list_features filters by plan and area', async () => {
 
   const editor = await tool('list_features', { area: 'editor', query: 'table' })
   assert.match(editor.content[0].text, /Table kit/)
+
+  // Plan and status together, so a legacy or beta feature shows both
+  const pages = await tool('list_features', { query: 'pages' })
+  assert.match(pages.content[0].text, /Pages \[Team, Legacy\]/)
+})
+
+test('llms.txt marks legacy pages and says what Legacy means', () => {
+  const llms = buildLlmsTxt()
+  assert.match(llms, /Entries marked \(Legacy\)/)
+  assert.match(llms, /pages\/getting-started\/overview\.md\) \[Team\] \(Legacy\)/)
 })
 
 test('toRoute accepts paths, docs URLs and .md URLs', () => {
