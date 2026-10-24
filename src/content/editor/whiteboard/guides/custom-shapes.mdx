@@ -1,0 +1,187 @@
+---
+title: Custom whiteboard shapes
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Custom whiteboard shapes | Tiptap Editor Docs
+  description: Add shapes of your own to a whiteboard, like a poll or a chart, with a component of your app inside. The board places, selects, moves and resizes them.
+  category: Editor
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+A custom shape is a node of your own on the board, with a component of your app inside, like a poll or a chart. The board places, selects, moves and resizes it like its own shapes, and your component draws what is inside.
+
+<CodeDemo isPro path="/Extensions/WhiteboardCustomShape" />
+
+## Create the node
+
+A shape is a node in the `shape` group. `shapeAttributes` gives it the attributes that every shape needs: its id, position, size and z-index. `dataAttribute` adds attributes of your own, like the votes of a poll. `shapeNodeView` turns the node view of your component into a shape. A custom shape holds no text, so make it an atom:
+
+```js
+import { mergeAttributes, Node } from '@tiptap/core'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import { dataAttribute, shapeAttributes, shapeNodeView } from '@tiptap-pro/extension-whiteboard'
+
+import { VoteCardView } from './VoteCardView'
+
+export const VoteCard = Node.create({
+  name: 'voteCard',
+  group: 'shape',
+  atom: true,
+  // The board selects shapes by their ids, never as a node selection
+  selectable: false,
+
+  addAttributes() {
+    return {
+      ...shapeAttributes({ width: 220, height: 150 }),
+      votes: dataAttribute({ name: 'votes', default: 0 }),
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="vote-card"]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes({ 'data-type': 'vote-card' }, HTMLAttributes)]
+  },
+
+  addNodeView() {
+    return shapeNodeView({ dataType: 'vote-card', view: ReactNodeViewRenderer(VoteCardView) })
+  },
+})
+```
+
+Add the node to the editor next to `WhiteboardKit`, like `extensions: [WhiteboardKit, VoteCard]`.
+
+Copy and paste go through HTML. `dataAttribute` keeps a value there as a data attribute, like `data-votes`, so the value stays. It keeps strings, numbers and booleans, and objects and arrays as JSON. `shapeAttributes` does the same for the position and the size.
+
+## Draw the component
+
+The component is a [React node view](/editor/extensions/custom-extensions/node-views/react) of Tiptap. Wrap it in `NodeViewWrapper`, which fills the shape, and read the data of the shape from `node.attrs`:
+
+```jsx
+import { NodeViewWrapper } from '@tiptap/react'
+import { focusBoard } from '@tiptap-pro/extension-whiteboard'
+
+export function VoteCardView({ node, editor }) {
+  const { id, votes } = node.attrs
+
+  const vote = () => {
+    editor.commands.updateShape({ id, attributes: { votes: votes + 1 } })
+    // Gives the keyboard back to the board, so undo keeps working
+    focusBoard(editor.view)
+  }
+
+  return (
+    <NodeViewWrapper className="vote-card">
+      <p>{votes} votes</p>
+      <button type="button" onClick={vote}>
+        Vote
+      </button>
+    </NodeViewWrapper>
+  )
+}
+```
+
+A component that your app has already works the same way. Render it inside `NodeViewWrapper`, and pass it the data of the shape, like `<ProjectCard title={node.attrs.title} />`. It renders in the React tree of `EditorContent`, so it reads the context of your app, like a theme.
+
+The component changes its shape with `updateShape`, which also changes attributes of your own, and undo takes each change back. The component gets the node again after each change to the shape, also after a move, a resize or a change by another user.
+
+### Vue and plain JavaScript
+
+In Vue, use `VueNodeViewRenderer` and `NodeViewWrapper` from `@tiptap/vue-3` the same way. The demo above has a Vue tab with the same card. See [Vue node views](/editor/extensions/custom-extensions/node-views/vue).
+
+Without a framework, pass a [node view](/editor/extensions/custom-extensions/node-views/javascript) of your own. Its `update` draws each change. A node view without `update` is drawn again after each change:
+
+```js
+shapeNodeView({
+  dataType: 'vote-card',
+  view: ({ node }) => {
+    const dom = document.createElement('div')
+    dom.textContent = `${node.attrs.votes} votes`
+
+    return {
+      dom,
+      update: (updated) => {
+        dom.textContent = `${updated.attrs.votes} votes`
+        return true
+      },
+    }
+  },
+})
+```
+
+The element of the node view is `[data-shape-component]`, and it has the size of the shape.
+
+## Presses
+
+A press on the component selects the shape, and a drag moves it, like on the shapes of the board. Presses on links, buttons, fields and editable content in the component go to them instead, so they work as usual. Mark other parts that take their own presses, like the legend of a chart, with `data-shape-interactive`:
+
+```jsx
+<div className="legend" data-shape-interactive>
+  {legend}
+</div>
+```
+
+An `iframe` keeps all presses on it for itself, so the board never gets them. Give it `pointer-events: none` to let users select and move the shape there.
+
+## Read-only boards
+
+On a [read-only board](/editor/whiteboard/guides/shapes-and-tools#read-only-boards), users can select shapes, but not move or resize them. Presses on the buttons and fields of a component still go to them, and commands like `updateShape` change a read-only board too. So turn off what changes the board in your component. [`isBoardEditable`](/editor/whiteboard/api-reference/utilities#isboardeditable) tells whether the board is editable. Don't use `editor.isEditable`, which is `false` whenever the board has the keyboard. `useEditorState` draws the component again when the board becomes read-only or editable:
+
+```jsx
+import { NodeViewWrapper, useEditorState } from '@tiptap/react'
+import { isBoardEditable } from '@tiptap-pro/extension-whiteboard'
+
+export function VoteCardView({ editor }) {
+  const isEditable = useEditorState({ editor, selector: (ctx) => isBoardEditable(ctx.editor) })
+
+  return (
+    <NodeViewWrapper className="vote-card">
+      <button type="button" disabled={!isEditable}>
+        Vote
+      </button>
+    </NodeViewWrapper>
+  )
+}
+```
+
+Without React, check `isBoardEditable(editor)` again on the editor's `update` event, which `editor.setEditable()` sends.
+
+## Add the shape
+
+No tool draws custom shapes, so add them with `insertShape`, for example from a button of your app:
+
+```js
+editor.commands.insertShape({ type: 'voteCard', x: 100, y: 100 })
+```
+
+The shape gets a new id and the size from `shapeAttributes`, unless you pass them. Users can then select, move, resize, copy, paste and delete it, and undo each change. Commands like `updateShape`, `moveShapes` and `deleteShapes` work on it too.
+
+## Style the shape
+
+The element of the shape has `data-shape`, the `data-type` from `shapeNodeView`, and `data-selected` while the shape is selected. Style it like the shapes of the board:
+
+```css
+[data-type='vote-card'] {
+  background: #fff;
+  border: 1px solid rgba(61, 37, 20, 0.12);
+  border-radius: 8px;
+  padding: 14px;
+}
+```
+
+See [Styling](/editor/whiteboard/api-reference/styling#parts-of-shapes) for the parts of a shape.
+
+## Limits
+
+- Custom shapes hold no text that users edit on the board.
+- Arrows that users draw don't connect to custom shapes.
+
+## Next steps
+
+- See all options of [`shapeNodeView()`](/editor/whiteboard/api-reference/utilities#shapenodeview) and [`dataAttribute()`](/editor/whiteboard/api-reference/utilities#dataattribute)
+- Add and change shapes with [commands](/editor/whiteboard/guides/shapes-and-tools)
