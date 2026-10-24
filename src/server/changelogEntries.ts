@@ -222,8 +222,153 @@ export function getProUpdates(): Array<Release & { feature: ChangelogEntry['feat
 }
 
 /** Every package with a history page, by name. */
-export function getPackageHistories(): Array<{ packageName: string; slug: string }> {
-  return [...getChangelogIndex()].sort((a, b) => a.packageName.localeCompare(b.packageName))
+export function getPackageHistories(): Array<{
+  packageName: string
+  slug: string
+  name: string
+  source: Source
+}> {
+  return getChangelogIndex()
+    .map(({ packageName, slug }) => ({
+      packageName,
+      slug,
+      name: packageDisplayName(packageName),
+      source: sourceOf(packageName),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export type Source = 'Open source' | 'Pro'
+
+const sourceOf = (packageName: string): Source =>
+  packageName.startsWith('@tiptap-pro/') ? 'Pro' : 'Open source'
+
+// Words a package name spells in capitals or as a product name
+const SPELLED: Record<string, string> = {
+  anthropic: 'Anthropic',
+  langchain: 'LangChain',
+  openai: 'OpenAI',
+  react: 'React',
+  toolkit: 'Toolkit',
+  tiptap: 'Tiptap',
+  vue: 'Vue',
+  ai: 'AI',
+  api: 'API',
+  doc: 'DOC',
+  docx: 'DOCX',
+  epub: 'EPUB',
+  html: 'HTML',
+  id: 'ID',
+  odt: 'ODT',
+  pdf: 'PDF',
+  sdk: 'SDK',
+  ui: 'UI',
+}
+
+let featureNames: Map<string, string> | undefined
+
+/**
+ * A package as readers name it: the feature it is the main package of, such as
+ * "Comments", or its name in words, in sentence case, such as "Client AI Toolkit OpenAI".
+ */
+export function packageDisplayName(packageName: string): string {
+  featureNames ??= new Map(
+    getCatalog().flatMap((feature) => {
+      const main = mainPackage(feature)
+      return main && feature.url ? [[main, feature.name] as const] : []
+    }),
+  )
+  const known = featureNames.get(packageName) ?? PACKAGE_NAMES[packageName]
+  if (known) return known
+  return packageName
+    .split('/')
+    .pop()!
+    .replace(/^extension-/, '')
+    .split('-')
+    .map(
+      (word, i) => SPELLED[word] ?? (i === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word),
+    )
+    .join(' ')
+}
+
+/** One release in a timeline: a version with its changes. */
+export type TimelineItem = {
+  id: string
+  title: string
+  version: string
+  date?: string
+  source: Source
+  link?: { label: string; href: string }
+  entries: ChangelogEntry[]
+}
+
+/**
+ * Every Tiptap release in one timeline, newest first: the latest open source
+ * releases and the latest version of each Pro feature. Releases without a known
+ * day come last.
+ */
+export function getReleaseTimeline(openSourceReleases = 6): TimelineItem[] {
+  const openSource: TimelineItem[] = getOpenSourceReleases(openSourceReleases).map((release) => ({
+    id: `v${release.version}`,
+    title: `Tiptap ${release.version}`,
+    version: release.version,
+    date: release.date,
+    source: 'Open source',
+    link: {
+      label: 'Release on GitHub',
+      href: `https://github.com/ueberdosis/tiptap/releases/tag/v${release.version}`,
+    },
+    entries: release.entries,
+  }))
+  const pro: TimelineItem[] = getProUpdates().map((update) => ({
+    id: `${update.entries[0].slug}-${update.version}`,
+    title: `${update.feature.name} ${update.version}`,
+    version: update.version,
+    date: update.date,
+    source: 'Pro',
+    link: { label: 'Full history', href: historyUrl(update.entries[0].slug) },
+    entries: update.entries,
+  }))
+  return [...openSource, ...pro].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+}
+
+/**
+ * One package's history as a timeline: each version that changed something.
+ * Versions that only updated dependencies are counted, not listed.
+ */
+export function getPackageTimeline(slug: string) {
+  const data = getChangelogData(slug)
+  if (!data) return undefined
+  const changes = parseChangelog(data.content)
+  const versions = [...data.content.matchAll(/^## (\S+)/gm)].map((match) => match[1])
+  const items: TimelineItem[] = []
+  for (const version of versions) {
+    const entries = changes
+      .filter((change) => change.version === version)
+      .map((change) => ({
+        ...change,
+        packageName: data.packageName,
+        slug,
+        date: data.dates?.[version],
+        feature: { name: packageDisplayName(data.packageName) },
+      }))
+    if (entries.length) {
+      items.push({
+        id: `v${version}`,
+        title: version,
+        version,
+        date: data.dates?.[version],
+        source: sourceOf(data.packageName),
+        entries,
+      })
+    }
+  }
+  return {
+    packageName: data.packageName,
+    name: packageDisplayName(data.packageName),
+    items,
+    quietVersions: versions.length - items.length,
+  }
 }
 
 /** "2026-10-13" → "Oct 13, 2026". */
@@ -249,26 +394,20 @@ function entryLine(entry: ChangelogEntry, showFeature = true): string {
 
 /** The changelog page's sections as Markdown, for the `.md` route and agents. */
 export const changelogMarkdown = {
-  releases: (limit = 6) =>
-    getOpenSourceReleases(limit)
-      .map((release) =>
+  releases: () =>
+    getReleaseTimeline()
+      .map((item) =>
         [
-          `### Tiptap ${release.version}${dayLabel(release.date)}`,
-          ...release.entries.map((entry) => entryLine(entry)),
-        ].join('\n'),
-      )
-      .join('\n\n'),
-  pro: () =>
-    getProUpdates()
-      .map((update) =>
-        [
-          `### [${update.feature.name}](${update.feature.url}) ${update.version}${dayLabel(update.date)}`,
-          ...update.entries.map((entry) => entryLine(entry, false)),
+          `### ${item.title}${dayLabel(item.date)} · ${item.source}`,
+          ...item.entries.map((entry) => entryLine(entry, item.source === 'Open source')),
         ].join('\n'),
       )
       .join('\n\n'),
   packages: () =>
     getPackageHistories()
-      .map(({ packageName, slug }) => `- [\`${packageName}\`](${historyUrl(slug)})`)
+      .map(
+        ({ name, packageName, slug, source }) =>
+          `- [${name}](${historyUrl(slug)}): \`${packageName}\`${source === 'Pro' ? ' (Pro)' : ''}`,
+      )
       .join('\n'),
 }

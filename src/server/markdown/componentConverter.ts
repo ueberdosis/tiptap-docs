@@ -179,7 +179,6 @@ export const componentConverters: Record<string, ComponentConverter> = {
 
   // The changelog page's generated sections
   ChangelogReleases: () => markdownNodes(changelogMarkdown.releases()),
-  ChangelogProUpdates: () => markdownNodes(changelogMarkdown.pro()),
   ChangelogPackages: () => markdownNodes(changelogMarkdown.packages()),
 }
 

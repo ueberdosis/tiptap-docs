@@ -1,138 +1,85 @@
-import { Fragment } from 'react'
-import { Tag } from '@/components/ui/Tag'
 import Link from '@/components/Link'
 import {
-  ChangeType,
-  ChangelogEntry,
+  ChangelogPackagesFiltered,
+  ChangelogReleasesFiltered,
+} from '@/components/ChangelogFilters.client'
+import { ReleaseTimeline, TimelineRelease } from '@/components/ReleaseTimeline'
+import {
+  TimelineItem,
   formatDay,
-  getOpenSourceReleases,
-  getPackageHistories,
   getLatestVersion,
-  getProUpdates,
+  getPackageHistories,
+  getPackageTimeline,
+  getReleaseTimeline,
   historyUrl,
   mainPackage,
 } from '@/server/changelogEntries'
 import { renderMarkdown } from '@/server/renderMarkdown'
 
-// The changelog page: Tiptap releases, the latest change of each Pro feature,
-// and every package's history. Generated from the package changelogs.
+// The changelog page and each package's history, generated from the package
+// changelogs. The server renders each change's Markdown; the timeline and the
+// filters take it from there.
 
-const TYPE_VARIANT: Record<ChangeType, 'hint' | 'success' | 'gray'> = {
-  Breaking: 'hint',
-  New: 'success',
-  Fixed: 'gray',
-}
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
 
-async function Entry({
-  entry,
-  showFeature = true,
-}: {
-  entry: ChangelogEntry
-  showFeature?: boolean
-}) {
-  const html = await renderMarkdown(entry.text)
-  return (
-    <li className="flex gap-2 items-baseline before:!hidden">
-      <Tag className="flex-none select-none" size="small" variant={TYPE_VARIANT[entry.type]}>
-        {entry.type}
-      </Tag>
-      <div className="min-w-0 [&>p]:inline [&>p+p]:block [&>p+p]:mt-2">
-        {showFeature ? (
-          <strong className="mr-1">
-            {entry.feature.url ? (
-              <Link href={entry.feature.url}>{entry.feature.name}</Link>
-            ) : (
-              entry.feature.name
-            )}
-            :
-          </strong>
-        ) : null}
-        <span className="[&>p]:inline" dangerouslySetInnerHTML={{ __html: html }} />
-      </div>
-    </li>
+/** Timeline items as the timeline shows them, with each change rendered to HTML. */
+async function toReleases(items: TimelineItem[], showFeature: boolean): Promise<TimelineRelease[]> {
+  return Promise.all(
+    items.map(async (item) => ({
+      id: item.id,
+      title: item.title,
+      date: item.date ? formatDay(item.date) : undefined,
+      source: showFeature ? item.source : undefined,
+      link: item.link,
+      changes: await Promise.all(
+        item.entries.map(async (entry) => {
+          const html = await renderMarkdown(entry.text)
+          return {
+            type: entry.type,
+            // A Pro release is one feature already, so its changes don't repeat it
+            feature: showFeature && item.source === 'Open source' ? entry.feature : undefined,
+            html,
+            text: stripHtml(html),
+          }
+        }),
+      ),
+    })),
   )
 }
 
-const EntryList = ({
-  entries,
-  showFeature,
-}: {
-  entries: ChangelogEntry[]
-  showFeature?: boolean
-}) => (
-  <ul className="!list-none !pl-0 grid gap-2">
-    {entries.map((entry, index) => (
-      <Entry entry={entry} showFeature={showFeature} key={`${entry.packageName}-${index}`} />
-    ))}
-  </ul>
+/** Every Tiptap release in one timeline, with filters. */
+export const ChangelogReleases = async () => (
+  <ChangelogReleasesFiltered releases={await toReleases(getReleaseTimeline(), true)} />
 )
 
-/** The latest open source releases; new and breaking changes first, fixes folded. */
-export const ChangelogReleases = ({ limit = 6 }: { limit?: number }) => (
-  <>
-    {getOpenSourceReleases(limit).map((release) => {
-      const notable = release.entries.filter((entry) => entry.type !== 'Fixed')
-      const fixes = release.entries.filter((entry) => entry.type === 'Fixed')
-      return (
-        <Fragment key={release.version}>
-          <h3 id={`v${release.version.replace(/\./g, '-')}`}>
-            Tiptap {release.version}
-            {release.date ? (
-              <span className="font-normal text-grayAlpha-600"> · {formatDay(release.date)}</span>
-            ) : null}
-          </h3>
-          {notable.length ? <EntryList entries={notable} /> : null}
-          {fixes.length ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-grayAlpha-700">
-                {fixes.length} {fixes.length === 1 ? 'fix' : 'fixes'} in{' '}
-                {new Set(fixes.map((entry) => entry.feature.name)).size} packages
-              </summary>
-              <div className="mt-3">
-                <EntryList entries={fixes} />
-              </div>
-            </details>
-          ) : null}
-          <p className="text-sm">
-            <Link href={`https://github.com/ueberdosis/tiptap/releases/tag/v${release.version}`}>
-              Release on GitHub
-            </Link>
-          </p>
-        </Fragment>
-      )
-    })}
-  </>
-)
-
-/** The latest version of each Pro feature that changed something. */
-export const ChangelogProUpdates = () => (
-  <>
-    {getProUpdates().map((update) => (
-      <Fragment key={update.feature.name}>
-        <h3 id={`pro-${update.feature.name.toLowerCase().replace(/\s+/g, '-')}`}>
-          <Link href={update.feature.url!}>{update.feature.name}</Link> {update.version}
-          {update.date ? (
-            <span className="font-normal text-grayAlpha-600"> · {formatDay(update.date)}</span>
-          ) : null}
-        </h3>
-        <EntryList entries={update.entries} showFeature={false} />
-      </Fragment>
-    ))}
-  </>
-)
-
-/** Every package's full history. */
+/** Every package's history, by name, with filters. */
 export const ChangelogPackages = () => (
-  <ul className="sm:columns-2">
-    {getPackageHistories().map(({ packageName, slug }) => (
-      <li key={slug}>
-        <Link href={historyUrl(slug)}>
-          <code>{packageName}</code>
-        </Link>
-      </li>
-    ))}
-  </ul>
+  <ChangelogPackagesFiltered
+    packages={getPackageHistories().map(({ name, packageName, slug, source }) => ({
+      name,
+      packageName,
+      href: historyUrl(slug),
+      source,
+    }))}
+  />
 )
+
+/** One package's history as a timeline, every change shown. */
+export const PackageTimeline = async ({ slug }: { slug: string }) => {
+  const timeline = getPackageTimeline(slug)
+  if (!timeline) return null
+  return (
+    <>
+      <ReleaseTimeline releases={await toReleases(timeline.items, false)} foldFixes={false} />
+      {timeline.quietVersions ? (
+        <p className="mt-8 text-sm text-grayAlpha-600">
+          {timeline.quietVersions} more {timeline.quietVersions === 1 ? 'version' : 'versions'} only
+          updated dependencies.
+        </p>
+      ) : null}
+    </>
+  )
+}
 
 /**
  * One line at the end of a feature page: its latest version and where to see
