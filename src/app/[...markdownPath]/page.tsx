@@ -5,7 +5,8 @@ import { cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader, headerTags } from '@/components/PageHeader'
+import { findDocsPage } from '@/server/getDocsIndex'
 import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
@@ -96,6 +97,8 @@ export default async function MarkdownPage({ params }: Props) {
     },
   }
 
+  // A sub-page shows the plan and status of its feature, as agents see them in the index
+  const tags = headerTags(pageMdx.frontmatter?.tags, findDocsPage(`/${markdownPath.join('/')}`))
   const headerDemo = pageMdx.frontmatter?.headerDemo
   const showSecondarySidebar = !pageMdx.frontmatter?.sidebars?.hideSecondary
 
@@ -126,11 +129,8 @@ export default async function MarkdownPage({ params }: Props) {
           </Tag>
         </div>
       ) : null}
-      {pageMdx.frontmatter?.tags ? (
-        <PageHeader.Tags
-          tags={pageMdx.frontmatter.tags}
-          isTemplate={markdownPath.includes('templates')}
-        />
+      {tags.length ? (
+        <PageHeader.Tags tags={tags} isTemplate={markdownPath.includes('templates')} />
       ) : null}
       {pageMdx.frontmatter.description ? (
         <PageHeader.Description

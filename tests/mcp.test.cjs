@@ -18,6 +18,7 @@ const { nextSteps, planEditor } = loadSite('../src/utils/planEditor.ts')
 const { INDUSTRIES } = loadSite('../src/content/industries.ts')
 const { sidebarConfig } = loadSite('../src/content/sidebar.ts')
 const { sidebarLabel } = loadSite('../src/components/SidebarRenderer.tsx')
+const { headerTags } = loadSite('../src/components/PageHeader.tsx')
 
 function loadSite(file) {
   return require(file)
@@ -200,6 +201,15 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   // Beta stays out of the sidebar
   assert.equal(sidebarLabel(['Beta', 'Start'])?.text, 'Start')
   assert.equal(sidebarLabel(['Beta']), undefined)
+})
+
+test('page headers show the plan and status a page inherits, unless it has its own', () => {
+  const page = getDocsIndex().find((entry) => entry.route === '/ai/ai-toolkit/agents/streaming')
+  const types = (tags) => tags.map((tag) => tag.type)
+  assert.deepEqual(types(headerTags([], page)), ['addon', 'alpha'])
+  // Its own tags win over the inherited ones
+  assert.deepEqual(types(headerTags([{ type: 'team' }, { type: 'beta' }], page)), ['team', 'beta'])
+  assert.deepEqual(types(headerTags(undefined, undefined)), [])
 })
 
 test('every documented feature names its npm package', () => {
