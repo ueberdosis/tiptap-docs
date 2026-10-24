@@ -1,9 +1,10 @@
 import { unified } from 'unified'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
-import { changelogMarkdown } from '../changelogEntries'
+import { changelogMarkdown, formatDay } from '../changelogEntries'
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
+import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
 import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
 
@@ -178,6 +179,13 @@ export const componentConverters: Record<string, ComponentConverter> = {
   a: (node) => componentConverters.Link(node),
 
   // The changelog page's generated sections
+  ChangelogHighlights: () =>
+    markdownNodes(
+      CHANGELOG_HIGHLIGHTS.map(
+        (highlight) =>
+          `- **${highlight.type}** · [${highlight.title}](${highlight.url}) (${highlight.feature} ${highlight.version}, ${formatDay(highlight.date)}): ${highlight.text}`,
+      ).join('\n'),
+    ),
   ChangelogReleases: () => markdownNodes(changelogMarkdown.releases()),
   ChangelogPackages: () => markdownNodes(changelogMarkdown.packages()),
 }

@@ -35,11 +35,17 @@ const TYPE_VARIANT: Record<ChangeKind, 'hint' | 'success' | 'gray'> = {
 }
 
 const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
-  <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-[0.9375rem] leading-[1.5]">
+  // The label column is as wide as its widest label; every label is at least as wide as "Fixed",
+  // so the text starts at the same place above and below the folded fixes
+  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 gap-y-2 text-[0.9375rem] leading-[1.5]">
     {changes.map((change, index) => (
       <Fragment key={index}>
         <div className="pt-px">
-          <Tag className="select-none" size="small" variant={TYPE_VARIANT[change.type]}>
+          <Tag
+            className="select-none inline-flex min-w-9 justify-center"
+            size="small"
+            variant={TYPE_VARIANT[change.type]}
+          >
             {change.type}
           </Tag>
         </div>
@@ -75,7 +81,7 @@ const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFix
       />
       <span
         aria-hidden="true"
-        className="absolute left-5 top-[calc(0.75rem-5px)] size-2.5 rounded-full border-2 border-grayAlpha-500 bg-warmGray"
+        className="absolute left-5 top-[calc(0.75rem-5px)] size-2.5 rounded-full border-[1.5px] border-grayAlpha-400 bg-warmGray"
       />
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-3">
         <h3 className="!m-0 !text-[1.0625rem] !leading-6 font-semibold text-black">
@@ -103,7 +109,7 @@ const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFix
       {notable.length ? <ChangeGrid changes={notable} /> : null}
       {fixes.length ? (
         <details className={notable.length ? 'mt-3' : undefined}>
-          <summary className="cursor-pointer text-sm text-grayAlpha-700 select-none">
+          <summary className="cursor-pointer text-sm text-grayAlpha-700 select-none outline-none focus-visible:text-black focus-visible:underline">
             {fixes.length} {fixes.length === 1 ? 'fix' : 'fixes'}
           </summary>
           <div className="mt-2">

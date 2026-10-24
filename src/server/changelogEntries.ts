@@ -272,12 +272,24 @@ let featureNames: Map<string, string> | undefined
  * "Comments", or its name in words, in sentence case, such as "Client AI Toolkit OpenAI".
  */
 export function packageDisplayName(packageName: string): string {
-  featureNames ??= new Map(
-    getCatalog().flatMap((feature) => {
+  if (!featureNames) {
+    // A package several features share, such as @tiptap/extensions, keeps its own name
+    // unless it is named after one of them
+    const byPackage = new Map<string, string[]>()
+    for (const feature of getCatalog()) {
       const main = mainPackage(feature)
-      return main && feature.url ? [[main, feature.name] as const] : []
-    }),
-  )
+      if (main && feature.url) byPackage.set(main, [...(byPackage.get(main) ?? []), feature.name])
+    }
+    featureNames = new Map()
+    for (const [main, names] of byPackage) {
+      const own = main
+        .split('/')
+        .pop()!
+        .replace(/^extension-/, '')
+      const named = names.find((name) => name.toLowerCase().replace(/\s+/g, '-') === own)
+      if (named || names.length === 1) featureNames.set(main, named ?? names[0])
+    }
+  }
   const known = featureNames.get(packageName) ?? PACKAGE_NAMES[packageName]
   if (known) return known
   return packageName

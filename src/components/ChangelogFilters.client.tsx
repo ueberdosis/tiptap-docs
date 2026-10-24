@@ -1,6 +1,6 @@
 'use client'
 
-import { SearchIcon, XIcon } from 'lucide-react'
+import { ArrowRightIcon, SearchIcon, XIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import Link from '@/components/Link'
 import { MultiSelect, useListParam } from '@/components/FilterControls.client'
@@ -153,22 +153,33 @@ export const ChangelogPackagesFiltered = ({ packages }: { packages: PackageHisto
           }
         />
       </div>
-      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1">
+      <div className="grid sm:grid-cols-2 gap-x-6">
         {visible.map((item) => (
           <Link
             key={item.packageName}
             href={item.href}
-            className="group flex items-baseline gap-2 py-1.5 border-b border-grayAlpha-100"
+            className="group flex items-center gap-3 py-2 border-b border-grayAlpha-100 no-underline"
           >
-            <span className="font-medium text-black group-hover:text-purple-600">{item.name}</span>
-            {item.source === 'Pro' ? (
-              <Tag className="self-center select-none" size="small" variant="info">
-                Pro
-              </Tag>
-            ) : null}
-            <code className="ml-auto truncate text-xs !bg-transparent !text-grayAlpha-500">
-              {item.packageName}
-            </code>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="font-medium text-black group-hover:text-purple-600">
+                  {item.name}
+                </span>
+                {item.source === 'Pro' ? (
+                  <Tag className="select-none" size="small" variant="info">
+                    Pro
+                  </Tag>
+                ) : null}
+              </span>
+              {/* The npm name, for readers who search by it */}
+              <span className="block truncate font-mono text-xs text-grayAlpha-500">
+                {item.packageName}
+              </span>
+            </span>
+            <ArrowRightIcon
+              className="size-4 flex-none text-grayAlpha-400 group-hover:text-black"
+              aria-hidden="true"
+            />
           </Link>
         ))}
       </div>

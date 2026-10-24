@@ -47,6 +47,7 @@ const CHANGELOG_PREFIX = '/resources/changelog/'
 function isAppRoute(route) {
   if (!route.startsWith(CHANGELOG_PREFIX)) return false
   const slug = route.slice(CHANGELOG_PREFIX.length)
+  if (slug === 'rss.xml') return true
   if (!slug || slug.includes('/')) return false
   // Without generated data, any slug counts; the build checks the real list.
   if (!fs.existsSync(CHANGELOG_INDEX)) return true

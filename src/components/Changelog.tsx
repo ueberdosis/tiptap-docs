@@ -1,4 +1,7 @@
 import Link from '@/components/Link'
+import { Card } from '@/components/ui/Card'
+import { Tag } from '@/components/ui/Tag'
+import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
 import {
   ChangelogPackagesFiltered,
   ChangelogReleasesFiltered,
@@ -46,6 +49,33 @@ async function toReleases(items: TimelineItem[], showFeature: boolean): Promise<
     })),
   )
 }
+
+const HIGHLIGHT_VARIANT = { New: 'success', Improved: 'gray', Breaking: 'hint' } as const
+
+/** The latest hand-written highlights, as cards that lead to the docs. */
+export const ChangelogHighlights = ({ limit = 4 }: { limit?: number }) => (
+  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
+    {CHANGELOG_HIGHLIGHTS.slice(0, limit).map((highlight) => (
+      <Card isClickable asChild key={`${highlight.feature}-${highlight.version}`}>
+        <Link href={highlight.url} className="flex flex-col">
+          <div className="flex items-center gap-2 mb-4 text-sm text-grayAlpha-600">
+            <Tag size="small" variant={HIGHLIGHT_VARIANT[highlight.type]}>
+              {highlight.type}
+            </Tag>
+            {formatDay(highlight.date)}
+          </div>
+          <div className="font-semibold text-black leading-[140%]">{highlight.title}</div>
+          <div className="mt-2 mb-4 text-sm leading-[140%] text-grayAlpha-600">
+            {highlight.text}
+          </div>
+          <div className="mt-auto pt-3 border-t border-grayAlpha-100 text-sm text-grayAlpha-600">
+            {highlight.feature} {highlight.version}
+          </div>
+        </Link>
+      </Card>
+    ))}
+  </div>
+)
 
 /** Every Tiptap release in one timeline, with filters. */
 export const ChangelogReleases = async () => (

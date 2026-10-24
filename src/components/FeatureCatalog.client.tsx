@@ -33,7 +33,8 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
       <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
       {entry.plan || entry.status ? (
         // Plan first, then status, as in the page header
-        <div className="mt-5 flex items-center flex-wrap gap-1">
+        // The labels sit at the bottom, whatever the length of the description
+        <div className="mt-auto pt-5 flex items-center flex-wrap gap-1">
           {entry.plan ? (
             <Tag variant={entry.plan === 'Open source' ? 'gray' : 'info'}>{entry.plan}</Tag>
           ) : null}
@@ -47,11 +48,17 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
 
   // A feature without docs yet has no page to link to
   if (!entry.url)
-    return <Card className="border border-dashed border-grayAlpha-300 shadow-none">{content}</Card>
+    return (
+      <Card className="flex flex-col border border-dashed border-grayAlpha-300 shadow-none">
+        {content}
+      </Card>
+    )
 
   return (
     <Card isClickable asChild>
-      <Link href={entry.url}>{content}</Link>
+      <Link href={entry.url} className="flex flex-col">
+        {content}
+      </Link>
     </Card>
   )
 }
