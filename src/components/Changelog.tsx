@@ -1,3 +1,4 @@
+import { RssIcon } from 'lucide-react'
 import Link from '@/components/Link'
 import { Card } from '@/components/ui/Card'
 import { Tag } from '@/components/ui/Tag'
@@ -17,6 +18,7 @@ import {
   historyUrl,
   mainPackage,
 } from '@/server/changelogEntries'
+import { groupFeeds } from '@/server/changelogFeed'
 import { renderMarkdown } from '@/server/renderMarkdown'
 
 // The changelog page and each package's history, generated from the package
@@ -92,6 +94,26 @@ export const ChangelogPackages = () => (
       source,
     }))}
   />
+)
+
+/** RSS feeds: everything, and one per feature group. */
+export const ChangelogFeeds = () => (
+  <ul className="!list-none !pl-0 flex flex-wrap gap-2">
+    {[
+      { id: 'all', title: 'All releases', href: '/resources/changelog/rss.xml' },
+      ...groupFeeds(),
+    ].map((feed) => (
+      <li key={feed.id} className="before:!hidden !m-0">
+        <Link
+          href={feed.href}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-neutral-300 bg-white text-sm no-underline hover:border-neutral-500"
+        >
+          <RssIcon className="size-3.5 text-orange-500" aria-hidden="true" />
+          {feed.title}
+        </Link>
+      </li>
+    ))}
+  </ul>
 )
 
 /** One package's history as a timeline, every change shown. */

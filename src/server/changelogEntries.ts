@@ -22,7 +22,7 @@ export type ChangelogEntry = {
   /** The change as Markdown. */
   text: string
   /** The feature the package belongs to, or the package's name. */
-  feature: { name: string; url?: string }
+  feature: { name: string; url?: string; group?: string }
 }
 
 const TYPES: Record<string, ChangeType> = {
@@ -109,11 +109,11 @@ let entries: ChangelogEntry[] | undefined
 export function getChangelogEntries(): ChangelogEntry[] {
   if (entries) return entries
 
-  const features = new Map<string, { name: string; url?: string }>()
+  const features = new Map<string, ChangelogEntry['feature']>()
   for (const entry of getCatalog()) {
     for (const packageName of entry.package?.split(/\s+/) ?? []) {
       if (!features.has(packageName))
-        features.set(packageName, { name: entry.name, url: entry.url })
+        features.set(packageName, { name: entry.name, url: entry.url, group: entry.group })
     }
   }
 

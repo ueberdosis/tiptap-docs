@@ -2,6 +2,7 @@ import { unified } from 'unified'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { changelogMarkdown, formatDay } from '../changelogEntries'
+import { groupFeeds } from '../changelogFeed'
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
 import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
@@ -188,6 +189,12 @@ export const componentConverters: Record<string, ComponentConverter> = {
     ),
   ChangelogReleases: () => markdownNodes(changelogMarkdown.releases()),
   ChangelogPackages: () => markdownNodes(changelogMarkdown.packages()),
+  ChangelogFeeds: () =>
+    markdownNodes(
+      [{ title: 'All releases', href: '/resources/changelog/rss.xml' }, ...groupFeeds()]
+        .map((feed) => `- [${feed.title}](${feed.href})`)
+        .join('\n'),
+    ),
 }
 
 /** Markdown text as nodes, so generated sections go through the same transform. */
