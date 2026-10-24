@@ -172,7 +172,7 @@ export const ChangelogPackagesFiltered = ({ packages }: { packages: PackageHisto
                 ) : null}
               </span>
               {/* The npm name, for readers who search by it */}
-              <span className="block truncate font-mono text-xs text-grayAlpha-500">
+              <span className="block truncate font-mono text-sm text-grayAlpha-500">
                 {item.packageName}
               </span>
             </span>

@@ -37,7 +37,7 @@ const TYPE_VARIANT: Record<ChangeKind, 'hint' | 'success' | 'gray'> = {
 const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
   // The label column is as wide as its widest label; every label is at least as wide as "Fixed",
   // so the text starts at the same place above and below the folded fixes
-  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 gap-y-2 text-[0.9375rem] leading-[1.5]">
+  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 text-[0.9375rem] leading-[1.5]">
     {changes.map((change, index) => (
       <Fragment key={index}>
         <div className="pt-px">
@@ -49,7 +49,7 @@ const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
             {change.type}
           </Tag>
         </div>
-        <div className="min-w-0 [&_p]:inline [&_p+p]:block [&_p+p]:mt-2 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:pl-5">
+        <div className="min-w-0 pt-0.5 [&_p]:inline [&_p+p]:block [&_p+p]:mt-2 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:pl-5">
           {change.feature ? (
             <strong className="mr-1 font-semibold">
               {change.feature.url ? (
@@ -73,15 +73,15 @@ const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFix
     : release.changes
   const fixes = foldFixes ? release.changes.filter((change) => change.type === 'Fixed') : []
   return (
-    <section id={release.id} className="relative pl-9 pb-10 last:pb-1 scroll-mt-28">
-      {/* The tick from the line, and the ring at its end */}
+    <section id={release.id} className="relative pl-8 pb-10 last:pb-1 scroll-mt-28">
+      {/* A 12px tick from the line, and an 8px ring centred on it */}
       <span
         aria-hidden="true"
-        className="absolute left-0 top-3 w-5 border-t border-grayAlpha-300"
+        className="absolute left-0 top-3 w-3 border-t border-grayAlpha-300"
       />
       <span
         aria-hidden="true"
-        className="absolute left-5 top-[calc(0.75rem-5px)] size-2.5 rounded-full border-[1.5px] border-grayAlpha-400 bg-warmGray"
+        className="absolute left-3 top-[8.5px] size-2 rounded-full border border-grayAlpha-400 bg-warmGray"
       />
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-3">
         <h3 className="!m-0 !text-[1.0625rem] !leading-6 font-semibold text-black">
