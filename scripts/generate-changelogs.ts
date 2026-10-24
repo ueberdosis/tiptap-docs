@@ -59,6 +59,8 @@ type ChangelogResult = {
   packageName: string
   slug: string
   content: string
+  /** The day each published version came out (YYYY-MM-DD), when the registry tells. */
+  dates?: Record<string, string>
 }
 
 type CacheEntry = {
@@ -255,25 +257,35 @@ async function fetchPackageInfo(
 }
 
 /**
- * The versions of a package its registry has published, or null when the
- * registry can't tell (a private registry without a token, or an error).
+ * The versions of a package its registry has published, with the day each came
+ * out, or null when the registry can't tell (a private registry without a token,
+ * or an error).
  */
-async function fetchPublishedVersions(
+async function fetchPublished(
   config: RepoConfig,
   packageName: string,
-): Promise<Set<string> | null> {
+): Promise<{ versions: Set<string>; dates: Record<string, string> } | null> {
   const isPrivateRegistry = config.registry !== 'https://registry.npmjs.org'
   if (isPrivateRegistry && !config.registryToken) return null
 
-  const headers: Record<string, string> = { Accept: 'application/vnd.npm.install-v1+json' }
+  const headers: Record<string, string> = {}
   if (config.registryToken) headers['Authorization'] = `Bearer ${config.registryToken}`
   const response = await fetch(`${config.registry}/${packageName.replace('/', '%2f')}`, { headers })
 
-  if (response.status === 404) return new Set()
+  if (response.status === 404) return { versions: new Set(), dates: {} }
   if (!response.ok) return null
 
-  const data = (await response.json()) as { versions?: Record<string, unknown> }
-  return new Set(Object.keys(data.versions ?? {}))
+  const data = (await response.json()) as {
+    versions?: Record<string, unknown>
+    time?: Record<string, string>
+  }
+  const versions = new Set(Object.keys(data.versions ?? {}))
+  const dates = Object.fromEntries(
+    Object.entries(data.time ?? {})
+      .filter(([version]) => versions.has(version))
+      .map(([version, time]) => [version, time.slice(0, 10)]),
+  )
+  return { versions, dates }
 }
 
 /** Drop the sections at the top of a changelog for versions that aren't published yet. */
@@ -397,7 +409,8 @@ async function discoverAndFetchPackages(
         )
 
         // The registry decides what is out; without one, a private package counts as held back
-        const published = await fetchPublishedVersions(config, packageName)
+        const registry = await fetchPublished(config, packageName)
+        const published = registry?.versions
         if (published ? published.size === 0 : isPrivate) {
           console.log(`${prefix} Skipped ${packageName} (not published yet)`)
           return null
@@ -419,6 +432,7 @@ async function discoverAndFetchPackages(
               result: {
                 ...cachedResult,
                 content: publish(normalizeChangelogContent(cachedResult.content)),
+                dates: registry?.dates,
               },
               cacheEntry: {
                 slug,
@@ -443,6 +457,7 @@ async function discoverAndFetchPackages(
             packageName,
             slug,
             content: publish(normalizeChangelogContent(content)),
+            dates: registry?.dates,
           } as ChangelogResult,
           cacheEntry: version
             ? ({
@@ -537,13 +552,6 @@ async function main() {
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 2))
   console.log(`Wrote ${indexPath}`)
 
-  const sidebarItems = allResults.map((r) => ({
-    href: `/resources/changelog/${r.slug}`,
-    title: r.packageName,
-  }))
-  const sidebarPath = path.join(OUTPUT_DIR, 'sidebar-items.json')
-  fs.writeFileSync(sidebarPath, JSON.stringify(sidebarItems, null, 2))
-  console.log(`Wrote ${sidebarPath}`)
   writeCacheManifest(nextCacheEntries)
 
   console.log(`Done! Generated changelog data for ${allResults.length} package(s).`)

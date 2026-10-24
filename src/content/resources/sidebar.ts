@@ -1,32 +1,4 @@
-import fs from 'fs'
-import path from 'path'
 import { SidebarConfig } from '@/types'
-
-function isSidebarItem(value: unknown): value is { href: string; title: string } {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  const item = value as Record<string, unknown>
-
-  return typeof item.href === 'string' && typeof item.title === 'string'
-}
-
-function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {
-  try {
-    const filePath = path.join(
-      process.cwd(),
-      'src/content/resources/changelog/_data/sidebar-items.json',
-    )
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-
-    return Array.isArray(data) ? data.filter(isSidebarItem) : []
-  } catch {
-    return []
-  }
-}
-
-const changelogChildren = loadChangelogSidebarItems()
 
 // The Resources part of the global sidebar (src/content/sidebar.ts)
 export const sidebarConfig: SidebarConfig = {
@@ -43,11 +15,8 @@ export const sidebarConfig: SidebarConfig = {
           href: '/resources/agent-skill',
           title: 'Agent skill',
         },
-        {
-          href: '/resources/changelog',
-          title: 'Editor changelog',
-          children: changelogChildren.length > 0 ? changelogChildren : undefined,
-        },
+        // One entry: the changelog page leads to each package's full history
+        { href: '/resources/changelog', title: 'Changelog' },
         {
           href: '/resources/incidents',
           title: 'Incidents',
