@@ -121,23 +121,42 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
-// The sidebar only shows a page's status: it changes how a reader should use the
-// page. The plan stays on the page and in the catalog, so a label always means
-// the same thing.
-const STATUS_ORDER = [
-  ['deprecated', 'legacy'],
-  ['alpha', 'beta', 'experimental'],
-  ['new', 'soon'],
-]
+// One label per entry, the one that matters most for whether to open it:
+// end of life first, then upcoming, then the plan, then new pages. Open source
+// stays unlabeled. Alpha and Beta change how you build on a page, not whether you
+// open it, so they show in the page header and the catalog instead.
+export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-life' }
 
-/** The status label an entry shows, the most important one if it has several. */
-export function sidebarLabel(tags: string[] | undefined, releaseTag?: string): string | undefined {
-  const rank = (tag: string) => STATUS_ORDER.findIndex((names) => names.includes(tag.toLowerCase()))
-  const [label] = [...(releaseTag ? [releaseTag] : []), ...(tags ?? [])]
-    .filter((tag) => rank(tag) !== -1)
-    .sort((a, b) => rank(a) - rank(b))
-  return label ? label.charAt(0).toUpperCase() + label.slice(1) : undefined
+const LABELS: Record<string, SidebarLabel & { rank: number }> = {
+  deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
+  legacy: { text: 'Legacy', kind: 'end-of-life', rank: 1 },
+  soon: { text: 'Soon', kind: 'status', rank: 2 },
+  start: { text: 'Start', kind: 'plan', rank: 3 },
+  team: { text: 'Team', kind: 'plan', rank: 3 },
+  business: { text: 'Business', kind: 'plan', rank: 3 },
+  'add-on': { text: 'Add-on', kind: 'plan', rank: 3 },
+  'pilot program': { text: 'Pilot', kind: 'plan', rank: 3 },
+  // Only where everything around is paid, such as Hocuspocus under Documents
+  'open source': { text: 'Open source', kind: 'status', rank: 3 },
+  new: { text: 'New', kind: 'status', rank: 4 },
 }
+
+/** The label an entry shows, the most important one if it has several. */
+export function sidebarLabel(tags: string[] | undefined): SidebarLabel | undefined {
+  const [label] = (tags ?? [])
+    .map((tag) => LABELS[tag.toLowerCase()])
+    .filter(Boolean)
+    .sort((a, b) => a.rank - b.rank)
+  return label ? { text: label.text, kind: label.kind } : undefined
+}
+
+const LABEL_VARIANT = { plan: 'info', status: 'gray', 'end-of-life': 'hint' } as const
+
+const LabelTag = ({ label, className }: { label: SidebarLabel; className?: string }) => (
+  <Tag className={cn('select-none', className)} variant={LABEL_VARIANT[label.kind]} size="small">
+    {label.text}
+  </Tag>
+)
 
 /** Shows the full title on hover, but only when it doesn't fit. */
 function showTitleIfCut(event: React.MouseEvent<HTMLElement>) {
@@ -201,7 +220,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(link.tags, link.releaseTag)
+  const label = sidebarLabel(link.tags)
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(
@@ -237,11 +256,7 @@ export const LinkItem = ({
           className="pl-5 text-left opacity-40 cursor-default pointer-events-none"
         >
           <span className="flex-grow min-w-0 truncate">{link.title}</span>
-          {label ? (
-            <Tag className="flex-none ml-2 select-none" variant="gray" size="small">
-              {label}
-            </Tag>
-          ) : null}
+          {label ? <LabelTag label={label} className="flex-none ml-2" /> : null}
         </Sidebar.Button>
       ) : (
         <Sidebar.Button
@@ -274,11 +289,7 @@ export const LinkItem = ({
             </span>
             <span className="flex-none flex gap-1 items-center ml-2">
               {link.external && <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />}
-              {label ? (
-                <Tag className="select-none" variant="gray" size="small">
-                  {label}
-                </Tag>
-              ) : null}
+              {label ? <LabelTag label={label} /> : null}
             </span>
           </Link>
         </Sidebar.Button>
@@ -317,11 +328,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
   }
 
   const label = sidebarLabel(group.tags)
-  const tags = label ? (
-    <Tag className="flex-none select-none" variant="gray" size="small">
-      {label}
-    </Tag>
-  ) : null
+  const tags = label ? <LabelTag label={label} className="flex-none" /> : null
 
   // Folded groups sit close together; an open group gets room below
   return (

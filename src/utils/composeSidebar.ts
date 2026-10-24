@@ -16,14 +16,13 @@ export function toEntries(items: SectionItem[]): SidebarEntry[] {
     if (isGroup(item)) {
       return { title: item.title, href: '', tags: item.tags, children: toEntries(item.children) }
     }
-    const { title, href, tags, releaseTag, external, disabled, isActive, children } = item
+    const { title, href, tags, external, disabled, isActive, children } = item
     // A parent that links to its own first child only folds open; the child carries the link
     const duplicatesChild = !!children?.length && children[0].href === href
     return {
       title,
       href: duplicatesChild ? '' : href,
       tags,
-      releaseTag,
       external,
       disabled,
       isActive,
