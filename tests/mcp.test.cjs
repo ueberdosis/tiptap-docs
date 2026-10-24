@@ -16,6 +16,8 @@ const { getCatalog } = loadSite('../src/server/getCatalog.ts')
 const { EDITOR_PRESETS } = loadSite('../src/content/presets.ts')
 const { nextSteps, planEditor } = loadSite('../src/utils/planEditor.ts')
 const { INDUSTRIES } = loadSite('../src/content/industries.ts')
+const { sidebarConfig } = loadSite('../src/content/sidebar.ts')
+const { sidebarLabel } = loadSite('../src/components/SidebarRenderer.tsx')
 
 function loadSite(file) {
   return require(file)
@@ -178,6 +180,26 @@ test('.md pages include the partials they import', async () => {
   const rest = await fileToMarkdown('src/content/conversion/export/docx/rest-api.mdx')
   assert.match(rest, /api-us\.tiptap\.dev/)
   assert.doesNotMatch(rest, /^import /m)
+})
+
+test('the sidebar labels paid features once, and mixed groups not at all', () => {
+  const find = (entries, path) => {
+    const [title, ...rest] = path
+    const entry = entries.find((candidate) => candidate.title === title)
+    return rest.length ? find(entry.children, rest) : entry
+  }
+  const features = sidebarConfig.items.find((group) => group.title === 'Features').children
+  const label = (path) => sidebarLabel(find(features, path).tags)?.text
+
+  assert.equal(label(['Review', 'Comments']), 'Start')
+  assert.equal(label(['Review']), undefined, 'Review mixes Start and Add-on')
+  assert.equal(label(['Composable Documents']), 'Pilot')
+  assert.equal(label(['Composable Documents', 'Slots']), undefined, 'repeats its feature')
+  assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
+  assert.equal(label(['AI', 'AI Legacy']), 'Deprecated')
+  // Beta stays out of the sidebar
+  assert.equal(sidebarLabel(['Beta', 'Start'])?.text, 'Start')
+  assert.equal(sidebarLabel(['Beta']), undefined)
 })
 
 test('every documented feature names its npm package', () => {

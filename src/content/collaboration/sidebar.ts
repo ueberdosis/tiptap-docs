@@ -71,7 +71,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Snapshots',
           href: '/collaboration/documents/snapshot',
-          tags: ['Start'],
         },
         {
           title: 'Compare Snapshots',
