@@ -6,6 +6,10 @@ type RepoConfig = {
   owner: string
   repo: string
   branch: string
+  /** Where the packages are published; only published versions go into the changelog. */
+  registry: string
+  /** Needed when the registry is private. Without it, `private` packages are left out. */
+  registryToken?: string
   slugPrefix: string
   packageScope: string
   packageDirs: string[]
@@ -17,6 +21,7 @@ const OSS_CONFIG: RepoConfig = {
   repo: 'tiptap',
   // Tiptap 3 releases ship from release/v3; main runs ahead of npm `latest`
   branch: 'release/v3',
+  registry: 'https://registry.npmjs.org',
   slugPrefix: '',
   packageScope: '@tiptap',
   packageDirs: ['packages'],
@@ -27,6 +32,8 @@ const PRO_CONFIG: RepoConfig = {
   repo: 'tiptap-pro',
   // Pro releases ship from main
   branch: 'main',
+  registry: 'https://registry.tiptap.dev',
+  registryToken: process.env.TIPTAP_PRO_TOKEN,
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
   packageDirs: ['packages'],
@@ -224,17 +231,60 @@ async function listDirectories(config: RepoConfig, dirPath: string): Promise<str
   return entries.filter((e) => e.type === 'dir').map((e) => e.name)
 }
 
-async function fetchPackageVersion(config: RepoConfig, filePath: string): Promise<string | null> {
+/**
+ * Read a package's version, and whether it is private. Changesets never publishes
+ * a private package, so a package that is held back has no public changelog yet.
+ */
+async function fetchPackageInfo(
+  config: RepoConfig,
+  filePath: string,
+): Promise<{ version: string | null; isPrivate: boolean }> {
   const url = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.branch}/${filePath}`
   const response = await fetch(url, { headers: getHeaders() })
 
   if (!response.ok) {
-    return null
+    return { version: null, isPrivate: false }
   }
 
-  const data = (await response.json()) as { version?: unknown }
+  const data = (await response.json()) as { version?: unknown; private?: unknown }
 
-  return typeof data.version === 'string' ? data.version : null
+  return {
+    version: typeof data.version === 'string' ? data.version : null,
+    isPrivate: data.private === true,
+  }
+}
+
+/**
+ * The versions of a package its registry has published, or null when the
+ * registry can't tell (a private registry without a token, or an error).
+ */
+async function fetchPublishedVersions(
+  config: RepoConfig,
+  packageName: string,
+): Promise<Set<string> | null> {
+  const isPrivateRegistry = config.registry !== 'https://registry.npmjs.org'
+  if (isPrivateRegistry && !config.registryToken) return null
+
+  const headers: Record<string, string> = { Accept: 'application/vnd.npm.install-v1+json' }
+  if (config.registryToken) headers['Authorization'] = `Bearer ${config.registryToken}`
+  const response = await fetch(`${config.registry}/${packageName.replace('/', '%2f')}`, { headers })
+
+  if (response.status === 404) return new Set()
+  if (!response.ok) return null
+
+  const data = (await response.json()) as { versions?: Record<string, unknown> }
+  return new Set(Object.keys(data.versions ?? {}))
+}
+
+/** Drop the sections at the top of a changelog for versions that aren't published yet. */
+function dropUnreleased(markdown: string, published: Set<string>): string {
+  const sections = markdown.split(/(?=^## )/m)
+  const isPublished = (section: string) => published.has(section.match(/^## (\S+)/)?.[1] ?? '')
+  const first = sections.findIndex(isPublished)
+  if (first === -1) return markdown
+  // Text before the first version heading stays
+  const preface = sections.filter((section, i) => i < first && !section.startsWith('## '))
+  return [...preface, ...sections.slice(first)].join('')
 }
 
 /**
@@ -341,7 +391,22 @@ async function discoverAndFetchPackages(
       const source = `${config.owner}/${config.repo}/${packageDir}/${dirName}`
 
       try {
-        const version = await fetchPackageVersion(config, `${packageDir}/${dirName}/package.json`)
+        const { version: packageVersion, isPrivate } = await fetchPackageInfo(
+          config,
+          `${packageDir}/${dirName}/package.json`,
+        )
+
+        // The registry decides what is out; without one, a private package counts as held back
+        const published = await fetchPublishedVersions(config, packageName)
+        if (published ? published.size === 0 : isPrivate) {
+          console.log(`${prefix} Skipped ${packageName} (not published yet)`)
+          return null
+        }
+        const publish = (markdown: string) =>
+          published ? dropUnreleased(markdown, published) : markdown
+        // A release without a version change on the branch still needs a new changelog
+        const version = packageVersion && `${packageVersion}+${published?.size ?? 'unknown'}`
+
         const cacheKey = `${source}:${slug}`
         const cachedEntry = cacheEntries.get(cacheKey)
 
@@ -353,7 +418,7 @@ async function discoverAndFetchPackages(
             return {
               result: {
                 ...cachedResult,
-                content: normalizeChangelogContent(cachedResult.content),
+                content: publish(normalizeChangelogContent(cachedResult.content)),
               },
               cacheEntry: {
                 slug,
@@ -377,7 +442,7 @@ async function discoverAndFetchPackages(
           result: {
             packageName,
             slug,
-            content: normalizeChangelogContent(content),
+            content: publish(normalizeChangelogContent(content)),
           } as ChangelogResult,
           cacheEntry: version
             ? ({
