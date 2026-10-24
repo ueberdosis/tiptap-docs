@@ -23,11 +23,14 @@ export type TimelineChange = {
 export type TimelineRelease = {
   id: string
   title: string
+  version?: string
   /** Already formatted, such as "Oct 13, 2026". */
   date?: string
   source?: 'Open source' | 'Pro'
   link?: { label: string; href: string }
   changes: TimelineChange[]
+  /** Fixes not listed here, counted and left to the release link. */
+  hiddenFixes?: number
 }
 
 const TYPE_VARIANT: Record<ChangeKind, 'hint' | 'success' | 'gray'> = {
@@ -138,6 +141,20 @@ const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFix
         ) : null}
       </div>
       {notable.length ? <ChangeGrid changes={notable} /> : null}
+      {release.hiddenFixes ? (
+        <p className={`${release.changes.length ? 'mt-3 ' : ''}text-sm text-grayAlpha-700`}>
+          {release.hiddenFixes} {release.hiddenFixes === 1 ? 'fix' : 'fixes'}
+          {release.link ? (
+            <>
+              {' '}
+              in the{' '}
+              <Link href={release.link.href} className="underline hover:text-purple-600">
+                release notes
+              </Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
       {fixes.length ? (
         <details className={notable.length ? 'mt-3' : undefined}>
           <summary className="cursor-pointer text-sm text-grayAlpha-700 select-none outline-none focus-visible:text-black focus-visible:underline">

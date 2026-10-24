@@ -7,6 +7,8 @@ import { MultiSelect, useListParam } from '@/components/FilterControls.client'
 import { ReleaseTimeline, TimelineRelease } from '@/components/ReleaseTimeline'
 import { Tag } from '@/components/ui/Tag'
 import { useUrlParam } from '@/hooks/useUrlParam'
+import { cn } from '@/utils'
+import { compareVersions } from '@/utils/compareVersions'
 
 // The changelog's releases and packages, with the filters the feature catalog has
 
@@ -62,16 +64,45 @@ const Count = ({ count, noun, onReset }: { count: number; noun: string; onReset?
   </div>
 )
 
-/** Releases, filterable by open source or Pro, change type, and text. */
-export const ChangelogReleasesFiltered = ({ releases }: { releases: TimelineRelease[] }) => {
+/**
+ * Releases, filterable by open source or Pro, change type, and text. "Upgrading
+ * from" lists every open source release after a version, back to the start of
+ * the current major version.
+ */
+export const ChangelogReleasesFiltered = ({
+  releases,
+  older,
+}: {
+  releases: TimelineRelease[]
+  older: TimelineRelease[]
+}) => {
   const [query, setQuery] = useUrlParam('search', '')
   const [sources, setSources] = useListParam('source')
   const [types, setTypes] = useListParam('type')
-  const isFiltered = !!query || sources.length + types.length > 0
+  const [from, setFrom] = useUrlParam('from', '')
+  const isFiltered = !!query || !!from || sources.length + types.length > 0
+
+  // Every open source version a reader may upgrade from, newest first
+  const versions = useMemo(
+    () =>
+      [...releases, ...older]
+        .filter((release) => release.source === 'Open source' && release.version)
+        .map((release) => release.version!)
+        .sort(compareVersions),
+    [releases, older],
+  )
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return releases
+    const base = from
+      ? [...releases, ...older].filter(
+          (release) =>
+            release.source === 'Open source' &&
+            !!release.version &&
+            compareVersions(release.version, from) < 0,
+        )
+      : releases
+    return base
       .filter((release) => sources.length === 0 || sources.includes(release.source ?? ''))
       .map((release) => ({
         ...release,
@@ -84,13 +115,17 @@ export const ChangelogReleasesFiltered = ({ releases }: { releases: TimelineRele
               release.title.toLowerCase().includes(needle)),
         ),
       }))
-      .filter((release) => release.changes.length > 0)
-  }, [releases, query, sources, types])
+      .filter(
+        (release) =>
+          release.changes.length > 0 || (!!release.hiddenFixes && !needle && types.length === 0),
+      )
+  }, [releases, older, query, sources, types, from])
 
   const reset = () => {
     setQuery('')
     setSources([])
     setTypes([])
+    setFrom('')
   }
 
   return (
@@ -99,8 +134,36 @@ export const ChangelogReleasesFiltered = ({ releases }: { releases: TimelineRele
         <SearchField value={query} onChange={setQuery} label="Search changes" />
         <MultiSelect label="Source" options={SOURCES} values={sources} onChange={setSources} />
         <MultiSelect label="Type" options={TYPES} values={types} onChange={setTypes} />
+        <label
+          className={cn(
+            'inline-flex items-center gap-1.5 h-9 pl-3 pr-2 rounded-lg border text-sm whitespace-nowrap',
+            from
+              ? 'border-purple-500 bg-purple-50 text-purple-700'
+              : 'border-neutral-300 bg-white text-black hover:border-neutral-500',
+          )}
+        >
+          <span className={from ? 'font-semibold' : undefined}>Upgrading from</span>
+          <select
+            className="bg-transparent outline-none cursor-pointer"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+          >
+            <option value="">any version</option>
+            {versions.map((version) => (
+              <option key={version} value={version}>
+                {version}
+              </option>
+            ))}
+          </select>
+        </label>
         <Count count={visible.length} noun="release" onReset={isFiltered ? reset : undefined} />
       </div>
+      {from ? (
+        <p className="-mt-4 text-sm text-grayAlpha-700">
+          Open source releases after {from}. Older releases list new and breaking changes; their
+          fixes are in the release notes.
+        </p>
+      ) : null}
       {visible.length ? (
         // A search or a type filter shows the fixes it found instead of folding them
         <ReleaseTimeline releases={visible} foldFixes={!query && !types.includes('Fixed')} />

@@ -1,5 +1,6 @@
 import { getChangelogData, getChangelogIndex } from './getChangelogData'
 import { getCatalog } from './getCatalog'
+import { compareVersions } from '@/utils/compareVersions'
 import { BREAKING_NOTES, BreakingNote } from '@/content/resources/changelog-breaking'
 
 // The package changelogs as single entries: one change of one package in one
@@ -74,23 +75,7 @@ export function parseChangelog(
   return entries
 }
 
-/** Compares versions such as `3.31.4` and `3.0.0-beta.2`, newest first. */
-export function compareVersions(a: string, b: string): number {
-  const parse = (version: string) => {
-    const [main, pre] = version.split('-')
-    return { parts: main.split('.').map(Number), pre }
-  }
-  const left = parse(a)
-  const right = parse(b)
-  for (let i = 0; i < 3; i++) {
-    const diff = (right.parts[i] ?? 0) - (left.parts[i] ?? 0)
-    if (diff) return diff
-  }
-  if (left.pre === right.pre) return 0
-  if (!left.pre) return -1
-  if (!right.pre) return 1
-  return right.pre.localeCompare(left.pre, undefined, { numeric: true })
-}
+export { compareVersions }
 
 const isPrerelease = (version: string) => version.includes('-')
 
@@ -332,7 +317,22 @@ export type TimelineItem = {
   source: Source
   link?: { label: string; href: string }
   entries: ChangelogEntry[]
+  /** Fixes left out of `entries`, for older releases that list only new and breaking changes. */
+  fixCount?: number
 }
+
+const openSourceItem = (release: Release): TimelineItem => ({
+  id: `v${release.version}`,
+  title: `Tiptap ${release.version}`,
+  version: release.version,
+  date: release.date,
+  source: 'Open source',
+  link: {
+    label: 'Release on GitHub',
+    href: `https://github.com/ueberdosis/tiptap/releases/tag/v${release.version}`,
+  },
+  entries: release.entries,
+})
 
 /**
  * Every Tiptap release in one timeline, newest first: the latest open source
@@ -340,18 +340,7 @@ export type TimelineItem = {
  * day come last.
  */
 export function getReleaseTimeline(openSourceReleases = 6): TimelineItem[] {
-  const openSource: TimelineItem[] = getOpenSourceReleases(openSourceReleases).map((release) => ({
-    id: `v${release.version}`,
-    title: `Tiptap ${release.version}`,
-    version: release.version,
-    date: release.date,
-    source: 'Open source',
-    link: {
-      label: 'Release on GitHub',
-      href: `https://github.com/ueberdosis/tiptap/releases/tag/v${release.version}`,
-    },
-    entries: release.entries,
-  }))
+  const openSource = getOpenSourceReleases(openSourceReleases).map(openSourceItem)
   const pro: TimelineItem[] = getProUpdates().map((update) => ({
     id: `${update.entries[0].slug}-${update.version}`,
     title: `${update.feature.name} ${update.version}`,
@@ -362,6 +351,27 @@ export function getReleaseTimeline(openSourceReleases = 6): TimelineItem[] {
     entries: update.entries,
   }))
   return [...openSource, ...pro].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+}
+
+/**
+ * The open source releases of the current major version before the latest
+ * ones, for readers who upgrade from an older version. They list only new and
+ * breaking changes, and count the fixes.
+ */
+export function getOlderOpenSourceReleases(skip = 6): TimelineItem[] {
+  const releases = getOpenSourceReleases(Number.MAX_SAFE_INTEGER)
+  const major = releases[0]?.version.split('.')[0]
+  return releases
+    .filter((release) => release.version.split('.')[0] === major)
+    .slice(skip)
+    .map((release) => {
+      const notable = release.entries.filter((entry) => entry.type !== 'Fixed')
+      return {
+        ...openSourceItem(release),
+        entries: notable,
+        fixCount: release.entries.length - notable.length,
+      }
+    })
 }
 
 /**

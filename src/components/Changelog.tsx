@@ -12,6 +12,7 @@ import {
   TimelineItem,
   formatDay,
   getLatestVersion,
+  getOlderOpenSourceReleases,
   getPackageHistories,
   getPackageTimeline,
   getReleaseTimeline,
@@ -19,7 +20,7 @@ import {
   mainPackage,
 } from '@/server/changelogEntries'
 import { groupFeeds } from '@/server/changelogFeed'
-import { renderMarkdown } from '@/server/renderMarkdown'
+import { renderChangelogMarkdown } from '@/server/renderChangelogMarkdown'
 
 // The changelog page and each package's history, generated from the package
 // changelogs. The server renders each change's Markdown; the timeline and the
@@ -28,35 +29,33 @@ import { renderMarkdown } from '@/server/renderMarkdown'
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
 
 /** Timeline items as the timeline shows them, with each change rendered to HTML. */
-async function toReleases(items: TimelineItem[], showFeature: boolean): Promise<TimelineRelease[]> {
-  return Promise.all(
-    items.map(async (item) => ({
-      id: item.id,
-      title: item.title,
-      date: item.date ? formatDay(item.date) : undefined,
-      source: showFeature ? item.source : undefined,
-      link: item.link,
-      changes: await Promise.all(
-        item.entries.map(async (entry) => {
-          const html = await renderMarkdown(entry.text)
-          const breaking = entry.breaking && {
-            what: await renderMarkdown(entry.breaking.what),
-            who: await renderMarkdown(entry.breaking.who),
-            migrate: await renderMarkdown(entry.breaking.migrate),
-            url: entry.breaking.url,
-          }
-          return {
-            breaking,
-            type: entry.type,
-            // A Pro release is one feature already, so its changes don't repeat it
-            feature: showFeature && item.source === 'Open source' ? entry.feature : undefined,
-            html,
-            text: stripHtml(html),
-          }
-        }),
-      ),
-    })),
-  )
+function toReleases(items: TimelineItem[], showFeature: boolean): TimelineRelease[] {
+  return items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    version: item.version,
+    hiddenFixes: item.fixCount,
+    date: item.date ? formatDay(item.date) : undefined,
+    source: showFeature ? item.source : undefined,
+    link: item.link,
+    changes: item.entries.map((entry) => {
+      const html = renderChangelogMarkdown(entry.text)
+      const breaking = entry.breaking && {
+        what: renderChangelogMarkdown(entry.breaking.what),
+        who: renderChangelogMarkdown(entry.breaking.who),
+        migrate: renderChangelogMarkdown(entry.breaking.migrate),
+        url: entry.breaking.url,
+      }
+      return {
+        breaking,
+        type: entry.type,
+        // A Pro release is one feature already, so its changes don't repeat it
+        feature: showFeature && item.source === 'Open source' ? entry.feature : undefined,
+        html,
+        text: stripHtml(html),
+      }
+    }),
+  }))
 }
 
 const HIGHLIGHT_VARIANT = { New: 'success', Improved: 'gray', Breaking: 'hint' } as const
@@ -87,8 +86,11 @@ export const ChangelogHighlights = ({ limit = 4 }: { limit?: number }) => (
 )
 
 /** Every Tiptap release in one timeline, with filters. */
-export const ChangelogReleases = async () => (
-  <ChangelogReleasesFiltered releases={await toReleases(getReleaseTimeline(), true)} />
+export const ChangelogReleases = () => (
+  <ChangelogReleasesFiltered
+    releases={toReleases(getReleaseTimeline(), true)}
+    older={toReleases(getOlderOpenSourceReleases(), true)}
+  />
 )
 
 /** Every package's history, by name, with filters. */
@@ -124,12 +126,12 @@ export const ChangelogFeeds = () => (
 )
 
 /** One package's history as a timeline, every change shown. */
-export const PackageTimeline = async ({ slug }: { slug: string }) => {
+export const PackageTimeline = ({ slug }: { slug: string }) => {
   const timeline = getPackageTimeline(slug)
   if (!timeline) return null
   return (
     <>
-      <ReleaseTimeline releases={await toReleases(timeline.items, false)} foldFixes={false} />
+      <ReleaseTimeline releases={toReleases(timeline.items, false)} foldFixes={false} />
       {timeline.quietVersions ? (
         <p className="mt-8 text-sm text-grayAlpha-600">
           {timeline.quietVersions} more {timeline.quietVersions === 1 ? 'version' : 'versions'} only
