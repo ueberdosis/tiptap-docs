@@ -4,6 +4,7 @@ import Link from '@/components/Link'
 import {
   ChangeType,
   ChangelogEntry,
+  formatDay,
   getOpenSourceReleases,
   getPackageHistories,
   getLatestVersion,
@@ -20,16 +21,6 @@ const TYPE_VARIANT: Record<ChangeType, 'hint' | 'success' | 'gray'> = {
   Breaking: 'hint',
   New: 'success',
   Fixed: 'gray',
-}
-
-/** "2026-10-13" → "Oct 13, 2026". */
-export function formatDay(day: string): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
 }
 
 async function Entry({

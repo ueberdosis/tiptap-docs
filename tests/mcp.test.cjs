@@ -21,6 +21,9 @@ const { sidebarConfig } = loadSite('../src/content/sidebar.ts')
 const { sidebarLabel } = loadSite('../src/components/SidebarRenderer.tsx')
 const { headerTags } = loadSite('../src/components/PageHeader.tsx')
 const { isNew, NEW_FOR_DAYS } = loadSite('../src/utils/isNew.ts')
+const { compareVersions, mainPackage, parseChangelog } = loadSite(
+  '../src/server/changelogEntries.ts',
+)
 
 function loadSite(file) {
   return require(file)
@@ -240,6 +243,56 @@ test('"New" carries the day a page went live, and goes away after 90 days', () =
     if (tag && !isNew(tag.since)) stale.push(`${page.route}: New without a recent since date`)
   }
   assert.deepEqual(stale, [])
+})
+
+test('changelogs split into changes, without dependency and license noise', () => {
+  const changes = parseChangelog(
+    [
+      '## 3.32.0',
+      '',
+      '### Minor Changes',
+      '',
+      '- Add the `schemaSpec` option.',
+      '  It takes a schema.',
+      '',
+      '### Patch Changes',
+      '',
+      '- Fix list toggling.',
+      '- Updated dependencies',
+      '  - @tiptap/pm@3.32.0',
+      '- @tiptap/core@3.32.0',
+      '- License updates',
+      '',
+      '## 3.31.4',
+      '',
+      '### Major Changes',
+      '',
+      '- Drop Node 18.',
+    ].join('\n'),
+  )
+  assert.deepEqual(
+    changes.map(({ version, type, text }) => [version, type, text]),
+    [
+      ['3.32.0', 'New', 'Add the `schemaSpec` option.\nIt takes a schema.'],
+      ['3.32.0', 'Fixed', 'Fix list toggling.'],
+      ['3.31.4', 'Breaking', 'Drop Node 18.'],
+    ],
+  )
+  assert.deepEqual(['3.0.0-beta.2', '3.31.4', '3.32.0', '3.0.0', '3.10.0'].sort(compareVersions), [
+    '3.32.0',
+    '3.31.4',
+    '3.10.0',
+    '3.0.0',
+    '3.0.0-beta.2',
+  ])
+  // A feature's history is the package it is named after, not the first one it installs
+  assert.equal(
+    mainPackage({
+      name: 'Pages',
+      package: '@tiptap-pro/extension-convert-kit @tiptap-pro/extension-pages',
+    }),
+    '@tiptap-pro/extension-pages',
+  )
 })
 
 test('every documented feature names its npm package', () => {

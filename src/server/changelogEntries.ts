@@ -100,6 +100,7 @@ const PACKAGE_NAMES: Record<string, string> = {
   '@tiptap/vue-3': 'Vue 3',
   '@tiptap/html': 'HTML utility',
   '@tiptap/static-renderer': 'Static renderer',
+  '@tiptap/markdown': 'Markdown',
 }
 
 let entries: ChangelogEntry[] | undefined
@@ -223,4 +224,51 @@ export function getProUpdates(): Array<Release & { feature: ChangelogEntry['feat
 /** Every package with a history page, by name. */
 export function getPackageHistories(): Array<{ packageName: string; slug: string }> {
   return [...getChangelogIndex()].sort((a, b) => a.packageName.localeCompare(b.packageName))
+}
+
+/** "2026-10-13" → "Oct 13, 2026". */
+export function formatDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+const dayLabel = (day?: string) => (day ? ` (${formatDay(day)})` : '')
+
+function entryLine(entry: ChangelogEntry, showFeature = true): string {
+  const feature = entry.feature.url
+    ? `[${entry.feature.name}](${entry.feature.url})`
+    : entry.feature.name
+  // Continuation lines stay inside the list item
+  const text = entry.text.replace(/\n/g, '\n  ')
+  return `- **${entry.type}**${showFeature ? ` · ${feature}` : ''}: ${text}`
+}
+
+/** The changelog page's sections as Markdown, for the `.md` route and agents. */
+export const changelogMarkdown = {
+  releases: (limit = 6) =>
+    getOpenSourceReleases(limit)
+      .map((release) =>
+        [
+          `### Tiptap ${release.version}${dayLabel(release.date)}`,
+          ...release.entries.map((entry) => entryLine(entry)),
+        ].join('\n'),
+      )
+      .join('\n\n'),
+  pro: () =>
+    getProUpdates()
+      .map((update) =>
+        [
+          `### [${update.feature.name}](${update.feature.url}) ${update.version}${dayLabel(update.date)}`,
+          ...update.entries.map((entry) => entryLine(entry, false)),
+        ].join('\n'),
+      )
+      .join('\n\n'),
+  packages: () =>
+    getPackageHistories()
+      .map(({ packageName, slug }) => `- [\`${packageName}\`](${historyUrl(slug)})`)
+      .join('\n'),
 }

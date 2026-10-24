@@ -1,3 +1,7 @@
+import { unified } from 'unified'
+import remarkGfm from 'remark-gfm'
+import remarkParse from 'remark-parse'
+import { changelogMarkdown } from '../changelogEntries'
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
 import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
@@ -172,6 +176,16 @@ export const componentConverters: Record<string, ComponentConverter> = {
 
   // <a href="…">text</a> in MDX → a markdown link, like Link.
   a: (node) => componentConverters.Link(node),
+
+  // The changelog page's generated sections
+  ChangelogReleases: () => markdownNodes(changelogMarkdown.releases()),
+  ChangelogProUpdates: () => markdownNodes(changelogMarkdown.pro()),
+  ChangelogPackages: () => markdownNodes(changelogMarkdown.packages()),
+}
+
+/** Markdown text as nodes, so generated sections go through the same transform. */
+function markdownNodes(markdown: string): MdxNode[] {
+  return unified().use(remarkParse).use(remarkGfm).parse(markdown).children as MdxNode[]
 }
 
 /** The features of a catalog group as a list, with plan and status. */

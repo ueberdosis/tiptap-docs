@@ -2,8 +2,10 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
 import frontMatter from 'front-matter'
+import { formatDay, getLatestVersion, historyUrl, mainPackage } from '../changelogEntries'
 import { cleanDescription, findDocsPage } from '../getDocsIndex'
 import { transformMdxToMarkdown } from './transformMdx'
+import { FULL_DOMAIN } from '@/utils/constants'
 
 type Frontmatter = {
   title?: string
@@ -11,6 +13,7 @@ type Frontmatter = {
   intro?: string
   meta?: { title?: string; description?: string }
   headerDemo?: { path?: string; isPro?: boolean; src?: string; caption?: string }
+  extension?: { name: string; package?: string }
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -138,6 +141,16 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
   const lead = attributes.intro ? cleanDescription(attributes.intro) : description
   if (lead) parts.push(lead)
   parts.push(transformed)
+
+  // A feature page ends with its latest version, as on the page
+  const main = attributes.extension && mainPackage(attributes.extension)
+  const latest = main ? getLatestVersion(main) : undefined
+  if (latest) {
+    const version = latest.date
+      ? `Latest version ${latest.version} (${formatDay(latest.date)}). `
+      : ''
+    parts.push(`${version}[What changed](${FULL_DOMAIN}${historyUrl(latest.slug)}.md)`)
+  }
 
   return `${parts.join('\n\n').trim()}\n`
 }
