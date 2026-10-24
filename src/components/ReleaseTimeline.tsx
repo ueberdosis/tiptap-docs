@@ -16,6 +16,8 @@ export type TimelineChange = {
   html: string
   /** Plain text to search in. */
   text: string
+  /** For a breaking change: what changes, who is affected, how to migrate, as HTML. */
+  breaking?: { what: string; who: string; migrate: string; url?: string }
 }
 
 export type TimelineRelease = {
@@ -33,6 +35,34 @@ const TYPE_VARIANT: Record<ChangeKind, 'hint' | 'success' | 'gray'> = {
   New: 'success',
   Fixed: 'gray',
 }
+
+/** What a breaking change means for you, in the same three steps every time. */
+const BreakingNote = ({ note }: { note: NonNullable<TimelineChange['breaking']> }) => (
+  <div className="mt-2 p-3 rounded-lg border border-yellow-300 bg-yellow-50 text-sm">
+    <dl className="grid sm:grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 [&_p]:inline">
+      {(
+        [
+          ['What changes', note.what],
+          ['Who is affected', note.who],
+          ['How to migrate', note.migrate],
+        ] as const
+      ).map(([term, html]) => (
+        <Fragment key={term}>
+          <dt className="font-semibold text-black">{term}</dt>
+          <dd className="m-0" dangerouslySetInnerHTML={{ __html: html }} />
+        </Fragment>
+      ))}
+    </dl>
+    {note.url ? (
+      <Link
+        href={note.url}
+        className="inline-block mt-2 font-medium underline hover:text-purple-600"
+      >
+        Details
+      </Link>
+    ) : null}
+  </div>
+)
 
 const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
   // The label column is as wide as its widest label; every label is at least as wide as "Fixed",
@@ -61,6 +91,7 @@ const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
             </strong>
           ) : null}
           <span dangerouslySetInnerHTML={{ __html: change.html }} />
+          {change.breaking ? <BreakingNote note={change.breaking} /> : null}
         </div>
       </Fragment>
     ))}

@@ -1,5 +1,6 @@
 import { getChangelogData, getChangelogIndex } from './getChangelogData'
 import { getCatalog } from './getCatalog'
+import { BREAKING_NOTES, BreakingNote } from '@/content/resources/changelog-breaking'
 
 // The package changelogs as single entries: one change of one package in one
 // version, without the "Updated dependencies" noise. The changelog page and the
@@ -21,6 +22,8 @@ export type ChangelogEntry = {
   type: ChangeType
   /** The change as Markdown. */
   text: string
+  /** For a breaking change: what changes, who is affected, how to migrate. */
+  breaking?: Omit<BreakingNote, 'match'>
   /** The feature the package belongs to, or the package's name. */
   feature: { name: string; url?: string; group?: string }
 }
@@ -62,8 +65,8 @@ export function parseChangelog(
     } else if (line.startsWith('- ')) {
       flush()
       item.push(line.slice(2))
-    } else if (item.length) {
-      // A wrapped line or a nested list belongs to the change above
+    } else if (item.length && !/^\s+- @[\w-]+\/[\w-]+@\S+\s*$/.test(line)) {
+      // A wrapped line or a nested list belongs to the change above, except a dependency bump
       item.push(line.replace(/^ {2}/, ''))
     }
   }
@@ -103,6 +106,22 @@ const PACKAGE_NAMES: Record<string, string> = {
   '@tiptap/markdown': 'Markdown',
 }
 
+/** The hand-written note for a breaking change, if there is one. */
+function breakingNote(
+  packageName: string,
+  version: string,
+  text: string,
+): Omit<BreakingNote, 'match'> | undefined {
+  const note = BREAKING_NOTES.find(({ match }) => {
+    const packages = match.packages
+    const inPackages = Array.isArray(packages)
+      ? packages.includes(packageName)
+      : packageName.startsWith(packages.scope)
+    return inPackages && match.version === version && text.startsWith(match.startsWith)
+  })
+  return note && { what: note.what, who: note.who, migrate: note.migrate, url: note.url }
+}
+
 let entries: ChangelogEntry[] | undefined
 
 /** Every change of every published package, newest version first. */
@@ -130,6 +149,7 @@ export function getChangelogEntries(): ChangelogEntry[] {
         packageName: data.packageName,
         slug,
         date: data.dates?.[change.version],
+        breaking: breakingNote(data.packageName, change.version, change.text),
         feature: features.get(data.packageName) ?? {
           name: PACKAGE_NAMES[data.packageName] ?? data.packageName,
         },
@@ -362,6 +382,7 @@ export function getPackageTimeline(slug: string) {
         packageName: data.packageName,
         slug,
         date: data.dates?.[version],
+        breaking: breakingNote(data.packageName, version, change.text),
         feature: { name: packageDisplayName(data.packageName) },
       }))
     if (entries.length) {
@@ -401,7 +422,10 @@ function entryLine(entry: ChangelogEntry, showFeature = true): string {
     : entry.feature.name
   // Continuation lines stay inside the list item
   const text = entry.text.replace(/\n/g, '\n  ')
-  return `- **${entry.type}**${showFeature ? ` · ${feature}` : ''}: ${text}`
+  const note = entry.breaking
+    ? `\n  - What changes: ${entry.breaking.what}\n  - Who is affected: ${entry.breaking.who}\n  - How to migrate: ${entry.breaking.migrate}${entry.breaking.url ? ` [Details](${entry.breaking.url})` : ''}`
+    : ''
+  return `- **${entry.type}**${showFeature ? ` · ${feature}` : ''}: ${text}${note}`
 }
 
 /** The changelog page's sections as Markdown, for the `.md` route and agents. */

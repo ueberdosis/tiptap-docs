@@ -103,6 +103,15 @@ The catalog at `/editor/extensions/overview` lists every page whose frontmatter 
 - **The sidebar shows one label per entry**, in this order: Deprecated, Legacy, Soon, the plan (Start, Team, Add-on, Pilot), New. Open source stays unlabeled, and so does a group whose features need different plans. Alpha and Beta show in the page header and the catalog, not in the sidebar.
 - **"New" carries a date and expires after 90 days.** In frontmatter, `- type: new` with `since: '2026-10-01'`; in a sidebar, `newSince: '2026-10-01'` on the entry. Put it on new pages inside a feature readers know, not on a new feature: that one shows its plan. `pnpm test:structure` fails on an undated or expired "New".
 
+### Changelog
+
+The changelog at `/resources/changelog` and each package's history are generated from the packages' `CHANGELOG.md` files (`pnpm generate:changelogs`). Two things are written by hand:
+
+- **Highlights** in `src/content/resources/changelog-highlights.ts`: a card for a new feature or a change readers should know about, with a title that says what they can do now and a link to the docs. About one or two a month.
+- **Breaking notes** in `src/content/resources/changelog-breaking.ts`: for every breaking change that asks readers to change their code, what changes, who is affected, and how to migrate. The changelog shows the note under the change it matches.
+
+Each feature group has an RSS feed at `/resources/changelog/rss/<group>.xml`, next to `/resources/changelog/rss.xml` for everything.
+
 ## Tests
 
 - `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, that sidebars and internal links point at real pages, and that `llms.txt` and the docs MCP server (`/api/mcp`) answer as expected. It runs on every pull request.

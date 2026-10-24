@@ -39,7 +39,14 @@ async function toReleases(items: TimelineItem[], showFeature: boolean): Promise<
       changes: await Promise.all(
         item.entries.map(async (entry) => {
           const html = await renderMarkdown(entry.text)
+          const breaking = entry.breaking && {
+            what: await renderMarkdown(entry.breaking.what),
+            who: await renderMarkdown(entry.breaking.who),
+            migrate: await renderMarkdown(entry.breaking.migrate),
+            url: entry.breaking.url,
+          }
           return {
+            breaking,
             type: entry.type,
             // A Pro release is one feature already, so its changes don't repeat it
             feature: showFeature && item.source === 'Open source' ? entry.feature : undefined,
