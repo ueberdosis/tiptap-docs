@@ -17,6 +17,7 @@ import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { AskAi } from '@/components/AskAi'
 import { DemoViewer } from '@/components/DemoViewer'
+import { LatestVersion } from '@/components/Changelog'
 
 type Props = {
   params: Promise<{
@@ -160,6 +161,12 @@ export default async function MarkdownPage({ params }: Props) {
   const content = (
     <>
       <div className="mdx-content">{pageMdx.default()}</div>
+      {pageMdx.frontmatter?.extension?.package ? (
+        <LatestVersion
+          name={pageMdx.frontmatter.extension.name}
+          packages={pageMdx.frontmatter.extension.package}
+        />
+      ) : null}
       <PrevNextTiles
         config={sidebar.sidebarConfig}
         currentPath={`/${markdownPath.join('/')}`}

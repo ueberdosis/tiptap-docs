@@ -6,8 +6,10 @@ import {
   ChangelogEntry,
   getOpenSourceReleases,
   getPackageHistories,
+  getLatestVersion,
   getProUpdates,
   historyUrl,
+  mainPackage,
 } from '@/server/changelogEntries'
 import { renderMarkdown } from '@/server/renderMarkdown'
 
@@ -140,3 +142,26 @@ export const ChangelogPackages = () => (
     ))}
   </ul>
 )
+
+/**
+ * One line at the end of a feature page: its latest version and where to see
+ * what changed. The version shows only when the registry confirmed it, so an
+ * unreleased version on the branch never appears.
+ */
+export const LatestVersion = ({ name, packages }: { name: string; packages?: string }) => {
+  const main = mainPackage({ name, package: packages })
+  const latest = main ? getLatestVersion(main) : undefined
+  if (!latest) return null
+  return (
+    <p className="mt-12 pt-6 border-t border-grayAlpha-200 text-sm text-grayAlpha-600">
+      {latest.date ? (
+        <>
+          Latest version {latest.version} · {formatDay(latest.date)} ·{' '}
+        </>
+      ) : null}
+      <Link href={historyUrl(latest.slug)} className="underline hover:text-purple-600">
+        What changed
+      </Link>
+    </p>
+  )
+}
