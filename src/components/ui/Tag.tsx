@@ -42,7 +42,7 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
       variant === 'neutral' ? 'text-grayAlpha-800 bg-white border-grayAlpha-200' : '',
       variant === 'gray' ? 'bg-grayAlpha-100 border-grayAlpha-100 text-grayAlpha-600' : '',
       variant === 'invert' ? 'text-whiteAlpha-900 bg-grayAlpha-800 border-grayAlpha-800' : '',
-      variant === 'success' ? 'text-green-900 bg-green-100 border-[#0BDA81]' : '',
+      variant === 'success' ? 'text-[#05603a] bg-green-100 border-[#0BDA81]' : '',
       variant === 'info' ? 'text-purpleAlpha-800 bg-purpleAlpha-50 border-purpleAlpha-500' : '',
       variant === 'hint' ? 'text-yellow-900 bg-yellow-100 border-yellow-500' : '',
       variant === 'warning' ? 'text-red-900 bg-red-100 border-red-500' : '',
