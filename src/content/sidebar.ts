@@ -181,6 +181,15 @@ export const sidebarConfig: SidebarConfig = {
           href: '/composable-docs',
         },
         {
+          title: 'Whiteboard',
+          href: '',
+          tags: planTags('/editor/whiteboard/getting-started/overview'),
+          // The AI agent guide has its place in the AI Toolkit
+          children: childrenOf(editorSidebar, ['Whiteboard']).filter(
+            (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
+          ),
+        },
+        {
           // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
           // Pages stays at its URLs for existing projects, labeled Legacy.
           title: 'Page Layout',

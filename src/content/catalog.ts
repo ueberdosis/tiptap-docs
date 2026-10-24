@@ -43,6 +43,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'review', title: 'Review', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Documents', area: 'platform' },
+  { id: 'whiteboard', title: 'Whiteboard', area: 'platform' },
   { id: 'page-layout', title: 'Page Layout', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'ai', title: 'AI', area: 'platform' },
