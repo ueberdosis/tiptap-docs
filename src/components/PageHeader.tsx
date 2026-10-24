@@ -4,6 +4,7 @@ import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { cn } from '@/utils'
+import { isNew } from '@/utils/isNew'
 import { GeneralPageTag, ImagePageTag, PageTag } from '@/types'
 
 export type PageHeaderWrapperProps = {
@@ -257,11 +258,11 @@ export const PageHeaderTag = ({
         </Tag>
       )
     case 'new':
-      return (
+      return isNew(tag.since) ? (
         <Tag variant="gray" tooltip={tag.tooltip}>
           New
         </Tag>
-      )
+      ) : null
     case 'legacy':
       return (
         <Tag variant="hint" tooltip={tag.tooltip || 'Still supported, but not for new projects.'}>

@@ -10,7 +10,8 @@ const routes = require('./helpers/routes.cjs')
 routes.registerTs()
 const { handleMcpMessage, toRoute } = loadSite('../src/server/mcp.ts')
 const { buildLlmsTxt, markdownUrl } = loadSite('../src/server/llmsText.ts')
-const { getDocsIndex } = loadSite('../src/server/getDocsIndex.ts')
+const { fileForRoute, getDocsIndex } = loadSite('../src/server/getDocsIndex.ts')
+const { readFrontmatterSync } = loadSite('../src/server/readFrontmatter.ts')
 const { fileToMarkdown } = loadSite('../src/server/markdown/fileToMarkdown.ts')
 const { getCatalog } = loadSite('../src/server/getCatalog.ts')
 const { EDITOR_PRESETS } = loadSite('../src/content/presets.ts')
@@ -19,6 +20,7 @@ const { INDUSTRIES } = loadSite('../src/content/industries.ts')
 const { sidebarConfig } = loadSite('../src/content/sidebar.ts')
 const { sidebarLabel } = loadSite('../src/components/SidebarRenderer.tsx')
 const { headerTags } = loadSite('../src/components/PageHeader.tsx')
+const { isNew, NEW_FOR_DAYS } = loadSite('../src/utils/isNew.ts')
 
 function loadSite(file) {
   return require(file)
@@ -210,6 +212,34 @@ test('page headers show the plan and status a page inherits, unless it has its o
   // Its own tags win over the inherited ones
   assert.deepEqual(types(headerTags([{ type: 'team' }, { type: 'beta' }], page)), ['team', 'beta'])
   assert.deepEqual(types(headerTags(undefined, undefined)), [])
+})
+
+test('"New" carries the day a page went live, and goes away after 90 days', () => {
+  const now = Date.parse('2026-10-24')
+  assert.equal(isNew('2026-10-01', now), true)
+  assert.equal(isNew('2026-07-01', now), false)
+  assert.equal(isNew(undefined, now), false)
+
+  // Stale or undated "New" fails here, so it gets cleaned up
+  const stale = []
+  const visit = (entries, file) => {
+    for (const entry of entries ?? []) {
+      if ((entry.tags ?? []).some((tag) => tag.toLowerCase() === 'new')) {
+        stale.push(`${file}: ${entry.title} uses a New tag; set newSince instead`)
+      }
+      if (entry.newSince && !isNew(entry.newSince)) {
+        stale.push(`${file}: ${entry.title} is older than ${NEW_FOR_DAYS} days`)
+      }
+      visit(entry.children, file)
+    }
+  }
+  for (const { file, config } of routes.loadSidebars()) visit(config.items, file)
+  for (const page of getDocsIndex()) {
+    const file = fileForRoute(page.route)
+    const tag = file && (readFrontmatterSync(file).tags ?? []).find((t) => t.type === 'new')
+    if (tag && !isNew(tag.since)) stale.push(`${page.route}: New without a recent since date`)
+  }
+  assert.deepEqual(stale, [])
 })
 
 test('every documented feature names its npm package', () => {

@@ -18,6 +18,7 @@ import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
+import { isNew } from '@/utils/isNew'
 
 export const DocsSidebar = ({
   config,
@@ -220,7 +221,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(link.tags)
+  const label = sidebarLabel(isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags)
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(
@@ -229,11 +230,14 @@ export const LinkItem = ({
     false,
   )
 
-  const toggleOpen = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsOpen((prev) => !prev)
-  }, [setIsOpen])
+  const toggleOpen = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsOpen((prev) => !prev)
+    },
+    [setIsOpen],
+  )
 
   useEffect(() => {
     if ((isActive || isActiveParent) && link.href !== '') {
