@@ -14,7 +14,7 @@ export type CatalogEntry = {
   area: CatalogArea
   /** Unknown for features that are announced but not documented yet. */
   plan?: CatalogPlan
-  /** Release state from the page tags, such as Beta or Alpha, or "Coming soon". */
+  /** Release state from the page tags, such as Beta or Alpha, or "Soon" for features without docs yet. */
   status?: string
   /** Empty for features that are announced but not documented yet. */
   url: string
@@ -39,6 +39,7 @@ export function statusFromTags(tags: string[]): string | undefined {
   if (tags.includes('legacy')) return 'Legacy'
   if (tags.includes('alpha')) return 'Alpha'
   if (tags.includes('beta')) return 'Beta'
+  if (tags.includes('experiment')) return 'Experimental'
   if (tags.includes('new')) return 'New'
   return undefined
 }
@@ -77,7 +78,7 @@ function upcomingEntries(): CatalogEntry[] {
       type: 'extension' as ExtensionType,
       group: group.id,
       area: group.area,
-      status: 'Coming soon',
+      status: 'Soon',
       url: '',
     }
   })

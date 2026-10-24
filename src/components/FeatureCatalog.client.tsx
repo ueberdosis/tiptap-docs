@@ -13,6 +13,11 @@ import type { CatalogEntry } from '@/server/getCatalog'
 import { cn } from '@/utils'
 import { getIcon } from '@/utils/iconKit'
 
+const END_OF_LIFE = ['Legacy', 'Deprecated']
+
+// Released features carry no status; "Stable" lets readers pick them
+const STATUSES = ['Stable', 'Beta', 'Alpha', 'Experimental', 'Soon', 'Legacy', 'Deprecated']
+
 const TYPES = [
   { id: 'node', label: 'Nodes' },
   { id: 'mark', label: 'Marks' },
@@ -119,17 +124,18 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
   const icon = createElement(getIcon(entry.icon), { className: 'w-3.5 h-3.5', 'aria-hidden': true })
   const content = (
     <>
-      <div className="flex items-center justify-between gap-2 mb-5">
-        {icon}
-        <div className="ml-auto flex items-center gap-1">
-          {entry.status ? <Tag variant="info">{entry.status}</Tag> : null}
-        </div>
-      </div>
+      <div className="flex items-center justify-between gap-2 mb-5">{icon}</div>
       <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
       <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
-      {entry.plan ? (
+      {entry.plan || entry.status ? (
+        // Plan first, then status, as in the page header
         <div className="mt-5 flex items-center flex-wrap gap-1">
-          <Tag>{entry.plan}</Tag>
+          {entry.plan ? (
+            <Tag variant={entry.plan === 'Open source' ? 'gray' : 'info'}>{entry.plan}</Tag>
+          ) : null}
+          {entry.status ? (
+            <Tag variant={END_OF_LIFE.includes(entry.status) ? 'hint' : 'gray'}>{entry.status}</Tag>
+          ) : null}
         </div>
       ) : null}
     </>
@@ -161,7 +167,9 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
   const [plans, setPlans] = useListParam('plan')
   const [types, setTypes] = useListParam('type')
   const [industries, setIndustries] = useListParam('industry')
-  const isFiltered = !!query || plans.length + types.length + industries.length > 0
+  const [statuses, setStatuses] = useListParam('status')
+  const isFiltered =
+    !!query || plans.length + types.length + industries.length + statuses.length > 0
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -169,13 +177,14 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
       (entry) =>
         (plans.length === 0 || (!!entry.plan && plans.includes(entry.plan))) &&
         (types.length === 0 || types.includes(entry.type)) &&
+        (statuses.length === 0 || statuses.includes(entry.status ?? 'Stable')) &&
         (industries.length === 0 ||
           (entry.industries ?? []).some((industry) => industries.includes(industry))) &&
         (!needle ||
           entry.name.toLowerCase().includes(needle) ||
           entry.description.toLowerCase().includes(needle)),
     )
-  }, [entries, query, plans, types, industries])
+  }, [entries, query, plans, types, industries, statuses])
 
   // One list of groups, in the order the sidebar shows them
   const groups = CATALOG_GROUPS.map((group) => ({
@@ -188,6 +197,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
     setPlans([])
     setTypes([])
     setIndustries([])
+    setStatuses([])
   }
 
   return (
@@ -228,6 +238,12 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
               onChange={setPlans}
             />
             <MultiSelect label="Type" options={TYPES} values={types} onChange={setTypes} />
+            <MultiSelect
+              label="Status"
+              options={STATUSES.map((id) => ({ id, label: id }))}
+              values={statuses}
+              onChange={setStatuses}
+            />
             <MultiSelect
               label="Industry"
               options={INDUSTRIES.map(({ id, title }) => ({ id, label: title }))}

@@ -65,7 +65,7 @@ export type UpcomingFeature = {
 
 /**
  * MOCK: packages that exist in tiptap-pro but have no docs pages yet: Page Layout
- * and the extensions that come with it. They show as "Coming soon" in the catalog
+ * and the extensions that come with it. They show as "Soon" in the catalog
  * and the sidebar. Replace an entry with a page (frontmatter `extension.group`)
  * once its docs exist; drop the list before it ships if the packages aren't
  * announced.
