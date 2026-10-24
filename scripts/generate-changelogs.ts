@@ -15,7 +15,8 @@ type RepoConfig = {
 const OSS_CONFIG: RepoConfig = {
   owner: 'ueberdosis',
   repo: 'tiptap',
-  branch: 'main',
+  // Tiptap 3 releases ship from release/v3; main runs ahead of npm `latest`
+  branch: 'release/v3',
   slugPrefix: '',
   packageScope: '@tiptap',
   packageDirs: ['packages'],
@@ -24,6 +25,7 @@ const OSS_CONFIG: RepoConfig = {
 const PRO_CONFIG: RepoConfig = {
   owner: 'ueberdosis',
   repo: 'tiptap-pro',
+  // Pro releases ship from main
   branch: 'main',
   slugPrefix: 'pro-',
   packageScope: '@tiptap-pro',
