@@ -73,6 +73,17 @@ test('search_docs finds the page a reader means', async () => {
 
   const bold = await tool('search_docs', { query: 'bold', limit: 3 })
   assert.match(bold.content[0].text.split('\n\n')[0], /Bold extension/)
+
+  const first = async (query) =>
+    (await tool('search_docs', { query, limit: 3 })).content[0].text.split('\n\n')[0]
+  // The feature's overview, by its name, ahead of its subpages
+  assert.match(await first('tracked changes'), /tracked-changes\/getting-started\/overview\.md/)
+  // Current features ahead of deprecated and legacy ones
+  assert.match(await first('compare two documents diff'), /\/compare\//)
+  // A rough stem: "autocomplete" finds "Autocompletion"
+  assert.match(await first('autocomplete'), /Autocompletion/)
+  // Words like "add" and "my" don't decide
+  assert.match(await first('add comments to my editor'), /\/comments\//)
 })
 
 test('get_page returns Markdown with section and plan, and follows redirects', async () => {

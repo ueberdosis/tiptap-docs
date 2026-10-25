@@ -5,6 +5,7 @@ import { EDITOR_PRESETS } from '../content/presets'
 import { createCanonicalUrl } from './createCanonicalUrl'
 import { getCatalog } from './getCatalog'
 import { DocsPage, fileForRoute, getDocsIndex } from './getDocsIndex'
+import { readFrontmatterSync } from './readFrontmatter'
 import { DOCS_SUMMARY, markdownUrl, usageNotes } from './llmsText'
 import { changelogToMarkdown } from './markdown/changelogToMarkdown'
 import { fileToMarkdown } from './markdown/fileToMarkdown'
@@ -112,7 +113,17 @@ const TOOLS = [
 
 // Search ------------------------------------------------------------------
 
-type SearchDoc = { page: DocsPage; headings: string; body: string }
+type SearchDoc = {
+  page: DocsPage
+  /** The feature's name, npm package, and meta title, which readers search for as often as the title. */
+  names: string
+  headings: string
+  body: string
+  /** A feature overview, the page to land on for its feature. */
+  isFeature: boolean
+  /** The feature's name on its overview, such as "tracked changes". */
+  featureName?: string
+}
 
 let searchDocs: SearchDoc[] | undefined
 
@@ -120,15 +131,43 @@ function getSearchDocs(): SearchDoc[] {
   if (searchDocs) return searchDocs
   searchDocs = getDocsIndex().map((page) => {
     const file = fileForRoute(page.route)
-    const raw = file ? fs.readFileSync(file, 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '') : ''
+    const source = file ? fs.readFileSync(file, 'utf8') : ''
+    const attributes = file ? readFrontmatterSync(file) : {}
+    const raw = source.replace(/^---\n[\s\S]*?\n---\n/, '')
     const headings = [...raw.matchAll(/^#{1,4}\s+(.+)$/gm)].map((match) => match[1]).join(' ')
     const body = raw
       .replace(/^import .*$/gm, '')
       .replace(/<[^>]+>/g, ' ')
       .toLowerCase()
-    return { page, headings: headings.toLowerCase(), body }
+    const names = [
+      attributes.extension?.name,
+      attributes.extension?.package,
+      attributes.meta?.title,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return {
+      page,
+      names,
+      headings: headings.toLowerCase(),
+      body,
+      isFeature: !!attributes.extension,
+    }
   })
   return searchDocs
+}
+
+// Words in a question that say nothing about what to find
+const STOP_WORDS = new Set(
+  'a an and add can do does for how i in into is it me my of on or the to use using want with your'.split(
+    ' ',
+  ),
+)
+
+/** A rough stem, so "autocomplete" finds "autocompletion" and "tables" finds "table". */
+function stem(term: string): string {
+  return term.length > 5 ? term.replace(/(ions?|ings?|e[sd]?|s)$/, '') : term
 }
 
 function count(haystack: string, needle: string): number {
@@ -141,18 +180,20 @@ export function searchDocsIndex(query: string, limit = 8): DocsPage[] {
   const terms = query
     .toLowerCase()
     .split(/[^a-z0-9.@/-]+/)
-    .filter((term) => term.length > 1)
+    .filter((term) => term.length > 1 && !STOP_WORDS.has(term))
   if (terms.length === 0) return []
 
-  const scored = getSearchDocs().map(({ page, headings, body }) => {
+  const phrase = terms.map(stem).join(' ')
+  const scored = getSearchDocs().map(({ page, names, headings, body, isFeature, featureName }) => {
     const title = page.title.toLowerCase()
     const trail = page.trail.join(' ').toLowerCase()
     const description = (page.description ?? '').toLowerCase()
     let score = 0
     let matched = 0
-    for (const term of terms) {
+    for (const word of terms) {
+      const term = stem(word)
       const termScore =
-        (title.includes(term) ? 6 : 0) +
+        (title.includes(term) || names.includes(term) ? 6 : 0) +
         (trail.includes(term) ? 3 : 0) +
         (description.includes(term) ? 3 : 0) +
         (headings.includes(term) ? 2 : 0) +
@@ -162,6 +203,11 @@ export function searchDocsIndex(query: string, limit = 8): DocsPage[] {
     }
     // Pages that match every term rank above pages that match some
     if (matched === terms.length) score *= 2
+    // A feature's overview is where a search for the feature should land
+    if (isFeature) score *= 1.5
+    if (featureName && phrase.includes(featureName.split(' ').map(stem).join(' '))) score *= 2
+    // Legacy pages after current ones
+    if (page.status === 'Legacy') score *= 0.6
     // Deprecated pages only when nothing current matches as well
     if (page.status === 'Deprecated') score *= 0.3
     return { page, score }
