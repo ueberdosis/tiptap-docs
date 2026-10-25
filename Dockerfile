@@ -47,6 +47,11 @@ RUN \
 FROM base AS builder
 WORKDIR /app
 
+# Mermaid diagrams render to SVG at build time with a headless browser; Playwright's own
+# Chromium doesn't run on Alpine, so use the system one
+RUN apk add --no-cache chromium
+ENV MERMAID_CHROMIUM_PATH=/usr/bin/chromium-browser
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 

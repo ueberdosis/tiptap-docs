@@ -43,6 +43,10 @@ One text serves people and AI agents: every page is also served as Markdown and 
 - Say a thing once and link to it.
 - Give every page a specific one-line `meta.description`. It becomes the meta description and the line in `llms.txt`; leave out "Learn more in our docs".
 
+### Diagrams
+
+Draw a diagram as a ` ```mermaid ` code block when it shows a flow or a structure better than a sentence, such as how data moves between the editor, the Document Server, and your backend. The build renders it to an SVG; the `.md` version keeps the Mermaid code, which agents read. Keep it small: a few boxes in one direction (`flowchart LR`), with short labels, so it stays readable at the width of the content.
+
 ### Page types
 
 | Type             | Use it for                                      | It holds                                                                                                                       |

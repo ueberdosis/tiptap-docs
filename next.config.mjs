@@ -54,6 +54,17 @@ const withMDX = createMdx({
   options: {
     remarkPlugins: ['remark-frontmatter', 'remark-mdx-frontmatter', 'remark-gfm'],
     rehypePlugins: [
+      // ```mermaid blocks become SVG at build time, before Shiki would highlight them as code.
+      // A browser starts only for a page with a diagram; in Docker it is Alpine's Chromium.
+      [
+        'rehype-mermaid',
+        {
+          strategy: 'inline-svg',
+          ...(process.env.MERMAID_CHROMIUM_PATH
+            ? { launchOptions: { executablePath: process.env.MERMAID_CHROMIUM_PATH } }
+            : {}),
+        },
+      ],
       [
         '@shikijs/rehype',
         {

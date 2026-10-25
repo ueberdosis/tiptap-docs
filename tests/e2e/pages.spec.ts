@@ -65,7 +65,7 @@ test('breadcrumbs follow the page’s place in the sidebar', async ({ page, base
   await expect(page.locator('[data-breadcrumb]')).toHaveText(['Features', 'Text formatting'])
 })
 
-test('the feature catalog filters by plan and type, from the URL and on click', async ({
+test('the feature catalog filters by plan and status, from the URL and on click', async ({
   page,
   baseURL,
 }) => {
@@ -84,16 +84,16 @@ test('the feature catalog filters by plan and type, from the URL and on click', 
   await page.keyboard.press('Escape')
   await expect(page).not.toHaveURL(/plan=/)
 
-  await page.getByRole('button', { name: 'Type', exact: true }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Marks' }).click()
+  await page.getByRole('button', { name: 'Status', exact: true }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Legacy' }).click()
   await page.keyboard.press('Escape')
-  await expect(page).toHaveURL(/[?&]type=mark/)
+  await expect(page).toHaveURL(/[?&]status=Legacy/)
   const catalog = page.locator('section[aria-label]')
-  await expect(catalog.getByRole('link', { name: /^Bold/ })).toBeVisible()
+  await expect(catalog.getByRole('link', { name: /^Pages/ })).toBeVisible()
   await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Reset', exact: true }).click()
-  await expect(page).not.toHaveURL(/type=/)
+  await expect(page).not.toHaveURL(/status=/)
   await expect(catalog.getByRole('link', { name: /^Paragraph/ })).toBeVisible()
   // Rendering with filters from the URL must not break hydration
   expect(errors).toEqual([])
