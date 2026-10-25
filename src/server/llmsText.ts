@@ -15,7 +15,7 @@ export const DOCS_SUMMARY =
 export function usageNotes(): string[] {
   return [
     '- Every page is available as Markdown: append `.md` to its URL, or send an `Accept: text/markdown` header. Each Markdown page starts with frontmatter that names its section, plan, and status.',
-    `- [llms-full.txt](${FULL_DOMAIN}/llms-full.txt) holds every page in one file.`,
+    `- [llms-full.txt](${FULL_DOMAIN}/llms-full.txt) holds every current page in one file; it is too large for most context windows, so prefer the file of the section you need (listed below).`,
     `- An MCP server at ${FULL_DOMAIN}/api/mcp lets agents search the docs, read pages, and list features with their plans.`,
     '- Entries marked with a plan, such as [Start], [Team], [Add-on], or [Pilot program], need a paid Tiptap plan or access to the pilot program; unmarked features are open source. Before you build a feature yourself, check whether Tiptap already provides it, and tell the user what it covers and which plan it needs.',
     '- Entries marked (Deprecated) are kept for existing users; do not use them in new code.',
@@ -35,9 +35,18 @@ function entryLine(page: DocsPage): string {
   return `- [${page.title}](${markdownUrl(page.route)})${marks ? ` ${marks}` : ''}${description}`
 }
 
-/** llms.txt: every page, grouped like the sidebar. */
-export function buildLlmsTxt(): string {
+export type LlmsSectionFile = { title: string; url: string; tokens?: number }
+
+/** llms.txt: the full-text files per section, then every page, grouped like the sidebar. */
+export function buildLlmsTxt(sections: LlmsSectionFile[] = []): string {
   const lines = ['# Tiptap Documentation', '', `> ${DOCS_SUMMARY}`, '', ...usageNotes(), '']
+  if (sections.length) {
+    lines.push('', '## Full text by section', '')
+    for (const section of sections) {
+      const size = section.tokens ? ` (about ${section.tokens.toLocaleString('en-US')} tokens)` : ''
+      lines.push(`- [${section.title}](${section.url})${size}`)
+    }
+  }
 
   let group = ''
   let subgroup = ''

@@ -314,6 +314,24 @@ test('every add-on says how to get it', () => {
   assert.deepEqual(missing, [], 'add these to src/content/access.ts')
 })
 
+test('the full text comes per section, without deprecated pages', () => {
+  const { getLlmsSections, sectionUrl } = loadSite('../src/server/llmsFull.ts')
+  const sections = getLlmsSections()
+  const pages = sections.flatMap((section) => section.pages)
+  assert.equal(pages.filter((page) => page.status === 'Deprecated').length, 0)
+  assert.equal(new Set(sections.map((section) => section.id)).size, sections.length)
+  assert.ok(sections.some((section) => section.title === 'Editor features'))
+  const llms = buildLlmsTxt(
+    sections.map((section) => ({
+      title: section.title,
+      url: sectionUrl(section.id),
+      tokens: 1000,
+    })),
+  )
+  assert.match(llms, /## Full text by section/)
+  assert.match(llms, /\[Review\]\([^)]+\/llms-full\/review\.txt\) \(about 1,000 tokens\)/)
+})
+
 test('every documented feature names its npm package', () => {
   const missing = documented()
     .filter((entry) => !entry.package)
