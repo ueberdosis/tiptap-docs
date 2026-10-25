@@ -295,6 +295,14 @@ test('changelogs split into changes, without dependency and license noise', () =
   )
 })
 
+test('every add-on says how to get it', () => {
+  const { ADD_ON_ACCESS } = loadSite('../src/content/access.ts')
+  const missing = getCatalog()
+    .filter((entry) => entry.plan === 'Add-on' && entry.url && !ADD_ON_ACCESS[entry.name])
+    .map((entry) => entry.name)
+  assert.deepEqual(missing, [], 'add these to src/content/access.ts')
+})
+
 test('every documented feature names its npm package', () => {
   const missing = documented()
     .filter((entry) => !entry.package)
@@ -352,6 +360,10 @@ test('nextSteps sends open source to the docs, plans to the trial, and the rest 
   assert.equal(nextSteps(planEditor(features('simple'))).primary.label, 'Start building')
   assert.equal(nextSteps(planEditor(features('word'))).primary.label, 'Start free trial')
   assert.equal(nextSteps(planEditor(features('review'))).primary.label, 'Talk to sales')
+  // An add-on you can buy in the dashboard leads to the trial, not to sales
+  const trackedChanges = nextSteps(planEditor([byName.get('Tracked Changes')]))
+  assert.equal(trackedChanges.primary.label, 'Start free trial')
+  assert.match(trackedChanges.primary.text, /Tracked Changes/)
   const onPremises = planEditor(features('simple'), undefined, 'on-premises')
   assert.equal(nextSteps(onPremises).primary.label, 'Talk to sales')
 })

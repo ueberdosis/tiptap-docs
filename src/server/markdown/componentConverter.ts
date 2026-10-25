@@ -5,6 +5,7 @@ import { changelogMarkdown, formatDay } from '../changelogEntries'
 import { groupFeeds } from '../changelogFeed'
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
+import { ADD_ON_ACCESS, DASHBOARD_URL, PILOT_PROGRAM_FORM } from '@/content/access'
 import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
 import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
@@ -178,6 +179,26 @@ export const componentConverters: Record<string, ComponentConverter> = {
 
   // <a href="…">text</a> in MDX → a markdown link, like Link.
   a: (node) => componentConverters.Link(node),
+
+  // <AddOnAccessTable /> → how to try and get each add-on and pilot feature
+  AddOnAccessTable: () => {
+    const catalog = getCatalog()
+    const lines = catalog
+      .filter((entry) => entry.plan === 'Add-on' && entry.url)
+      .map((entry) => {
+        const access = ADD_ON_ACCESS[entry.name]
+        const how = access?.dashboard
+          ? `[buy it in the dashboard](${DASHBOARD_URL})`
+          : `[contact the Tiptap team](${access?.contact ?? 'https://tiptap.dev/contact-sales'})`
+        return `- [${entry.name}](${entry.url}) (add-on): ${access?.trial === undefined ? 'ask the team about the trial' : access.trial ? 'in the trial' : 'not in the trial'}; ${how}`
+      })
+    const pilot = catalog
+      .filter((entry) => entry.plan === 'Pilot program' && entry.url)
+      .map((entry) => `[${entry.name}](${entry.url})`)
+      .join(', ')
+    lines.push(`- ${pilot} (pilot program): [join the pilot program](${PILOT_PROGRAM_FORM})`)
+    return markdownNodes(lines.join('\n'))
+  },
 
   // The changelog page's generated sections
   ChangelogHighlights: () =>

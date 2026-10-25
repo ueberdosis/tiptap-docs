@@ -1,3 +1,4 @@
+import { ADD_ON_ACCESS } from '@/content/access'
 import type { CatalogPlan } from '@/content/catalog'
 import { EditorPreset, SERVICE_NEEDS, ServiceNeed } from '@/content/presets'
 
@@ -111,13 +112,32 @@ export function nextSteps(result: EditorPlan): { primary: NextStep; secondary?: 
     url: 'https://cloud.tiptap.dev/register',
     text: 'Try the plan for 30 days, without a credit card.',
   }
+  // Add-ons you can try and buy yourself, such as Tracked Changes, don't need a call
+  const viaTeam = result.addOns.filter((name) => !ADD_ON_ACCESS[name]?.dashboard)
   const sales = {
     label: 'Talk to sales',
     url: 'https://tiptap.dev/contact-sales',
-    text: 'Add-ons, the pilot program, and on-premises are set up with the Tiptap team.',
+    text: [
+      result.deployment === 'on-premises' ? 'On-premises' : '',
+      viaTeam.length ? viaTeam.join(', ') : '',
+      result.pilot.length ? 'the pilot program' : '',
+    ]
+      .filter(Boolean)
+      .join(', ')
+      .replace(/^./, (first) => first.toUpperCase())
+      .concat(' are set up with the Tiptap team.'),
   }
-  if (result.deployment === 'on-premises' || result.addOns.length || result.pilot.length) {
+  if (result.deployment === 'on-premises' || viaTeam.length || result.pilot.length) {
     return { primary: sales, secondary: trial }
+  }
+  if (result.addOns.length) {
+    return {
+      primary: {
+        ...trial,
+        text: `Try the plan and ${result.addOns.join(', ')} for 30 days, then add ${result.addOns.length === 1 ? 'it' : 'them'} in the dashboard.`,
+      },
+      secondary: { label: 'See pricing', url: 'https://tiptap.dev/pricing', text: '' },
+    }
   }
   if (result.plan === 'Open source') {
     return {
