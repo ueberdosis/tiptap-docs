@@ -36,6 +36,7 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
       .map((group) => ({
         title: group.title,
         href: catalogGroupUrl(group) ?? '',
+        tags: group.paid ? ['Paid'] : undefined,
         children: catalog
           .filter((entry) => entry.group === group.id)
           .map((entry) =>
@@ -45,7 +46,7 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
                   href: entry.url,
                   tags: catalogTags(entry),
                 }
-              : { title: entry.name, href: '', tags: ['Soon'], disabled: true },
+              : { title: entry.name, href: '', tags: soonTags(entry), disabled: true },
           ),
       }))
       .filter((group) => group.children.length > 0)
@@ -58,8 +59,11 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
 function upcoming(group: string): SidebarEntry[] {
   return getCatalog()
     .filter((entry) => entry.group === group && !entry.url)
-    .map((entry) => ({ title: entry.name, href: '', tags: ['Soon'], disabled: true }))
+    .map((entry) => ({ title: entry.name, href: '', tags: soonTags(entry), disabled: true }))
 }
+
+/** An upcoming feature shows Soon, and counts as paid for its group when it will be. */
+const soonTags = (entry: { paid?: boolean }) => (entry.paid ? ['Soon', 'Paid'] : ['Soon'])
 
 /** A feature's status and plan as sidebar tags; the sidebar shows only the status. */
 function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
@@ -190,7 +194,8 @@ const items: SidebarGroup[] = [
           {
             title: 'AI Legacy',
             href: '',
-            tags: ['Deprecated'],
+            // Paid like the rest of AI; the label says Deprecated
+            tags: ['Deprecated', 'Paid'],
             children: [
               section('AI Assistant', aiAssistantSidebar, legacyOptions),
               section('AI Suggestion', aiSuggestionSidebar, legacyOptions),

@@ -118,7 +118,7 @@ test('list_features filters by plan and area', async () => {
   const footnotes = await tool('list_features', { query: 'footnotes' })
   assert.match(
     footnotes.content[0].text,
-    /Footnotes \[Soon\][^\n]*not available yet, no release date; today use footnotes in Pages/,
+    /Footnotes \[Paid, Soon\][^\n]*not available yet, no release date; today use footnotes in Pages/,
   )
 
   // Plan and status together, so a legacy or beta feature shows both
@@ -223,10 +223,17 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   assert.equal(label(['Review', 'Comments']), undefined, 'repeats the group')
   assert.equal(label(['Composable Documents']), 'Paid')
   assert.equal(label(['Composable Documents', 'Slots']), undefined, 'repeats its feature')
-  // A group that mixes in a deprecated product without a plan says nothing; its products do
-  assert.equal(label(['AI']), undefined)
-  assert.equal(label(['AI', 'AI Toolkit']), 'Paid')
+  // AI Legacy is paid too, so all of AI is; the end of life still shows
+  assert.equal(label(['AI']), 'Paid')
+  assert.equal(label(['AI', 'AI Toolkit']), undefined)
   assert.equal(label(['AI', 'AI Legacy']), 'Deprecated')
+  // Upcoming features that will be paid make their group paid; they show Soon
+  assert.equal(label(['Page Layout']), 'Paid')
+  assert.equal(label(['Page Layout', 'Page Layout']), 'Soon')
+  assert.equal(label(['Document structure']), 'Paid')
+  // A group that mixes free and paid features says nothing; the paid ones do
+  assert.equal(label(['Clipboard and files']), undefined)
+  assert.equal(label(['Clipboard and files', 'Paste handler']), 'Paid')
   assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
   // Paid products come first, the open source editor's groups after them
   assert.ok(

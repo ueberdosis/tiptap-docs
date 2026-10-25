@@ -314,7 +314,9 @@ function listFeatures(args: Record<string, unknown>): ToolResult {
         const where = entry.url
           ? markdownUrl(entry.url)
           : `not available yet, no release date${entry.meanwhile ? `; today use ${entry.meanwhile.label}: ${markdownUrl(entry.meanwhile.url)}` : ''}`
-        const labels = [entry.plan, entry.status].filter(Boolean).join(', ')
+        const labels = [entry.plan ?? (entry.paid ? 'Paid' : undefined), entry.status]
+          .filter(Boolean)
+          .join(', ')
         return `- ${entry.name} [${labels}] (${groups.get(entry.group)}): ${entry.description} — ${where}`
       })
       .join('\n'),

@@ -231,7 +231,9 @@ function catalogList(id: string | undefined): MdxNode {
     children: getCatalog()
       .filter((entry) => entry.group === id)
       .map((entry) => {
-        const notes = [entry.status, entry.plan].filter(Boolean).join(', ')
+        const notes = [entry.status, entry.plan ?? (entry.paid ? 'Paid' : undefined)]
+          .filter(Boolean)
+          .join(', ')
         const line: MdxNode[] = [
           entry.url ? link(entry.url, entry.name) : strong(entry.name),
           text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),

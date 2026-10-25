@@ -9,6 +9,8 @@ export type CatalogGroup = {
   id: string
   title: string
   area: CatalogArea
+  /** Labels the group Paid in the sidebar even when not every feature in it says so. */
+  paid?: boolean
 }
 
 /** A group of editor features that has its own page, `/editor/extensions/<id>`. */
@@ -64,6 +66,8 @@ export type UpcomingFeature = {
   group: string
   /** What covers the need today, until the feature ships. */
   meanwhile?: { label: string; url: string }
+  /** Will need a paid plan; which one is set when its docs ship. */
+  paid?: boolean
 }
 
 /**
@@ -81,6 +85,7 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
     icon: 'FileText',
     group: 'page-layout',
     meanwhile: { label: 'Pages', url: '/pages/getting-started/overview' },
+    paid: true,
   },
   {
     name: 'Footnotes',
@@ -88,18 +93,21 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
     icon: 'Superscript',
     group: 'document-structure',
     meanwhile: { label: 'footnotes in Pages', url: '/pages/core-concepts/footnotes' },
+    paid: true,
   },
   {
     name: 'Cross-references',
     description: 'Refer to headings, clauses, or bookmarks with references that stay up to date.',
     icon: 'Link2',
     group: 'document-structure',
+    paid: true,
   },
   {
     name: 'Outline numbering',
     description: 'Number headings and clauses as 1.1, Article I, or (a), from where they stand.',
     icon: 'ListTree',
     group: 'document-structure',
+    paid: true,
   },
   {
     name: 'Document styles',
@@ -107,33 +115,27 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
       'Named styles for paragraphs, headings, and tables, stored in the document; change a style and everything using it follows.',
     icon: 'Paintbrush',
     group: 'document-structure',
+    paid: true,
   },
   {
     name: 'Bookmark',
     description: 'Named places in the document that links and references can point to.',
     icon: 'Bookmark',
     group: 'document-structure',
-  },
-  {
-    name: 'Number formats',
-    description: 'One set of number formats for page numbers, notes, and outline numbers.',
-    icon: 'ListOrdered',
-    group: 'document-structure',
-    meanwhile: {
-      label: 'list numbering in DOCX export',
-      url: '/conversion/export/docx/ordered-list-numbering',
-    },
+    paid: true,
   },
   {
     name: 'Columns',
     description: 'Containers side by side, each with content of its own.',
     icon: 'Columns2',
     group: 'document-structure',
+    paid: true,
   },
   {
     name: 'Whole blocks',
     description: 'A block selected from start to end is deleted, cut, and copied as a block.',
     icon: 'Square',
     group: 'cursor-and-selection',
+    paid: true,
   },
 ]

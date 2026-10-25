@@ -24,6 +24,8 @@ export type CatalogEntry = {
   industries?: string[]
   /** For a feature without docs yet: what covers the need today. */
   meanwhile?: { label: string; url: string }
+  /** For a feature without docs yet: it will need a paid plan, not yet named. */
+  paid?: boolean
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -83,6 +85,7 @@ function upcomingEntries(): CatalogEntry[] {
       status: 'Soon',
       url: '',
       meanwhile: feature.meanwhile,
+      paid: feature.paid,
     }
   })
 }

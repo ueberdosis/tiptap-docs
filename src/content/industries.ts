@@ -32,7 +32,6 @@ export const INDUSTRIES: Industry[] = [
       'Footnotes',
       'Cross-references',
       'Outline numbering',
-      'Number formats',
       'Document styles',
     ],
   },
@@ -73,7 +72,6 @@ export const INDUSTRIES: Industry[] = [
       'Tracked Changes',
       'Comments',
       'Footnotes',
-      'Number formats',
     ],
   },
   {
@@ -95,7 +93,6 @@ export const INDUSTRIES: Industry[] = [
       'PDF export',
       'DOCX import',
       'DOCX export',
-      'Number formats',
     ],
   },
   {

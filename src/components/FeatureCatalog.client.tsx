@@ -31,12 +31,14 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
       <div className="flex items-center justify-between gap-2 mb-5">{icon}</div>
       <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
       <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
-      {entry.plan || entry.status ? (
+      {entry.plan || entry.paid || entry.status ? (
         // Plan first, then status, as in the page header
         // The labels sit at the bottom, whatever the length of the description
         <div className="mt-auto pt-5 flex items-center flex-wrap gap-1">
-          {entry.plan ? (
-            <Tag variant={entry.plan === 'Open source' ? 'gray' : 'info'}>{entry.plan}</Tag>
+          {entry.plan || entry.paid ? (
+            <Tag variant={entry.plan === 'Open source' ? 'gray' : 'info'}>
+              {entry.plan ?? 'Paid'}
+            </Tag>
           ) : null}
           {entry.status ? (
             <Tag variant={END_OF_LIFE.includes(entry.status) ? 'hint' : 'gray'}>{entry.status}</Tag>
