@@ -101,7 +101,47 @@ const ChangeGrid = ({ changes }: { changes: TimelineChange[] }) => (
   </div>
 )
 
-const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFixes: boolean }) => {
+const LINE = 'absolute left-0 w-3 border-grayAlpha-300'
+
+/**
+ * The line and the tick of one release. The line runs from the first tick to
+ * the last and turns into them with a rounded corner, so it has no loose ends.
+ */
+const TimelineLine = ({ isFirst, isLast }: { isFirst: boolean; isLast: boolean }) => {
+  if (isFirst && isLast) return <span aria-hidden="true" className={`${LINE} top-3 border-t`} />
+  if (isFirst)
+    return (
+      <span
+        aria-hidden="true"
+        className={`${LINE} top-3 bottom-0 border-l border-t rounded-tl-lg`}
+      />
+    )
+  if (isLast)
+    return (
+      <span
+        aria-hidden="true"
+        className={`${LINE} top-0 h-[calc(0.75rem+1px)] border-l border-b rounded-bl-lg`}
+      />
+    )
+  return (
+    <>
+      <span aria-hidden="true" className={`${LINE} top-0 bottom-0 border-l`} />
+      <span aria-hidden="true" className={`${LINE} top-3 border-t`} />
+    </>
+  )
+}
+
+const ReleaseItem = ({
+  release,
+  foldFixes,
+  isFirst,
+  isLast,
+}: {
+  release: TimelineRelease
+  foldFixes: boolean
+  isFirst: boolean
+  isLast: boolean
+}) => {
   const notable = foldFixes
     ? release.changes.filter((change) => change.type !== 'Fixed')
     : release.changes
@@ -109,10 +149,7 @@ const ReleaseItem = ({ release, foldFixes }: { release: TimelineRelease; foldFix
   return (
     <section id={release.id} className="relative pl-8 pb-10 last:pb-1 scroll-mt-28">
       {/* A 12px tick from the line, and an 8px ring centred on it */}
-      <span
-        aria-hidden="true"
-        className="absolute left-0 top-3 w-3 border-t border-grayAlpha-300"
-      />
+      <TimelineLine isFirst={isFirst} isLast={isLast} />
       <span
         aria-hidden="true"
         className="absolute left-3 top-[8.5px] size-2 rounded-full border border-grayAlpha-400 bg-warmGray"
@@ -177,9 +214,15 @@ export const ReleaseTimeline = ({
   releases: TimelineRelease[]
   foldFixes?: boolean
 }) => (
-  <div className="relative ml-1 border-l border-grayAlpha-300 not-prose">
-    {releases.map((release) => (
-      <ReleaseItem release={release} foldFixes={foldFixes} key={release.id} />
+  <div className="relative ml-1 not-prose">
+    {releases.map((release, index) => (
+      <ReleaseItem
+        release={release}
+        foldFixes={foldFixes}
+        isFirst={index === 0}
+        isLast={index === releases.length - 1}
+        key={release.id}
+      />
     ))}
   </div>
 )
