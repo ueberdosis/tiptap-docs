@@ -22,6 +22,8 @@ export type CatalogEntry = {
   package?: string
   /** Industries from src/content/industries.ts where this feature matters most. */
   industries?: string[]
+  /** For a feature without docs yet: what covers the need today. */
+  meanwhile?: { label: string; url: string }
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -80,6 +82,7 @@ function upcomingEntries(): CatalogEntry[] {
       area: group.area,
       status: 'Soon',
       url: '',
+      meanwhile: feature.meanwhile,
     }
   })
 }

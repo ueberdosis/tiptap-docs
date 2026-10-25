@@ -236,6 +236,13 @@ function catalogList(id: string | undefined): MdxNode {
           entry.url ? link(entry.url, entry.name) : strong(entry.name),
           text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),
         ]
+        // An announced feature is not a promise; say what covers the need today
+        if (!entry.url) {
+          line.push(text(' Not available yet, no release date.'))
+          if (entry.meanwhile) {
+            line.push(text(' Today: '), link(entry.meanwhile.url, entry.meanwhile.label), text('.'))
+          }
+        }
         return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
       }),
   }

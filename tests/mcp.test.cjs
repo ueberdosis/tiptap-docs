@@ -114,6 +114,13 @@ test('list_features filters by plan and area', async () => {
   const editor = await tool('list_features', { area: 'editor', query: 'table' })
   assert.match(editor.content[0].text, /Table kit/)
 
+  // An announced feature is no promise, and points to what covers the need today
+  const footnotes = await tool('list_features', { query: 'footnotes' })
+  assert.match(
+    footnotes.content[0].text,
+    /Footnotes \[Soon\][^\n]*not available yet, no release date; today use footnotes in Pages/,
+  )
+
   // Plan and status together, so a legacy or beta feature shows both
   const pages = await tool('list_features', { query: 'pages' })
   assert.match(pages.content[0].text, /Pages \[Team, Legacy\]/)

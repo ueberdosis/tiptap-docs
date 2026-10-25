@@ -61,6 +61,8 @@ export type UpcomingFeature = {
   description: string
   icon: string
   group: string
+  /** What covers the need today, until the feature ships. */
+  meanwhile?: { label: string; url: string }
 }
 
 /**
@@ -77,12 +79,14 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
       'Lay out a document as pages, with page formats, sections, headers and footers, page numbers, and breaks.',
     icon: 'FileText',
     group: 'page-layout',
+    meanwhile: { label: 'Pages', url: '/pages/getting-started/overview' },
   },
   {
     name: 'Footnotes',
     description: 'Footnotes and endnotes that number themselves, in any editor.',
     icon: 'Superscript',
     group: 'document-structure',
+    meanwhile: { label: 'footnotes in Pages', url: '/pages/core-concepts/footnotes' },
   },
   {
     name: 'Cross-references',
@@ -114,6 +118,10 @@ export const UPCOMING_FEATURES: UpcomingFeature[] = [
     description: 'One set of number formats for page numbers, notes, and outline numbers.',
     icon: 'ListOrdered',
     group: 'document-structure',
+    meanwhile: {
+      label: 'list numbering in DOCX export',
+      url: '/conversion/export/docx/ordered-list-numbering',
+    },
   },
   {
     name: 'Columns',
