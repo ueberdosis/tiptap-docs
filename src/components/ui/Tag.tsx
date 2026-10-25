@@ -79,8 +79,9 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
           tooltip &&
           showTooltip &&
           createPortal(
+            // As wide as its text, up to 280px, wherever the tag sits on the page
             <div
-              className="fixed z-50 pointer-events-none"
+              className="fixed z-50 pointer-events-none w-max max-w-[280px]"
               style={{
                 top: `${tooltipPosition.top}px`,
                 left: `${tooltipPosition.left}px`,
@@ -89,7 +90,7 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
             >
               <div
                 className={cn(
-                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
+                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal break-words text-center',
                   tooltipFontSize,
                 )}
               >
