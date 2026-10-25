@@ -51,7 +51,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Webhooks',
           href: '/collaboration/core-concepts/webhooks',
-          tags: ['Team'],
         },
       ],
     },
@@ -80,7 +79,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
-          tags: ['Team'],
         },
       ],
     },

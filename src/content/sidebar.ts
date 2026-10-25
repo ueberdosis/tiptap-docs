@@ -85,32 +85,32 @@ function feature(
   return section(title, config, { ...options, tags: planTags(overview) })
 }
 
-const PLAN_TAGS = ['Start', 'Team', 'Business', 'Add-on', 'Pilot program', 'Open source']
-const planOf = (tags?: string[]) => tags?.find((tag) => PLAN_TAGS.includes(tag))
+const PAID_PLANS = ['Start', 'Team', 'Business', 'Add-on', 'Pilot program']
+const isPaid = (tags?: string[]) =>
+  !!tags?.some((tag) => tag === 'Paid' || PAID_PLANS.includes(tag))
 
-/** An entry whose children all need the same paid plan carries it; a mixed group carries none. */
+/**
+ * An entry whose children all need a paid plan, whichever, says "Paid"; a group
+ * that mixes paid and open source says nothing. The tag is for the label only:
+ * plans for llms.txt and page headers still come from the features' own tags.
+ */
 function withSharedPlan(entry: SidebarEntry): SidebarEntry {
   if (!entry.children?.length) return entry
   const children = entry.children.map(withSharedPlan)
-  const plans = children.map((child) => planOf(child.tags))
-  const shared = plans[0] !== 'Open source' && plans.every((plan) => plan === plans[0])
-  return planOf(entry.tags) || !shared || !plans[0]
+  const allPaid = children.every((child) => isPaid(child.tags))
+  return isPaid(entry.tags) || !allPaid
     ? { ...entry, children }
-    : { ...entry, tags: [...(entry.tags ?? []), plans[0]], children }
+    : { ...entry, tags: [...(entry.tags ?? []), 'Paid'], children }
 }
 
-/**
- * Drop a plan label that repeats the plan of the entry above: the pages of a
- * feature share its plan, so only a page that needs a different one says so.
- */
-function labelWhereItDiffers(entries: SidebarEntry[], inherited?: string): SidebarEntry[] {
+/** Below a paid entry, its pages don't repeat the label: they share it. */
+function labelWhereItDiffers(entries: SidebarEntry[], underPaid = false): SidebarEntry[] {
   return entries.map((entry) => {
-    const plan = planOf(entry.tags)
-    const tags = plan && plan === inherited ? entry.tags?.filter((tag) => tag !== plan) : entry.tags
+    const paid = isPaid(entry.tags)
     return {
       ...entry,
-      tags: tags?.length ? tags : undefined,
-      children: entry.children && labelWhereItDiffers(entry.children, plan ?? inherited),
+      hidePlan: underPaid && paid ? true : undefined,
+      children: entry.children && labelWhereItDiffers(entry.children, underPaid || paid),
     }
   })
 }
@@ -170,8 +170,35 @@ const items: SidebarGroup[] = [
     divider: true,
     children: [
       { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
-      ...catalogGroups('editor'),
-      ...toEntries([pick(editorSidebar, ['Markdown'])]),
+      // Paid products first, then the open source editor's groups
+      {
+        title: 'AI',
+        href: '',
+        children: [
+          {
+            title: 'AI Toolkit',
+            href: '',
+            tags: planTags('/ai/ai-toolkit/overview'),
+            children: childrenOf(aiSidebar, ['AI Toolkit']),
+          },
+          {
+            ...link(aiSidebar, ['Other Options', 'Client Toolkit']),
+            href: '',
+            title: 'AI Toolkit client',
+          },
+          { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
+          {
+            title: 'AI Legacy',
+            href: '',
+            tags: ['Deprecated'],
+            children: [
+              section('AI Assistant', aiAssistantSidebar, legacyOptions),
+              section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
+              section('AI Changes', aiChangesSidebar, legacyOptions),
+            ],
+          },
+        ],
+      },
       {
         title: 'Review',
         href: '',
@@ -203,6 +230,9 @@ const items: SidebarGroup[] = [
           },
         ],
       },
+      feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
+        inline: ['Get started'],
+      }),
       {
         ...feature(
           'Composable Documents',
@@ -210,15 +240,6 @@ const items: SidebarGroup[] = [
           '/composable-docs/slots/getting-started/overview',
         ),
         href: '/composable-docs',
-      },
-      {
-        title: 'Whiteboard',
-        href: '',
-        tags: planTags('/editor/whiteboard/getting-started/overview'),
-        // The AI agent guide has its place in the AI Toolkit
-        children: childrenOf(editorSidebar, ['Whiteboard']).filter(
-          (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
-        ),
       },
       {
         // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
@@ -232,37 +253,17 @@ const items: SidebarGroup[] = [
           }),
         ],
       },
-      feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
-        inline: ['Get started'],
-      }),
       {
-        title: 'AI',
+        title: 'Whiteboard',
         href: '',
-        children: [
-          {
-            title: 'AI Toolkit',
-            href: '',
-            tags: planTags('/ai/ai-toolkit/overview'),
-            children: childrenOf(aiSidebar, ['AI Toolkit']),
-          },
-          {
-            ...link(aiSidebar, ['Other Options', 'Client Toolkit']),
-            href: '',
-            title: 'AI Toolkit client',
-          },
-          { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
-          {
-            title: 'AI Legacy',
-            href: '',
-            tags: ['Deprecated'],
-            children: [
-              section('AI Assistant', aiAssistantSidebar, legacyOptions),
-              section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
-              section('AI Changes', aiChangesSidebar, legacyOptions),
-            ],
-          },
-        ],
+        tags: planTags('/editor/whiteboard/getting-started/overview'),
+        // The AI agent guide has its place in the AI Toolkit
+        children: childrenOf(editorSidebar, ['Whiteboard']).filter(
+          (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
+        ),
       },
+      ...catalogGroups('editor'),
+      ...toEntries([pick(editorSidebar, ['Markdown'])]),
     ],
   },
   {

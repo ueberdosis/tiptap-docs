@@ -213,16 +213,28 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
     return rest.length ? find(entry.children, rest) : entry
   }
   const features = sidebarConfig.items.find((group) => group.title === 'Features').children
-  const label = (path) => sidebarLabel(find(features, path).tags)?.text
+  const label = (path) => {
+    const entry = find(features, path)
+    return sidebarLabel(entry.tags, entry.hidePlan)?.text
+  }
 
-  assert.equal(label(['Review', 'Comments']), 'Start')
-  assert.equal(label(['Review']), undefined, 'Review mixes Start and Add-on')
-  assert.equal(label(['Composable Documents']), 'Pilot')
+  // A group whose features all need a plan says Paid, whichever plans they need
+  assert.equal(label(['Review']), 'Paid')
+  assert.equal(label(['Review', 'Comments']), undefined, 'repeats the group')
+  assert.equal(label(['Composable Documents']), 'Paid')
   assert.equal(label(['Composable Documents', 'Slots']), undefined, 'repeats its feature')
-  assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
+  // A group that mixes in a deprecated product without a plan says nothing; its products do
+  assert.equal(label(['AI']), undefined)
+  assert.equal(label(['AI', 'AI Toolkit']), 'Paid')
   assert.equal(label(['AI', 'AI Legacy']), 'Deprecated')
+  assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
+  // Paid products come first, the open source editor's groups after them
+  assert.ok(
+    features.findIndex((entry) => entry.title === 'AI') <
+      features.findIndex((entry) => entry.title === 'Starter kit'),
+  )
   // Beta stays out of the sidebar
-  assert.equal(sidebarLabel(['Beta', 'Start'])?.text, 'Start')
+  assert.equal(sidebarLabel(['Beta', 'Start'])?.text, 'Paid')
   assert.equal(sidebarLabel(['Beta']), undefined)
 })
 

@@ -100,7 +100,7 @@ The catalog at `/editor/extensions/overview` lists every page whose frontmatter 
 ### Labels
 
 - **Plan and status come from the feature.** Tag the feature overview; its pages inherit the plan and status in the sidebar, the page header, `llms.txt`, and the `.md` frontmatter. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
-- **The sidebar shows one label per entry**, in this order: Deprecated, Legacy, Soon, the plan (Start, Team, Add-on, Pilot), New. Open source stays unlabeled, and so does a group whose features need different plans. Alpha and Beta show in the page header and the catalog, not in the sidebar.
+- **The sidebar shows one grey label per entry**, in this order: Deprecated, Legacy, Soon, Paid, New. Paid stands for any plan, add-on, or the pilot program; the page header names which. A group says Paid when all its entries are paid, and the entries below a paid one don't repeat it. Open source stays unlabeled. Alpha and Beta show in the page header and the catalog, not in the sidebar.
 - **"New" carries a date and expires after 90 days.** In frontmatter, `- type: new` with `since: '2026-10-01'`; in a sidebar, `newSince: '2026-10-01'` on the entry. Put it on new pages inside a feature readers know, not on a new feature: that one shows its plan. `pnpm test:structure` fails on an undated or expired "New".
 
 ### Changelog

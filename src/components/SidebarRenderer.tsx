@@ -123,38 +123,43 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
 )
 
 // One label per entry, the one that matters most for whether to open it:
-// end of life first, then upcoming, then the plan, then new pages. Open source
-// stays unlabeled. Alpha and Beta change how you build on a page, not whether you
-// open it, so they show in the page header and the catalog instead.
+// end of life first, then upcoming, then Paid, then new pages. The page header
+// names the exact plan; open source stays unlabeled. Alpha and Beta change how
+// you build on a page, not whether you open it, so they show in the page header
+// and the catalog instead. Labels stay grey, so the navigation stays calm.
 export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-life' }
+
+const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
 
 const LABELS: Record<string, SidebarLabel & { rank: number }> = {
   deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
   legacy: { text: 'Legacy', kind: 'end-of-life', rank: 1 },
   soon: { text: 'Soon', kind: 'status', rank: 2 },
-  start: { text: 'Start', kind: 'plan', rank: 3 },
-  team: { text: 'Team', kind: 'plan', rank: 3 },
-  business: { text: 'Business', kind: 'plan', rank: 3 },
-  'add-on': { text: 'Add-on', kind: 'plan', rank: 3 },
-  'pilot program': { text: 'Pilot', kind: 'plan', rank: 3 },
+  paid: PAID,
+  start: PAID,
+  team: PAID,
+  business: PAID,
+  'add-on': PAID,
+  'pilot program': PAID,
   // Only where everything around is paid, such as Hocuspocus under Documents
   'open source': { text: 'Open source', kind: 'status', rank: 3 },
   new: { text: 'New', kind: 'status', rank: 4 },
 }
 
 /** The label an entry shows, the most important one if it has several. */
-export function sidebarLabel(tags: string[] | undefined): SidebarLabel | undefined {
+export function sidebarLabel(
+  tags: string[] | undefined,
+  hidePlan = false,
+): SidebarLabel | undefined {
   const [label] = (tags ?? [])
     .map((tag) => LABELS[tag.toLowerCase()])
-    .filter(Boolean)
+    .filter((label) => label && !(hidePlan && label.kind === 'plan'))
     .sort((a, b) => a.rank - b.rank)
   return label ? { text: label.text, kind: label.kind } : undefined
 }
 
-const LABEL_VARIANT = { plan: 'info', status: 'gray', 'end-of-life': 'hint' } as const
-
 const LabelTag = ({ label, className }: { label: SidebarLabel; className?: string }) => (
-  <Tag className={cn('select-none', className)} variant={LABEL_VARIANT[label.kind]} size="small">
+  <Tag className={cn('select-none', className)} variant="gray" size="small">
     {label.text}
   </Tag>
 )
@@ -221,7 +226,10 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags)
+  const label = sidebarLabel(
+    isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags,
+    link.hidePlan,
+  )
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(

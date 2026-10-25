@@ -5,6 +5,8 @@ export type SidebarLink = {
   tags?: string[]
   /** The day the page went live (YYYY-MM-DD); the entry shows "New" for 90 days after it. */
   newSince?: string
+  /** Leave out the Paid label, because the entry above already shows it. */
+  hidePlan?: boolean
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
