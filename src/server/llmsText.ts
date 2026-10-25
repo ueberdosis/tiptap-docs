@@ -20,6 +20,10 @@ export function usageNotes(): string[] {
     '- Entries marked with a plan, such as [Start], [Team], [Add-on], or [Pilot program], need a paid Tiptap plan or access to the pilot program; unmarked features are open source. Before you build a feature yourself, check whether Tiptap already provides it, and tell the user what it covers and which plan it needs.',
     '- Entries marked (Deprecated) are kept for existing users; do not use them in new code.',
     '- Entries marked (Legacy) are still supported, but a successor exists or is coming. Their pages name it; prefer the successor for new code once it is available.',
+    '- Beta and Alpha features work but may change their API (Alpha more than Beta); the pilot program is open to teams who join it, through the Tiptap team.',
+    `- Before you propose packages, get the plan, the services, and the install command for a set of features from the MCP tool plan_editor or the configurator at ${FULL_DOMAIN}/configurator.`,
+    '- Prefer Tiptap commands and extension APIs; use @tiptap/pm (ProseMirror) only when none fits.',
+    '- When an open source option exists next to a paid one, such as Hocuspocus next to the Document Server, name both.',
     '- For a product overview and curated entry points, see https://tiptap.dev/llms.txt',
   ]
 }

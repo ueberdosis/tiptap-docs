@@ -40,6 +40,10 @@ function getContentDates(): Record<string, string> {
   return loaded
 }
 
+// Components that render data at build time, so the MDX file's date says nothing about the content
+const GENERATED_COMPONENTS =
+  /<(FeatureCatalog|CatalogGroup|PlanOverview|AddOnAccessTable|Changelog\w*)\b/
+
 // `import Name from './_partial.mdx'`: a shared MDX section that pages place with `<Name />`
 const PARTIAL_IMPORT = /^import\s+(\w+)\s+from\s+['"]([^'"]*\/_[^/'"]+\.mdx)['"]/gm
 
@@ -119,7 +123,9 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
   const description = rawDescription ? cleanDescription(rawDescription) : undefined
 
   const contentKey = path.relative(CONTENT_DIR, filePath).split(path.sep).join('/')
-  const lastUpdated = getContentDates()[contentKey]
+  // A page built from generated data, such as the feature catalog, is as new as the build, not its MDX
+  const isGenerated = GENERATED_COMPONENTS.test(body)
+  const lastUpdated = isGenerated ? undefined : getContentDates()[contentKey]
 
   const route = `/${contentKey.replace(/\.mdx$/, '').replace(/(^|\/)index$/, '')}`
   const page = findDocsPage(route)
