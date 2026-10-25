@@ -26,7 +26,7 @@ export const CATALOG_AREAS: Record<CatalogArea, string> = {
 }
 
 export const CATALOG_GROUPS: CatalogGroup[] = [
-  // Paid products first, as in the sidebar, then the open source editor's groups
+  // Paid products and paid editor groups first, as in the sidebar, then the open source editor's groups
   { id: 'ai', title: 'AI', area: 'platform' },
   { id: 'review', title: 'Review', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
@@ -34,13 +34,14 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'composable-docs', title: 'Composable Documents', area: 'platform' },
   { id: 'page-layout', title: 'Page Layout', area: 'platform' },
   { id: 'whiteboard', title: 'Whiteboard', area: 'platform' },
+  // Editor features that will need a plan, with the paid products
+  { id: 'document-structure', title: 'Document structure', area: 'editor' },
   { id: 'kits', title: 'Starter kit', area: 'editor' },
   { id: 'text-formatting', title: 'Text formatting', area: 'editor' },
   { id: 'text-styling', title: 'Text styling', area: 'editor' },
   { id: 'text-blocks', title: 'Text blocks', area: 'editor' },
   { id: 'lists', title: 'Lists', area: 'editor' },
   { id: 'tables', title: 'Tables', area: 'editor' },
-  { id: 'document-structure', title: 'Document structure', area: 'editor' },
   { id: 'code-and-math', title: 'Code and math', area: 'editor' },
   { id: 'media', title: 'Media and embeds', area: 'editor' },
   { id: 'mentions-and-emoji', title: 'Mentions and emoji', area: 'editor' },

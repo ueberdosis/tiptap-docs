@@ -235,11 +235,11 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   assert.equal(label(['Clipboard and files']), undefined)
   assert.equal(label(['Clipboard and files', 'Paste handler']), 'Paid')
   assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
-  // Paid products come first, the open source editor's groups after them
-  assert.ok(
-    features.findIndex((entry) => entry.title === 'AI') <
-      features.findIndex((entry) => entry.title === 'Starter kit'),
-  )
+  // Paid products and paid editor groups come first, the open source editor's groups after them
+  const at = (title) => features.findIndex((entry) => entry.title === title)
+  assert.ok(at('AI') < at('Starter kit'))
+  assert.ok(at('Whiteboard') < at('Document structure'))
+  assert.ok(at('Document structure') < at('Starter kit'))
   // Beta stays out of the sidebar
   assert.equal(sidebarLabel(['Beta', 'Start'])?.text, 'Paid')
   assert.equal(sidebarLabel(['Beta']), undefined)
