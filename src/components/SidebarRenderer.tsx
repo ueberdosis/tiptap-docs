@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronRightIcon, ExternalLinkIcon } from 'lucide-react'
+import { ChevronRightIcon, ChevronsDownUpIcon, ExternalLinkIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import {
   Fragment,
@@ -29,27 +29,39 @@ export const DocsSidebar = ({
 }) => {
   const listed = useMemo(() => collectHrefs(config.items), [config.items])
   const track = useRef<HTMLDivElement>(null)
+  const [collapseAll, setCollapseAll] = useState(0)
   useKeptScroll(track, onItemClick ? 'mobile' : 'desktop')
 
   return (
     <ListedPages.Provider value={listed}>
-      <Sidebar.Track className="gap-0" ref={track}>
-        {config.items.map((item, i) =>
-          item.type === 'link' ? (
-            <LinkItem
-              link={item}
-              path={item.title}
-              key={`${item.href}-${i}`}
-              onClick={onItemClick}
-            />
-          ) : (
-            <Fragment key={`${item.href}-${i}`}>
-              {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
-              <GroupItem group={item} onClick={onItemClick} />
-            </Fragment>
-          ),
-        )}
-      </Sidebar.Track>
+      <CollapseAll.Provider value={collapseAll}>
+        <Sidebar.Track className="gap-0" ref={track}>
+          <button
+            type="button"
+            onClick={() => setCollapseAll((count) => count + 1)}
+            className="self-end flex items-center gap-1 -mb-1 px-2 py-1 rounded-md text-xs text-grayAlpha-500 hover:text-black hover:bg-grayAlpha-100"
+            title="Close every open section except the one with this page"
+          >
+            <ChevronsDownUpIcon className="size-3.5" aria-hidden="true" />
+            Collapse all
+          </button>
+          {config.items.map((item, i) =>
+            item.type === 'link' ? (
+              <LinkItem
+                link={item}
+                path={item.title}
+                key={`${item.href}-${i}`}
+                onClick={onItemClick}
+              />
+            ) : (
+              <Fragment key={`${item.href}-${i}`}>
+                {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
+                <GroupItem group={item} onClick={onItemClick} />
+              </Fragment>
+            ),
+          )}
+        </Sidebar.Track>
+      </CollapseAll.Provider>
     </ListedPages.Provider>
   )
 }
@@ -64,7 +76,13 @@ const rememberedScroll = new Map<string, number>()
 // eslint-disable-next-line no-unused-vars
 type SetOpen = (next: boolean | ((prev: boolean) => boolean)) => void
 
-/** Open state that survives navigation. A page inside the entry always opens it. */
+/** Counts the clicks on "Collapse all"; every entry closes when it changes. */
+const CollapseAll = createContext(0)
+
+/**
+ * Open state that survives navigation. A page inside the entry always opens it,
+ * and "Collapse all" closes every entry that doesn't hold the current page.
+ */
 function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [boolean, SetOpen] {
   const [isOpen, setIsOpenState] = useState(() =>
     mustOpen ? true : (rememberedOpen.get(key) ?? initial),
@@ -78,6 +96,13 @@ function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [b
       }),
     [key],
   )
+  const collapseAll = useContext(CollapseAll)
+  const handled = useRef(collapseAll)
+  useEffect(() => {
+    if (handled.current === collapseAll) return
+    handled.current = collapseAll
+    setIsOpen(mustOpen)
+  }, [collapseAll, mustOpen, setIsOpen])
   return [isOpen, setIsOpen]
 }
 
