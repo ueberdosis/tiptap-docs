@@ -60,6 +60,17 @@ export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot p
 
 export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 
+/** The statuses to filter by; Stable is a released feature without a status. */
+export const CATALOG_STATUSES = [
+  'Stable',
+  'Beta',
+  'Alpha',
+  'Experimental',
+  'Soon',
+  'Legacy',
+  'Deprecated',
+] as const
+
 export type UpcomingFeature = {
   name: string
   description: string

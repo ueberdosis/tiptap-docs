@@ -121,6 +121,11 @@ test('list_features filters by plan and area', async () => {
     /Footnotes \[Paid, Soon\][^\n]*not available yet, no release date; today use footnotes in Pages/,
   )
 
+  // The status filter matches the catalog's
+  const legacy = await tool('list_features', { status: 'Legacy' })
+  assert.match(legacy.content[0].text, /Pages \[Team, Legacy\]/)
+  assert.doesNotMatch(legacy.content[0].text, /Comments \[/)
+
   // Plan and status together, so a legacy or beta feature shows both
   const pages = await tool('list_features', { query: 'pages' })
   assert.match(pages.content[0].text, /Pages \[Team, Legacy\]/)

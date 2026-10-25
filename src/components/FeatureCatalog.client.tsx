@@ -5,7 +5,7 @@ import { createElement, useMemo } from 'react'
 import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { CATALOG_GROUPS, CATALOG_PLANS, catalogGroupUrl } from '@/content/catalog'
+import { CATALOG_GROUPS, CATALOG_PLANS, CATALOG_STATUSES, catalogGroupUrl } from '@/content/catalog'
 import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import { MultiSelect, useListParam } from '@/components/FilterControls.client'
@@ -13,15 +13,6 @@ import type { CatalogEntry } from '@/server/getCatalog'
 import { getIcon } from '@/utils/iconKit'
 
 const END_OF_LIFE = ['Legacy', 'Deprecated']
-
-// Released features carry no status; "Stable" lets readers pick them
-const STATUSES = ['Stable', 'Beta', 'Alpha', 'Experimental', 'Soon', 'Legacy', 'Deprecated']
-
-const TYPES = [
-  { id: 'node', label: 'Nodes' },
-  { id: 'mark', label: 'Marks' },
-  { id: 'extension', label: 'Extensions' },
-]
 
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
   // Icons come by name from the frontmatter
@@ -74,22 +65,19 @@ export const CatalogCards = ({ entries }: { entries: CatalogEntry[] }) => (
   </div>
 )
 
-/** Every feature, filterable by plan, type, industry and text, grouped like the sidebar. */
+/** Every feature, filterable by plan, status, industry and text, grouped like the sidebar. */
 export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => {
   const [query, setQuery] = useUrlParam('search', '')
   const [plans, setPlans] = useListParam('plan')
-  const [types, setTypes] = useListParam('type')
   const [industries, setIndustries] = useListParam('industry')
   const [statuses, setStatuses] = useListParam('status')
-  const isFiltered =
-    !!query || plans.length + types.length + industries.length + statuses.length > 0
+  const isFiltered = !!query || plans.length + industries.length + statuses.length > 0
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return entries.filter(
       (entry) =>
         (plans.length === 0 || (!!entry.plan && plans.includes(entry.plan))) &&
-        (types.length === 0 || types.includes(entry.type)) &&
         (statuses.length === 0 || statuses.includes(entry.status ?? 'Stable')) &&
         (industries.length === 0 ||
           (entry.industries ?? []).some((industry) => industries.includes(industry))) &&
@@ -97,7 +85,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
           entry.name.toLowerCase().includes(needle) ||
           entry.description.toLowerCase().includes(needle)),
     )
-  }, [entries, query, plans, types, industries, statuses])
+  }, [entries, query, plans, industries, statuses])
 
   // One list of groups, in the order the sidebar shows them
   const groups = CATALOG_GROUPS.map((group) => ({
@@ -108,7 +96,6 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
   const reset = () => {
     setQuery('')
     setPlans([])
-    setTypes([])
     setIndustries([])
     setStatuses([])
   }
@@ -150,10 +137,9 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
               values={plans}
               onChange={setPlans}
             />
-            <MultiSelect label="Type" options={TYPES} values={types} onChange={setTypes} />
             <MultiSelect
               label="Status"
-              options={STATUSES.map((id) => ({ id, label: id }))}
+              options={CATALOG_STATUSES.map((id) => ({ id, label: id }))}
               values={statuses}
               onChange={setStatuses}
             />

@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { CATALOG_AREAS, CATALOG_GROUPS, CATALOG_PLANS } from '../content/catalog'
+import { CATALOG_AREAS, CATALOG_GROUPS, CATALOG_PLANS, CATALOG_STATUSES } from '../content/catalog'
 import { INDUSTRIES } from '../content/industries'
 import { EDITOR_PRESETS } from '../content/presets'
 import { createCanonicalUrl } from './createCanonicalUrl'
@@ -72,6 +72,11 @@ const TOOLS = [
       properties: {
         area: { type: 'string', enum: Object.keys(CATALOG_AREAS) },
         plan: { type: 'string', enum: [...CATALOG_PLANS] },
+        status: {
+          type: 'string',
+          enum: [...CATALOG_STATUSES],
+          description: 'Stable means released without a Beta, Alpha, or other status',
+        },
         group: { type: 'string', enum: CATALOG_GROUPS.map((group) => group.id) },
         industry: {
           type: 'string',
@@ -300,6 +305,7 @@ function listFeatures(args: Record<string, unknown>): ToolResult {
     (entry) =>
       (!args.area || entry.area === args.area) &&
       (!args.plan || entry.plan === args.plan) &&
+      (!args.status || (entry.status ?? 'Stable') === args.status) &&
       (!args.group || entry.group === args.group) &&
       (!args.industry || (entry.industries ?? []).includes(String(args.industry))) &&
       (!needle ||
