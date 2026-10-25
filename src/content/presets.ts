@@ -66,7 +66,7 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Table of contents',
       'Comments',
       'Snapshots',
-      'AI Toolkit',
+      'Server AI Toolkit',
     ],
   },
   {
@@ -113,13 +113,13 @@ export const EDITOR_PRESETS: EditorPreset[] = [
       'Compare',
       'Snapshots',
     ],
-    suggestions: ['Pages', 'DOCX import', 'DOCX export', 'AI Toolkit', 'Compare snapshots'],
+    suggestions: ['Pages', 'DOCX import', 'DOCX export', 'Server AI Toolkit', 'Compare snapshots'],
   },
   {
     id: 'ai',
     title: 'AI writing assistant',
     description: 'An agent that edits the document, with its changes as suggestions to review.',
-    features: ['Starter kit', 'AI Toolkit', 'Tracked Changes', 'Comments'],
+    features: ['Starter kit', 'Server AI Toolkit', 'Tracked Changes', 'Comments'],
     suggestions: ['Basic AI Generation', 'Snapshots', 'Compare', 'Collaboration'],
   },
   {
@@ -147,7 +147,7 @@ export const SERVICE_NEEDS: Record<string, ServiceNeed> = {
   Comments: 'document-server',
   Snapshots: 'document-server',
   'Compare snapshots': 'document-server',
-  'AI Toolkit': 'tiptap-service',
+  'Server AI Toolkit': 'tiptap-service',
   'Basic AI Generation': 'tiptap-service',
   'DOCX import': 'tiptap-service',
   'PDF export': 'tiptap-service',

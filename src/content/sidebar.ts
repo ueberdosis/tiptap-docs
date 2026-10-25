@@ -180,7 +180,7 @@ const items: SidebarGroup[] = [
         href: '',
         children: [
           {
-            title: 'AI Toolkit',
+            title: 'Server AI Toolkit',
             href: '',
             tags: planTags('/ai/ai-toolkit/overview'),
             children: childrenOf(aiSidebar, ['AI Toolkit']),
@@ -188,7 +188,7 @@ const items: SidebarGroup[] = [
           {
             ...link(aiSidebar, ['Other Options', 'Client Toolkit']),
             href: '',
-            title: 'AI Toolkit client',
+            title: 'Client AI Toolkit',
           },
           { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
           {

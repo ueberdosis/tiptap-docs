@@ -225,7 +225,7 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   assert.equal(label(['Composable Documents', 'Slots']), undefined, 'repeats its feature')
   // AI Legacy is paid too, so all of AI is; the end of life still shows
   assert.equal(label(['AI']), 'Paid')
-  assert.equal(label(['AI', 'AI Toolkit']), undefined)
+  assert.equal(label(['AI', 'Server AI Toolkit']), undefined)
   assert.equal(label(['AI', 'AI Legacy']), 'Deprecated')
   // Upcoming features that will be paid make their group paid; they show Soon
   assert.equal(label(['Page Layout']), 'Paid')

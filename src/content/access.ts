@@ -14,11 +14,11 @@ export type AddOnAccess = {
 export const ADD_ON_ACCESS: Record<string, AddOnAccess> = {
   'Tracked Changes': { trial: true, dashboard: true },
   Compare: { dashboard: false, contact: 'https://tiptap.dev/contact-sales' },
-  'AI Toolkit': {
+  'Server AI Toolkit': {
     dashboard: false,
     contact: 'https://tiptap.dev/contact-sales?form=server-ai-toolkit',
   },
-  'AI Toolkit client': {
+  'Client AI Toolkit': {
     dashboard: false,
     contact: 'https://tiptap.dev/contact-sales?form=ai-toolkit',
   },

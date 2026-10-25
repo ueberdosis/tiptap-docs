@@ -52,7 +52,7 @@ export const INDUSTRIES: Industry[] = [
       'Comments',
       'Snapshots',
       'Basic AI Generation',
-      'AI Toolkit',
+      'Server AI Toolkit',
     ],
   },
   {
@@ -133,7 +133,7 @@ export const INDUSTRIES: Industry[] = [
       'Snapshots',
       'Slots',
       'Basic AI Generation',
-      'AI Toolkit',
+      'Server AI Toolkit',
     ],
   },
   {
