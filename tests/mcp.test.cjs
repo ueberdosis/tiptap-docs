@@ -509,3 +509,11 @@ test('bundles only name catalog features, and their .md pages list the parts', a
   assert.match(markdown, /\| Feature +\| What it adds +\| Status +\|\n/)
   assert.match(markdown, /\| \[DOCX export\]\([^)]+\) +\|/)
 })
+
+test('stripTags keeps the text and drops every tag and stray angle bracket', () => {
+  const { stripTags } = loadSite('../src/utils/stripTags.ts')
+  assert.equal(stripTags('<p>Use <code>setThread</code></p>'), 'Use setThread')
+  assert.equal(stripTags('a < b'), 'a  b')
+  assert.equal(stripTags('a > b'), 'a  b')
+  assert.equal(stripTags('<<script>script>alert(1)'), 'scriptalert(1)')
+})
