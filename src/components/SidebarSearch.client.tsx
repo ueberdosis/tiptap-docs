@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Configure, Highlight, InstantSearch, useHits, useSearchBox } from 'react-instantsearch'
 import Link from '@/components/Link'
+import { ShortcutTooltip } from '@/components/ui/ShortcutTooltip'
 import { SearchHit, SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { cn } from '@/utils'
 import { sidebarSearchAdapter } from '@/utils/search'
@@ -338,7 +339,7 @@ function WithFullText({
 }
 
 const arrowButton =
-  'grid place-items-center size-6 rounded-md cursor-pointer hover:bg-grayAlpha-100 disabled:opacity-40'
+  'grid flex-none place-items-center size-6 rounded-md cursor-pointer hover:bg-grayAlpha-100 disabled:opacity-40'
 
 function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Result[] }) {
   // Pages and their sections, in the order the arrow keys move through them
@@ -359,12 +360,25 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
   }, [active])
 
   const searching = !!query.trim()
+  const isPhrase = /^\s*"[^"]+"\s*$/.test(query)
   const router = useRouter()
   const pathname = usePathname()
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const [focused, setFocused] = useState(false)
-  const scroller = () => list.current?.closest<HTMLElement>('.overflow-auto')
+  const header = useRef<HTMLDivElement>(null)
+  const scroller = () => header.current?.closest<HTMLElement>('.overflow-auto')
+
+  // Once the sidebar scrolls, a line sets the field apart from what passes below it
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const element = scroller()
+    if (!element) return
+    const update = () => setScrolled(element.scrollTop > 0)
+    update()
+    element.addEventListener('scroll', update, { passive: true })
+    return () => element.removeEventListener('scroll', update)
+  }, [])
 
   // Like the navigation, the results keep their scroll position when a page opens
   useLayoutEffect(() => {
@@ -505,10 +519,14 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
       {/* Stays on top while the sidebar scrolls */}
       {/* Spans the sidebar's full width, so nothing scrolling below shows at its edges */}
       <div
-        className="sticky -top-6 z-20 -mx-2 -mt-6 px-2 pt-2 pb-3 bg-warmGray"
+        ref={header}
+        className={cn(
+          'sticky -top-6 z-20 -mx-2 -mt-6 px-2 pt-2 pb-3 bg-warmGray border-b transition-colors',
+          scrolled ? 'border-grayAlpha-200' : 'border-transparent',
+        )}
         data-sidebar-search
       >
-        <label className="flex items-center h-9 px-2.5 gap-2 bg-white rounded-lg border border-grayAlpha-200 transition-colors hover:border-grayAlpha-400 focus-within:border-purple-500 focus-within:hover:border-purple-500">
+        <label className="flex items-center h-9 pl-2.5 pr-1.5 gap-2 bg-white rounded-lg border border-grayAlpha-200 transition-colors hover:border-grayAlpha-400 focus-within:border-purple-500 focus-within:hover:border-purple-500">
           <SearchIcon className="size-4 flex-none text-grayAlpha-400" aria-hidden="true" />
           <input
             ref={input}
@@ -530,74 +548,114 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
               <span>K</span>
             </kbd>
           ) : null}
+          {/* Steps through the query on the open page, as a browser's find bar does */}
+          {searching && count ? (
+            <span className="flex-none flex items-center">
+              <span aria-live="polite" className="mr-0.5 text-xs tabular-nums text-grayAlpha-500">
+                {current + 1}/{count}
+              </span>
+              <ShortcutTooltip shortcuts={[['Previous match on this page', ['⇧', '↵']]]}>
+                <button
+                  type="button"
+                  onClick={() => step(-1)}
+                  className={arrowButton}
+                  aria-label="Previous match on this page"
+                >
+                  <ChevronUpIcon className="size-3.5" aria-hidden="true" />
+                </button>
+              </ShortcutTooltip>
+              <ShortcutTooltip shortcuts={[['Next match on this page', ['↵']]]}>
+                <button
+                  type="button"
+                  onClick={() => step(1)}
+                  className={arrowButton}
+                  aria-label="Next match on this page"
+                >
+                  <ChevronDownIcon className="size-3.5" aria-hidden="true" />
+                </button>
+              </ShortcutTooltip>
+            </span>
+          ) : null}
           {searching ? (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('')
-                input.current?.focus()
-              }}
-              className="p-0.5 rounded cursor-pointer hover:bg-neutral-100"
-              aria-label="Clear search"
-            >
-              <XIcon className="size-3.5" aria-hidden="true" />
-            </button>
+            <ShortcutTooltip shortcuts={[['Clear search', ['esc']]]}>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('')
+                  input.current?.focus()
+                }}
+                className={arrowButton}
+                aria-label="Clear search"
+              >
+                <XIcon className="size-3.5" aria-hidden="true" />
+              </button>
+            </ShortcutTooltip>
           ) : null}
         </label>
         {searching ? (
           <div className="mt-2 pl-1 text-xs text-grayAlpha-600">
-            <div className="flex items-center justify-between">
-              <span aria-live="polite">
-                {results.length} {results.length === 1 ? 'page' : 'pages'}
+            <div className="flex items-center justify-between pr-1.5">
+              <span className="flex items-center gap-2">
+                <span aria-live="polite">
+                  {results.length} {results.length === 1 ? 'page' : 'pages'}
+                </span>
+                {/* Puts the query in quotes, so readers see how to search a phrase themselves */}
+                {isPhrase || searchTerms(query).length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuery(isPhrase ? query.replaceAll('"', '') : `"${query.trim()}"`)
+                    }
+                    aria-pressed={isPhrase}
+                    className={cn(
+                      'px-1.5 py-0.5 rounded-md border cursor-pointer transition-colors',
+                      isPhrase
+                        ? 'border-purple-200 bg-purple-50 text-purple-700'
+                        : 'border-grayAlpha-200 hover:border-grayAlpha-400 hover:text-grayAlpha-900',
+                    )}
+                  >
+                    Exact phrase
+                  </button>
+                ) : null}
               </span>
               {/* Open the previous or next page without going back to the list */}
               <span className="flex items-center">
-                <button
-                  type="button"
-                  onClick={() => openPage(-1)}
-                  disabled={!results.length}
-                  className={arrowButton}
-                  aria-label="Open the previous page"
+                <ShortcutTooltip
+                  shortcuts={[
+                    ['Open the previous page'],
+                    ['Choose a result', ['↑', '↓']],
+                    ['Open it', ['↵']],
+                  ]}
                 >
-                  <ChevronUpIcon className="size-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openPage(1)}
-                  disabled={!results.length}
-                  className={arrowButton}
-                  aria-label="Open the next page"
-                >
-                  <ChevronDownIcon className="size-4" aria-hidden="true" />
-                </button>
-              </span>
-            </div>
-            {/* Step through the occurrences on the open page, as a browser's find does */}
-            {count ? (
-              <div className="flex items-center justify-between">
-                <span aria-live="polite">
-                  {current + 1} / {count} on this page
-                </span>
-                <span className="flex items-center">
                   <button
                     type="button"
-                    onClick={() => step(-1)}
+                    onClick={() => openPage(-1)}
+                    disabled={!results.length}
                     className={arrowButton}
-                    aria-label="Previous match on this page"
+                    aria-label="Open the previous page"
                   >
                     <ChevronUpIcon className="size-4" aria-hidden="true" />
                   </button>
+                </ShortcutTooltip>
+                <ShortcutTooltip
+                  shortcuts={[
+                    ['Open the next page'],
+                    ['Choose a result', ['↑', '↓']],
+                    ['Open it', ['↵']],
+                  ]}
+                >
                   <button
                     type="button"
-                    onClick={() => step(1)}
+                    onClick={() => openPage(1)}
+                    disabled={!results.length}
                     className={arrowButton}
-                    aria-label="Next match on this page"
+                    aria-label="Open the next page"
                   >
                     <ChevronDownIcon className="size-4" aria-hidden="true" />
                   </button>
-                </span>
-              </div>
-            ) : null}
+                </ShortcutTooltip>
+              </span>
+            </div>
           </div>
         ) : null}
       </div>
