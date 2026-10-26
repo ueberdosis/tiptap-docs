@@ -3,8 +3,10 @@ import { forwardRef } from 'react'
 import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
+import { PLAN_LABELS, Plan, Status } from '@/content/plans'
+import { isNew } from '@/utils/isNew'
 import { cn } from '@/utils'
-import { ImagePageTag, PageTag } from '@/types'
+import { GeneralPageTag, ImagePageTag, PageTag } from '@/types'
 
 export type PageHeaderWrapperProps = {
   asChild?: boolean
@@ -73,20 +75,87 @@ const isImageTag = (tag: PageTag): tag is ImagePageTag => {
   return tag.type === 'image'
 }
 
+const PLAN_TYPES = ['restricted', 'addon', 'business', 'team', 'start', 'beginStart', 'mit', 'pro']
+const STATUS_TYPES = ['deprecated', 'alpha', 'beta', 'experiment', 'new']
+
+// Plan first, then status, then version, then npm badges, whatever the frontmatter order
+const tagRank = (tag: PageTag) =>
+  PLAN_TYPES.includes(tag.type)
+    ? 0
+    : STATUS_TYPES.includes(tag.type)
+      ? 1 + STATUS_TYPES.indexOf(tag.type) / 10
+      : tag.type === 'version'
+        ? 2
+        : 3
+
+const PLAN_TAG: Record<Plan, GeneralPageTag['type']> = {
+  'Pilot program': 'restricted',
+  'Add-on': 'addon',
+  Business: 'business',
+  Team: 'team',
+  Start: 'start',
+  'Open source': 'mit',
+}
+
+const STATUS_TAG: Record<Status, GeneralPageTag['type']> = {
+  Deprecated: 'deprecated',
+  Alpha: 'alpha',
+  Beta: 'beta',
+}
+
+/**
+ * A page's header tags, with the plan and status it inherits from its feature
+ * when it doesn't tag them itself, so a sub-page of a paid feature says so.
+ */
+export function headerTags(tags: PageTag[] = [], inherited?: { plan?: Plan; status?: Status }) {
+  const own = (types: string[]) => tags.some((tag) => types.includes(tag.type))
+  const added: PageTag[] = []
+  if (inherited?.plan && !own(PLAN_TYPES)) added.push({ type: PLAN_TAG[inherited.plan] })
+  if (inherited?.status && !own(STATUS_TYPES)) added.push({ type: STATUS_TAG[inherited.status] })
+  return [...tags, ...added]
+}
+
 export type PageHeaderTagsProps = {
   tags: PageTag[]
   isTemplate?: boolean
 }
 
 export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
+  // A deprecated page shouldn't also invite you in as Beta or New
+  const endOfLife = tags.some((tag) => tag.type === 'deprecated')
+  const sorted = tags
+    .map((tag, index) => ({ tag, index }))
+    .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
+    .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
+  if (!sorted.length) return null
   return (
     <div className="flex items-center gap-1 flex-wrap mt-6 last:mb-12">
-      {tags.map((tag, index) => (
+      {sorted.map(({ tag, index }) => (
         <PageHeaderTag tag={tag} isTemplate={isTemplate} key={index} />
       ))}
     </div>
   )
 }
+
+const PRICING_URL = 'https://tiptap.dev/pricing'
+const TEMPLATE_LICENSE = ' Usage of this template is subject to our Pro License and ToS.'
+
+/** A paid plan: in the paid colour, linking to where you get it. */
+const PlanTag = ({
+  href = PRICING_URL,
+  tooltip,
+  children,
+}: {
+  href?: string
+  tooltip: string
+  children: React.ReactNode
+}) => (
+  <Tag asChild variant="info" tooltip={tooltip}>
+    <Link href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </Link>
+  </Tag>
+)
 
 export const PageHeaderTag = ({
   tag,
@@ -104,141 +173,92 @@ export const PageHeaderTag = ({
     )
   }
 
-  if (tag.type === 'pro') {
-    return (
-      <Tag
-        variant="invert"
-        tooltip={tag.tooltip || 'Pro extensions require a Tiptap subscription.'}
-      >
-        Pro Extension
-      </Tag>
-    )
-  }
+  const license = isTemplate ? TEMPLATE_LICENSE : ''
 
-  if (tag.type === 'beginStart') {
-    return <Tag tooltip={tag.tooltip}>Available from Start plan</Tag>
-  }
-
-  if (tag.type === 'start') {
-    const defaultTooltip = isTemplate
-      ? 'Integrate and use while subscribed to the Start plan. Usage of this template is subject to our Pro License and ToS.'
-      : 'Integrate and use while subscribed to the Start plan.'
-    return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Start plan</Tag>
-  }
-
-  if (tag.type === 'addon') {
-    return <Tag tooltip={tag.tooltip || 'Add this add-on to your subscription'}>Paid add-on</Tag>
-  }
-
-  if (tag.type === 'mit') {
-    return (
-      <Tag variant="invert" tooltip={tag.tooltip || 'Free to use under MIT license.'}>
-        Available for free
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'team') {
-    const defaultTooltip = isTemplate
-      ? 'Integrate and use while subscribed to the Team plan. Usage of this template is subject to our Pro License and ToS.'
-      : 'Integrate and use while subscribed to the Team plan.'
-    return <Tag tooltip={tag.tooltip || defaultTooltip}>Available in Team plan</Tag>
-  }
-
-  if (tag.type === 'business') {
-    return (
-      <Tag
-        tooltip={
-          tag.tooltip || 'Integrate and use while subscribed to the Business or Enterprise plan.'
-        }
-      >
-        Business plan
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'ai') {
-    return <Tag tooltip={tag.tooltip}>AI Toolkit</Tag>
-  }
-
-  if (tag.type === 'collaboration') {
-    return <Tag tooltip={tag.tooltip}>Collaboration</Tag>
-  }
-
-  if (tag.type === 'documents') {
-    return <Tag tooltip={tag.tooltip}>Documents</Tag>
-  }
-
-  if (tag.type === 'editor') {
-    return <Tag tooltip={tag.tooltip}>Editor</Tag>
-  }
-
-  if (tag.type === 'new') {
-    return (
-      <Tag variant="info" tooltip={tag.tooltip}>
-        New
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'beta') {
-    return (
-      <Tag variant="info" tooltip={tag.tooltip}>
-        Beta
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'alpha') {
-    return (
-      <Tag variant="neutral" tooltip={tag.tooltip}>
-        Alpha
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'experiment') {
-    return <Tag tooltip={tag.tooltip}>Experiment</Tag>
-  }
-
-  if (tag.type === 'restricted') {
-    return (
-      <Tag
-        asChild
-        variant="info"
-        tooltip={tag.tooltip || 'Contact our team to join the pilot program.'}
-      >
-        <Link
+  switch (tag.type) {
+    case 'start':
+    case 'beginStart':
+      return (
+        <PlanTag tooltip={tag.tooltip || `${PLAN_LABELS.Start.tooltip}${license}`}>
+          {PLAN_LABELS.Start.label}
+        </PlanTag>
+      )
+    case 'team':
+      return (
+        <PlanTag tooltip={tag.tooltip || `${PLAN_LABELS.Team.tooltip}${license}`}>
+          {PLAN_LABELS.Team.label}
+        </PlanTag>
+      )
+    case 'business':
+      return (
+        <PlanTag tooltip={tag.tooltip || PLAN_LABELS.Business.tooltip}>
+          {PLAN_LABELS.Business.label}
+        </PlanTag>
+      )
+    case 'addon':
+      return (
+        <PlanTag tooltip={tag.tooltip || PLAN_LABELS['Add-on'].tooltip}>
+          {PLAN_LABELS['Add-on'].label}
+        </PlanTag>
+      )
+    case 'restricted':
+      return (
+        <PlanTag
           href="https://tiptap.dev/contact-sales?form=pilot-program"
-          target="_blank"
-          rel="noopener noreferrer"
+          tooltip={tag.tooltip || PLAN_LABELS['Pilot program'].tooltip}
         >
-          {tag.label || 'Pilot program'}
-        </Link>
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'deprecated') {
-    return (
-      <Tag
-        variant="warning"
-        tooltip={
-          tag.tooltip ||
-          'This extension is being deprecated in 2026 and will be replaced by AI Toolkit.'
-        }
-      >
-        Deprecated
-      </Tag>
-    )
-  }
-
-  if (tag.type === 'version') {
-    return (
-      <Tag variant="gray" tooltip={tag.tooltip}>
-        {tag.label || 'Version'}
-      </Tag>
-    )
+          {tag.label || PLAN_LABELS['Pilot program'].label}
+        </PlanTag>
+      )
+    // Pro extensions became open source in Tiptap 3
+    case 'mit':
+    case 'pro':
+      return (
+        <Tag variant="gray" tooltip={tag.tooltip || PLAN_LABELS['Open source'].tooltip}>
+          {PLAN_LABELS['Open source'].label}
+        </Tag>
+      )
+    case 'alpha':
+      return (
+        <Tag variant="gray" tooltip={tag.tooltip || 'Works, but the API will change.'}>
+          Alpha
+        </Tag>
+      )
+    case 'beta':
+      return (
+        <Tag variant="gray" tooltip={tag.tooltip || 'Works, but the API may change.'}>
+          Beta
+        </Tag>
+      )
+    case 'experiment':
+      return (
+        <Tag variant="gray" tooltip={tag.tooltip || 'May change or go away.'}>
+          Experimental
+        </Tag>
+      )
+    case 'new':
+      return isNew(tag.since) ? (
+        <Tag variant="gray" tooltip={tag.tooltip}>
+          New
+        </Tag>
+      ) : null
+    case 'deprecated':
+      return (
+        <Tag
+          variant="hint"
+          tooltip={tag.tooltip || 'Will be removed. Use what the page names instead.'}
+        >
+          Deprecated
+        </Tag>
+      )
+    case 'version':
+      return (
+        <Tag variant="gray" tooltip={tag.tooltip}>
+          {tag.label || 'Version'}
+        </Tag>
+      )
+    default:
+      return null
   }
 }
 

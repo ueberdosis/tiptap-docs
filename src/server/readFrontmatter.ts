@@ -1,3 +1,4 @@
+import { closeSync, fstatSync, openSync, readSync } from 'fs'
 import { open } from 'fs/promises'
 import { StringDecoder } from 'string_decoder'
 import frontmatter from 'front-matter'
@@ -42,5 +43,48 @@ export async function readFrontmatter(filePath: string): Promise<PageFrontmatter
     }
   } finally {
     await file.close()
+  }
+}
+
+/**
+ * `readFrontmatter` for callers that can't wait, such as the sidebar, which is
+ * built when its module loads. Same steps and limits, with synchronous reads.
+ */
+export function readFrontmatterSync(filePath: string): PageFrontmatter {
+  const fd = openSync(filePath, 'r')
+  const buffer = Buffer.alloc(4096)
+  const decoder = new StringDecoder('utf8')
+  let header = ''
+  let totalBytes = 0
+
+  try {
+    while (true) {
+      const bytesRead = readSync(fd, buffer, 0, buffer.length, null)
+      if (bytesRead === 0) {
+        return frontmatter<PageFrontmatter>(header + decoder.end()).attributes
+      }
+
+      totalBytes += bytesRead
+      header += decoder.write(buffer.subarray(0, bytesRead))
+      if (!/^﻿?(---|= yaml =)(?:\r?\n|$)/.test(header)) {
+        return {}
+      }
+
+      const completeLines = header.slice(0, header.lastIndexOf('\n') + 1)
+      if (frontmatter.test(completeLines)) {
+        return frontmatter<PageFrontmatter>(completeLines).attributes
+      }
+      if (totalBytes >= 65_536) {
+        if (fstatSync(fd).size === totalBytes) {
+          const completeHeader = header + decoder.end()
+          if (frontmatter.test(completeHeader)) {
+            return frontmatter<PageFrontmatter>(completeHeader).attributes
+          }
+        }
+        throw new Error(`Frontmatter exceeds 64 KiB in ${filePath}`)
+      }
+    }
+  } finally {
+    closeSync(fd)
   }
 }
