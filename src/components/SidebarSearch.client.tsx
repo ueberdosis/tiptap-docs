@@ -4,6 +4,8 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ChevronUpIcon,
   ListFilterIcon,
   SearchIcon,
@@ -666,7 +668,7 @@ function SearchBody({
                 <AreaFilter counts={areaCounts} chosen={areas} onChange={changeAreas} />
                 <ShortcutTooltip
                   shortcuts={[
-                    ['Open the previous page'],
+                    ['Open the previous or next page'],
                     ['Choose a result', ['↑', '↓']],
                     ['Open it', ['↵']],
                   ]}
@@ -680,14 +682,6 @@ function SearchBody({
                   >
                     <ChevronUpIcon className="size-4" aria-hidden="true" />
                   </button>
-                </ShortcutTooltip>
-                <ShortcutTooltip
-                  shortcuts={[
-                    ['Open the next page'],
-                    ['Choose a result', ['↑', '↓']],
-                    ['Open it', ['↵']],
-                  ]}
-                >
                   <button
                     type="button"
                     onClick={() => openPage(1)}
@@ -732,9 +726,7 @@ function SearchBody({
                   </span>
                   {/* On the open page, the matches there take the trail's place, so nothing moves */}
                   {isCurrent && count ? (
-                    <span aria-live="polite" className="block mt-0.5 text-xs text-grayAlpha-600">
-                      {current + 1} / {count} on this page
-                    </span>
+                    <span className="block mt-0.5 text-xs text-grayAlpha-600">On this page</span>
                   ) : result.trail.length ? (
                     <span className="block mt-0.5 truncate text-xs text-grayAlpha-500">
                       {result.trail.join(' / ')}
@@ -743,25 +735,34 @@ function SearchBody({
                 </Link>
                 {/* Beside the link rather than in it, so a click steps instead of opening */}
                 {isCurrent && count ? (
-                  <span className="absolute right-1 bottom-0.5 flex items-center">
-                    <ShortcutTooltip shortcuts={[['Previous match on this page', ['⇧', '↵']]]}>
+                  <span className="absolute right-1 bottom-0.5">
+                    <ShortcutTooltip
+                      shortcuts={[
+                        ['Next match', ['↵']],
+                        ['Previous match', ['⇧', '↵']],
+                      ]}
+                    >
                       <button
                         type="button"
                         onClick={() => step(-1)}
                         className={smallArrowButton}
                         aria-label="Previous match on this page"
                       >
-                        <ChevronUpIcon className="size-3.5" aria-hidden="true" />
+                        <ChevronLeftIcon className="size-3.5" aria-hidden="true" />
                       </button>
-                    </ShortcutTooltip>
-                    <ShortcutTooltip shortcuts={[['Next match on this page', ['↵']]]}>
+                      <span
+                        aria-live="polite"
+                        className="self-center px-0.5 text-xs tabular-nums text-grayAlpha-600"
+                      >
+                        {current + 1} / {count}
+                      </span>
                       <button
                         type="button"
                         onClick={() => step(1)}
                         className={smallArrowButton}
                         aria-label="Next match on this page"
                       >
-                        <ChevronDownIcon className="size-3.5" aria-hidden="true" />
+                        <ChevronRightIcon className="size-3.5" aria-hidden="true" />
                       </button>
                     </ShortcutTooltip>
                   </span>
