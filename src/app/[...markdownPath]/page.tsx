@@ -15,6 +15,8 @@ import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfi
 import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import { LegacyNotice } from '@/components/LegacyNotice'
+import { legacyFeature } from '@/content/legacy'
 import { AskAi } from '@/components/AskAi'
 import { DemoViewer } from '@/components/DemoViewer'
 import { LatestVersion } from '@/components/Changelog'
@@ -101,6 +103,10 @@ export default async function MarkdownPage({ params }: Props) {
   // A sub-page shows the plan and status of its feature, as agents see them in the index
   const tags = headerTags(pageMdx.frontmatter?.tags, findDocsPage(`/${markdownPath.join('/')}`))
   const headerDemo = pageMdx.frontmatter?.headerDemo
+  // A legacy page says what replaces it before anything else, the demo included
+  const legacy = tags.some((tag) => tag.type === 'legacy')
+    ? legacyFeature(`/${markdownPath.join('/')}`)
+    : undefined
   const showSecondarySidebar = !pageMdx.frontmatter?.sidebars?.hideSecondary
 
   const header = pageMdx.frontmatter ? (
@@ -140,6 +146,7 @@ export default async function MarkdownPage({ params }: Props) {
           }}
         />
       ) : null}
+      {legacy ? <LegacyNotice feature={legacy} /> : null}
       {headerDemo ? (
         // The header shows the editor first; its code is one click away
         <div className="mt-8 [&>div]:my-0">

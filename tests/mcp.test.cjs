@@ -21,6 +21,7 @@ const { sidebarConfig } = loadSite('../src/content/sidebar.ts')
 const { sidebarLabel } = loadSite('../src/components/SidebarRenderer.tsx')
 const { headerTags } = loadSite('../src/components/PageHeader.tsx')
 const { isNew, NEW_FOR_DAYS } = loadSite('../src/utils/isNew.ts')
+const { LEGACY_FEATURES, legacyFeature } = loadSite('../src/content/legacy.ts')
 const { compareVersions, mainPackage, parseChangelog } = loadSite(
   '../src/server/changelogEntries.ts',
 )
@@ -461,4 +462,31 @@ test('.md links keep their query after the .md, and the platform page lists plan
   assert.match(md, /\/editor\/extensions\/overview\.md\?plan=Open%20source\)/)
   assert.match(md, /- \*\*Add-ons:\*\* .*\[Tracked Changes\]/)
   assert.match(md, /- \*\*Enterprise:\*\* /)
+})
+
+test('every legacy page names what replaces it, with links that reach a page', async () => {
+  const pages = getDocsIndex()
+  const legacy = pages.filter((page) => page.status === 'Legacy')
+  assert.ok(legacy.length > 0)
+  assert.deepEqual(
+    legacy.filter((page) => !legacyFeature(page.route)).map((page) => page.route),
+    [],
+    'legacy pages without an entry in src/content/legacy.ts',
+  )
+  const routes = new Set(pages.map((page) => page.route))
+  const hrefs = LEGACY_FEATURES.flatMap((feature) => [
+    feature.replacedBy?.href,
+    feature.migrate?.href,
+    feature.note?.link.href,
+  ]).filter((href) => href && href.startsWith('/'))
+  assert.deepEqual(
+    hrefs.filter((href) => !routes.has(href)),
+    [],
+  )
+
+  const markdown = await fileToMarkdown('src/content/pages/getting-started/overview.mdx')
+  assert.match(
+    markdown,
+    /> \*\*Legacy:\*\* Existing projects can keep using Pages\. Page Layout will replace it/,
+  )
 })

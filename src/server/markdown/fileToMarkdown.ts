@@ -5,6 +5,8 @@ import frontMatter from 'front-matter'
 import { formatDay, getLatestVersion, historyUrl, mainPackage } from '../changelogEntries'
 import { cleanDescription, findDocsPage } from '../getDocsIndex'
 import { transformMdxToMarkdown } from './transformMdx'
+import { legacyFeature, legacyMarkdown } from '@/content/legacy'
+import { markdownUrl } from '@/server/llmsText'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 type Frontmatter = {
@@ -146,6 +148,9 @@ export async function fileToMarkdown(filePath: string, canonicalUrl?: string): P
   // The intro is what readers see under the title; the meta description only stands in for it
   const lead = attributes.intro ? cleanDescription(attributes.intro) : description
   if (lead) parts.push(lead)
+  const legacy = page?.status === 'Legacy' ? legacyFeature(route) : undefined
+  if (legacy)
+    parts.push(legacyMarkdown(legacy, (href) => (href.startsWith('/') ? markdownUrl(href) : href)))
   parts.push(transformed)
 
   // A feature page ends with its latest version, as on the page
