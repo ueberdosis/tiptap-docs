@@ -1,6 +1,14 @@
 'use client'
 
-import { ChevronDownIcon, ChevronUpIcon, SearchIcon, XIcon } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ListFilterIcon,
+  SearchIcon,
+  XIcon,
+} from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Configure, Highlight, InstantSearch, useHits, useSearchBox } from 'react-instantsearch'
@@ -47,6 +55,7 @@ type GroupedHit = SearchHit & {
 let rememberedQuery = ''
 let rememberedActive = 0
 let rememberedScroll = 0
+let rememberedAreas: string[] = []
 // Set when the reader opens a result by key or arrow, so the list shows it after the page changes
 let revealActive = false
 const revealOnNextPage = () => (revealActive = true)
@@ -234,6 +243,19 @@ function sectionsOf(hit: GroupedHit, pageTitle: string): Section[] {
   return [...sections.values()]
 }
 
+/** The deepest sidebar page a URL lies below, for pages the sidebar doesn't list. */
+function parentPage(pages: Map<string, Result>, href: string): Result | undefined {
+  let parent: Result | undefined
+  for (const page of pages.values()) {
+    if (page.href === '/' || !href.startsWith(`${page.href}/`)) continue
+    if (!parent || page.href.length > parent.href.length) parent = page
+  }
+  return parent
+}
+
+/** The top-level area of the sidebar a result is in, such as "Features". */
+const areaOf = (result: Result) => result.trail[0] ?? 'Other'
+
 /**
  * Full-text results, one per page, merged into the pages found by title: those keep
  * their place and gain the passages, the others follow.
@@ -249,11 +271,17 @@ function useFullText(query: string, pages: Map<string, Result>, byTitle: Result[
       const href = toPath(hit.url).split('#')[0]
       const levels = Object.values(hit.hierarchy ?? {}).filter(Boolean) as string[]
       const known = results.get(href) ?? pages.get(href)
+      const parent = known ? undefined : parentPage(pages, href)
       const page = known ?? {
         key: href,
         href,
         title: hit.hierarchy?.lvl1 ?? levels[0] ?? href,
-        trail: hit.hierarchy?.lvl1 ? [hit.hierarchy.lvl0] : [],
+        // Where the sidebar has it, so it falls in the right area
+        trail: parent
+          ? [...parent.trail, parent.label ?? parent.title]
+          : hit.hierarchy?.lvl1
+            ? [hit.hierarchy.lvl0]
+            : [],
         sections: [],
         more: 0,
       }
@@ -308,7 +336,8 @@ export function SidebarSearch({
 
   const pages = useMemo(() => sidebarPages(config), [config])
   const byTitle = useMemo(() => matchingPages(pages, query), [pages, query])
-  const props = { query, setQuery, nav: children }
+  const areaOrder = useMemo(() => config.items.map((item) => item.title), [config])
+  const props = { query, setQuery, nav: children, areaOrder }
   return hasFullText ? (
     <InstantSearch
       searchClient={sidebarSearchAdapter.searchClient}
@@ -326,6 +355,8 @@ type BodyProps = {
   query: string
   setQuery: (query: string) => void // eslint-disable-line no-unused-vars
   nav: React.ReactNode
+  /** The sidebar's top-level areas, in its order */
+  areaOrder: string[]
 }
 
 /** Adds the full-text results, inside InstantSearch. */
@@ -340,8 +371,41 @@ function WithFullText({
 
 const arrowButton =
   'grid flex-none place-items-center size-6 rounded-md cursor-pointer hover:bg-grayAlpha-100 disabled:opacity-40'
+const smallArrowButton =
+  'grid flex-none place-items-center size-5 rounded cursor-pointer text-grayAlpha-600 hover:bg-grayAlpha-200 hover:text-grayAlpha-900'
 
-function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Result[] }) {
+function SearchBody({
+  query,
+  setQuery,
+  nav,
+  areaOrder,
+  results: allResults,
+}: BodyProps & { results: Result[] }) {
+  // The areas the reader narrowed the results to; none means all
+  const [areas, setAreas] = useState<string[]>(rememberedAreas)
+  useEffect(() => {
+    rememberedAreas = areas
+  }, [areas])
+  // A cleared search starts again in all areas
+  const changeQuery = (next: string) => {
+    if (!next.trim()) setAreas([])
+    setQuery(next)
+  }
+  const results = useMemo(
+    () =>
+      areas.length ? allResults.filter((result) => areas.includes(areaOf(result))) : allResults,
+    [allResults, areas],
+  )
+  // Each area with results, in the sidebar's order, and the chosen ones even without
+  const areaCounts = useMemo(() => {
+    const counts = new Map<string, number>(areas.map((area) => [area, 0]))
+    for (const result of allResults) {
+      counts.set(areaOf(result), (counts.get(areaOf(result)) ?? 0) + 1)
+    }
+    const rank = (area: string) => (areaOrder.indexOf(area) + 1 || Infinity) as number
+    return [...counts].sort(([a], [b]) => rank(a) - rank(b))
+  }, [allResults, areas, areaOrder])
+
   // Pages and their sections, in the order the arrow keys move through them
   const rows = useMemo(
     () =>
@@ -455,6 +519,12 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
     scroller()?.scrollTo({ top: 0 })
   }, [query])
 
+  /** Narrows the results to some areas, starting again at the first one. */
+  const changeAreas = (next: string[]) => {
+    setAreas(next)
+    setActive(0)
+  }
+
   /** Selects a row by key, and shows it in the list. */
   const select = (index: number) => {
     setActive(index)
@@ -510,7 +580,7 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
         open(active)
       }
     } else if (event.key === 'Escape') {
-      setQuery('')
+      changeQuery('')
     }
   }
 
@@ -532,7 +602,7 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
             ref={input}
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => changeQuery(event.target.value)}
             onKeyDown={onKeyDown}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
@@ -548,40 +618,12 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
               <span>K</span>
             </kbd>
           ) : null}
-          {/* Steps through the query on the open page, as a browser's find bar does */}
-          {searching && count ? (
-            <span className="flex-none flex items-center">
-              <span aria-live="polite" className="mr-0.5 text-xs tabular-nums text-grayAlpha-500">
-                {current + 1}/{count}
-              </span>
-              <ShortcutTooltip shortcuts={[['Previous match on this page', ['⇧', '↵']]]}>
-                <button
-                  type="button"
-                  onClick={() => step(-1)}
-                  className={arrowButton}
-                  aria-label="Previous match on this page"
-                >
-                  <ChevronUpIcon className="size-3.5" aria-hidden="true" />
-                </button>
-              </ShortcutTooltip>
-              <ShortcutTooltip shortcuts={[['Next match on this page', ['↵']]]}>
-                <button
-                  type="button"
-                  onClick={() => step(1)}
-                  className={arrowButton}
-                  aria-label="Next match on this page"
-                >
-                  <ChevronDownIcon className="size-3.5" aria-hidden="true" />
-                </button>
-              </ShortcutTooltip>
-            </span>
-          ) : null}
           {searching ? (
             <ShortcutTooltip shortcuts={[['Clear search', ['esc']]]}>
               <button
                 type="button"
                 onClick={() => {
-                  setQuery('')
+                  changeQuery('')
                   input.current?.focus()
                 }}
                 className={arrowButton}
@@ -597,14 +639,15 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
             <div className="flex items-center justify-between pr-1.5">
               <span className="flex items-center gap-2">
                 <span aria-live="polite">
-                  {results.length} {results.length === 1 ? 'page' : 'pages'}
+                  {areas.length ? `${results.length} of ${allResults.length}` : results.length}{' '}
+                  {allResults.length === 1 ? 'page' : 'pages'}
                 </span>
                 {/* Puts the query in quotes, so readers see how to search a phrase themselves */}
                 {isPhrase || searchTerms(query).length > 1 ? (
                   <button
                     type="button"
                     onClick={() =>
-                      setQuery(isPhrase ? query.replaceAll('"', '') : `"${query.trim()}"`)
+                      changeQuery(isPhrase ? query.replaceAll('"', '') : `"${query.trim()}"`)
                     }
                     aria-pressed={isPhrase}
                     className={cn(
@@ -620,6 +663,7 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
               </span>
               {/* Open the previous or next page without going back to the list */}
               <span className="flex items-center">
+                <AreaFilter counts={areaCounts} chosen={areas} onChange={changeAreas} />
                 <ShortcutTooltip
                   shortcuts={[
                     ['Open the previous page'],
@@ -666,7 +710,7 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
             const isCurrent = result.href === pathname
             const name = names.get(result)
             return (
-              <div key={result.key}>
+              <div key={result.key} className="relative">
                 <Link
                   href={result.href}
                   data-index={index}
@@ -686,12 +730,42 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
                     ) : null}
                     {result.title}
                   </span>
-                  {result.trail.length ? (
+                  {/* On the open page, the matches there take the trail's place, so nothing moves */}
+                  {isCurrent && count ? (
+                    <span aria-live="polite" className="block mt-0.5 text-xs text-grayAlpha-600">
+                      {current + 1} / {count} on this page
+                    </span>
+                  ) : result.trail.length ? (
                     <span className="block mt-0.5 truncate text-xs text-grayAlpha-500">
                       {result.trail.join(' / ')}
                     </span>
                   ) : null}
                 </Link>
+                {/* Beside the link rather than in it, so a click steps instead of opening */}
+                {isCurrent && count ? (
+                  <span className="absolute right-1 bottom-0.5 flex items-center">
+                    <ShortcutTooltip shortcuts={[['Previous match on this page', ['⇧', '↵']]]}>
+                      <button
+                        type="button"
+                        onClick={() => step(-1)}
+                        className={smallArrowButton}
+                        aria-label="Previous match on this page"
+                      >
+                        <ChevronUpIcon className="size-3.5" aria-hidden="true" />
+                      </button>
+                    </ShortcutTooltip>
+                    <ShortcutTooltip shortcuts={[['Next match on this page', ['↵']]]}>
+                      <button
+                        type="button"
+                        onClick={() => step(1)}
+                        className={smallArrowButton}
+                        aria-label="Next match on this page"
+                      >
+                        <ChevronDownIcon className="size-3.5" aria-hidden="true" />
+                      </button>
+                    </ShortcutTooltip>
+                  </span>
+                ) : null}
                 {result.sections.length ? (
                   <div className="flex flex-col gap-0.5 mt-0.5 ml-2.5 pl-1.5 border-l border-grayAlpha-200">
                     {result.sections.map((section) => {
@@ -733,12 +807,106 @@ function SearchBody({ query, setQuery, nav, results }: BodyProps & { results: Re
             )
           })}
           {!results.length ? (
-            <p className="px-2.5 text-sm text-grayAlpha-600">No results for “{query.trim()}”.</p>
+            <p className="px-2.5 text-sm text-grayAlpha-600">
+              No results for “{query.trim()}”
+              {areas.length ? (
+                <>
+                  {' '}
+                  in {areas.join(', ')}.{' '}
+                  <button
+                    type="button"
+                    onClick={() => changeAreas([])}
+                    className="underline cursor-pointer hover:text-grayAlpha-900"
+                  >
+                    Search all areas
+                  </button>
+                </>
+              ) : (
+                '.'
+              )}
+            </p>
           ) : null}
         </div>
       ) : (
         nav
       )}
     </>
+  )
+}
+
+/** Narrows the results to some of the sidebar's areas, each with its number of results. */
+function AreaFilter({
+  counts,
+  chosen,
+  onChange,
+}: {
+  counts: [string, number][]
+  chosen: string[]
+  onChange: (areas: string[]) => void // eslint-disable-line no-unused-vars
+}) {
+  const toggle = (area: string) =>
+    onChange(chosen.includes(area) ? chosen.filter((a) => a !== area) : [...chosen, area])
+  return (
+    <DropdownMenu.Root modal={false}>
+      <ShortcutTooltip shortcuts={[['Filter by area']]}>
+        <DropdownMenu.Trigger asChild>
+          <button
+            type="button"
+            disabled={counts.length < 2 && !chosen.length}
+            className={cn(arrowButton, 'relative', chosen.length ? 'text-purple-600' : undefined)}
+            aria-label={chosen.length ? `Filter by area: ${chosen.join(', ')}` : 'Filter by area'}
+          >
+            <ListFilterIcon className="size-4" aria-hidden="true" />
+            {chosen.length ? (
+              <span className="absolute top-1 right-1 size-1.5 rounded-full bg-purple-600" />
+            ) : null}
+          </button>
+        </DropdownMenu.Trigger>
+      </ShortcutTooltip>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={4}
+          className="z-50 min-w-48 p-1 bg-white border rounded-lg border-grayAlpha-100 shadow-lg text-[13px]"
+        >
+          {counts.map(([area, count]) => (
+            <DropdownMenu.CheckboxItem
+              key={area}
+              checked={chosen.includes(area)}
+              onCheckedChange={() => toggle(area)}
+              // The menu stays open, so several areas can be chosen
+              onSelect={(event) => event.preventDefault()}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer outline-none data-highlighted:bg-grayAlpha-100"
+            >
+              <span
+                className={cn(
+                  'grid place-items-center size-3.5 rounded border',
+                  chosen.includes(area)
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'border-grayAlpha-300 bg-white',
+                )}
+              >
+                <DropdownMenu.ItemIndicator>
+                  <CheckIcon className="size-2.5" strokeWidth={3} aria-hidden="true" />
+                </DropdownMenu.ItemIndicator>
+              </span>
+              <span className="flex-1">{area}</span>
+              <span className="text-xs tabular-nums text-grayAlpha-500">{count}</span>
+            </DropdownMenu.CheckboxItem>
+          ))}
+          {chosen.length ? (
+            <>
+              <DropdownMenu.Separator className="my-1 h-px bg-grayAlpha-100" />
+              <DropdownMenu.Item
+                onSelect={() => onChange([])}
+                className="px-2 py-1.5 rounded-md cursor-pointer outline-none text-grayAlpha-600 data-highlighted:bg-grayAlpha-100"
+              >
+                Show all areas
+              </DropdownMenu.Item>
+            </>
+          ) : null}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   )
 }
