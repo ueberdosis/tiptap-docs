@@ -15,17 +15,18 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Overview', href: '/page-layout/getting-started/overview' },
         { title: 'Install', href: '/page-layout/getting-started/install' },
-        {
-          title: 'Existing editor',
-          href: '/page-layout/getting-started/existing-editor',
-        },
+        { title: 'Existing editor', href: '/page-layout/getting-started/existing-editor' },
         {
           title: 'Document and pages',
-          href: '/page-layout/getting-started/the-document-and-the-pages',
+          href: '/page-layout/getting-started/document-and-pages',
           children: [
             {
+              title: 'Reading the pages',
+              href: '/page-layout/getting-started/document-and-pages/reading',
+            },
+            {
               title: 'Writing to the document',
-              href: '/page-layout/getting-started/the-document-and-the-pages/writing',
+              href: '/page-layout/getting-started/document-and-pages/writing',
             },
           ],
         },
@@ -46,41 +47,55 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Page numbers',
               href: '/page-layout/features/page-numbers',
               children: [
-                { title: 'The page map', href: '/page-layout/features/page-numbers/page-map' },
+                {
+                  title: 'Numbering per section',
+                  href: '/page-layout/features/page-numbers/numbering',
+                },
+                {
+                  title: 'Chapter numbers',
+                  href: '/page-layout/features/page-numbers/chapter-numbers',
+                },
               ],
             },
             { title: 'Page colors', href: '/page-layout/features/page-colors' },
             { title: 'Zoom', href: '/page-layout/features/zoom' },
+            { title: 'Printing', href: '/page-layout/features/printing' },
           ],
         },
         {
           title: 'Paginating extensions',
-          href: '/page-layout/other-extensions/overview',
+          href: '/page-layout/paginating-extensions',
           children: [
-            { title: 'Tables', href: '/page-layout/other-extensions/tables' },
-            { title: 'Footnotes', href: '/page-layout/other-extensions/footnotes' },
-            { title: 'Cross-references', href: '/page-layout/other-extensions/cross-references' },
-            { title: 'Document Styles', href: '/page-layout/other-extensions/document-styles' },
-            { title: 'Outline numbering', href: '/page-layout/other-extensions/outline-numbering' },
-            { title: 'Column layout', href: '/page-layout/other-extensions/column-layout' },
-            { title: 'Bookmarks', href: '/page-layout/other-extensions/bookmarks' },
-            { title: 'Number formats', href: '/page-layout/other-extensions/number-formats' },
-            { title: 'Whole blocks', href: '/page-layout/other-extensions/whole-blocks' },
+            { title: 'Tables', href: '/page-layout/paginating-extensions/tables' },
+            { title: 'Footnotes', href: '/page-layout/paginating-extensions/footnotes' },
+            {
+              title: 'Cross-references',
+              href: '/page-layout/paginating-extensions/cross-references',
+            },
+            {
+              title: 'Document Styles',
+              href: '/page-layout/paginating-extensions/document-styles',
+            },
+            {
+              title: 'Outline numbering',
+              href: '/page-layout/paginating-extensions/outline-numbering',
+            },
+            { title: 'Columns', href: '/page-layout/paginating-extensions/columns' },
             {
               title: 'Your own extension',
-              href: '/page-layout/other-extensions/your-own-extension',
+              href: '/page-layout/paginating-extensions/your-own-extension',
               children: [
                 {
                   title: 'Layout rules',
-                  href: '/page-layout/other-extensions/your-own-extension/layout-rules',
+                  href: '/page-layout/paginating-extensions/your-own-extension/layout-rules',
                 },
                 {
                   title: 'When no rule fits',
-                  href: '/page-layout/other-extensions/your-own-extension/when-no-rule-fits',
+                  href: '/page-layout/paginating-extensions/your-own-extension/when-no-rule-fits',
                 },
                 {
                   title: 'NodeLayout reference',
-                  href: '/page-layout/other-extensions/your-own-extension/node-layout-reference',
+                  href: '/page-layout/paginating-extensions/your-own-extension/node-layout-reference',
                 },
               ],
             },
@@ -90,17 +105,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Guides',
           href: '',
           children: [
-            {
-              title: 'Styling',
-              href: '/page-layout/guides/styling',
-              children: [
-                { title: 'CSS reference', href: '/page-layout/guides/styling/css-reference' },
-              ],
-            },
+            { title: 'Styling', href: '/page-layout/guides/styling' },
             { title: 'React NodeViews', href: '/page-layout/guides/react-nodeviews' },
             { title: 'Collaboration', href: '/page-layout/guides/collaboration' },
             { title: 'Long documents', href: '/page-layout/guides/long-documents' },
-            { title: 'Printing and PDF', href: '/page-layout/guides/printing-and-pdf' },
             { title: 'On a server', href: '/page-layout/guides/on-a-server' },
             { title: 'Word documents', href: '/page-layout/guides/word' },
           ],
@@ -111,6 +119,7 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             { title: 'Options', href: '/page-layout/reference/options' },
             { title: 'Commands', href: '/page-layout/reference/commands' },
+            { title: 'CSS reference', href: '/page-layout/reference/css' },
             { title: 'Limitations', href: '/page-layout/reference/limitations' },
           ],
         },

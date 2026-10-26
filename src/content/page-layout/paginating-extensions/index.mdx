@@ -1,0 +1,242 @@
+---
+title: 'Paginating extensions'
+intro: 'How Page Layout paginates the extensions it knows: the standard Node types such as paragraphs, headings, lists and tables, and the Tiptap Pro extensions it has rules for, such as footnotes, cross-references and outline numbering. Each of them also works without pages and has its own documentation. For a Node type of your own, see <a href="/page-layout/paginating-extensions/your-own-extension">Your own extension</a>.'
+tags:
+  - type: pro
+  - type: alpha
+meta:
+  title: 'Paginating extensions | Tiptap Page Layout Docs'
+  description: 'What Page Layout does with the standard content types and with each Pro extension when a block meets the bottom of a page.'
+  category: Page Layout
+---
+
+## Extensions that change on pages
+
+| Extension                                                                 | On pages                                                                                       |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [Tables](/page-layout/paginating-extensions/tables)                       | A row cut at the boundary, a header row repeated on every page, and what an author may forbid. |
+| [Columns](/page-layout/paginating-extensions/columns)                     | Columns side by side, cut at one height, and kept on one page.                                 |
+| [Footnotes](/page-layout/paginating-extensions/footnotes)                 | A note at the foot of the page it is referred from, and numbering per page or section.         |
+| [Cross-references](/page-layout/paginating-extensions/cross-references)   | "See page 7", writing through the engine, and going to a target that is not drawn yet.         |
+| [Outline numbering](/page-layout/paginating-extensions/outline-numbering) | A heading cut by a page numbered once, and clauses counting on over a page.                    |
+| [Document Styles](/page-layout/paginating-extensions/document-styles)     | Text moving with a style, and reading the styles of a document that has pages.                 |
+
+## What the standard types do
+
+| Type                        | At the bottom of a page                                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `paragraph`                 | Cut between two lines.                                                                                                 |
+| `heading`                   | Cut between two lines.                                                                                                 |
+| `codeBlock`                 | Cut between two lines, and the continuation stays a code block.                                                        |
+| `blockquote`                | Cut between two of its blocks. A paragraph inside it is then cut between lines.                                        |
+| `horizontalRule`            | Never cut. Moves to the next page.                                                                                     |
+| `hardBreak`                 | Ends a line, so a page can be cut right after it.                                                                      |
+| `bulletList`, `orderedList` | Cut between two items. The item the boundary landed in moves on whole.                                                 |
+| `table`                     | Cut between rows, and through a row where that is not enough. See [Tables](/page-layout/paginating-extensions/tables). |
+| `columnLayout`              | Cut at one height through all of its columns. See [Columns](/page-layout/paginating-extensions/columns).               |
+
+A block cut by a page stays one Node in the document:
+
+- **Two views of one Node.** The document keeps one paragraph, one list, one table. The two
+  halves on screen are two views of it.
+- **Lists keep counting.** An ordered list that carries on over a page goes on counting: item
+  eight follows item seven across the boundary.
+- **Attributes and marks** of a cut block are the same on both sides of the cut.
+
+## Keeping a list on one page
+
+Two settings on the list, both Word's:
+
+```js
+// Word's "Keep lines together": the list is never cut, and moves to the next page whole.
+editor.commands.setListKeepTogether(true)
+
+// Word's "Allow row to break across pages", for a list: an item may itself be cut
+// between two of its lines, rather than moving on whole.
+editor.commands.setListBreakItems(true)
+```
+
+| Attribute               | Default | In HTML                        |
+| ----------------------- | ------- | ------------------------------ |
+| `keepTogether`          | `false` | `data-tt-keep-together="true"` |
+| `breakItemsAcrossPages` | `false` | `data-tt-break-items="true"`   |
+
+- **Stored on the list Node**, on `bulletList` and `orderedList`. A copied list keeps them.
+- **By default** a list breaks between its items and not inside one.
+- **A caret in a nested item** answers with the outermost list. That is the block the page
+  boundary meets: holding a sub-list together is no use while the list around it may break
+  anywhere.
+- **`PageLayout.configure({ listPagination: false })`** takes both settings away.
+
+### The list at the cursor
+
+```js
+const context = editor.storage.pageLayout.engine.getListContext()
+```
+
+`null` when the cursor is not in a list, otherwise:
+
+| Field                   | Type      | Description                                                       |
+| ----------------------- | --------- | ----------------------------------------------------------------- |
+| `list`                  | `Node`    | The outermost list around the cursor                              |
+| `listPosition`          | `number`  | Where it starts                                                   |
+| `keepTogether`          | `boolean` | Whether it is held on one page                                    |
+| `breakItemsAcrossPages` | `boolean` | Whether an item may be cut                                        |
+| `itemCount`             | `number`  | How many items it has. With one, both settings make no difference |
+
+## Keep together is a preference
+
+A block that does not fit on a page of its own is cut anyway, rather than hang off the bottom of
+the sheet.
+
+- **The setting stays** as the author left it. Only this one boundary ignores it.
+- **An item taller than a page** is cut at its lines, whatever `breakItemsAcrossPages` says.
+- **A manual page break inside such a block** is always honored. An author who put a break in
+  the middle of a list has said where it ends.
+
+A surface that offers the switch can find out and say so:
+
+```js
+const engine = editor.storage.pageLayout.engine
+const context = engine.getListContext()
+
+if (context?.keepTogether) {
+  const cut = engine.isDividedInView(
+    context.listPosition,
+    context.listPosition + context.list.nodeSize,
+  )
+
+  if (cut) {
+    // Taller than a page: tell the author, so the switch does not look broken.
+  }
+}
+```
+
+`isDividedInView(from, to)` is `true` when the content between two document positions is drawn
+on more than one page. It works for a table row, a list, a layout or a paragraph.
+
+## Packages that work without pages
+
+These packages do not depend on Page Layout. On pages, a block cut across two pages is drawn as
+two Nodes, and the header or footer being edited is a Node too. Cross-references, outline
+numbering, bookmarks and whole blocks take `ignoreLayoutArtifacts` as `ignore` to leave those
+out.
+
+`ignoreLayoutArtifacts(node)` answers:
+
+| Returns     | For                                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------------- |
+| `true`      | A header or footer, and the rest of a paragraph or heading from the page before. Left out with its content |
+| `'descend'` | The rest of a list, quote or other container from the page before. Its items are the document's own        |
+| `false`     | Everything else                                                                                            |
+
+- **Why `'descend'`.** A list cut between its third and fourth item has its fourth item on the
+  next page, in the rest of the list.
+- **`isLayoutArtifact(node)`** is the same reading as a yes or no: `true` wherever
+  `ignoreLayoutArtifacts` is not `false`. Use it in code of your own that only asks whether a
+  Node stands for itself.
+
+What each package needs besides that is on its page, or below.
+
+Bookmarks, whole blocks and number formats are not paginated. On pages they need only what follows.
+
+### Bookmarks
+
+[Bookmarks](/editor/extensions/functionality/bookmark) leave the pages out with
+`ignoreLayoutArtifacts`, so the copies the pages are drawn from are not read as bookmarks of their
+own:
+
+```js
+import { Bookmarks } from '@tiptap-pro/extension-bookmark'
+import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
+
+Bookmarks.configure({ ignore: ignoreLayoutArtifacts })
+```
+
+- **Written to the document.** `addBookmark`, `renameBookmark`, `removeBookmark` and
+  `goToBookmark` write the document, not the pages, and `can()` answers from the document.
+- **`toggleBookmarkVisibility`** acts on the editor. Shown bookmarks change no measurement, so a
+  page breaks in the same place with them shown.
+- **Ids** a command takes are the same on the document and the pages.
+- **Going to a bookmark on another page.** `goToBookmark` and a followed link to `#name` draw the
+  page the bookmark is on if it was not drawn yet, select what it covers and scroll to it. From a
+  button, call `editor.view.focus()` first: it scrolls only while the editor has the focus.
+
+### Whole blocks
+
+[Whole blocks](/editor/extensions/functionality/whole-blocks) takes `ignoreLayoutArtifacts` as
+well, so a block that carries on over a page is recognized as one:
+
+```js
+import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
+import { WholeBlocks } from '@tiptap-pro/extension-whole-blocks'
+
+WholeBlocks.configure({ ignore: ignoreLayoutArtifacts })
+```
+
+- **A selection that ends at the foot of a page**, in a block that carries on at the top of the
+  next, covers part of a block. It is left to the default.
+- **A selection that starts in the rest of a block** at the top of a page is left to the default
+  too.
+- **The last item of a list cut between two items** is whole, and is deleted as one.
+
+### Number formats
+
+The formats and the language a document stores with
+[number formats](/editor/extensions/functionality/number-formats) are kept in a block of no height,
+on no page. Page numbers, footnotes and outline numbers read them without being told.
+`setNumberFormat` and `setNumberLanguage` write the document. A Transaction of your own goes
+through the engine:
+
+```js
+import { setNumberLanguageTransaction } from '@tiptap-pro/extension-number-formats'
+
+const engine = editor.storage.pageLayout.engine
+const transaction = setNumberLanguageTransaction(engine.getSourceState().tr, 'de')
+
+engine.applySourceTransaction(transaction, { addToHistory: true })
+```
+
+## What is not supported
+
+- **Widow and orphan control.** No setting keeps at least two lines of a paragraph on either
+  side of a boundary. A paragraph is cut wherever the page runs out, even after its first line.
+- **Keep with next by default.** A heading is not tied to the paragraph after it, so it can end
+  up as the last line on a page. Turn it on with
+  [`defineNodeLayout`](/page-layout/paginating-extensions/your-own-extension/layout-rules#keeping-a-block-with-the-next), per block with
+  the `blockBreaksOf` option, or per style with
+  [Document Styles](/page-layout/paginating-extensions/document-styles#line-and-page-breaks).
+
+Keeping a block on one page is available for lists, [table rows](/page-layout/paginating-extensions/tables) and
+[column layouts](/page-layout/paginating-extensions/columns), and for a type of your own through
+[`defineNodeLayout`](/page-layout/paginating-extensions/your-own-extension).
+
+## Commands
+
+### setListKeepTogether
+
+Keeps the list at the cursor on one page, or lets it break again.
+
+```js
+editor.commands.setListKeepTogether(true)
+```
+
+| Argument | Type      | Description                                  |
+| -------- | --------- | -------------------------------------------- |
+| `kept`   | `boolean` | `true` moves the list to the next page whole |
+
+Returns `false` when the cursor is not in a list.
+
+### setListBreakItems
+
+Lets a page cut through an item of the list at the cursor, or moves the item on whole again.
+
+```js
+editor.commands.setListBreakItems(true)
+```
+
+| Argument  | Type      | Description                                  |
+| --------- | --------- | -------------------------------------------- |
+| `allowed` | `boolean` | `true` cuts an item between two of its lines |
+
+Returns `false` when the cursor is not in a list.
