@@ -40,8 +40,7 @@ export const BUNDLES: Bundle[] = [
       'Bookmark',
       'Document styles',
       'Whole blocks',
-      'Table kit',
-      // Formatting the kit registers, so the defaults match Word
+      // Formatting, set up so the defaults match Word
       'Font family',
       'Font size',
       'Line height',
