@@ -17,7 +17,11 @@ To contribute, please follow these steps:
    - Run the linter with `pnpm lint` command.
 5. **Commit Your Changes**: Commit your changes with a clear and descriptive commit message. We recommend using the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
 6. **Push to Your Fork**: Push your changes to your fork on GitHub.
-7. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. In the pull request, include:
+7. **Create a Pull Request**: Open a pull request to the `main` branch of the original repository. Keep it to one goal:
+   - **One goal per pull request.** A pull request may touch many files, but it does one thing, such as a new sidebar, a new page type, or the pages of one feature. Changes for another goal, such as formatting rules or the CI, go into a pull request of their own, even when you made them together.
+   - **Split before review.** If a branch grew several goals, open one pull request per goal, each from `main`, in the order they build on each other. A reviewer may ask you to split a pull request that does several things.
+
+   In the pull request, include:
    - A clear title that summarizes your changes.
    - If your PR documents a change in the [Tiptap repository](https://github.com/ueberdosis/tiptap), add a link to the PR in the Tiptap repository that introduced that change.
    - Add links to any issues or discussions that are related to your changes.
