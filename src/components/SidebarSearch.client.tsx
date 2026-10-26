@@ -735,7 +735,7 @@ function SearchBody({
                 </Link>
                 {/* Beside the link rather than in it, so a click steps instead of opening */}
                 {isCurrent && count ? (
-                  <span className="absolute right-1 bottom-0.5">
+                  <span className="absolute right-1 bottom-1 flex">
                     <ShortcutTooltip
                       shortcuts={[
                         ['Next match', ['↵']],
