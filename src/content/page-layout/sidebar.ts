@@ -16,11 +16,11 @@ export const sidebarConfig: SidebarConfig = {
         { title: 'Overview', href: '/page-layout/getting-started/overview' },
         { title: 'Install', href: '/page-layout/getting-started/install' },
         {
-          title: 'An editor you already have',
+          title: 'Existing editor',
           href: '/page-layout/getting-started/existing-editor',
         },
         {
-          title: 'The document and the pages',
+          title: 'Document and pages',
           href: '/page-layout/getting-started/the-document-and-the-pages',
         },
         {
@@ -43,7 +43,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Extensions in Page Layout',
+          title: 'Paginating extensions',
           href: '/page-layout/other-extensions/overview',
           children: [
             { title: 'Tables', href: '/page-layout/other-extensions/tables' },
