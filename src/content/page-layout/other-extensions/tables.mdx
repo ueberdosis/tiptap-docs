@@ -1,0 +1,188 @@
+---
+title: 'Tables across pages'
+intro: 'On pages, a <a href="https://tiptap.dev/docs/editor/extensions/nodes/table">table</a> longer than the space left on a page breaks between its rows, and a row taller than that space is cut at one height through all of its cells.'
+tags:
+  - type: pro
+  - type: alpha
+meta:
+  title: 'Tables across pages | Tiptap Page Layout Docs'
+  description: 'How a table breaks between rows, repeats its header row and splits a tall row at a page boundary, and the settings a user can make.'
+  category: Page Layout
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Watch the table carry on over the page, its header row repeated and one row kept whole:
+
+<CodeDemo
+  isPro
+  viewer
+  view="preview"
+  path="/Extensions/PageLayoutTables"
+  frameworks="React, JS"
+  height={640}
+/>
+
+## Setting it up
+
+Tables come from `@tiptap/extension-table`. Add it as in any Tiptap editor:
+
+```js
+import { TableKit } from '@tiptap/extension-table'
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [
+    StarterKit,
+    TableKit.configure({ table: { resizable: true } }),
+    PageLayout.configure({ setup: pageSetup('A4') }),
+  ],
+})
+```
+
+- **Nothing else to set up.** Page Layout recognizes the table by type name and adds two
+  attributes to it. Your configuration of the extension stays as it is.
+- **The table extension's commands** work unchanged, such as `addColumnAfter`, `deleteRow`,
+  `mergeCells` and `toggleHeaderRow`, also while a row is cut across a boundary.
+
+## What is stored
+
+Where a table breaks is not stored. It is worked out from the paper each time. The document holds
+the table and two settings an author can make:
+
+| Attribute          | Node       | Default | In HTML                                       |
+| ------------------ | ---------- | ------- | --------------------------------------------- |
+| `breakAcrossPages` | `tableRow` | `true`  | `data-tt-break-across-pages="false"` when off |
+| `repeatHeaderRow`  | `table`    | `false` | `data-tt-repeat-header-row="true"` when on    |
+
+- **A copied table** keeps both settings.
+- **`PageLayout.configure({ tablePagination: false })`** takes both settings away.
+
+## Letting a row break, or not
+
+A row may be cut by default. An author can forbid it for the row the cursor is in. That is Word's
+_Allow row to break across pages_:
+
+```js
+editor.commands.setRowBreakAcrossPages(false)
+```
+
+- **First moved, then cut.** With the setting off, the row moves to the next page whole, and is
+  only cut if that does not help.
+- **A preference, not a prohibition.** A row that does not fit on any page is cut anyway, rather
+  than hang off the bottom of a sheet. See
+  [Keep together is a preference](/page-layout/other-extensions/overview#keep-together-is-a-preference).
+
+A surface that offers the switch can say when it could not be honored:
+
+```js
+const engine = editor.storage.pageLayout.engine
+const context = engine.getTableContext()
+
+if (context && !context.breakAcrossPages) {
+  const cut = engine.isDividedInView(
+    context.rowPosition,
+    context.rowPosition + context.row.nodeSize,
+  )
+
+  if (cut) {
+    // Taller than a page: tell the author, so the switch does not look broken.
+  }
+}
+```
+
+## Repeating the header row
+
+```js
+editor.commands.setRepeatHeaderRow(true)
+```
+
+- **The leading header rows** are then drawn at the top of every page the table continues onto.
+- **A header row** is every leading row whose cells are all header cells. `toggleHeaderRow` makes
+  a row one, and two header rows at the top of a table both repeat.
+- **Drawn, not inserted.** The document keeps one header row however many pages the table
+  covers. A repeated row carries `data-tt-repeated-header`; see
+  [Styling](/page-layout/features/styling).
+- **The page pays for them.** The page a continuation lands on gives the repeated rows their
+  height, so a table with a tall header fits fewer rows per page.
+
+## The table at the cursor
+
+```js
+const context = editor.storage.pageLayout.engine.getTableContext()
+```
+
+`null` when the cursor is not in a table, otherwise:
+
+| Field              | Type      | Description                           |
+| ------------------ | --------- | ------------------------------------- |
+| `table`            | `Node`    | The innermost table around the cursor |
+| `tablePosition`    | `number`  | Where it starts                       |
+| `row`              | `Node`    | The row the cursor is in              |
+| `rowPosition`      | `number`  | Where the row starts                  |
+| `breakAcrossPages` | `boolean` | Whether this row may be cut           |
+| `repeatHeaderRow`  | `boolean` | Whether this table repeats its header |
+
+- **For a toolbar.** It shows the two switches in the right state, and is up to date after every
+  change.
+- **A table menu of your own** reads the table from the document and runs the table extension's
+  functions there, since `editor.state` holds only the rows of one page. See
+  [Components that change the document](/page-layout/getting-started/components#example-a-table-menu).
+
+## A row cut in two
+
+Both halves of a cut row keep every cell, so the columns line up.
+
+- **An empty half.** A cell whose content ends above the cut has nothing in its lower half. One
+  whose content begins below it has nothing in its upper half, as Word shows it.
+- **Selecting** across the boundary selects the text between the two points, drawn on both
+  pages.
+- **Selecting cells** works from either half. A cell selection that starts in the top half and
+  ends in the bottom one is one selection of those cells.
+- **Copying** yields the cells as a table, to paste into another table or another document.
+- **Typing, deleting and pasting** apply to the document, not to the half, so an edit made in the
+  lower half is an edit to that row.
+
+## Dragging a column width
+
+With `resizable: true` the table extension's drag handles work.
+
+- **The whole table.** The width lands on the column of the table in the document, so a drag on
+  one page changes the column on every page the table covers.
+- **Laid out while dragging.** A table that grows past the bottom of the page pushes content over
+  the boundary as the reader drags.
+
+## What is not supported
+
+- **Nested tables.** A table inside a table cell is not supported at a page boundary.
+
+## Commands
+
+### setRowBreakAcrossPages
+
+Lets the row at the cursor be cut by a page boundary, or moves it on whole.
+
+```js
+editor.commands.setRowBreakAcrossPages(false)
+```
+
+| Argument  | Type      | Description                                                        |
+| --------- | --------- | ------------------------------------------------------------------ |
+| `allowed` | `boolean` | `false` moves the row to the next page whole where it would be cut |
+
+Returns `false` when the cursor is not in a table.
+
+### setRepeatHeaderRow
+
+Repeats the header rows of the table at the cursor on every page it continues onto, or stops it.
+
+```js
+editor.commands.setRepeatHeaderRow(true)
+```
+
+| Argument   | Type      | Description                                |
+| ---------- | --------- | ------------------------------------------ |
+| `repeated` | `boolean` | `true` draws the header rows on every page |
+
+Returns `false` when the cursor is not in a table.

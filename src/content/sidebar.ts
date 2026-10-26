@@ -80,7 +80,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/page-layout/getting-started/overview',
           title: 'Page Layout',
-          releaseTag: 'beta',
+          releaseTag: 'alpha',
         },
         {
           href: '/collaboration/documents/snapshot',

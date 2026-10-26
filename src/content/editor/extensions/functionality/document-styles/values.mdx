@@ -1,0 +1,264 @@
+---
+title: 'Colors and fonts'
+intro: 'Every color and font a document is drawn in, listed by value rather than by style, and one of them replaced by another everywhere at once. That brings a document using eleven blues where it meant two back to two, and ties a fixed color to the theme.'
+tags:
+  - type: pro
+  - type: alpha
+meta:
+  title: 'Colors and fonts | Tiptap Editor Docs'
+  description: 'List every color and font a document uses, find where each is drawn, and replace one with another everywhere.'
+  category: Editor
+---
+
+```js
+import { COLOR_PROPS } from '@tiptap-pro/extension-document-styles'
+
+editor.commands.replaceStyleValue(COLOR_PROPS, '#1e293b', '#1f2937')
+```
+
+## What a document is drawn in
+
+`styleValuesOf(doc, lookup, props, theme)` lists every value the given properties are set to:
+
+```js
+import { COLOR_PROPS, styleValuesOf } from '@tiptap-pro/extension-document-styles'
+
+const { documentStyles } = editor.storage
+const doc = editor.state.doc
+
+const colors = styleValuesOf(
+  doc,
+  documentStyles.stylesOf(doc),
+  COLOR_PROPS,
+  documentStyles.themeOf(doc),
+)
+
+colors[0]
+// {
+//   value: '#1f2937',
+//   props: ['color'],
+//   styles: ['normal', 'note', 'grid'],
+//   readOnlyStyles: [],
+//   overrides: 3,
+//   direct: 2,
+//   themeColor: null,
+// }
+```
+
+- **Where it reads.** Every style the document can use, its own and its libraries', table
+  conditions included. What its blocks and text override by hand. What
+  [Tiptap's own formatting](/editor/extensions/functionality/document-styles/values#tiptaps-own-formatting) sets.
+- **The order.** One entry per value, the most used first.
+- **A theme reference** such as `'theme:accent1'` is a value of its own, not the hex it is drawn
+  in. It follows the theme, and the hex does not.
+
+Each entry is a `StyleValueUse`:
+
+| Field            | Type                 | Description                                                                                                      |
+| ---------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `value`          | `string`             | The value, written one way: `#1F2937` and `#1f2937` are one color, `Georgia,serif` and `Georgia, serif` one font |
+| `props`          | `string[]`           | The properties it is set in                                                                                      |
+| `styles`         | `string[]`           | The ids of the styles that set it                                                                                |
+| `readOnlyStyles` | `string[]`           | Of those, the ones a library defines. Replacing the value leaves them as they are                                |
+| `overrides`      | `number`             | How many blocks and runs of text set it by hand                                                                  |
+| `direct`         | `number`             | How many set it with Tiptap's own formatting, such as `setColor`                                                 |
+| `themeColor`     | `ThemeColor \| null` | The theme color it is drawn the same as, such as `'accent1'`. Only with a `theme`                                |
+
+Two lists of properties come with the package. Any list of properties in camel case works.
+
+| List          | Properties                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `COLOR_PROPS` | `color`, `backgroundColor`, `textDecorationColor`, `outlineColor`, `columnRuleColor`, the border colors |
+| `FONT_PROPS`  | `fontFamily`                                                                                            |
+
+`normalizeStyleValue(value)` writes a value the way `styleValuesOf` compares it.
+
+## Where a value or a style is drawn
+
+`editor.storage.documentStyles.valueLocationsOf(doc, props, value)` answers every place a value
+is drawn in, in document order. `locationsOf(doc, styleId)` does the same for a style. A panel
+steps through what they answer to show each place in turn.
+
+```js
+import { COLOR_PROPS } from '@tiptap-pro/extension-document-styles'
+
+const doc = editor.state.doc
+const storage = editor.storage.documentStyles
+
+storage.valueLocationsOf(doc, COLOR_PROPS, '#c00000')
+// [{ from: 0, to: 22, kind: 'node', via: 'default', styleId: 'body' },
+//  { from: 48, to: 61, kind: 'mark', via: 'override', styleId: null }]
+
+storage.locationsOf(doc, 'heading-1')
+
+const [first] = storage.locationsOf(doc, 'quote')
+editor
+  .chain()
+  .focus()
+  .setTextSelection({ from: first.from + 1, to: first.to - 1 })
+  .scrollIntoView()
+  .run()
+```
+
+Each place is a `StyleLocation`:
+
+| Field     | Type                                                        | Description                                                       |
+| --------- | ----------------------------------------------------------- | ----------------------------------------------------------------- |
+| `from`    | `number`                                                    | Where it starts. A `'node'` place starts before the block or cell |
+| `to`      | `number`                                                    | Where it ends. A `'node'` place ends after the block or cell      |
+| `kind`    | `'node' \| 'mark'`                                          | A block or cell, or a run of text                                 |
+| `via`     | `'style' \| 'default' \| 'table' \| 'override' \| 'direct'` | Why the place has it. See below                                   |
+| `styleId` | `string \| null`                                            | The style it is drawn in: its own, its default or its table's     |
+
+| `via`      | Why the place has it                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `style`    | It refers to the style, or to a style that sets the value, through `basedOn` as well                                                       |
+| `default`  | It has no style and is drawn in its type's [default style](/editor/extensions/functionality/document-styles/definitions#the-default-style) |
+| `table`    | A cell, drawn in the value by a part of its table's style: the header row, a band, a corner. `styleId` is the table's style                |
+| `override` | It sets the value by hand                                                                                                                  |
+| `direct`   | [Tiptap's own formatting](/editor/extensions/functionality/document-styles/values#tiptaps-own-formatting) sets it, a `setColor`            |
+
+What is found is what shows the value:
+
+- **A paragraph drawn red with one word set to blue** is found as the two runs of text around the
+  word, each `kind: 'mark'`.
+- **A red word in a red paragraph** is found once, as the paragraph.
+- **A place whose override sets the same property** is found by the override's value, not by its
+  style's.
+- **A cell that sets the property itself** is not found by its table's style, since a cell's own
+  style and overrides are drawn over its table's.
+- **Values are compared** the way `styleValuesOf` groups them. `#C00000` finds `#c00000`, and a
+  theme reference finds only the same reference.
+
+Both read the extension's options: the defaults, `tableTypes`, `continuesNode` and
+`directFormatting`. Without an editor:
+
+- **`styleValueLocationsOf(doc, styles, props, value, { defaults, tables, rules })`** is the
+  value search. Without `tables: { types, continuesNode }`, a cell drawn by a part of a table
+  style is not found.
+- **`styleLocationsOf(doc, styleId, { defaults })`** is the style search.
+- **Without `defaults`**, a block drawn in its default is not found by either.
+
+## Replacing a value
+
+`replaceStyleValue(props, from, to)` replaces `from` by `to` in the given properties:
+
+```js
+import { COLOR_PROPS } from '@tiptap-pro/extension-document-styles'
+
+// One color for another
+editor.commands.replaceStyleValue(COLOR_PROPS, '#1f2937', '#111827')
+
+// Two colors merged into one
+editor.commands.replaceStyleValue(COLOR_PROPS, '#1e293b', '#1f2937')
+
+// A fixed color tied to the theme
+editor.commands.replaceStyleValue(COLOR_PROPS, '#156082', 'theme:accent1')
+
+// A font
+editor.commands.replaceStyleValue(['fontFamily'], 'Georgia, serif', 'theme:minor')
+```
+
+- **Where it replaces.** The document's own styles and their table conditions, every override,
+  and Tiptap's own formatting.
+- **`from` is compared written one way.** `to` is written as given.
+- **A color `setColor` set**, replaced by a reference to the theme, becomes an override with the
+  reference. The Mark's `color` is cleared.
+- **A library's styles** are read only and keep the value. To replace it there too, duplicate the
+  style into the document first. See [Libraries](/editor/extensions/functionality/document-styles/libraries#read-only).
+
+Without an editor, `replaceStyleValueTransaction(transaction, props, from, to)` writes the same
+into a Transaction you pass and returns it.
+
+## Tiptap's own formatting
+
+Tiptap's formatting Extensions are read as formatting of the text, the same as an override:
+
+- **Color, BackgroundColor, FontFamily, FontSize and LineHeight** set an attribute of
+  `textStyle`.
+- **Highlight** sets one of its own Mark.
+- **TextAlign** sets one of the block.
+- **Bold, Italic, Underline, Strike, Subscript and Superscript** are a Mark whose being there is
+  the value.
+
+They stay where they are. Nothing turns a `setColor` into an override unless
+[`adoptDirectFormatting`](/editor/extensions/functionality/document-styles/applying#adoptdirectformatting) is asked to.
+
+| What                                                                                                               | What it does with them                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `styleValuesOf`                                                                                                    | Counts them in `direct`                                                                                                      |
+| `replaceStyleValue`                                                                                                | Replaces an attribute's value. A theme reference becomes an override. A value a Mark stands for, Bold's 700, is not replaced |
+| [`discoverStyles`](/editor/extensions/functionality/document-styles/cleanup#formatting-that-should-be-a-style)     | Groups them with the overrides: ten bold paragraphs are a candidate                                                          |
+| `createStyleFromCandidate`, `applyStyleToCandidate`                                                                | Take them off where the style is given                                                                                       |
+| `clearInlineStyles`                                                                                                | Clears them on the selected text, and on the text typed next                                                                 |
+| `adoptDirectFormatting`                                                                                            | Turns them into overrides of the style, drawn the same                                                                       |
+| [`expressAsDirectFormatting`](/editor/extensions/functionality/document-styles/applying#expressasdirectformatting) | Writes overrides back as them, where a rule says how                                                                         |
+| [`colorScheme`](/editor/extensions/functionality/document-styles/themes#dark-mode)                                 | Draws a color of theirs with its dark counterpart                                                                            |
+
+### The rules
+
+How each Extension writes a property is a rule. The rules are the `directFormatting` option,
+`DIRECT_FORMATTING` by default. A rule applies only where the schema has its type. A formatting
+Extension of your own is read by adding one:
+
+```js
+import { DIRECT_FORMATTING, DocumentStyles } from '@tiptap-pro/extension-document-styles'
+
+DocumentStyles.configure({
+  directFormatting: [
+    ...DIRECT_FORMATTING,
+    { prop: 'fontVariantCaps', mark: 'smallCaps', value: 'small-caps' }, // the Mark is the value
+    { prop: 'letterSpacing', mark: 'textStyle', attribute: 'letterSpacing' }, // an attribute of a Mark
+    { prop: 'textIndent', attribute: 'indent' }, // an attribute of the block
+  ],
+})
+```
+
+| Field       | Type         | Description                                                                |
+| ----------- | ------------ | -------------------------------------------------------------------------- |
+| `prop`      | `string`     | The style property, in camel case                                          |
+| `mark`      | `string`     | The Mark type. Left out for an attribute of a block a style can go on      |
+| `attribute` | `string`     | The attribute the value is in. Left out where the Mark itself is the value |
+| `value`     | `StyleValue` | What the Mark stands for where there is no `attribute`                     |
+
+- **A value equal to the attribute's default** is not read. An alignment an Extension writes on
+  every paragraph is not formatting.
+- **Underline and Strike together** are `textDecorationLine: 'underline line-through'`.
+- **An override and Tiptap's formatting on the same property.** The override is the one read, and
+  the one drawn.
+
+`directFormattingOf(node, rules)` answers what a text Node or a block is formatted with that way,
+or `null`.
+
+## Pasted formatting
+
+Pasted text keeps formatting that no Extension of the editor would hold, as an override. A red
+span pasted into an editor without Color stays red, and a bold one without Bold stays bold.
+
+- **What is kept:** a color, a background, a weight, a slant, a decoration, and sub- and
+  superscript.
+- **What an Extension holds** is left to it.
+- **Not kept:** the font, its size and the line height. Word writes them on nearly every run,
+  whether anybody set them or not.
+- **`keepPastedFormatting: false`** drops what nothing holds, as the editor does without Document
+  Styles.
+
+## Commands
+
+### replaceStyleValue
+
+Replaces a value by another in the given properties, in the document's own styles, every override
+and Tiptap's own formatting.
+
+```js
+editor.commands.replaceStyleValue(COLOR_PROPS, '#156082', 'theme:accent1')
+```
+
+| Argument | Type         | Description                                    |
+| -------- | ------------ | ---------------------------------------------- |
+| `props`  | `string[]`   | The properties, such as `COLOR_PROPS`          |
+| `from`   | `StyleValue` | The value to replace, compared written one way |
+| `to`     | `StyleValue` | The value it becomes, written as given         |
+
+Returns `false` where `to` is `from` written another way, and where nothing uses `from`. Also
+where `to` is no value CSS can take in one of the properties, such as one containing `;`.
