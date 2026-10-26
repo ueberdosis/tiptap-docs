@@ -225,6 +225,11 @@ export const DemoViewer = ({
     }
   }
 
+  // The expanded frame measures at the dialog's width, so its height is not the inline demo's
+  const onExpandedBridge = (event: DemoBridgeEvent) => {
+    if (event.type !== 'height') onBridge(event)
+  }
+
   const onNoBridge = () =>
     setBridge((previous) =>
       previous.state === 'pending' ? { ...previous, state: 'none' } : previous,
@@ -581,7 +586,7 @@ export const DemoViewer = ({
                     title={`${name} demo`}
                     theme={theme}
                     initialContent={restore}
-                    onBridge={onBridge}
+                    onBridge={onExpandedBridge}
                     onNoBridge={onNoBridge}
                   />,
                   'h-full',

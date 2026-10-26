@@ -87,8 +87,21 @@ export const useHash = () =>
     () => '',
   )
 
+const decodeHash = (hash: string): string | null => {
+  try {
+    return decodeURIComponent(hash.replace(/^#/, ''))
+  } catch {
+    // A broken percent sequence (`#100%`) is not a demo's hash
+    return null
+  }
+}
+
 export const parseHash = (hash: string, id: string): HashState | null => {
-  const [target, words = ''] = decodeURIComponent(hash.replace(/^#/, '')).split(':')
+  const decoded = decodeHash(hash)
+  if (decoded === null) {
+    return null
+  }
+  const [target, words = ''] = decoded.split(':')
 
   if (target !== id) {
     return null

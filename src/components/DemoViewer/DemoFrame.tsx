@@ -37,6 +37,18 @@ export type DemoFrameProps = {
  * `{ channel: 'tiptap-demo' }` messages (`ready`, `source`, `document`, `height`) and takes
  * `{ channel: 'tiptap-docs' }` messages (`hello`, `theme`, `content`), see tiptap-pro's `demos/preview/Demo.vue`.
  */
+// Messages go to the demo's own origin only: `content` carries what the reader typed
+const postToFrame = (
+  frame: HTMLIFrameElement | null,
+  src: string,
+  message: Record<string, unknown>,
+) => {
+  frame?.contentWindow?.postMessage(
+    { channel: 'tiptap-docs', ...message },
+    new URL(src, window.location.href).origin,
+  )
+}
+
 export const DemoFrame = forwardRef<DemoFrameHandle, DemoFrameProps>(
   ({ src, title, theme, initialContent, isEager, onBridge, onNoBridge, className }, ref) => {
     const frameRef = useRef<HTMLIFrameElement>(null)
@@ -55,9 +67,7 @@ export const DemoFrame = forwardRef<DemoFrameHandle, DemoFrameProps>(
       setContent: (json) => send({ type: 'content', json }),
     }))
 
-    const send = (message: Record<string, unknown>) => {
-      frameRef.current?.contentWindow?.postMessage({ channel: 'tiptap-docs', ...message }, '*')
-    }
+    const send = (message: Record<string, unknown>) => postToFrame(frameRef.current, src, message)
 
     useEffect(() => {
       const onMessage = (event: MessageEvent) => {
@@ -73,10 +83,7 @@ export const DemoFrame = forwardRef<DemoFrameHandle, DemoFrameProps>(
         if (message.type === 'ready') {
           // `ready` comes on load and again in reply to `hello`; the document is restored once
           if (!readyRef.current && restore) {
-            frameRef.current?.contentWindow?.postMessage(
-              { channel: 'tiptap-docs', type: 'content', json: restore },
-              '*',
-            )
+            postToFrame(frameRef.current, src, { type: 'content', json: restore })
           }
           readyRef.current = true
           setIsReady(true)
@@ -105,27 +112,24 @@ export const DemoFrame = forwardRef<DemoFrameHandle, DemoFrameProps>(
 
       window.addEventListener('message', onMessage)
       return () => window.removeEventListener('message', onMessage)
-    }, [restore])
+    }, [restore, src])
 
     // The frame may have loaded before this page listened (before hydration): say hello, it answers `ready`
     // A late `ready` still counts, so a lazy frame that loads after this wait recovers
     useEffect(() => {
-      frameRef.current?.contentWindow?.postMessage({ channel: 'tiptap-docs', type: 'hello' }, '*')
+      postToFrame(frameRef.current, src, { type: 'hello' })
       const timeout = window.setTimeout(() => {
         if (!readyRef.current) callbacks.current.onNoBridge?.()
       }, 10000)
       return () => window.clearTimeout(timeout)
-    }, [])
+    }, [src])
 
     // The theme changes without a reload, so what the reader typed stays
     useEffect(() => {
       if (isReady) {
-        frameRef.current?.contentWindow?.postMessage(
-          { channel: 'tiptap-docs', type: 'theme', theme },
-          '*',
-        )
+        postToFrame(frameRef.current, src, { type: 'theme', theme })
       }
-    }, [isReady, theme])
+    }, [isReady, src, theme])
 
     const onLoad = () => {
       window.setTimeout(() => {
