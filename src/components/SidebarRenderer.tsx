@@ -346,7 +346,7 @@ const CollapseButton = ({ area, onClick }: { area: string; onClick: () => void }
     type="button"
     onClick={onClick}
     aria-label={`Collapse all in ${area}`}
-    className="group/collapse absolute right-1 top-1/2 z-10 -translate-y-1/2 grid place-items-center size-6 rounded-md text-grayAlpha-500 opacity-0 transition-opacity hover:bg-grayAlpha-100 hover:text-black focus-visible:opacity-100 group-hover/area:opacity-100"
+    className="group/collapse absolute right-1 top-1/2 z-10 -translate-y-1/2 grid place-items-center size-6 rounded-md cursor-pointer text-grayAlpha-500 opacity-0 transition-opacity hover:bg-grayAlpha-100 hover:text-black focus-visible:opacity-100 group-hover/area:opacity-100"
   >
     <ListCollapseIcon className="size-3.5" aria-hidden="true" />
     <span
@@ -385,7 +385,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
         <Sidebar.GroupTitle className="group/area relative mb-0 pl-0">
           <button
             type="button"
-            className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 leading-5 rounded-md uppercase text-left hover:bg-grayAlpha-100"
+            className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 leading-5 rounded-md uppercase cursor-pointer text-left hover:bg-grayAlpha-100"
             onClick={() => setIsOpen((open) => !open)}
             aria-expanded={isOpen}
           >
