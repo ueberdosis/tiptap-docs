@@ -10,6 +10,7 @@ import { ADD_ON_ACCESS, DASHBOARD_URL, PILOT_PROGRAM_FORM } from '@/content/acce
 import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
 import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
+import { stripTags } from '@/utils/stripTags'
 
 /** Open-source demos live in the tiptap repository; Pro demos stay private. */
 const OPEN_SOURCE_DEMOS = 'https://github.com/ueberdosis/tiptap/tree/main/demos/src'
@@ -71,10 +72,7 @@ const link = (url: string, label: string): MdxNode => ({
 function demoLabel(node: MdxNode, url: string): string {
   const explicit = getAttr(node, 'externalTitle') || getAttr(node, 'caption')
   // A JSX caption such as `<><strong>Try it</strong> …</>` keeps only its text
-  const plain = explicit
-    ?.replace(/<[^<>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const plain = explicit && stripTags(explicit).replace(/\s+/g, ' ').trim()
   if (plain) return plain
   const last = url.split('?')[0].split('/').filter(Boolean).pop()
   return last ? last.replace(/[-_]/g, ' ') : 'Open demo'

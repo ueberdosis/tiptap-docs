@@ -21,12 +21,11 @@ import {
 } from '@/server/changelogEntries'
 import { groupFeeds } from '@/server/changelogFeed'
 import { renderChangelogMarkdown } from '@/server/renderChangelogMarkdown'
+import { stripTags } from '@/utils/stripTags'
 
 // The changelog page and each package's history, generated from the package
 // changelogs. The server renders each change's Markdown; the timeline and the
 // filters take it from there.
-
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '')
 
 /** Timeline items as the timeline shows them, with each change rendered to HTML. */
 function toReleases(items: TimelineItem[], showFeature: boolean): TimelineRelease[] {
@@ -52,7 +51,7 @@ function toReleases(items: TimelineItem[], showFeature: boolean): TimelineReleas
         // A Pro release is one feature already, so its changes don't repeat it
         feature: showFeature && item.source === 'Open source' ? entry.feature : undefined,
         html,
-        text: stripHtml(html),
+        text: stripTags(html),
       }
     }),
   }))

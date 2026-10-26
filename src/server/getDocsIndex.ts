@@ -6,6 +6,7 @@ import { CATALOG_PLANS, type CatalogPlan } from '../content/catalog'
 import type { SidebarConfig, SidebarGroup, SidebarLink } from '../types'
 import { planFromTags, statusFromTags } from './getCatalog'
 import { readFrontmatterSync } from './readFrontmatter'
+import { stripTags } from '@/utils/stripTags'
 
 // Every page of the docs in navigation order, with where it sits and what it
 // costs. llms.txt, the frontmatter of the `.md` pages and the MCP server read
@@ -72,10 +73,7 @@ export function fileForRoute(route: string): string | undefined {
 }
 
 function stripHtml(value: string): string {
-  return value
-    .replace(/<[^<>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return stripTags(value).replace(/\s+/g, ' ').trim()
 }
 
 // A closing sentence that only points back to the docs, such as "Learn more in our docs!"

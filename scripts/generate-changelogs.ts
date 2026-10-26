@@ -270,7 +270,9 @@ async function fetchPublished(
 
   const headers: Record<string, string> = {}
   if (config.registryToken) headers['Authorization'] = `Bearer ${config.registryToken}`
-  const response = await fetch(`${config.registry}/${packageName.replace('/', '%2f')}`, { headers })
+  const response = await fetch(`${config.registry}/${packageName.replaceAll('/', '%2f')}`, {
+    headers,
+  })
 
   if (response.status === 404) return { versions: new Set(), dates: {} }
   if (!response.ok) return null

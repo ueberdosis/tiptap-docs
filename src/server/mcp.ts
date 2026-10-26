@@ -257,7 +257,8 @@ export function toRoute(input: string): string {
   value = value.split(/[?#]/)[0]
   if (BASE_PATH && value.startsWith(`${BASE_PATH}/`)) value = value.slice(BASE_PATH.length)
   if (value.startsWith('/docs/')) value = value.slice('/docs'.length)
-  value = value.replace(/\.mdx?$/, '').replace(/\/+$/, '')
+  value = value.replace(/\.mdx?$/, '')
+  while (value.endsWith('/')) value = value.slice(0, -1)
   return value.startsWith('/') ? value || '/' : `/${value}`
 }
 

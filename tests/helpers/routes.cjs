@@ -208,8 +208,8 @@ const LINK_PATTERN = new RegExp(
   ].join('|'),
   'g',
 )
-const ASSET_PATTERN =
-  /^\/(assets|images|api)\/|\.(png|jpe?g|svg|gif|mp4|webm|webp|pdf|json|txt|xml)$/i
+const ASSET_FOLDER = /^\/(assets|images|api)\//
+const ASSET_FILE = /\.(png|jpe?g|svg|gif|mp4|webm|webp|pdf|json|txt|xml)$/i
 
 /** Internal links in a source file, with their line numbers. Skips assets. */
 function extractLinks(source) {
@@ -221,7 +221,8 @@ function extractLinks(source) {
   for (const match of prose.matchAll(LINK_PATTERN)) {
     const raw = match[1] ?? match[2]
     const href = raw.replace(DOCS_ORIGIN, '') || '/'
-    if (ASSET_PATTERN.test(href.split(/[?#]/)[0])) continue
+    const target = href.split(/[?#]/)[0]
+    if (ASSET_FOLDER.test(target) || ASSET_FILE.test(target)) continue
     const line = prose.slice(0, match.index).split('\n').length
     links.push({ href, line })
   }

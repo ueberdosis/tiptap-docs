@@ -35,11 +35,15 @@ const TYPES: Record<string, ChangeType> = {
   'patch changes': 'Fixed',
 }
 
+/** A list of bare package versions such as `- @tiptap/core@3.31.3`, checked word by word. */
+const isPackageList = (text: string) => {
+  const words = text.split(/\s+/).filter((word) => word && word !== '-')
+  return words.length > 0 && words.every((word) => /^@[\w-]+\/[\w-]+@\S+$/.test(word))
+}
+
 /** "Updated dependencies", a bare `@tiptap/core@3.31.3`, or "License updates": not a change to read. */
 const isDependencyBump = (text: string) =>
-  /^Updated dependencies\b/.test(text) ||
-  /^(?:[-\s]*@[\w-]+\/[\w-]+@\S+\s*)+$/.test(text) ||
-  /^License updates?\.?$/i.test(text)
+  /^Updated dependencies\b/.test(text) || isPackageList(text) || /^License updates?\.?$/i.test(text)
 
 /** One package's changelog, split into its changes. */
 export function parseChangelog(
