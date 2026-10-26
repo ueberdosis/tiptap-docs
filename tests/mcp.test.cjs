@@ -494,3 +494,14 @@ test('every legacy page names what replaces it, with links that reach a page', a
     /> \*\*Legacy:\*\* Existing projects can keep using Pages\. Page Layout will replace it/,
   )
 })
+
+test('bundles only name catalog features, and their .md pages list the parts', async () => {
+  const { BUNDLES } = loadSite('../src/content/bundles.ts')
+  const { bundleParts } = loadSite('../src/server/bundles.ts')
+  for (const bundle of BUNDLES) {
+    assert.equal(bundleParts(bundle.id).length, bundle.parts.length, bundle.id)
+  }
+  const markdown = await fileToMarkdown('src/content/bundles/docx.mdx')
+  assert.match(markdown, /\| Feature +\| What it adds +\| Status +\| On its own +\|/)
+  assert.match(markdown, /\| \[DOCX export\]\([^)]+\) +\|/)
+})

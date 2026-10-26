@@ -19,6 +19,7 @@ import { getCatalog } from '@/server/getCatalog'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 import { legacyFeature } from '@/content/legacy'
+import { BUNDLES } from '@/content/bundles'
 
 // The one sidebar for all documentation. Each section keeps its own sidebar
 // next to its content; this file decides where the sections sit. UI Components
@@ -196,11 +197,27 @@ const items: SidebarGroup[] = [
     ],
   },
   {
+    // Curated sets of features for one use case; each part keeps its page under Features.
+    // The line above it separates where to start from what you can build.
+    type: 'group',
+    title: 'Bundles',
+    href: '/bundles',
+    collapsible: true,
+    divider: true,
+    children: [
+      { href: '/bundles', title: 'Overview' },
+      ...BUNDLES.map((bundle) => ({
+        href: bundle.url,
+        title: bundle.title,
+        tags: [bundle.status],
+      })),
+    ],
+  },
+  {
     type: 'group',
     title: 'Features',
     href: '/features',
     collapsible: true,
-    divider: true,
     children: [
       { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
       // Paid products first, then the open source editor's groups

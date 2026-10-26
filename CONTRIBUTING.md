@@ -101,6 +101,8 @@ The catalog at `/editor/extensions/overview` lists every page whose frontmatter 
 
 "Plan your editor" (`/configurator`) and the MCP tool `plan_editor` build on the catalog. Their starting points are in `src/content/presets.ts`, with the services each feature needs; tests check that presets name only documented features. Industries for the catalog filter and the configurator are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
 
+Bundles (`/bundles`) are sets of features for one use case, installed as one package. Each is listed in `src/content/bundles.ts` with its parts, by catalog name; the bundle page renders them with `<BundleParts bundle="…" />`, and the sidebar's Bundles group lists every bundle. A part keeps its own page under Features. Tests fail when a bundle names a feature the catalog lacks.
+
 ### Labels
 
 - **Plan and status come from the feature.** Tag the feature overview; its pages inherit the plan and status in the sidebar, the page header, `llms.txt`, and the `.md` frontmatter. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.

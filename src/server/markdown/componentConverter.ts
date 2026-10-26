@@ -3,6 +3,7 @@ import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { changelogMarkdown, formatDay } from '../changelogEntries'
 import { groupFeeds } from '../changelogFeed'
+import { bundlePartsMarkdown } from '../bundles'
 import { getCatalog } from '../getCatalog'
 import { getPlanRows } from '../planOverview'
 import { ADD_ON_ACCESS, DASHBOARD_URL, PILOT_PROGRAM_FORM } from '@/content/access'
@@ -152,6 +153,10 @@ export const componentConverters: Record<string, ComponentConverter> = {
       return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
     }),
   }),
+
+  // <BundleParts bundle="…" /> → the bundle's parts as a table, as on the page.
+  BundleParts: (node) =>
+    markdownNodes(bundlePartsMarkdown(getAttr(node, 'bundle') ?? '', (url) => url)),
 
   // <CatalogGroup id="…" /> → the group's features as a list, with plan and status.
   CatalogGroup: (node) => catalogList(getAttr(node, 'id')),
