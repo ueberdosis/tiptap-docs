@@ -22,6 +22,12 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Document and pages',
           href: '/page-layout/getting-started/the-document-and-the-pages',
+          children: [
+            {
+              title: 'Writing to the document',
+              href: '/page-layout/getting-started/the-document-and-the-pages/writing',
+            },
+          ],
         },
         {
           title: 'Migrate from Pages 1',
@@ -36,10 +42,15 @@ export const sidebarConfig: SidebarConfig = {
             { title: 'Breaks', href: '/page-layout/features/breaks' },
             { title: 'Section columns', href: '/page-layout/features/section-columns' },
             { title: 'Header and footer', href: '/page-layout/features/header-and-footer' },
-            { title: 'Page numbers', href: '/page-layout/features/page-numbers' },
+            {
+              title: 'Page numbers',
+              href: '/page-layout/features/page-numbers',
+              children: [
+                { title: 'The page map', href: '/page-layout/features/page-numbers/page-map' },
+              ],
+            },
             { title: 'Page colors', href: '/page-layout/features/page-colors' },
             { title: 'Zoom', href: '/page-layout/features/zoom' },
-            { title: 'Styling', href: '/page-layout/features/styling' },
           ],
         },
         {
@@ -58,6 +69,20 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Your own extension',
               href: '/page-layout/other-extensions/your-own-extension',
+              children: [
+                {
+                  title: 'Layout rules',
+                  href: '/page-layout/other-extensions/your-own-extension/layout-rules',
+                },
+                {
+                  title: 'When no rule fits',
+                  href: '/page-layout/other-extensions/your-own-extension/when-no-rule-fits',
+                },
+                {
+                  title: 'NodeLayout reference',
+                  href: '/page-layout/other-extensions/your-own-extension/node-layout-reference',
+                },
+              ],
             },
           ],
         },
@@ -65,6 +90,13 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Guides',
           href: '',
           children: [
+            {
+              title: 'Styling',
+              href: '/page-layout/guides/styling',
+              children: [
+                { title: 'CSS reference', href: '/page-layout/guides/styling/css-reference' },
+              ],
+            },
             { title: 'React NodeViews', href: '/page-layout/guides/react-nodeviews' },
             { title: 'Collaboration', href: '/page-layout/guides/collaboration' },
             { title: 'Long documents', href: '/page-layout/guides/long-documents' },

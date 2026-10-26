@@ -1,0 +1,232 @@
+---
+title: 'Layout rules'
+intro: 'A layout rule tells the engine, per Node type, where a page may end inside a Node and what stays together. Each section is one task with the smallest <code>defineNodeLayout</code> call that does it. What a type does without a rule is in <a href="/page-layout/other-extensions/your-own-extension#the-default">The default</a>.'
+tags:
+  - type: pro
+  - type: alpha
+meta:
+  title: 'Layout rules | Tiptap Page Layout Docs'
+  description: 'Tell the engine where a page may end inside your Node type and what stays together.'
+  category: Page Layout
+---
+
+## How deep a page may cut
+
+| `splitDepth`        | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `'none'`            | Never cut. The Node moves to the next page whole. The default |
+| `'betweenChildren'` | Cut between two children, never inside one. What a list does  |
+| `'intoText'`        | Cut between two lines of text. What a paragraph does          |
+
+```js
+defineNodeLayout('note', { splitDepth: 'intoText' })
+defineNodeLayout('checklist', { splitDepth: 'betweenChildren' })
+```
+
+- **A Node that holds blocks** with `'intoText'` may be cut between its children or between two
+  lines of a child, whichever fills the page more. The demo's callout is such a Node.
+- **A child taller than a page** of a `'betweenChildren'` Node is cut inside after all, if its
+  own rule lets it. A child that may not be cut is clipped on a page of its own.
+- **Every level needs a rule.** A cut reaches into a child only where the child's own type may be
+  cut. A wrapper Node without a rule keeps the cut out of everything inside it.
+- **Halves your schema forbids.** A half can start with a child your schema does not allow
+  first, such as an item that continues with its sub-list. Relax the content on the pages with
+  `viewContent`, as `listItem` does with `'block+'`.
+
+## Keeping a Node whole
+
+```js
+defineNodeLayout('card', {
+  splitDepth: 'betweenChildren',
+  keepTogether: true,
+})
+```
+
+- **Whether to cut at all.** `splitDepth` says how deep a cut may go. `keepTogether` says whether
+  to make one at all.
+- **Cut only at the top.** With it set, the Node is cut only when it is already at the top of an
+  empty page. Everywhere else it moves on whole.
+- **A preference, not a prohibition**, like _Keep lines together_ in Word. A card of forty rows
+  with `keepTogether` on does not vanish and does not overflow. It breaks as it otherwise would,
+  which for the card above is between its children.
+- **Top level only.** The rule applies to the blocks at the top level of the document. A Node
+  inside a list or a quote is not asked.
+
+## Keeping a block with the next
+
+```js
+defineNodeLayout('figureCaption', { keepWithNext: true })
+```
+
+The block stays on the page of the first line of the block after it. When the two do not fit
+together in what is left of the page, the page ends above it. Word calls it _Keep with next_, and
+it keeps a heading from standing alone at the foot of a page.
+
+- **A run of such blocks** moves as one.
+- **A next block that may not be cut** counts whole.
+- **A preference as well.** The block stays where it is when it is already at the top of a page,
+  and when the run and the next line would not fit on a page of their own either.
+- **Before a break.** It also stays in front of a page break or a section that starts a page.
+- **Top level only.** The rule applies to the blocks at the top level of the document.
+
+To decide it per block rather than per type, see [Deciding per block](/page-layout/other-extensions/your-own-extension/when-no-rule-fits#deciding-per-block).
+
+## Children side by side
+
+If your Node's children sit beside each other, such as a row of cells or a strip of panels, a cut
+through it is a height rather than a position. It falls at a different offset in each child.
+
+```js
+defineNodeLayout('panelStrip', {
+  splitDepth: 'none',
+  parallelChildren: true,
+  parallelCutRank: 'equal',
+  parallelCutNode: true,
+})
+
+defineNodeLayout('panel', {
+  parallelCutNode: true,
+  viewContent: 'block*',
+})
+```
+
+| Field              | Description                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parallelChildren` | The children are side by side. Such a container is never cut between them, so `splitDepth` is `'none'`                                                                          |
+| `parallelCutRank`  | `'equal'` weighs the cut like any other, so whichever option fills more of the page wins. `'lastResort'` moves the Node on whole and cuts it only when moving it would not help |
+| `parallelCutNode`  | Names the types the cut reopens: the container and the children it divides                                                                                                      |
+| `viewContent`      | The content expression a divided child takes while the cut is open                                                                                                              |
+
+- **Empty halves.** Both halves of a cut keep every child, so the columns stay lined up. That can
+  leave a child shorter than the cut with nothing in it.
+- **Relax the content.** If your schema says `block+`, give the child `'block*'` in `viewContent`.
+- **Only while cut.** That relaxation applies only while the boundary sits inside the Node, and
+  never to the document you save.
+- **Per Node.** `parallelCutRank` takes a function, so an attribute can keep one strip on its page
+  while the next one divides. A table row does this with _Allow row to break across pages_.
+
+### Content that spans several children
+
+Use `childSpans` when content inside one child extends down through later children, as a merged
+table cell does across rows. It takes an array, or a function of the Node that returns one.
+
+| Field           | Type     | Description                                                                                                            |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `contentOffset` | `number` | The descendant's opening-token offset inside the container's content. Count opening and closing tokens as well as text |
+| `fromChild`     | `number` | The first covered direct-child index, from zero                                                                        |
+| `toChild`       | `number` | The index after the last covered direct child                                                                          |
+
+- **Containers only.** Each entry identifies a container with Tiptap child content. Do not point
+  an entry at a leaf Node that renders content from attributes.
+- **Where a page may end.** Between those children, or inside a later child, only after the
+  earlier spanning content fits above the cut.
+- **An empty container** does not block the cut.
+- **Tables.** The table rule supplies these entries for merged cells. You do not configure them
+  for tables.
+
+## Repeating something on every continuation
+
+`repeatedLead` is how many leading children every continuation repeats, as a table does with a
+header row.
+
+```js
+defineNodeLayout('dataBlock', {
+  splitDepth: 'betweenChildren',
+  repeatedLead: (node) => (node.attrs.repeatHeading ? 1 : 0),
+})
+```
+
+- **The height is reserved.** The page a continuation is on pays the height of those children out
+  of its content space.
+- **Drawn for tables only.** The engine draws the repeated header rows above a continuation of a
+  `table`. For a type of your own it reserves the room and draws nothing in it.
+
+## Breaks of your own
+
+For a Node that is a break rather than one affected by one. The engine's own page, column and
+section breaks are in [Breaks](/page-layout/features/breaks).
+
+```js
+// A block that always starts a sheet and adds no height to it.
+defineNodeLayout('chapterStart', {
+  breakMarker: true,
+  startsPage: true,
+})
+
+// An inline marker that ends the page where it sits.
+defineNodeLayout('myPageBreak', {
+  forcedCut: 'page',
+})
+```
+
+| Field         | Description                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `breakMarker` | The block contributes no height to the page it starts. Blocks only                                                   |
+| `startsPage`  | The page ends in front of it. Blocks at the top level only                                                           |
+| `forcedCut`   | For an inline marker: `'page'` ends the sheet, `'region'` ends the column. In a one-column section they are the same |
+
+## Chapters
+
+A Node that begins a chapter says at which level, for a section that writes the chapter in front
+of its page numbers, such as `2-14`. Tiptap's `heading` already does, at its `level`.
+
+```js
+defineNodeLayout('chapterTitle', {
+  chapterLevel: (node) => node.attrs.depth ?? 1,
+})
+```
+
+`null` is a Node that begins none. See
+[Page numbers](/page-layout/features/page-numbers#with-the-chapter-in-front) for how the number is chosen.
+
+## Blocks that restyle the others
+
+The editor measures a block again when the block changes. A block whose change makes other blocks
+look different, such as definitions the rest of the document is drawn by, says so. Every block is
+then measured again when it is added, removed or changed:
+
+```js
+defineNodeLayout('themeSettings', {
+  breakMarker: true,
+  remeasuresDocument: true,
+})
+```
+
+- **Document Styles** does this for its definitions. See
+  [Document Styles](/page-layout/other-extensions/document-styles).
+- **It is expensive.** Remeasuring the whole document costs as much as a change of the page width,
+  so keep it to blocks that change rarely.
+- **Top level.** It is asked of top-level blocks on every change, so the answer should be cheap.
+
+## Behaving like a built-in type
+
+The rules of the built-in types are not exported, and `defineNodeLayout` takes no type to copy
+from. Write the same fields for your type instead:
+
+| To behave like               | Rule                                                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A paragraph or a code block  | `{ splitDepth: 'intoText' }`                                                                                                                       |
+| A blockquote                 | `{ splitDepth: 'betweenChildren' }`                                                                                                                |
+| A list                       | The list `{ splitDepth: 'betweenChildren' }`, its item `{ splitDepth: 'betweenChildren', viewContent: 'block+' }`                                  |
+| A horizontal rule            | No rule                                                                                                                                            |
+| A column layout              | The layout `{ splitDepth: 'none', parallelChildren: true, parallelCutNode: true }`, each column `{ parallelCutNode: true, viewContent: 'block*' }` |
+| A table without merged cells | The table `{ splitDepth: 'betweenChildren' }`, each row as the column layout above, each cell as a column                                          |
+
+- **Settings an author can change.** The readers `keepsListTogether`, `breaksItemsAcrossPages`,
+  `keepsTogether`, `breaksAcrossPages` and `repeatsHeaderRow` are exported. Each reads an
+  attribute by name, so it answers for your Node if your Node carries the same attribute.
+
+```js
+import { keepsListTogether } from '@tiptap-pro/extension-page-layout'
+
+// `checklist` carries a `keepTogether` attribute, as a list does.
+defineNodeLayout('checklist', {
+  splitDepth: 'betweenChildren',
+  keepTogether: keepsListTogether,
+})
+```
+
+- **What stays the table's.** Merged cells across a page, the column widths on every piece, the
+  repeated header rows and completed table edits work for `table` only.
+- **A type of the same name.** A Node named `table` or `bulletList` gets the built-in rule,
+  whichever Extension defines it.

@@ -1,0 +1,167 @@
+---
+title: 'The page map'
+intro: 'The page map says which page a passage is on, how many pages there are, and what each of them holds. It is the reading side of <a href="/page-layout/features/page-numbers">Page numbers</a>, which puts the numbers on the pages.'
+tags:
+  - type: pro
+  - type: alpha
+meta:
+  title: 'The page map | Tiptap Page Layout Docs'
+  description: 'Ask which page a position is on, what a page holds, and go to a position.'
+  category: Page Layout
+---
+
+A status bar saying "page 4 of 9", a comment that remembers its page, a print range and a table of
+contents all read it. The map has one entry per page, in page order, derived from the layout and
+stored nowhere.
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.getPageMap() // one entry per page
+engine.getPageCount() // how many there are
+```
+
+## The page a position is on
+
+`pageAt` finds the page a position is on:
+
+```js
+import { pageAt } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+const page = pageAt(engine.getPageMap(), engine.getSourceState().selection.from)
+
+console.log(`The cursor is on page ${page?.pageNumber} of ${engine.getPageCount()}.`)
+```
+
+- **Ask again after a change.** A page number follows from the layout, so an edit at the top of
+  the document changes every number below it. Do not keep it.
+- **Read it in `onChange`.** The `onChange` option of `createPageLayoutEditor` is called once the
+  pages are drawn, after every change. Tiptap's `update` event is not enough: the pages can be
+  laid out again without the document changing, and then it does not fire.
+- **`pageAt` returns `null`** for a position on no page, such as the text of a footnote.
+- **The map is empty** in [Pageless](/page-layout/features/page-format#pageless) mode, where there are no
+  sheets to number.
+
+## What an entry says
+
+| Field               | Type                   | Description                                                                                            |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `pageNumber`        | `number`               | The number printed on the page: its position counting from one, until a section starts the count again |
+| `pageLabel`         | `string`               | That number as the page writes it, in its section's format: `'iv'`, `'C'`, `'12'`                      |
+| `pageIndex`         | `number`               | The position of the sheet, counting from zero. Two sheets can share a `pageNumber`, never this         |
+| `sectionPageNumber` | `number`               | Which page of its section this is, counting from one                                                   |
+| `sectionPageCount`  | `number`               | How many pages begin in that section                                                                   |
+| `from`, `to`        | `number`               | The stretch of the document the sheet lies within, from the first position on it to the last           |
+| `ranges`            | `readonly PageRange[]` | What the sheet actually shows: stretches in document order, none touching another                      |
+| `blockIndices`      | `readonly number[]`    | The document's top-level blocks on the page, whole or in part                                          |
+| `sectionIndex`      | `number`               | The section the page begins in                                                                         |
+| `sectionIndices`    | `readonly number[]`    | Every section the page carries                                                                         |
+| `box`               | `PageBox`              | The paper: its size, its margins, how the area is divided                                              |
+| `startsInsideBlock` | `boolean`              | Whether the page begins in the middle of a block                                                       |
+| `endsInsideBlock`   | `boolean`              | Whether the page ends in the middle of a block                                                         |
+
+- **`from` and `to` are an envelope, `ranges` is the content.** They differ on a page holding a
+  cut table row. The row is divided at one height in every cell, so one sheet holds the top of
+  all three cells and the sheet below holds all three bottoms.
+- **The two envelopes then overlap**, and neither page holds everything between its own ends.
+- **Read `ranges`** for anything that takes content out of the document: a slice, an export, a
+  comparison.
+- **Exporting one page on its own.** Where `startsInsideBlock` and `endsInsideBlock` are both
+  `false`, the range is whole blocks.
+
+## The pages of a section
+
+The pages a section reaches are `pagesOfSection`, for "Section 2 · pages 4–7":
+
+```js
+import { pagesOfSection } from '@tiptap-pro/extension-page-layout'
+
+const pages = pagesOfSection(engine.getPageMap(), 1)
+```
+
+It reads `sectionIndices` rather than `sectionIndex`. A section after a continuous break shares a
+sheet with the one before it, and has that sheet among its pages.
+
+## From a Decoration
+
+An Extension that draws on the editor's own document, such as a label or a Decoration, asks
+`pageNumberAt` instead, with a position in that document:
+
+```js
+import { pageLabelAt, pageNumberAt } from '@tiptap-pro/extension-page-layout'
+
+pageNumberAt(editor.state.doc, pos) // 7, or null where the editor has no pages
+pageLabelAt(editor.state.doc, pos) // 'vii' in a section numbered in roman numerals
+```
+
+- **It answers from the document it is given.** Inside a plugin's `apply`, it is the page of the
+  document that Transaction produced, not of the one before it.
+- **Both answer for `engine.getSourceDocument()`** as well, with a position in it, as long as that
+  document is the one last paginated. That is the document a Command of another Extension runs
+  on.
+- **A document that has changed since** gets `null`.
+- **Cross references** print "see page 7" with them. See
+  [cross references](/page-layout/other-extensions/cross-references#see-page-n).
+- **Print `pageLabelAt`** where the number should read the way the page writes it.
+- **Both are the number printed on the page**, which is not always its position: a section can
+  start its count again. See [Numbering the pages](/page-layout/features/page-numbers#numbering-the-pages). The position of
+  the sheet is `pageIndex` in the page map.
+
+## The same map on a server
+
+Where nobody is looking at the document, `paginate` answers with the same array, from
+measurements you bring. A print range, a table of contents or "which page is this comment on" in
+a job is asked of it:
+
+```js
+import { paginate } from '@tiptap-pro/extension-page-layout'
+
+const { pages } = paginate({ sourceDoc, extensions, measure })
+```
+
+See [Pages on a server](/page-layout/guides/on-a-server#pages-on-a-server).
+
+## Going to a position
+
+`revealSourcePosition` puts the caret at a position of the document and scrolls its page into
+view, drawn or not yet drawn. A table of contents, a search result or a link to a heading uses it.
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+editor.can().revealSourcePosition(pos) // is it a position of the document?
+editor.commands.revealSourcePosition(pos)
+```
+
+With a second position, the text between the two is selected instead, for a bookmark or a search
+result shown as what it covers:
+
+```js
+editor.commands.revealSourcePosition(from, to)
+```
+
+- **`pos`** is a position in `engine.getSourceState().doc`, the same document `pageAt` takes.
+- **Where no caret can stand**, such as in front of a heading or at the start of a footnote, the
+  caret goes to the nearest place after it that takes one.
+- **The editor takes the focus**, so the caret is shown where it lands. Called from a button or a
+  sidebar, it would otherwise be somewhere the reader cannot see it.
+
+## Commands
+
+### revealSourcePosition
+
+Puts the caret at a position of the document, or selects a range, and scrolls its page into view.
+
+```js
+editor.commands.revealSourcePosition(pos)
+editor.commands.revealSourcePosition(from, to)
+```
+
+| Option | Type     | Description                                   |
+| ------ | -------- | --------------------------------------------- |
+| `pos`  | `number` | A position in `engine.getSourceState().doc`   |
+| `to`   | `number` | The end of the range to select. Default `pos` |
+
+Returns `false`, and `can()` too, for a position outside the document and for a range that ends
+in front of where it starts.
