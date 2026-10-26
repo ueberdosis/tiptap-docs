@@ -198,12 +198,12 @@ const items: SidebarGroup[] = [
   },
   {
     // Curated sets of features for one use case; each part keeps its page under Features.
-    // The line above it separates where to start from what you can build.
+    // A bundle is a place to start, so it sits above the line and stays open.
     type: 'group',
     title: 'Bundles',
     href: '/bundles',
     collapsible: true,
-    divider: true,
+    defaultOpen: true,
     children: [
       { href: '/bundles', title: 'Overview' },
       ...BUNDLES.map((bundle) => ({
@@ -218,6 +218,7 @@ const items: SidebarGroup[] = [
     title: 'Features',
     href: '/features',
     collapsible: true,
+    divider: true,
     children: [
       { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
       // Paid products first, then the open source editor's groups
