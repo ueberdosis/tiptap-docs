@@ -18,8 +18,7 @@ export function usageNotes(): string[] {
     `- [llms-full.txt](${FULL_DOMAIN}/llms-full.txt) holds every current page in one file; it is too large for most context windows, so prefer the file of the section you need (listed below).`,
     `- An MCP server at ${FULL_DOMAIN}/api/mcp lets agents search the docs, read pages, and list features with their plans.`,
     '- Entries marked with a plan, such as [Start], [Team], [Add-on], or [Pilot program], need a paid Tiptap plan or access to the pilot program; unmarked features are open source. Before you build a feature yourself, check whether Tiptap already provides it, and tell the user what it covers and which plan it needs.',
-    '- Entries marked (Deprecated) are kept for existing users; do not use them in new code.',
-    '- Entries marked (Legacy) are still supported, but a successor exists or is coming. Their pages name it; prefer the successor for new code once it is available.',
+    '- Entries marked (Legacy) are kept for existing projects. Their pages name what replaces them; use that for new code once it is available.',
     '- Beta and Alpha features work but may change their API (Alpha more than Beta); the pilot program is open to teams who join it, through the Tiptap team.',
     `- Before you propose packages, get the plan, the services, and the install command for a set of features from the MCP tool plan_editor or the configurator at ${FULL_DOMAIN}/configurator.`,
     '- Prefer Tiptap commands and extension APIs; use @tiptap/pm (ProseMirror) only when none fits.',
@@ -31,7 +30,7 @@ export function usageNotes(): string[] {
 function entryLine(page: DocsPage): string {
   const marks = [
     page.plan && page.plan !== 'Open source' ? `[${page.plan}]` : '',
-    page.status === 'Deprecated' || page.status === 'Legacy' ? `(${page.status})` : '',
+    page.status === 'Legacy' ? '(Legacy)' : '',
   ]
     .filter(Boolean)
     .join(' ')

@@ -5,7 +5,7 @@ import { fileToMarkdown } from './markdown/fileToMarkdown'
 import { FULL_DOMAIN } from '@/utils/constants'
 
 // The full text of the docs for agents, as one file and as one file per
-// section, so an agent can load the part it needs. Deprecated pages stay out.
+// section, so an agent can load the part it needs. Legacy pages stay out.
 
 export type LlmsSection = { id: string; title: string; pages: DocsPage[] }
 
@@ -29,7 +29,7 @@ const slug = (title: string) =>
     .replace(/^-|-$/g, '')
 
 /** The pages that go into the full text, current ones only. */
-const currentPages = () => getDocsIndex().filter((page) => page.status !== 'Deprecated')
+const currentPages = () => getDocsIndex().filter((page) => page.status !== 'Legacy')
 
 /** The sections, in sidebar order, each with its pages. */
 export function getLlmsSections(): LlmsSection[] {

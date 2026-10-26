@@ -39,7 +39,6 @@ export function planFromTags(tags: string[]): CatalogPlan {
 }
 
 export function statusFromTags(tags: string[]): string | undefined {
-  if (tags.includes('deprecated')) return 'Deprecated'
   if (tags.includes('legacy')) return 'Legacy'
   if (tags.includes('alpha')) return 'Alpha'
   if (tags.includes('beta')) return 'Beta'

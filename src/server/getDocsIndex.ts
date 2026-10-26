@@ -23,7 +23,7 @@ export type DocsPage = {
    * from the nearest sidebar entry above it, so a feature's subpages share its plan.
    */
   plan?: CatalogPlan
-  /** Release state, such as Beta or Deprecated, from the page tags or inherited like `plan`. */
+  /** Release state, such as Beta or Legacy, from the page tags or inherited like `plan`. */
   status?: string
   /** The npm packages of a feature page, space-separated. */
   package?: string
@@ -38,7 +38,7 @@ type Item = SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>
 type Inherited = Pick<DocsPage, 'plan' | 'status'>
 
 // "New" and "Soon" describe one entry, not the pages under it
-const INHERITED_STATUSES = ['Deprecated', 'Legacy', 'Alpha', 'Beta']
+const INHERITED_STATUSES = ['Legacy', 'Alpha', 'Beta']
 
 /** The plan and status a sidebar entry's labels pass on, over what it inherited itself. */
 function inheritFrom(tags: string[] | undefined, inherited: Inherited): Inherited {

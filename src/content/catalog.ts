@@ -80,7 +80,6 @@ export const CATALOG_STATUSES = [
   'Experimental',
   'Soon',
   'Legacy',
-  'Deprecated',
 ] as const
 
 export type UpcomingFeature = {

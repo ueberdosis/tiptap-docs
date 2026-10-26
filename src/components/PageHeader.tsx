@@ -98,7 +98,7 @@ const isImageTag = (tag: PageTag): tag is ImagePageTag => {
 }
 
 const PLAN_TYPES = ['restricted', 'addon', 'business', 'team', 'start', 'beginStart', 'mit', 'pro']
-const STATUS_TYPES = ['deprecated', 'legacy', 'alpha', 'beta', 'experiment', 'new']
+const STATUS_TYPES = ['legacy', 'alpha', 'beta', 'experiment', 'new']
 
 // Plan first, then status, then version, then npm badges, whatever the frontmatter order
 const tagRank = (tag: PageTag) =>
@@ -120,7 +120,6 @@ const PLAN_TAG: Record<string, GeneralPageTag['type']> = {
 }
 
 const STATUS_TAG: Record<string, GeneralPageTag['type']> = {
-  Deprecated: 'deprecated',
   Legacy: 'legacy',
   Alpha: 'alpha',
   Beta: 'beta',
@@ -146,8 +145,8 @@ export type PageHeaderTagsProps = {
 }
 
 export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
-  // A legacy or deprecated page shouldn't also invite you in as Beta or New
-  const endOfLife = tags.some((tag) => tag.type === 'deprecated' || tag.type === 'legacy')
+  // A legacy page shouldn't also invite you in as Beta or New
+  const endOfLife = tags.some((tag) => tag.type === 'legacy')
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
     .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
@@ -268,17 +267,11 @@ export const PageHeaderTag = ({
       ) : null
     case 'legacy':
       return (
-        <Tag variant="hint" tooltip={tag.tooltip || 'Still supported, but not for new projects.'}>
-          Legacy
-        </Tag>
-      )
-    case 'deprecated':
-      return (
         <Tag
           variant="hint"
-          tooltip={tag.tooltip || 'Will be removed. Use what the page names instead.'}
+          tooltip={tag.tooltip || 'Kept for existing projects, not for new ones.'}
         >
-          Deprecated
+          Legacy
         </Tag>
       )
     case 'version':

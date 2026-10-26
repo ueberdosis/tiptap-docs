@@ -52,7 +52,6 @@ export type GeneralPageTag = {
     | 'restricted'
     | 'mit'
     | 'business'
-    | 'deprecated'
     | 'legacy'
     | 'version'
   tooltip?: string

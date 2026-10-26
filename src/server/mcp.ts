@@ -211,10 +211,8 @@ export function searchDocsIndex(query: string, limit = 8): DocsPage[] {
     // A feature's overview is where a search for the feature should land
     if (isFeature) score *= 1.5
     if (featureName && phrase.includes(featureName.split(' ').map(stem).join(' '))) score *= 2
-    // Legacy pages after current ones
-    if (page.status === 'Legacy') score *= 0.6
-    // Deprecated pages only when nothing current matches as well
-    if (page.status === 'Deprecated') score *= 0.3
+    // Legacy pages only when nothing current matches as well
+    if (page.status === 'Legacy') score *= 0.3
     return { page, score }
   })
 

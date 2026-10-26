@@ -145,7 +145,6 @@ export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-lif
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
 
 const LABELS: Record<string, SidebarLabel & { rank: number }> = {
-  deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
   legacy: { text: 'Legacy', kind: 'end-of-life', rank: 1 },
   soon: { text: 'Soon', kind: 'status', rank: 2 },
   paid: PAID,

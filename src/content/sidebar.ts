@@ -194,8 +194,8 @@ const items: SidebarGroup[] = [
           {
             title: 'AI Legacy',
             href: '',
-            // Paid like the rest of AI; the label says Deprecated
-            tags: ['Deprecated', 'Paid'],
+            // Paid like the rest of AI; the label says Legacy
+            tags: ['Legacy', 'Paid'],
             children: [
               section('AI Assistant', aiAssistantSidebar, legacyOptions),
               section('AI Suggestion', aiSuggestionSidebar, legacyOptions),

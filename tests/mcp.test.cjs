@@ -155,7 +155,7 @@ test('llms.txt lists every page once, grouped like the sidebar', () => {
   assert.equal(getDocsIndex().length, new Set(getDocsIndex().map((page) => page.route)).size)
 })
 
-test('subpages of paid features carry their plan, and legacy AI pages are deprecated', () => {
+test('subpages of paid features carry their plan, and old AI pages are legacy', () => {
   const pages = getDocsIndex()
   const under = (prefix) => pages.filter((page) => page.route.startsWith(prefix))
   const paid = ['/comments/', '/tracked-changes/', '/compare/', '/collaboration/', '/conversion/']
@@ -167,7 +167,7 @@ test('subpages of paid features carry their plan, and legacy AI pages are deprec
       `${prefix} pages without a paid plan`,
     )
   }
-  const current = under('/ai/deprecated/').filter((page) => page.status !== 'Deprecated')
+  const current = under('/ai/deprecated/').filter((page) => page.status !== 'Legacy')
   assert.deepEqual(
     current.map((page) => page.route),
     [],
@@ -231,7 +231,7 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   // AI Legacy is paid too, so all of AI is; the end of life still shows
   assert.equal(label(['AI']), 'Paid')
   assert.equal(label(['AI', 'Server AI Toolkit']), undefined)
-  assert.equal(label(['AI', 'AI Legacy']), 'Deprecated')
+  assert.equal(label(['AI', 'AI Legacy']), 'Legacy')
   // Upcoming features that will be paid make their group paid; they show Soon
   assert.equal(label(['Page Layout']), 'Paid')
   assert.equal(label(['Page Layout', 'Page Layout']), 'Soon')
@@ -345,11 +345,11 @@ test('every add-on says how to get it', () => {
   assert.deepEqual(missing, [], 'add these to src/content/access.ts')
 })
 
-test('the full text comes per section, without deprecated pages', () => {
+test('the full text comes per section, without legacy pages', () => {
   const { getLlmsSections, sectionUrl } = loadSite('../src/server/llmsFull.ts')
   const sections = getLlmsSections()
   const pages = sections.flatMap((section) => section.pages)
-  assert.equal(pages.filter((page) => page.status === 'Deprecated').length, 0)
+  assert.equal(pages.filter((page) => page.status === 'Legacy').length, 0)
   assert.equal(new Set(sections.map((section) => section.id)).size, sections.length)
   assert.ok(sections.some((section) => section.title === 'Editor features'))
   const llms = buildLlmsTxt(

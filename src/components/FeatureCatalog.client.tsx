@@ -19,7 +19,7 @@ import type { CatalogEntry } from '@/server/getCatalog'
 import { cn } from '@/utils'
 import { getIcon } from '@/utils/iconKit'
 
-const END_OF_LIFE = ['Legacy', 'Deprecated']
+const END_OF_LIFE = ['Legacy']
 
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
   // A feature without docs yet is still to come, so its card is greyed out
