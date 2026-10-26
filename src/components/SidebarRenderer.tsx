@@ -69,7 +69,7 @@ const CollapseAll = createContext(0)
 
 /**
  * Open state that survives navigation. A page inside the entry always opens it,
- * and an area's "Collapse all" closes every entry in it that doesn't hold the current page.
+ * and an area's "Collapse all" closes every entry in it, the current page's too.
  */
 function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [boolean, SetOpen] {
   const [isOpen, setIsOpenState] = useState(() =>
@@ -89,8 +89,8 @@ function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [b
   useEffect(() => {
     if (handled.current === collapseAll) return
     handled.current = collapseAll
-    setIsOpen(mustOpen)
-  }, [collapseAll, mustOpen, setIsOpen])
+    setIsOpen(false)
+  }, [collapseAll, setIsOpen])
   return [isOpen, setIsOpen]
 }
 
@@ -338,7 +338,7 @@ export const LinkItem = ({
 }
 
 /**
- * Closes every open entry in an area, except the ones that hold the current
+ * Closes every open entry in an area, including the ones that hold the current
  * page. It shows when the pointer is over the area's title, as in Figma's layers.
  */
 const CollapseButton = ({ area, onClick }: { area: string; onClick: () => void }) => (
