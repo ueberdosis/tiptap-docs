@@ -26,8 +26,37 @@ const dryRun = args.includes('--dry-run')
 const prune = args.includes('--prune')
 const apiKey = process.env.TYPESENSE_ADMIN_API_KEY
 
+const isText = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() !== '' && value.length <= 100
+
+/**
+ * The file's synonyms, checked and copied field by field, so nothing but an id,
+ * an optional root and a list of words goes to the server.
+ */
+function readSynonyms(): Synonym[] {
+  const data: unknown = JSON.parse(fs.readFileSync(FILE, 'utf8'))
+  if (!Array.isArray(data)) throw new Error(`${FILE} must hold an array.`)
+  const ids = new Set<string>()
+  return data.map((entry, i) => {
+    const { id, root, synonyms } = entry ?? {}
+    const valid =
+      typeof id === 'string' &&
+      /^[a-z0-9-]{1,80}$/.test(id) &&
+      !ids.has(id) &&
+      (root === undefined || isText(root)) &&
+      Array.isArray(synonyms) &&
+      synonyms.length > 0 &&
+      synonyms.every(isText)
+    if (!valid) throw new Error(`Entry ${i} of ${FILE} is not a valid synonym.`)
+    ids.add(id)
+    return root === undefined
+      ? { id, synonyms: [...synonyms] }
+      : { id, root, synonyms: [...synonyms] }
+  })
+}
+
 async function main() {
-  const synonyms: Synonym[] = JSON.parse(fs.readFileSync(FILE, 'utf8'))
+  const synonyms = readSynonyms()
   const oneWay = synonyms.filter((synonym) => synonym.root).length
   console.log(
     `${synonyms.length} synonyms (${oneWay} one-way, ${synonyms.length - oneWay} multi-way)`,

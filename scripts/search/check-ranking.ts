@@ -21,14 +21,30 @@ type Grouped = { grouped_hits?: { hits: { document: { url: string } }[] }[]; err
 const FILE = path.join(process.cwd(), 'search/ranking-tests.json')
 const apiKey = process.env.TYPESENSE_SEARCH_API_KEY || process.env.NEXT_PUBLIC_DOCSEARCH_API_KEY
 
+/** The test set, checked, so only query strings go to the server. */
+function readTests(): { within: number; tests: Test[] } {
+  const data = JSON.parse(fs.readFileSync(FILE, 'utf8'))
+  const isText = (value: unknown) => typeof value === 'string' && value.trim() !== ''
+  const valid =
+    Number.isInteger(data?.within) &&
+    Array.isArray(data?.tests) &&
+    data.tests.every(
+      (test: Test) =>
+        isText(test?.query) &&
+        test.query.length <= 100 &&
+        Array.isArray(test.expect) &&
+        test.expect.every(isText),
+    )
+  if (!valid) throw new Error(`${FILE} is not a valid test set.`)
+  return data
+}
+
 async function main() {
-  const { within, tests }: { within: number; tests: Test[] } = JSON.parse(
-    fs.readFileSync(FILE, 'utf8'),
-  )
+  const { within, tests } = readTests()
   const { results } = await typesense<{ results: Grouped[] }>(apiKey, 'POST', '/multi_search', {
     searches: tests.map((test) => ({
       collection,
-      q: test.query,
+      q: String(test.query),
       ...searchParameters,
       per_page: 10,
     })),
