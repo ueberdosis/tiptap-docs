@@ -160,23 +160,30 @@ export function focusSidebarSearch(): boolean {
 /** Every page in the sidebar, under its own title, with the titles above it. */
 function sidebarPages(config: SidebarConfig): Map<string, Result> {
   const pages = new Map<string, Result>()
-  const walk = (entries: Entry[], trail: string[]) => {
-    for (const entry of entries) {
+  // `alias` names a parent without a page of its own, whose overview this entry is
+  const walk = (entries: Entry[], trail: string[], alias?: string) => {
+    for (const [index, entry] of entries.entries()) {
       const isGroup = 'type' in entry && entry.type === 'group'
       const link = entry as Omit<SidebarLink, 'type'>
-      if (entry.href && !isGroup && !link.external && !pages.has(entry.href)) {
+      // A parent such as "Client Toolkit" only redirects to its first page; that page stands for it
+      const ownPage = !!link.pageTitle || !entry.children?.length
+      if (entry.href && !isGroup && !link.external && ownPage && !pages.has(entry.href)) {
         const title = link.pageTitle ?? entry.title
+        const label = index === 0 && alias && entry.title === 'Overview' ? alias : entry.title
         pages.set(entry.href, {
           key: entry.href,
           href: entry.href,
           title,
-          label: title === entry.title ? undefined : entry.title,
+          label: title === label ? undefined : label,
           trail,
           sections: [],
           more: 0,
         })
       }
-      if (entry.children) walk(entry.children, [...trail, entry.title])
+      if (entry.children) {
+        const leadsOn = !isGroup && !!entry.href && !ownPage
+        walk(entry.children, [...trail, entry.title], leadsOn ? entry.title : undefined)
+      }
     }
   }
   walk(config.items, [])
