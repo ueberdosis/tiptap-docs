@@ -46,7 +46,11 @@ const nextConfig = {
     ]
   },
   async redirects() {
-    return redirects
+    // Under a base path, as on Vercel previews, the bare domain leads to the docs
+    const root = process.env.BASE_PATH
+      ? [{ source: '/', destination: process.env.BASE_PATH, basePath: false, permanent: false }]
+      : []
+    return [...root, ...redirects]
   },
 }
 
