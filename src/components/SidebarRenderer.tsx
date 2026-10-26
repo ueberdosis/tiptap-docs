@@ -145,7 +145,7 @@ export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-lif
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
 
 const LABELS: Record<string, SidebarLabel & { rank: number }> = {
-  deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
+  legacy: { text: 'Legacy', kind: 'end-of-life', rank: 0 },
   paid: PAID,
   start: PAID,
   starter: PAID,
@@ -162,10 +162,16 @@ const LABELS: Record<string, SidebarLabel & { rank: number }> = {
 export function sidebarLabel(
   tags: string[] | undefined,
   hidePlan = false,
+  hideLegacy = false,
 ): SidebarLabel | undefined {
   const [label] = (tags ?? [])
     .map((tag) => LABELS[tag.toLowerCase()])
-    .filter((label) => label && !(hidePlan && label.kind === 'plan'))
+    .filter(
+      (label) =>
+        label &&
+        !(hidePlan && label.kind === 'plan') &&
+        !(hideLegacy && label.kind === 'end-of-life'),
+    )
     .sort((a, b) => a.rank - b.rank)
   return label ? { text: label.text, kind: label.kind } : undefined
 }
@@ -241,6 +247,7 @@ export const LinkItem = ({
   const label = sidebarLabel(
     isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags,
     link.hidePlan,
+    link.hideLegacy,
   )
   const target = targetOf(link)
 

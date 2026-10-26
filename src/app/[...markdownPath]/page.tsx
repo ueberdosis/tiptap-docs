@@ -7,6 +7,8 @@ import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
 import { PageHeader, headerTags } from '@/components/PageHeader'
 import { inheritedLabels } from '@/server/inheritedLabels'
+import { LegacyNotice } from '@/components/LegacyNotice'
+import { legacyFeature } from '@/content/legacy'
 import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
@@ -98,6 +100,10 @@ export default async function MarkdownPage({ params }: Props) {
 
   // A sub-page shows the plan and status of its feature
   const tags = headerTags(pageMdx.frontmatter?.tags, inheritedLabels(`/${markdownPath.join('/')}`))
+  // A legacy page says what replaces it, right under its header
+  const legacy = tags.some((tag) => tag.type === 'legacy')
+    ? legacyFeature(`/${markdownPath.join('/')}`)
+    : undefined
 
   return (
     <>
@@ -131,7 +137,11 @@ export default async function MarkdownPage({ params }: Props) {
                 </div>
               ) : null}
               {tags.length ? (
-                <PageHeader.Tags tags={tags} isTemplate={markdownPath.includes('templates')} />
+                <PageHeader.Tags
+                  tags={tags}
+                  isTemplate={markdownPath.includes('templates')}
+                  hideLegacy={!!legacy}
+                />
               ) : null}
               {pageMdx.frontmatter.description ? (
                 <PageHeader.Description
@@ -140,6 +150,7 @@ export default async function MarkdownPage({ params }: Props) {
                   }}
                 />
               ) : null}
+              {legacy ? <LegacyNotice feature={legacy} /> : null}
             </PageHeader.Wrapper>
           ) : null}
           <div className="mdx-content">{pageMdx.default()}</div>
