@@ -15,21 +15,18 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Overview', href: '/page-layout/getting-started/overview' },
         { title: 'Install', href: '/page-layout/getting-started/install' },
-        { title: 'React', href: '/page-layout/getting-started/react' },
         {
           title: 'An editor you already have',
           href: '/page-layout/getting-started/existing-editor',
         },
         {
-          title: 'Positions and events',
-          href: '/page-layout/getting-started/positions-and-events',
+          title: 'The document and the pages',
+          href: '/page-layout/getting-started/the-document-and-the-pages',
         },
         {
           title: 'Migrate from Pages 1',
           href: '/page-layout/getting-started/migrate-from-pages-1',
         },
-        { title: 'Toolbar', href: '/page-layout/getting-started/toolbar' },
-        { title: 'Components', href: '/page-layout/getting-started/components' },
         {
           title: 'Features',
           href: '',
@@ -46,7 +43,7 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Other extensions on pages',
+          title: 'Extensions in Page Layout',
           href: '/page-layout/other-extensions/overview',
           children: [
             { title: 'Tables', href: '/page-layout/other-extensions/tables' },
@@ -68,6 +65,7 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Guides',
           href: '',
           children: [
+            { title: 'React NodeViews', href: '/page-layout/guides/react-nodeviews' },
             { title: 'Collaboration', href: '/page-layout/guides/collaboration' },
             { title: 'Long documents', href: '/page-layout/guides/long-documents' },
             { title: 'Printing and PDF', href: '/page-layout/guides/printing-and-pdf' },
