@@ -398,7 +398,13 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
           {isOpen ? (
             <CollapseButton
               area={group.title}
-              onClick={() => setCollapseAll((count) => count + 1)}
+              onClick={() => {
+                // Entries inside closed ones aren't mounted, so they forget here instead
+                for (const key of rememberedOpen.keys()) {
+                  if (key.startsWith(`${group.title}/`)) rememberedOpen.delete(key)
+                }
+                setCollapseAll((count) => count + 1)
+              }}
             />
           ) : null}
         </Sidebar.GroupTitle>
