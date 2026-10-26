@@ -1,6 +1,5 @@
-// Industries for the catalog filter, the configurator, and the MCP tool
-// list_features. Each lists the features that matter most there, by catalog
-// name; basics every editor needs (paragraphs, bold, lists) stay out.
+// Industries for the catalog filter. Each lists the features that matter most
+// there, by catalog name; basics every editor needs (paragraphs, bold, lists) stay out.
 //
 // DRAFT: a first mapping from the docs, to check with the product team.
 

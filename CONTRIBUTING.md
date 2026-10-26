@@ -29,7 +29,7 @@ To contribute, please follow these steps:
 
 The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order, and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Features, next to the larger features such as Comments or Conversion, which keep their own sections. A page's plan comes from its `tags`. A new extension page needs a `group` and its npm `package`, as its install command names them.
 
-"Plan your editor" (`/configurator`) builds on the catalog. Its starting points are in `src/content/presets.ts`, with the services each feature needs. Industries for the catalog filter and the configurator are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
+Industries for the catalog filter are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
 
 ## Labels
 

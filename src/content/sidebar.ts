@@ -126,7 +126,6 @@ const items: SidebarGroup[] = [
       { href: '/', title: 'Overview' },
       { ...link(editorSidebar, ['Get started', 'Overview']), title: 'Tiptap Editor' },
       { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
-      { href: '/configurator', title: 'Plan your editor' },
       {
         href: '/authentication',
         title: 'Authentication',
