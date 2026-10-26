@@ -66,6 +66,15 @@ function subscribeToDesktop(onChange: () => void) {
   return () => mq.removeEventListener('change', onChange)
 }
 
+// The slot is in the layout, which may mount after this component (client navigation)
+function subscribeToSlot(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.body, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}
+
+const getSlot = () => document.getElementById('requirements-slot')
+
 export function Requirements({ children }: RequirementsProps) {
   // False on the server and while hydrating, so the portal mounts only in the browser
   const isDesktop = useSyncExternalStore(
@@ -73,7 +82,8 @@ export function Requirements({ children }: RequirementsProps) {
     () => window.matchMedia(DESKTOP_QUERY).matches,
     () => false,
   )
-  const portalTarget = isDesktop ? document.getElementById('requirements-slot') : null
+  const slot = useSyncExternalStore(subscribeToSlot, getSlot, () => null)
+  const portalTarget = isDesktop ? slot : null
 
   const box = <RequirementsBox>{children}</RequirementsBox>
 
