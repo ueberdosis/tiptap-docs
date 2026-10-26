@@ -1,0 +1,551 @@
+---
+title: 'Cross-references'
+intro: 'A cross-reference is a mention of another place in the document — "see clause 4.2", "as set out in the Definitions" — that stays right while the document changes. The place it points at is a <strong>target</strong>: a heading, a clause, any Node type you register.'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Cross-references | Tiptap Page Layout Docs'
+  description: 'A cross-reference is a mention of another place in the document — "see clause 4.2", "as set out in the Definitions" — that stays right while the document…'
+  category: Page Layout
+---
+
+`@tiptap-pro/extension-cross-references` works without pages. Numbers and references need only
+the document.
+
+## Registering targets
+
+Which of your Node types are targets is yours to say, because the schema is yours. Register them
+by name, with what their title is:
+
+```js
+import { CrossReferences } from '@tiptap-pro/extension-cross-references'
+
+new Editor({
+  extensions: [
+    StarterKit,
+    CrossReferences.configure({
+      targets: {
+        heading: {},
+      },
+    }),
+  ],
+})
+```
+
+- **`title`** — what a reference showing the title reads, a string or a function of the Node.
+  The Node's text when you leave it out.
+
+- **`label`** — the target's number, a function that is given `{ node, pos, doc }` and returns
+  `{ number, fullNumber }`, or `null` for a target without one. `number` is how the target shows
+  it, `(a)`; `fullNumber` is how it is named from elsewhere, `1.02(a)`. No number when you leave
+  it out.
+
+A target's number is not counted here. Hand it over from whatever counts — for headings and
+clauses, [outline numbering](/page-layout/extensions/outline-numbering):
+
+```js
+import { OutlineNumbering, outlineNumberAt } from '@tiptap-pro/extension-outline-numbering'
+
+const outline = {
+  types: { heading: { level: (node) => node.attrs.level } },
+  levels: [],
+  ignore: null,
+}
+
+new Editor({
+  extensions: [
+    StarterKit,
+    OutlineNumbering.configure(outline),
+    CrossReferences.configure({
+      targets: {
+        heading: {
+          label: ({ doc, pos }) => {
+            const found = outlineNumberAt(doc, outline, pos)
+            return found && { number: found.label, fullNumber: found.fullLabel }
+          },
+        },
+      },
+    }),
+  ],
+})
+```
+
+- **`idAttribute`** — the attribute this type's id is read from, for a type that has an id of its
+  own. The package then only reads it: it adds no attribute to the type, gives no target of it
+  an id, and leaves duplicates to the Extension that defines it. The registry's `idAttribute`
+  when you leave it out.
+
+- **`withheld`** — whether a target is kept from whoever reads the document: `true`, or a function
+  of the Node, for a clause under protection or a note only one side may see. `false` when you
+  leave it out. See [withheld targets](/page-layout/extensions/cross-references#withheld-targets).
+
+- **`isTarget`** — whether a Node of this type is a target at all: a boolean, or a function of the
+  Node and `{ ancestors }`, the Nodes around it from the outermost in. `true` when you leave it
+  out. A Node it answers `false` for is not offered, gets no id and resolves no reference, which
+  is how only the items of a numbered list become targets and not every bullet:
+
+  ```js
+  listItem: {
+    type: 'Numbered item',
+    isTarget: (node, { ancestors }) => ancestors.at(-1)?.type.name === 'orderedList',
+  }
+  ```
+
+A type your schema does not have is reported with a console warning when the editor is created,
+since no Node can ever be of that type.
+
+A target that is not a Node — a bookmark around a few words, a statute, a clause in another
+document — comes from a [source](/page-layout/extensions/cross-references/sources).
+
+### Footnotes as targets
+
+A reference to a footnote — _supra note 3_ — has to print the number the note prints. Register
+the `footnote` type with its own id, and number it with the footnotes' own count, passing the
+same `counter` you give `Footnotes`:
+
+```js
+import { footnoteIdOf, noteNumbers } from '@tiptap-pro/extension-footnotes'
+
+const marks = new WeakMap()
+
+CrossReferences.configure({
+  targets: {
+    footnote: {
+      idAttribute: 'footnoteId',
+      label: ({ doc, node }) => {
+        if (!marks.has(doc)) marks.set(doc, noteNumbers(doc, { counter }))
+        const mark = marks.get(doc).get(footnoteIdOf(node))
+        return mark ? { number: mark, fullNumber: mark } : null
+      },
+    },
+  },
+})
+```
+
+With a `counter` that restarts on every page, the reference reads the number of the page's own
+count, as the note does. The title of a footnote target is the note's text.
+
+## What a target stores
+
+A registered type gets one attribute, `crossReferenceId`, `null` by default. It is written to HTML
+as `data-tt-cross-reference-id` and read back from it, so a target keeps its identity through a save
+and a copy into another editor. Nothing else is stored on a target: not its number, which follows
+from where it stands.
+
+A target gets its id with the first reference to it, made from its title: a heading "Scope of
+work" becomes `scope-of-work`, or `scope-of-work-1` where that is taken. A target nothing refers
+to has none.
+
+### One id, one target
+
+After every change, a target whose id another target has too gets a new one, `scope-1`; the other
+keeps it, so the references that were there keep pointing where they pointed:
+
+- Enter at the end of a heading opens a block without an id.
+- A heading split in the middle keeps the id on its front half.
+- A copy gets a new id, wherever it is pasted — in front of the original too.
+- A target that is cut and pasted keeps its id, since the original is gone.
+- Where nothing tells the two apart, as in a document loaded with duplicates, the first keeps it.
+
+- **`repair`** — whether this runs in the editor. `true` by default. It does not run for an
+  `idAttribute` another Extension defines (`defineIdAttribute: false`).
+
+For an editor state of your own, add the same pass as a plugin:
+
+```js
+import { crossReferenceIdsPlugin } from '@tiptap-pro/extension-cross-references'
+
+crossReferenceIdsPlugin({ targets: { heading: {} } })
+```
+
+### Using an id the targets already have
+
+When another Extension already puts an id on your targets — a table of contents does on
+headings — name that attribute instead, so a heading has one identity and not two:
+
+```js
+CrossReferences.configure({
+  targets: { heading: {} },
+  idAttribute: 'id',
+  defineIdAttribute: false,
+})
+```
+
+- **`idAttribute`** — the attribute a target's id is read from. `crossReferenceId` by default.
+- **`defineIdAttribute`** — whether the package adds that attribute to the target types. `true`
+  by default; `false` when another Extension defines it, which then decides how it is written to
+  HTML and when it is assigned. A registered type that lacks the attribute is reported with a
+  console warning when the editor is created.
+
+With `defineIdAttribute: true` and another name, the package defines the attribute under that
+name, still written to HTML as `data-tt-cross-reference-id`.
+
+Choose this before documents are saved: the name is part of every stored document.
+
+## References
+
+A reference is an inline Node, `crossReference`, that `CrossReferences` brings along. It stores
+which targets it names and how it reads them — the choices of Word's cross-reference dialog:
+
+```js
+editor.commands.insertCrossReference({ target: pos, show: 'fullNumber' }) // at the selection
+editor.commands.insertCrossReference({ target: 'scope-of-work', show: 'page', aboveBelow: true })
+editor.commands.setCrossReferenceOptions({ show: 'title' }) // the reference at the cursor
+```
+
+- **`show`** — what it reads of its target: a number with or without its context, the target's
+  text, its page, or above/below. Which ones a type offers, and how to add your own, is
+  [what a reference shows](/page-layout/extensions/cross-references/displays). `fullNumber` by default.
+- **`hyperlink`** — whether a Cmd/Ctrl+click leads to the target. `true` by default.
+- **`aboveBelow`** — whether `above` or `below` follows the text: `4.2 below`.
+- **`numberSeparator`** — what separates the parts of a number, `3-b-ii` for `3(b)(ii)` with
+  `-`. `null` by default, the number as written.
+
+Every Command, with what it returns, is on [the Commands page](/page-layout/extensions/cross-references/commands).
+
+### One reference, several targets
+
+With `multiple: true`, a reference may name several targets, which it reads with the list words
+between them — `3, 5 and 7`, or `3, 5, 7` or `3–5 and 7` by another rule:
+
+```js
+CrossReferences.configure({ targets, multiple: true })
+
+editor.commands.insertCrossReference({ targets: ['payment', 'term', 'fees'], show: 'number' })
+editor.commands.insertCrossReference({
+  targets: ['payment', 'term', 'fees'],
+  show: 'number',
+  join: 'range',
+})
+```
+
+- **`multiple`** — whether a reference may name several targets. `false` by default, and then
+  `insertCrossReference` with more than one target returns `false`.
+- **`join`** — how a reference reads them together, per reference or for all of them, and
+  **`joins`** for rules of your own: [several targets in one reference](/page-layout/extensions/cross-references/joins).
+
+`above` or `below` is said of the first target.
+
+### Editing a reference
+
+A reference reads its targets while it is empty, and what is written in it once it is not. The
+caret goes into a reference like into a field: an arrow key stops at its inner start, moves
+through what it shows one character at a time, and stops once more at its inner end before it
+leaves. Where what it shows runs over two lines, Up and Down move between them in the caret's
+column, and leave the reference from its first and last line; arriving from the line above or
+below, the caret stands in the column it came from. Typing anywhere in it writes the text the reference shows with the character where the
+caret is — `clause 4.2` from `4.2` — and from then on the reference keeps that text while its
+target changes. Backspace and Delete inside an empty reference do the same with a character
+taken out.
+
+Backspace next to a reference selects it, and a second Backspace removes it, so a reference never
+goes with a stray key. A Backspace at the first position inside it, or a Delete at the last,
+does nothing: the reference is not joined with the text beside it. A reference cannot be dragged.
+
+`removeCrossReference()` takes the reference at the cursor out of the text, or the one at a
+position you pass; `editor.can().removeCrossReference()` is `false` where there is none.
+
+### References that hold no text
+
+Where a reference should only ever name its target, set `holdsText: false`:
+
+```js
+CrossReferences.configure({ targets, holdsText: false })
+```
+
+- **`holdsText`** — whether a reference may hold text of its own. `true` by default. With
+  `false`, typing, Backspace, Delete, a paste or a drop inside a reference do nothing; nothing
+  stores what a reference reads, so `update: 'manual'` behaves as `'live'`, and
+  `setCrossReferenceUpdate('manual')` and the conversions to text return `false`. A reference
+  that already holds text — from older content or another editor — reads its targets, and its
+  text stays in the document, hidden; `resetCrossReference()` removes it.
+
+A reference whose text is no longer what its targets say gets `data-tt-cross-reference-stale`, and a
+wavy underline colored by `--tt-cross-reference-stale-color`. `resetCrossReference()` gives it
+back to its targets.
+
+### Converting a reference to text
+
+`convertCrossReferenceToText()` replaces the reference at the cursor by the words it reads, and
+`convertCrossReferencesToText()` does it for every reference in the document. The text is then
+part of the line like any other and follows nothing. A reference whose target is gone is left as
+it is, so nothing turns into a `?`.
+
+### Updating references
+
+- **`update`** — `'live'`, the default, has an empty reference follow its targets as they change:
+  a heading inserted above renumbers every reference to the headings behind it. `'manual'` stores
+  what the targets say when the reference is inserted, and keeps it until references are updated,
+  as Word's fields do until F9.
+- **`updateKey`** — the key that updates every reference, `F9` by default; `null` for none.
+
+```js
+editor.commands.setCrossReferenceUpdate('manual') // while the editor runs
+editor.commands.updateCrossReferences() // what F9 does
+editor.commands.setCrossReferenceLocked(true) // the reference at the cursor stays as it is
+```
+
+An update writes what the targets say into every reference that holds text — in `'live'` mode
+those are the ones somebody wrote into; in `'manual'` mode it is all of them. A locked reference
+is left out. Nothing else writes into a reference: the editor never changes one on its own, so
+two people editing one document never overwrite each other's references.
+
+### How a reference is shown
+
+The text of an empty reference is drawn, not stored: the editor puts it into the reference's
+element as a `span` with `data-tt-cross-reference-text`, which is not editable and is not part of
+the document. The element also carries the text in `data-tt-cross-reference-label`. The package's
+stylesheet colors references and marks the ones below:
+
+```js
+import { mountCrossReferenceStyles } from '@tiptap-pro/extension-cross-references'
+
+mountCrossReferenceStyles(document) // or put crossReferenceStyleRules() in your own stylesheet
+```
+
+Under a Content Security Policy, pass the nonce you give the Editor as `injectNonce`:
+`mountCrossReferenceStyles(document, { nonce })`.
+
+The element is a `span` with `data-tt-cross-reference` (the target ids, separated by spaces) and
+`data-tt-show`, class `tiptap-cross-reference`. `--tt-cross-reference-color` colors it. A reference
+holding text of its own carries `data-tt-cross-reference-fixed` instead of the drawn text; one
+showing a note's number formatted carries
+`data-tt-cross-reference-format="superscript"`.
+
+The other choices are written to HTML too, and read back from it: `data-tt-hyperlink="false"`,
+`data-tt-above-below`, `data-tt-number-separator`, `data-tt-locked`.
+
+A reference with nothing to show reads `?` and gets `data-tt-cross-reference-unresolved`, colored by
+`--tt-cross-reference-unresolved-color`. Its value says what is missing:
+
+- `target` — no target has the id, because it was deleted. The reference stays in the document,
+  and reads again when an undo brings the target back.
+- `number` — the target has no number.
+- `page` — nothing answers which page the target is on.
+- `withheld` — the target is [withheld](/page-layout/extensions/cross-references#withheld-targets); the reference reads `[withheld]`.
+
+The words that are not the target's are an option:
+
+```js
+CrossReferences.configure({
+  targets: { heading: {} },
+  phrases: { above: 'oben', below: 'unten', unresolved: '??' },
+})
+```
+
+- **`phrases`** — `above`, `below`, `unresolved`, `withheld` (`[withheld]`), and for a reference
+  naming several targets `listSeparator` (`, `), `lastSeparator` (`and`) and `rangeSeparator`
+  (`–`), which [the rule it reads them by](/page-layout/extensions/cross-references/joins) uses; each one you leave out keeps its default.
+  The tooltip a reader sees on a reference that cannot read its target says why, and is a phrase
+  too: `targetMissing`, `numberMissing`, `pageMissing` and `withheldTarget`, one for each value of
+  `data-tt-cross-reference-unresolved`, and `staleText` for a reference whose own text is no longer
+  what its target says. A reference that reads as it should has no tooltip.
+- **`pageOf`** — a function that is given `{ node, pos, doc }` of a target and returns the page it
+  is on as text, or `null`. `null` by default, so `show: 'page'` is unresolved without pages.
+  `node` is `null` for a [source's](/page-layout/extensions/cross-references/sources) target, and a target outside the document is
+  not asked about.
+
+### Going to the target
+
+A Cmd/Ctrl+click on a reference calls `reveal` with the id of its first target, and what it
+returns decides the click: `true` stops it there, `false` lets the editor place the caret as
+usual. A plain click places the caret, so a reference can be edited; a reference inserted with
+`hyperlink: false` is never followed.
+
+```js
+CrossReferences.configure({
+  targets,
+  reveal: ({ targetId }) => {
+    editor.view.focus()
+    return editor.commands.goToCrossReferenceTarget(targetId)
+  },
+})
+```
+
+`goToCrossReferenceTarget(targetId)` puts the caret at the start of the target's text — a
+heading's, or the text of a footnote — and scrolls to it. It returns `false` for a target the
+document does not hold, such as one a [source](/page-layout/extensions/cross-references/sources) resolves from outside it. Focus the
+editor first: it scrolls to the caret only while it has the focus.
+
+- **`reveal`** — a function given `{ targetId, source, id, pos, event }`: the id of the target
+  as the reference stores it, the [source](/page-layout/extensions/cross-references/sources#following-a-reference) that names it or
+  `null`, the id within that source, the position of the reference that was clicked, and the
+  mouse event. `null` by default. A target outside the document has no position: `target.pos`
+  is `null` there.
+- **`follow`** — `'modifier'`, the default, follows a reference on Cmd/Ctrl+click, as Word does;
+  `'click'` on any click, for a reader that does not edit.
+
+While `reveal` is set, the editor carries the class `tiptap-cross-references-clickable`. A
+paginated editor follows references without it; see
+[going to the target on pages](/page-layout/extensions/cross-references/on-pages#going-to-the-target).
+
+### Copy and paste
+
+A copied reference takes its text along: pasted into another program it reads `see 1.2`, as text.
+Pasted into an editor with `CrossReferences`, it is a reference again: one that was empty reads
+whatever its target says there, one holding text of its own keeps it.
+
+### Withheld targets
+
+A target registered as `withheld` stays in the document, and a reference to it says nothing about
+it: it reads `[withheld]`, its element carries `data-tt-cross-reference-unresolved="withheld"`, and
+text the reference holds is hidden. A click does not follow it, `crossReferenceTypesIn` does not
+offer it, a copy carries `[withheld]` and not the text, and an update or a conversion leaves the
+reference as it is. For a DOCX, pass `isWithheld` to `crossReferenceToFields`, which then writes
+the reference as text with no field naming the target ([Word fields](/page-layout/extensions/cross-references/docx#export)).
+
+```js
+CrossReferences.configure({
+  targets: {
+    heading: { withheld: (node) => node.attrs.protected === true },
+  },
+})
+```
+
+Withholding is decided by the reading, not stored: the same document read with another
+registration shows every target.
+
+## Reading the targets
+
+Every target of a document, in the order a reader meets them, with what its registration says
+about it:
+
+```js
+import { crossReferenceTargetsIn, targetIdOf } from '@tiptap-pro/extension-cross-references'
+
+const targets = crossReferenceTargetsIn(editor.state.doc, editor.storage.crossReferences)
+
+for (const { pos, id, title, label } of targets) {
+  // id is null for a target nothing has referred to yet, label for one without a number
+}
+
+targetIdOf(editor.state.doc.nodeAt(pos), editor.storage.crossReferences.idAttribute) // or null
+```
+
+All targets are listed, with an id or without, and a target nested inside another is listed after
+it. A [source's](/page-layout/extensions/cross-references/sources) targets are listed too, with `source` set to its name and `data` to
+what it gave along; those inside the document stand among the others, those outside it come
+last with `pos` and `node` `null`. `crossReferenceTargetById(doc, registry, id)` is the one
+target with that id, or `null`, asking a source's `resolve` for an id it does not list.
+
+## Reading the references
+
+Every reference, and what each one reads, in reading order:
+
+```js
+import {
+  crossReferenceLabelsIn,
+  crossReferencesIn,
+  DEFAULT_CROSS_REFERENCE_PHRASES,
+} from '@tiptap-pro/extension-cross-references'
+
+for (const { pos, targetIds, show, fixedText, locked } of crossReferencesIn(editor.state.doc)) {
+  // targetIds is empty for a reference that names no target, fixedText null for an empty one
+}
+
+const labels = crossReferenceLabelsIn(editor.state.doc, editor.storage.crossReferences, {
+  phrases: DEFAULT_CROSS_REFERENCE_PHRASES,
+  pageOf: null,
+})
+
+const broken = labels.filter((label) => label.unresolved === 'target') // references to deleted targets
+```
+
+Each label is `{ reference, text, unresolved, format, fixed, stale }`: the reference as
+`crossReferencesIn` lists it, what its targets say, `null` or what is missing, as in
+[how a reference is shown](/page-layout/extensions/cross-references#how-a-reference-is-shown), how the display prints it, whether the
+reference holds text of its own, and whether that text is not what its targets say.
+
+Each label is also `hidesText` where a reference holds text that is not shown — with
+`holdsText: false`, or for a withheld target.
+
+### Without an editor
+
+Every reader takes a document and a registration, and none of them needs an editor: an export on
+a server reads the same text the editor draws, given the same `targets` and `displays`.
+
+```js
+import { getSchema } from '@tiptap/core'
+import { Node } from '@tiptap/pm/model'
+import {
+  crossReferenceLabelsIn,
+  DEFAULT_CROSS_REFERENCE_PHRASES,
+} from '@tiptap-pro/extension-cross-references'
+
+const doc = Node.fromJSON(getSchema(extensions), json)
+const registry = { targets, sources, displays }
+
+for (const { reference, text } of crossReferenceLabelsIn(doc, registry, {
+  phrases: DEFAULT_CROSS_REFERENCE_PHRASES,
+  pageOf: null,
+})) {
+  // write `text` where `reference.pos` stands
+}
+```
+
+`crossReferenceAround(doc, from, to)` is the reference the selection is in or on, or `null` — what
+a toolbar reads to show the choices of the reference at the cursor.
+
+Every type of target the document has, with its targets and what a reference to one can show, is
+`crossReferenceTypesIn(doc, editor.storage.crossReferences)` — see
+[what a reference shows](/page-layout/extensions/cross-references/displays#offering-the-choices).
+
+### Checking the ids
+
+```js
+import {
+  hasDoubledTargetIds,
+  repairTargetIdsTransaction,
+} from '@tiptap-pro/extension-cross-references'
+
+hasDoubledTargetIds(doc, editor.storage.crossReferences) // true where two targets share an id
+
+const transaction = repairTargetIdsTransaction(state.tr, editor.storage.crossReferences)
+if (transaction) dispatch(transaction) // the first in reading order keeps each id
+```
+
+`repairTargetIdsTransaction` is the pass of [one id, one target](/page-layout/extensions/cross-references#one-id-one-target) as a single
+write, for a document loaded from somewhere else. `null` when no id is doubled.
+
+## Names
+
+| Name                                    | Value                                 | What it is                                                  |
+| --------------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
+| `CROSS_REFERENCE_NODE_NAME`             | `crossReference`                      | The reference Node.                                         |
+| `CROSS_REFERENCE_ID_ATTRIBUTE`          | `crossReferenceId`                    | A target's id, in the document.                             |
+| `CROSS_REFERENCE_ID_DOM_ATTRIBUTE`      | `data-tt-cross-reference-id`          | The same id, in HTML.                                       |
+| `CROSS_REFERENCE_ATTRIBUTE`             | `data-tt-cross-reference`             | The target id on a reference's element.                     |
+| `CROSS_REFERENCE_SHOW_ATTRIBUTE`        | `data-tt-show`                        | What a reference shows, on its element.                     |
+| `CROSS_REFERENCE_LABEL_ATTRIBUTE`       | `data-tt-cross-reference-label`       | The text a reference reads, in the editor.                  |
+| `CROSS_REFERENCE_UNRESOLVED_ATTRIBUTE`  | `data-tt-cross-reference-unresolved`  | What is missing, in the editor.                             |
+| `CROSS_REFERENCE_TEXT_ATTRIBUTE`        | `data-tt-cross-reference-text`        | On the drawn text inside an empty reference, in the editor. |
+| `CROSS_REFERENCE_FIXED_ATTRIBUTE`       | `data-tt-cross-reference-fixed`       | On a reference holding text of its own, in the editor.      |
+| `CROSS_REFERENCE_STALE_ATTRIBUTE`       | `data-tt-cross-reference-stale`       | On one whose text is not what its targets say.              |
+| `CROSS_REFERENCE_FORMAT_ATTRIBUTE`      | `data-tt-cross-reference-format`      | How the display prints the text, `superscript`.             |
+| `CROSS_REFERENCE_HIDDEN_TEXT_ATTRIBUTE` | `data-tt-cross-reference-hidden-text` | On a reference whose own text is hidden, in the editor.     |
+| `CROSS_REFERENCE_CLICKABLE_CLASS`       | `tiptap-cross-references-clickable`   | On the editor while `reveal` is set.                        |
+| `CROSS_REFERENCE_SHOWS`                 |                                       | Every built-in value of `show`.                             |
+| `DEFAULT_CROSS_REFERENCE_SHOW`          | `fullNumber`                          | What a reference shows when nothing says otherwise.         |
+| `DEFAULT_CROSS_REFERENCE_PHRASES`       |                                       | `above`, `below`, `?`, `[withheld]`, `, ` and `and`.        |
+| `DEFAULT_CROSS_REFERENCE_DISPLAYS`      |                                       | The built-in displays, by id.                               |
+
+`isCrossReference(node)` says whether a Node is a reference, `referencedIdsOf(node)` which ids it
+names and `referencedIdOf(node)` the first of them, `showOf`, `isHyperlink`, `includesAboveBelow`,
+`numberSeparatorOf` and `isLocked` its choices, `fixedTextOf(node)` the text it holds or `null`,
+`targetIdOf(node, idAttribute)` a target's id, and `resolveTarget(targets, node)` and
+`targetLabelOf(targets, { node, pos, doc })` what a registration answers for a Node: its title,
+and its number.
+
+## Leaving Nodes out
+
+- **`ignore`** — a function of a Node; a Node it answers `true` for is not a target, and nothing
+  inside it is. A Node it answers `'descend'` for is not a target, and what is inside it is
+  read as usual. `null` by default.
+
+## In an editor with pages
+
+With [Page Layout](/page-layout/getting-started/overview), pass its `ignoreLayoutArtifacts` as `ignore`, write
+through the engine rather than with the commands, and take the page of "see page 7" from the
+page the target is drawn on. All of it is on
+[Cross-references on pages](/page-layout/extensions/cross-references/on-pages).

@@ -1,0 +1,192 @@
+---
+title: 'Components that change the document'
+intro: 'Run the code of a table menu, a NodeView or a panel that edits a Node on the document rather than on the pages: as a Command with <code>onSourceDocument</code>, or as a Transaction of your own.'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Components that change the document | Tiptap Page Layout Docs'
+  description: 'Run the code of a table menu, a NodeView or a panel that edits a Node on the document rather than on the pages.'
+  category: Page Layout
+---
+
+## Why editor.state is the wrong place
+
+A component written for an editor without pages usually reads `editor.state` and dispatches on
+`editor.view`. In an editor on pages, `editor.state` holds the pages:
+
+- **A table that runs over a page boundary** is a table per page there, each with only the rows of
+  its page.
+- **A paragraph cut by the boundary** is two paragraphs.
+
+A change worked out from that is worked out from the wrong table.
+
+## Running a command on the document
+
+Any command of the form `(state, dispatch) => boolean` runs on the document through
+`onSourceDocument`:
+
+```js
+import { addColumnAfter } from '@tiptap/pm/tables'
+
+editor.commands.onSourceDocument(addColumnAfter)
+```
+
+- **It reads the document and its cursor.** A cell that spans rows over a page boundary is one
+  cell, and a table has all its rows.
+- **It is the reader's own edit.** It can be undone, the Selection it sets is kept, and the page
+  is scrolled to where the Transaction asks.
+- **The pages are drawn again** before the call returns.
+- **`editor.can().onSourceDocument(command)`** asks the document as well, so a menu disables an
+  item by it.
+
+## A transaction of your own
+
+Build it on `engine.getSourceState()` and hand it to `dispatchSourceTransaction`:
+
+```js
+const engine = editor.storage.pageLayout.engine
+const state = engine.getSourceState()
+
+engine.dispatchSourceTransaction(state.tr.insertText('Note: ', state.selection.from))
+```
+
+- **It is applied as `onSourceDocument` applies a command.** It can be undone, its Selection is
+  kept, and the pages are drawn again before it returns.
+- **It returns `false`** when the editor has been destroyed.
+- **Read the state, build the Transaction and dispatch it in one go.** A state kept across an `await` is out of date by the
+  time it is used.
+- **`applySourceTransaction`** is for changes that are not the reader's. It leaves the undo history
+  alone unless asked, and keeps the reader's Selection where it was.
+
+Both throw for a Transaction built on any other state:
+
+- **Built on `editor.state`.** It holds positions in the pages, which mean something else in the
+  document.
+- **Built on a state read before another change.** It would apply its steps where the text has
+  moved since.
+
+The error says which of the two it was:
+
+```txt
+[page-layout] dispatchSourceTransaction takes a Transaction built on engine.getSourceState(),
+and this one was built on editor.state, which holds the pages rather than the document. Build it
+again from engine.getSourceState().tr.
+```
+
+## Combining commands in a chain
+
+An extension's Commands run on the document. Tiptap's core Commands, such as `insertContent`, run
+on the pages. A chain can mix the two:
+
+```js
+editor.chain().goToNextCell().insertContent('X').run()
+```
+
+- **The editor writes `X` into the next cell.** A core Command in the chain still reads an explicit
+  position as a position in the pages.
+- **Undo may take more than one step.** Each run of document Commands and each run of core
+  Commands is committed on its own.
+- **During IME composition**, a chain that goes from a document Command to a core Command returns
+  `false` before the core Command writes. The document Command is already committed. Run the core
+  Command after composition ends.
+- **In a custom callback**, finish writing to a captured `tr` before you call a Command of the
+  other kind. Changing content, the Selection or stored marks through that `tr` afterwards makes
+  `run()` return `false`. What the chain committed before stays in the document.
+
+Only `editor.chain()`, and the same chain under `can()`, work this way. Inside
+`editor.commands.command(...)` or `editor.commands.first(...)`, a core Command that follows a
+document Command writes nothing, although the call returns `true`. Use a chain for that sequence:
+
+```js
+editor.chain().goToNextCell().insertContent('X').run() // writes X
+editor.commands.command(({ commands }) => commands.goToNextCell() && commands.insertContent('X')) // does not
+```
+
+## Example: a table menu
+
+What a menu needs to know about the table at the cursor, and an action on it:
+
+```js
+import { addColumnAfter, deleteRow, findTable, TableMap } from '@tiptap/pm/tables'
+
+const engine = editor.storage.pageLayout.engine
+
+function tableAtCursor() {
+  const state = engine.getSourceState()
+  const table = findTable(state.selection.$from)
+
+  return table && { ...table, map: TableMap.get(table.node) }
+}
+
+// Columns and rows of the whole table, not of the part on this page
+const table = tableAtCursor()
+const columns = table?.map.width
+const rows = table?.map.height
+
+// Menu items
+const canDeleteRow = editor.can().onSourceDocument(deleteRow)
+editor.commands.onSourceDocument(addColumnAfter)
+
+// Write into the first cell, inside its first paragraph
+const state = engine.getSourceState()
+const { start, map } = tableAtCursor()
+engine.dispatchSourceTransaction(state.tr.insertText('Total', start + map.map[0] + 2))
+```
+
+`tableAtCursor()` is read again before the Transaction, because the command before it changed the
+document. `map.map` holds positions, which are valid only for the document they were read from.
+
+## What happens to an edit made on the pages
+
+An edit dispatched on `editor.view` still reaches the document where it can be applied there:
+typing, deleting, pasting, a mark, an attribute on one Node. Two kinds are refused, and change
+nothing:
+
+- **An edit that would leave a table inconsistent**, such as a column added to the rows of one page
+  only. See [Nodes that must stay consistent](/page-layout/guides/custom-nodes#nodes-that-must-stay-consistent).
+- **An edit that would put a page into the document.**
+
+The console says so once per kind, and names `getSourceState()` and `dispatchSourceTransaction`.
+The Commands this package and the table extension put on `editor.commands` already run on the
+document, and are not affected.
+
+## editor.state as the document
+
+Experimental, and off by default:
+
+```js
+PageLayout.configure({ setup: pageSetup('A4'), experimentalSourceState: true })
+```
+
+`editor.state` then holds the document, so code written for an editor without pages works on it
+unchanged:
+
+- **Tiptap's own Commands run on the document.** A position handed to `setTextSelection`,
+  `insertContentAt` or `deleteRange` is a position in the document.
+- **`editor.view.dispatch(editor.state.tr.insertText('Note: '))`** changes the document, as the
+  reader's own edit.
+- **`isActive()` and `getAttributes()`** answer for the document, so a paragraph cut by a page
+  boundary is one paragraph.
+- **`editor.view.state` still holds the pages.** A position read off `editor.state` is wrong when
+  passed to the editor view, such as `editor.view.coordsAtPos()`, `domAtPos()` or `nodeDOM()`, or
+  to `editor.$pos()`. Use the engine's readers instead; see
+  [From the screen to the document and back](/page-layout/getting-started/install#from-the-screen-to-the-document-and-back).
+
+## Commands
+
+### onSourceDocument
+
+Runs a command written for an editor view on the document rather than on the pages, as the
+reader's own edit.
+
+```js
+editor.commands.onSourceDocument(addColumnAfter)
+```
+
+| Option    | Type                                 | Description                  |
+| --------- | ------------------------------------ | ---------------------------- |
+| `command` | `(state, dispatch, view) => boolean` | A ProseMirror command to run |
+
+Returns `false` when the command returns `false` on the document, and when the editor was not
+built by `createPageLayoutEditor`.

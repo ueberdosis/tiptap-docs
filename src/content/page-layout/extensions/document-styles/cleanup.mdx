@@ -1,0 +1,203 @@
+---
+title: 'Cleaning up'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Cleaning up | Tiptap Page Layout Docs'
+  description: 'Deleting a style says what becomes of everything that refers to it.'
+  category: Page Layout
+---
+
+## deleteStyle()
+
+Deleting a style says what becomes of everything that refers to it:
+
+```js
+editor.commands.deleteStyle('subtitle', { strategy: 'replace', replacementStyleId: 'body' })
+```
+
+```mermaid
+flowchart TB
+  del["deleteStyle(id, { strategy })"] --> s{"strategy"}
+  s -->|"'replace'"| r["References point to replacementStyleId;<br/>overrides stay"]
+  s -->|"'freeze-inline'"| f["The style's values become overrides;<br/>the text looks as it did"]
+  s -->|"'remove-reference'"| x["References are taken off;<br/>overrides stay"]
+  s -->|"'preserve-reference'"| p["References stay, and are missing"]
+  r & f & x & p --> gone["The definition is removed"]
+```
+
+The selection and the rest of the text stay as they were, and it is one step of the history. A
+Mark left with no attribute at all by `'remove-reference'` is taken off.
+
+`deleteStyle` answers `false` for a style that is not the document's own, and with `'replace'` for
+a replacement nothing defines or the style itself.
+
+## replaceStyle()
+
+Points everything that uses one style at another and keeps both definitions, as Word's
+"Select all instances" followed by another style does:
+
+```js
+editor.commands.replaceStyle('subtitle', 'heading-2')
+```
+
+Each reference keeps its overrides. A reference the new style does not fit stays as it is: a
+paragraph style replaces block references and not character styles on text, a table style only
+goes on a table, and a style whose `node` target lists types only replaces references of those
+types. With `transformNodeOnApply`, each block also becomes the style's `node` type, such as a
+heading; a style whose `node` holds blocks, such as a blockquote, sets the reference without
+wrapping anything.
+
+`replaceStyle` answers `false` for a replacement nothing defines or that cannot be resolved, for
+the style itself, and where nothing it fits uses the style.
+
+## Missing styles
+
+A reference to an id nothing defines is drawn as if it had no style, and kept: once something
+defines the id, it is drawn by it.
+
+| Command                                    |                                                        |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `replaceMissingStyles(replacementStyleId)` | Points every such reference to a style that exists.    |
+| `removeMissingStyleReferences()`           | Takes every such reference off, keeping its overrides. |
+
+## removeUnusedStyles()
+
+Removes the document's own styles nothing refers to. A style another one in use is based on counts
+as used. A library's styles are never removed.
+
+## How styles are used
+
+```js
+import { analyzeStyleUsage } from '@tiptap-pro/extension-document-styles'
+
+const doc = editor.state.doc
+const report = analyzeStyleUsage(doc, editor.storage.documentStyles.stylesOf(doc))
+
+report.usedStyles // per style: its references, how many are Nodes and Marks, what they override
+report.missingStyles // references to an id nothing defines
+report.deprecatedStyles // styles in use that are deprecated
+report.unusedStyles // styles nothing refers to
+report.overrideReferences
+```
+
+A styled run of text counts once, however many other Marks run through it.
+
+## Formatting that should be a style
+
+The same overrides, set again and again, are a style nobody defined yet. `discoverStyles` finds
+them, most frequent first, and counts what [Tiptap's own formatting](/page-layout/extensions/document-styles/values#tiptaps-own-formatting)
+set — eleven paragraphs colored with `setColor` — as one with them. Values are compared written one
+way, so `#1F2937` and `#1f2937` are the same formatting:
+
+```js
+import { discoverStyles } from '@tiptap-pro/extension-document-styles'
+
+const [candidate] = discoverStyles(editor.state.doc, { minOccurrences: 3 })
+
+candidate.props // { fontSize: '18px', fontWeight: 700 }
+candidate.references // every place it was found
+
+editor.commands.createStyleFromCandidate(candidate, {
+  id: 'lead',
+  name: 'Lead',
+  applyToMatches: true,
+})
+```
+
+Two sets of overrides are the same where their values are, whatever order they were set in.
+Content that already has a style is left out unless you pass `includeStyledNodes: true`.
+`createStyleFromCandidate` with `applyToMatches` gives the new style to every place the candidate
+was found that still has that formatting, and takes the overrides off there.
+
+To use a style the document already has instead, give it to the candidate:
+
+```js
+editor.commands.applyStyleToCandidate(candidate, 'heading-2')
+```
+
+It answers `false` for a style that cannot be resolved, and leaves alone a place that was
+restyled since the candidate was found.
+
+## Blocks without a style
+
+A document from somewhere else often has no styles at all: its headings are headings, its
+paragraphs paragraphs. `unstyledBlocks` groups the blocks that have neither a style nor
+overrides by Node type and level:
+
+```js
+const groups = discoverStyles(doc, { unstyledBlocks: true, minOccurrences: 1 }).filter(
+  (candidate) => candidate.node,
+)
+
+groups[0].node // { type: 'heading', attrs: { level: 2 } }
+groups[0].references.length // 11
+
+editor.commands.applyStyleToCandidate(groups[0], 'heading-2')
+```
+
+`blockAttributes` names the attributes that tell two blocks of a type apart, `['level']` by
+default. `skipUnstyled` leaves blocks out, such as those already drawn in their
+[default style](/page-layout/extensions/document-styles/definitions#the-default-style):
+
+```js
+const defaults = editor.storage.documentStyles.defaultStylesOf(doc)
+
+discoverStyles(doc, { unstyledBlocks: true, skipUnstyled: (node) => defaults.of(node) !== null })
+```
+
+A style made of such a group with `createStyleFromCandidate` sets nothing, so the blocks look
+as before. Its `node` is the group's type and attributes, so applying it to another block
+turns that block into, for example, a level 2 heading.
+
+## applyDefaultStyles()
+
+A block drawn in its [default style](/page-layout/extensions/document-styles/definitions#the-default-style) names no style, so it
+changes when the default does: a library loaded later with another default for paragraphs,
+or a style that stops being one. `applyDefaultStyles` writes the default onto those blocks,
+which keeps them in it:
+
+```js
+editor.storage.documentStyles.defaultStyledBlocksOf(editor.state.doc)
+// [{ styleId: 'body', positions: [0, 42, 97] }]
+
+editor.commands.applyDefaultStyles() // every default
+editor.commands.applyDefaultStyles('body') // only the blocks drawn in Body Text
+```
+
+Nothing changes for the reader: each block is drawn in the same style, now by its own
+reference, and keeps what it overrides. Only blocks of `types` are written to. The command
+answers `false` where no block is drawn in a default, or in the one named.
+`applyDefaultStylesTransaction(tr, defaults, types, styleId)` and `defaultStyledBlocks(doc, defaults, types)` do the same without an editor.
+
+With `libraries`, the command writes the defaults those libraries say rather than the ones the
+editor draws. An editor that offers Word's styles without making them the default can give every
+paragraph Normal and every heading its level that way:
+
+```js
+import { wordStyleLibrary } from '@tiptap-pro/extension-document-styles'
+
+editor.commands.applyDefaultStyles(null, { libraries: [wordStyleLibrary()] })
+```
+
+Here the blocks change for the reader, since they were drawn in no style before. A default the
+document cannot draw, because none of its own styles or libraries defines that id, is not
+written. `defaultStylesWhere(defaults, keep)` filters defaults the same way for
+`applyDefaultStylesTransaction`.
+
+## In code that holds no editor
+
+```js
+import {
+  replaceStyleReferencesTransaction,
+  freezeStyleReferencesTransaction,
+  removeStyleReferencesTransaction,
+  mapStyleReferencesTransaction,
+} from '@tiptap-pro/extension-document-styles'
+
+replaceStyleReferencesTransaction(tr, 'old', 'new')
+mapStyleReferencesTransaction(tr, (reference) =>
+  reference.styleId === 'old' ? { styleId: 'new', overrides: null } : null,
+)
+```

@@ -1,0 +1,127 @@
+---
+title: 'Word fields'
+intro: "In a DOCX, a cross-reference is a field — <code>REF</code>, <code>PAGEREF</code> or <code>NOTEREF</code> — that names a bookmark around its target. These functions translate between such a field and a reference. Reading and writing the file is the converter's: it places a bookmark on every target, and calls these for every field it meets."
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Word fields | Tiptap Page Layout Docs'
+  description: 'In a DOCX, a cross-reference is a field — REF, PAGEREF or NOTEREF — that names a bookmark around its target.'
+  category: Page Layout
+---
+
+| `show`            | Field                                         |
+| ----------------- | --------------------------------------------- |
+| `relativeNumber`  | `REF _Ref… \r`                                |
+| `number`          | `REF _Ref… \n`, or `NOTEREF _Ref…` for a note |
+| `fullNumber`      | `REF _Ref… \w`                                |
+| `title`           | `REF _Ref…`                                   |
+| `aboveBelow`      | `REF _Ref… \p`                                |
+| `page`            | `PAGEREF _Ref…`                               |
+| `formattedNumber` | `NOTEREF _Ref… \f`                            |
+
+`hyperlink` is `\h`, `aboveBelow` beside a number is `\p`, and `numberSeparator` is `\d "-"`. A
+reference showing its text or its page with above/below is written as two fields, the second
+`REF _Ref… \p`, as Word writes it.
+
+## Bookmarks
+
+```js
+import { bookmarkNameFor, targetIdFromBookmark } from '@tiptap-pro/extension-cross-references'
+
+bookmarkNameFor('scope of work') // '_Ref_scope_0020of_0020work'
+targetIdFromBookmark('_Ref_scope_0020of_0020work') // 'scope of work'
+targetIdFromBookmark('_Ref123456789') // '_Ref123456789', a bookmark Word made
+```
+
+- **`bookmarkNameFor(targetId)`** — the bookmark a target is exported under: `_Ref_` and its id,
+  every character a bookmark name may not have spelled as `_` and four hex digits. A name is at
+  most forty characters; a longer id gets a hashed name, which does not read back.
+- **`targetIdFromBookmark(name)`** — the id a bookmark names. A bookmark of Word's own reads as
+  its name, which the importer then gives the bookmarked target as its id.
+
+## Export
+
+```js
+import {
+  crossReferenceLabelsIn,
+  crossReferenceToFields,
+} from '@tiptap-pro/extension-cross-references'
+
+for (const label of crossReferenceLabelsIn(
+  doc,
+  editor.storage.crossReferences,
+  editor.storage.crossReferences.labels,
+)) {
+  const text = label.fixed ? label.reference.fixedText : label.text
+  const parts = crossReferenceToFields(label.reference, text, {
+    isNote: (id) => noteIds.has(id),
+    isWithheld: (id) => withheldIds.has(id),
+  })
+  // parts: [{ instruction: 'REF _Ref_fees \\w \\h', result: '1.2' }, …]
+}
+```
+
+**`crossReferenceToFields(reference, text, options)`** returns the parts a reference is written
+as, in order. A part with an `instruction` is a field, with `result` as what it reads in the
+file; a part whose `instruction` is `null` is plain text — the words between the fields of a
+reference naming several targets. Such a reference is written in the pieces of
+[the rule it reads them by](/page-layout/extensions/cross-references/joins): one field per target the rule reads, so `3–5 and 7` is three
+fields with `–` and `and` between them, and no field for `4`.
+
+- **`bookmarkOf(targetId)`** — the bookmark a target is under, `bookmarkNameFor` by default.
+- **`isNote(targetId)`** — whether a target is a footnote or an endnote, whose number is a
+  `NOTEREF`.
+- **`isWithheld(targetId)`** — whether a target is [withheld](/page-layout/extensions/cross-references#withheld-targets). A
+  reference naming one is written as one plain part, its text, with no field and no bookmark.
+- **`doc`**, **`reading`** — the document and the registration, `editor.storage.crossReferences`.
+  With them, a target of a [source](/page-layout/extensions/cross-references/sources) outside the document is written through that
+  source's `field(target)`, or as a plain part where it has none; the file has no bookmark for
+  it. Without them every target is written as a reference to a bookmark. A source's target
+  inside the document gets a bookmark like any other, under `bookmarkOf` of its stored id,
+  `bookmark:intro`. A `range` needs them too, since whether two numbers follow each other is read
+  off the targets; without them a range is written as a list.
+- **`phrases`** — the words between the fields. Those of `reading` where it is
+  `editor.storage.crossReferences`, which holds the configured ones; the defaults otherwise.
+
+`label.text` is what the reference reads; `label.reference.fixedText` is the text it holds, which
+is only what a reader sees where `label.fixed` is true.
+
+Switches a reference was imported with and has no meaning for — `\t`, `\* MERGEFORMAT` — are
+written back as they came.
+
+## Import
+
+```js
+import {
+  crossReferenceFromField,
+  liveWhereUnchangedTransaction,
+} from '@tiptap-pro/extension-cross-references'
+
+const imported = crossReferenceFromField({
+  instruction: 'REF _Ref_fees \\w \\h \\* MERGEFORMAT',
+  result: '1.2',
+})
+// { attrs: { targetIds: ['fees'], show: 'fullNumber', hyperlink: true, aboveBelow: false,
+//            numberSeparator: null, fieldSwitches: '\\* MERGEFORMAT' }, text: '1.2' }
+
+const node = schema.nodes.crossReference.create(
+  imported.attrs,
+  imported.text ? schema.text(imported.text) : null,
+)
+```
+
+**`crossReferenceFromField(field, options)`** reads `{ instruction, result }` as a reference's
+attributes and its text, or returns `null` for a field that is no cross-reference. A switch it has
+no meaning for is kept in `fieldSwitches`.
+
+- **`targetIdOf(bookmark)`** — the target id of a bookmark, `targetIdFromBookmark` by default.
+
+A field's result is stored in the reference, so nothing of the file is lost. Once the document is
+loaded, `liveWhereUnchangedTransaction(state, editor.storage.crossReferences)` empties every
+reference whose text is what its targets say, so it follows them from then on; a reference whose
+result was edited in Word keeps its text. It leaves locked references alone, and does nothing in
+`'manual'` mode.
+
+Word writes a reference to several targets as several fields; joining them into one reference is
+the importer's choice.

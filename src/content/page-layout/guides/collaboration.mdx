@@ -1,0 +1,163 @@
+---
+title: 'Collaboration'
+intro: 'Several people edit the same document, and each sees their own pages. The content travels between them. The sheets it is laid out on are worked out on each screen and never sent.'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Collaboration | Tiptap Page Layout Docs'
+  description: 'Several people edit the same document, and each sees their own pages.'
+  category: Page Layout
+---
+
+So a colleague on Letter paper, or with a font your machine does not have, can see eleven pages
+of the text you see on twelve, and neither document is wrong.
+
+## Setting it up
+
+Pass the shared document to `PageLayout` through `createSourceCollaboration`, not into the
+editor's extension list:
+
+```js
+import {
+  createPageLayoutEditor,
+  PageLayout,
+  createSourceCollaboration,
+  pageSetup,
+} from '@tiptap-pro/extension-page-layout'
+
+const collaboration = createSourceCollaboration({
+  document: yDoc, // the shared document from your provider
+  awareness: provider.awareness, // optional, for remote cursors
+  user: { name: 'Ada', color: '#e11d48' },
+})
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4'), source: collaboration })],
+})
+```
+
+| Field       | Type              | Default     | Description                                                                                        |
+| ----------- | ----------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| `document`  | `Y.Doc`           | —           | The shared document your provider connects                                                         |
+| `field`     | `string`          | `'default'` | Which field of it holds the content                                                                |
+| `awareness` | `AwarenessLike`   | —           | Your provider's awareness, for remote cursors. Without it the content still syncs, with no cursors |
+| `user`      | `RemoteCaretUser` | —           | `name` and `color` shown beside this client's caret. `color` is a six-digit hex                    |
+
+- **The provider is yours.** Hocuspocus, Tiptap Collaboration, or anything else that connects a
+  shared document works.
+- **Dependencies.** `yjs` and `y-prosemirror` are optional peer dependencies of the engine, and
+  this path needs them.
+- **Changing the name later.** With `awareness` passed, `collaboration.carets.setUser({ name, color })`
+  changes what this client shows beside its caret.
+
+## Content is a placeholder
+
+The real content arrives from the shared document once it is bound, so pass an empty paragraph
+as `content`.
+
+Do not seed the same JSON on every client. One client writing the initial content is one
+update. Two clients writing it is two copies of the document.
+
+## Do not add the Collaboration extension
+
+Bind collaboration through `createSourceCollaboration` only, never with
+`@tiptap/extension-collaboration`.
+
+- **The editor's content is the pages.** It holds pages and blocks cut in half by a page
+  boundary. A shared document bound to it would share one client's page layout, and every peer
+  would receive sheets planned for a screen they are not looking at.
+- **StarterKit stays as it is.** Its history is removed from the paged view for you.
+
+## What is shared and what is not
+
+Anything an author decided is shared. Anything a screen decided is not.
+
+| Shared                                                     | Local to each client                                                                    |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| The text, and every Node you persist                       | The page count and where each page breaks                                               |
+| Manual page, column and section breaks                     | Measurements, and the plan built from them                                              |
+| Paper, margins and columns, once the document carries them | `PageLayout.configure({ setup })`, until a section break in the document names a format |
+| Headers, footers and note text                             | Where a note is drawn, and which page a header appears on                               |
+|                                                            | Pageless mode, the zoom, and how many sheets are shown per row                          |
+
+- **A format chosen in the UI** reaches a colleague only once it is written to the document.
+  `setSectionSetup` does that. See [Sections](/page-layout/core-concepts/sections).
+- **The `setup` option** is only this client's fallback, for a document that has never had a
+  format chosen.
+
+Check that nothing about the layout leaked into what is shared:
+
+```js
+import { isPureSourceDocument } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+
+isPureSourceDocument(engine.getSourceDocument(), engine.getSourceState().schema) // true
+```
+
+## Undo and redo
+
+Undo and redo are Commands of this package. Under collaboration they act on the shared
+document's own history.
+
+```js
+editor.commands.undo()
+editor.commands.redo()
+```
+
+- **Each client undoes its own edits.** A change that arrived from a colleague is not on your
+  stack.
+- **Cmd/Ctrl+Z is bound for you.**
+- **Do not add a second history.** An undo extension on the editor, a history plugin of your own
+  on the shared document, or a second undo manager over the same field each competes with this
+  one.
+
+## Remote cursors
+
+With `awareness` passed, every peer's caret and selection is drawn where that position lands in
+your pagination. You style none of it to see it.
+
+- **The caret** is a line in the text, in the color that peer sent.
+- **The name** sits above the caret line.
+- **The selection** is the peer's selected text, tinted in their color.
+- **On the first line of a page** the name would be cut off, so it hangs below the line. The
+  label then carries `data-tt-remote-caret-label-below`.
+- **Across a page boundary** a selection is drawn once per page it covers, so it shows on both
+  sheets rather than running through the gap.
+
+### Styling remote cursors
+
+| Selector                             | Element                                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------- |
+| `[data-tt-remote-caret]`             | The caret itself                                                                   |
+| `[data-tt-remote-caret-label]`       | The name beside it, with the peer's name as its text                               |
+| `[data-tt-remote-caret-label-below]` | A label hanging below the line. A label you style yourself places itself by it too |
+| `[data-tt-remote-selection]`         | A peer's selected text                                                             |
+
+| Custom property           | Default        | Description                                   |
+| ------------------------- | -------------- | --------------------------------------------- |
+| `--tt-remote-caret-color` | `currentColor` | Set on all three elements to the peer's color |
+| `--tt-remote-caret-width` | `2px`          | The width of the caret line                   |
+
+```css
+.my-editor {
+  --tt-remote-caret-width: 3px;
+}
+```
+
+- **Use the width property.** A caret takes no horizontal space, and the room it gives back is
+  worked out from `--tt-remote-caret-width`. A `border-width` of your own would push the words
+  behind it and repaginate the document whenever a colleague moves.
+- **The shape is always the engine's.** That the caret takes no room and the name is out of the
+  flow holds even with `sheetAppearance: 'none'`.
+
+### Limitations
+
+- **Not scrolled to.** A peer's caret is not scrolled into view.
+- **Two peers at one position** draw on top of each other.
+- **At a line that continues on the next page.** A caret exactly at the start of such a line is
+  drawn at the end of the previous one. It is one line out, where one position in the document
+  has two places on paper.

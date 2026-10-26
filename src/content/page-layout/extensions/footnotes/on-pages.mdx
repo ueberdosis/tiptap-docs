@@ -1,0 +1,177 @@
+---
+title: 'Footnotes on pages'
+intro: '<a href="/page-layout/extensions/footnotes">Footnotes and endnotes</a> work without pages. On pages, a footnote is drawn at the foot of the page it is referred to on, and the count can start over on every page or in every section.'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'Footnotes on pages | Tiptap Page Layout Docs'
+  description: 'Footnotes and endnotes work without pages.'
+  category: Page Layout
+---
+
+import { CodeDemo } from '@/components/CodeDemo'
+
+Add a note and watch it drawn at the foot of its page, and the endnotes at the end:
+
+<CodeDemo
+  isPro
+  viewer
+  view="preview"
+  path="/Extensions/PageLayoutFootnotes"
+  frameworks="React, JS"
+  height={640}
+/>
+
+## Quick start
+
+Register the extension next to Page Layout, configured as it would be without pages:
+
+```js
+import { Footnotes, mountFootnoteStyles } from '@tiptap-pro/extension-footnotes'
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+// The marks and the numbers in front of each note
+mountFootnoteStyles(document)
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [StarterKit, Footnotes, PageLayout.configure({ setup: pageSetup('A4') })],
+})
+```
+
+## What Page Layout sets
+
+Page Layout sets some options of the Footnotes extension in a paginated editor:
+
+| Option             | On pages                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `counter`          | `noteMarks`: the marks are counted over the pages. The extension still draws each mark      |
+| `scopes`           | `noteScopes`: a run of notes starts at a section that counts its notes from the start again |
+| `notesDocument`    | The document the engine keeps, so a copied note is taken whole and once                     |
+| `repair`           | Runs on the document, not the pages                                                         |
+| `onReferenceClick` | Runs `focusFootnote`, and draws the page the note is on if it was not drawn yet             |
+| `onNoteMarkClick`  | Runs `focusFootnoteReference`, back to the sentence                                         |
+
+- **`counter`, `scopes` and `notesDocument`** replace a value you pass for them.
+- **`counter`** is what makes _restart each page_ work: a mark depends on where the pages fall.
+  The extension draws the mark in the format the section asks for.
+- **`repair` off** turns the pass that keeps notes and references agreeing off on the document as
+  well.
+- **A click handler of your own** replaces either default.
+
+## Writing and reading notes
+
+Every command of the extension works on a paginated editor and writes the document, not the
+pages. `can()` answers from the document too, so a toolbar can disable a button by it.
+
+```js
+editor.chain().insertFootnote({ placement: 'footnote' }).focus().run()
+editor.commands.focusFootnoteReference(id)
+```
+
+`insertFootnote()` puts the note at the end of the document, or of its run of notes, and the
+caret into it, wherever the note is drawn.
+
+What the cursor is on is read from the document as well:
+
+```js
+import { footnoteAtSelection } from '@tiptap-pro/extension-footnotes'
+
+const atCursor = footnoteAtSelection(editor.storage.pageLayout.engine.getSourceState().selection)
+// { footnoteId: 'fn3', in: 'note' } or { footnoteId: 'fn3', in: 'reference' } or null
+```
+
+To list the notes with the marks the pages show, pass `noteMarks` as the counter:
+
+```js
+import { noteNumbers } from '@tiptap-pro/extension-footnotes'
+import { noteMarks } from '@tiptap-pro/extension-page-layout'
+
+const numbers = noteNumbers(engine.getSourceDocument(), { counter: noteMarks })
+```
+
+## Where notes are drawn
+
+Each [section](/page-layout/core-concepts/sections) sets where its pages draw their notes:
+
+```js
+pageSetup('A4', { notePlacement: 'bottomOfPage' })
+```
+
+| `notePlacement`  | Where                                                                         |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `'bottomOfPage'` | At the foot of the text area, above the footer. Where a reader looks. Default |
+| `'belowText'`    | Directly under the last line of text, wherever that ends                      |
+
+- **Endnotes** are not affected. They are read in the collection, at the end.
+- **Kept at the end, drawn at the foot.** The document keeps every note in its collection after
+  the text. A page draws a footnote at its foot, and hides it in the collection meanwhile.
+- **One note on screen.** Typing in a note drawn at the foot of a page edits that note in the
+  document.
+- **A title over the notes** is hidden as well when every note under it is drawn at the foot of
+  a page.
+- **A two-column page** draws one note area under both columns, down the left column and then
+  the right.
+
+## Numbering
+
+On pages, each section sets its numbering in the setup. It replaces `footnoteNumbers` and
+`endnoteNumbers` of the extension:
+
+```js
+pageSetup('A4', {
+  noteNumbering: {
+    footnote: { format: 'decimal', start: 1, restart: 'page' },
+    endnote: { format: 'lowerRoman', start: 1, restart: 'never' },
+  },
+})
+```
+
+| Field     | Type                             | Default                                        | Description                                                                                                        |
+| --------- | -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `format`  | `NumberFormat`                   | Footnotes `'decimal'`, endnotes `'lowerRoman'` | A [number format](/page-layout/extensions/number-formats) name, such as `'decimal'`, `'upperAlpha'` or `'symbols'` |
+| `start`   | `number`                         | `1`                                            | The first number of the sequence                                                                                   |
+| `restart` | `'never'`, `'section'`, `'page'` | `'never'`                                      | When the count starts over                                                                                         |
+
+- **`'never'`** counts through the document.
+- **`'section'`** starts over at each section break.
+- **`'page'`** starts over on every sheet. That is Word's _restart each page_.
+- **One kind alone.** Pass `footnote` or `endnote` alone, and the other keeps its default.
+- **No number is stored.** The setting is stored and the mark is drawn, so the same file opened
+  at another paper size renumbers correctly.
+
+### Where a run of notes ends
+
+- **At a section that starts over.** A section break whose section restarts either kind
+  (`'section'` or `'page'`) begins a new run of notes. The run before it is kept at the end of
+  its section.
+- **A section that only changes the format** continues the run.
+- **Numbering breaks are not read.** `insertNoteNumberingBreak` has no effect on pages. Use a
+  section that starts over instead.
+
+## At a page boundary
+
+- **A run of notes** breaks between two notes, and a long note breaks between its blocks. These
+  are the rules of a list, and all an endnote needs.
+- **A footnote at the foot of a page** is divided at a line, in the middle of a paragraph if that
+  is where the sheet ran out. The note area has whatever room the text left it.
+- **The rest of a note** is drawn at the foot of the next page, without a number in front of it.
+- **Every footnote begins on the page it is referred to on.** The notes of a page are drawn in
+  order, so a note begins where the one above it ends. Where the notes above it run on to the
+  next page, the line that refers to it moves to the next page too.
+- **The room notes take** is charged to the page before the text is fitted. A page whose text
+  refers to five long notes holds fewer lines of text.
+
+## What is not supported
+
+- **Columns in the note area.** Word's _Footnote Layout · Columns_, notes of a two-column page
+  set in three columns of their own, is not there. The area is one box, which on a one-column
+  page is the same thing.
+- **A note continued across a change of paper size** reserves more room than it needs. A note
+  stays in the section its reference is in, so this only happens when a break right behind the
+  reference puts the continuation on a page of another width.
+- **A custom mark for one note**, marked with a symbol and left out of the count, cannot be set.
+  The format is a per-section setting.

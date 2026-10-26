@@ -1,0 +1,178 @@
+---
+title: 'On a server'
+intro: 'A document saved from a paginated editor is ordinary Tiptap JSON. A server loads, reads, changes and stores it as any Tiptap document, with no browser and no pages.'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'On a server | Tiptap Page Layout Docs'
+  description: 'A document saved from a paginated editor is ordinary Tiptap JSON.'
+  category: Page Layout
+---
+
+| To                                  | Needs                 | See                                                                        |
+| ----------------------------------- | --------------------- | -------------------------------------------------------------------------- |
+| Read the paper and the sections     | The document          | [Reading the format](/page-layout/guides/on-a-server#reading-the-format)   |
+| Change the text or the page options | The document          | [Changing a document](/page-layout/guides/on-a-server#changing-a-document) |
+| Edit the shared document            | Hocuspocus            | [The shared document](/page-layout/guides/on-a-server#the-shared-document) |
+| Convert to or from .docx            | The document          | [Word documents](/page-layout/guides/word)                                 |
+| Know which page something is on     | Measurements of yours | [Pages on a server](/page-layout/guides/on-a-server#pages-on-a-server)     |
+| Write a PDF                         | —                     | Not available as a package yet                                             |
+
+## The extensions
+
+A server uses the same list of extensions the client builds its editor from. Pass it through
+`createSourceSchema` or `createSourceExtensions`. Both add what `PageLayout` brings, such as the
+section break, the page break, and headers and footers, so a document holding one of them loads:
+
+```js
+import { createSourceSchema } from '@tiptap-pro/extension-page-layout'
+import { extensions } from './extensions.js' // the client's list
+
+const schema = createSourceSchema(extensions)
+const doc = schema.nodeFromJSON(json)
+```
+
+Keep that list in one module the client and the server both import. A server that knows fewer
+Node types than the client fails on the first document that has one.
+
+## Reading the format
+
+```js
+import { documentPageSetup, sectionsDeclaredBy } from '@tiptap-pro/extension-page-layout'
+
+const setup = documentPageSetup(doc) // the paper of the first section, or null
+const sections = sectionsDeclaredBy(doc) // every section, or null
+```
+
+Both are `null` for a document that never had a format chosen. Such a document is shown in the
+setup each editor is configured with. See
+[The document's own format](/page-layout/core-concepts/sections#the-documents-own-format).
+
+## Changing a document
+
+Change the text as you would without pages: through a Tiptap `Editor` with no element, or by
+editing the JSON. Neither needs to know about pages.
+
+```js
+import { Editor } from '@tiptap/core'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+
+const editor = new Editor({
+  element: null,
+  extensions: createSourceExtensions(extensions),
+  content: json,
+})
+
+editor.commands.insertContentAt(editor.state.doc.content.size, {
+  type: 'paragraph',
+  content: [{ type: 'text', text: 'Appendix' }],
+})
+
+const changed = editor.getJSON()
+```
+
+## Changing the page options
+
+The Commands of `PageLayout`, such as `insertSectionBreak`, `setSectionSetup` and
+`setRowBreakAcrossPages`, return `false` in an editor without pages. Each has a function that
+writes the same change into a Transaction instead:
+
+```js
+import { EditorState } from '@tiptap/pm/state'
+import { insertSectionBreakTransaction, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const state = EditorState.create({ doc, schema })
+const tr = insertSectionBreakTransaction({
+  tr: state.tr,
+  documentSetup: pageSetup('A4'), // the setup the editors configure PageLayout with
+  position: doc.child(0).nodeSize, // behind the first block
+  setup: pageSetup('A4', { orientation: 'landscape' }),
+})
+
+const changed = state.apply(tr).doc.toJSON()
+```
+
+| Command                                 | Function                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| `insertSectionBreak(kind)`              | `insertSectionBreakTransaction({ tr, documentSetup, position, setup?, kind? })` |
+| `setSectionSetup(index, setup)`         | `setSectionSetupTransaction({ tr, documentSetup, sectionIndex, setup })`        |
+| `removeSection(index)`                  | `removeSectionTransaction({ tr, documentSetup, sectionIndex })`                 |
+| `insertPageBreak()`                     | `insertPageBreakTransaction(tr, tr.doc, position, schema)`                      |
+| `setRowBreakAcrossPages(allowed)`       | `setRowBreakAcrossPagesTransaction(tr, tr.doc, rowPosition, allowed)`           |
+| `setRepeatHeaderRow(repeated)`          | `setRepeatHeaderRowTransaction(tr, tr.doc, tablePosition, repeated)`            |
+| `setListKeepTogether(kept)`             | `setListKeepTogetherTransaction(tr, tr.doc, listPosition, kept)`                |
+| `setListBreakItems(allowed)`            | `setListBreakItemsTransaction(tr, tr.doc, listPosition, allowed)`               |
+| `setColumnLayoutKeepTogether(together)` | `setColumnLayoutKeepTogetherTransaction(tr, tr.doc, layoutPosition, together)`  |
+
+- **Positions.** Where a Command acts at the cursor, the function takes a position. For an
+  attribute it is the position of the row, table, list or column layout itself. For a break it
+  is any position.
+- **Several in one step.** Each function returns the Transaction it was given, so several can be
+  applied together.
+- **A change that cannot be made** leaves the Transaction unchanged, such as removing the first
+  section or a position that is not a table. `tr.docChanged` tells.
+- **`kind`** defaults to `'nextPage'`.
+
+### The document setup
+
+`documentSetup` makes a section written on a server come out the same in every editor.
+
+- **A document that names no format** is shown in the setup each editor is configured with.
+- **The first time it gets a second section**, the first section's format is written into it
+  as well.
+- **Writing the section break Node yourself** skips that. The first section is then Letter in one
+  editor and A4 in another.
+
+### Headers and footers
+
+Headers and footers have no such function yet. A band is stored as a `PAGE_FURNITURE_NODE_NAME`
+Node with a `zone` (`'header'` or `'footer'`) and a `slot`, inside the section break of the
+section it belongs to. The slots are on
+[Header and footer](/page-layout/core-concepts/header-and-footer#different-pages-different-bands).
+
+### Checking a document before it is stored
+
+Check a document from a client like any input. `isPureSourceDocument` says whether it holds only
+what a document may hold: no pages, and no rest of a block cut by a page.
+
+```js
+import { isPureSourceDocument } from '@tiptap-pro/extension-page-layout'
+
+if (!isPureSourceDocument(doc, schema)) {
+  throw new Error('Not a document')
+}
+```
+
+## The shared document
+
+With collaboration, the document lives in the shared document on the Hocuspocus server. Make a
+server-side change there, as without pages. Pass the extensions through `createSourceExtensions`
+wherever Hocuspocus is given a list:
+
+```js
+import { TiptapTransformer } from '@hocuspocus/transformer'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+
+const transformer = TiptapTransformer.extensions(createSourceExtensions(extensions))
+const json = transformer.fromYdoc(ydoc, 'default')
+```
+
+- **The field.** `'default'` is the field `createSourceCollaboration` binds unless it is given
+  another. See [Collaboration](/page-layout/guides/collaboration#setting-it-up).
+- **Drawn like a collaborator's.** Every reader lays out the pages again from what arrives, so a
+  change made on the server is drawn on each screen like a colleague's.
+
+## Pages on a server
+
+Which page a passage is on depends on how its text wraps, so it needs measured text.
+Server-side pagination is not available as a package yet.
+
+`paginate` lays the pages out from measurements you bring, without a browser, and returns the
+[page map](/page-layout/core-concepts/page-numbers) in positions of the same document. See
+[Pagination without a browser](/page-layout/guides/printing-and-pdf#pagination-without-a-browser).
+
+- **What it is for.** A print range, a table of contents with page numbers, or the page a comment
+  is on.
+- **True of one layout.** A page number holds for one layout. After a change to the document,
+  paginate again.

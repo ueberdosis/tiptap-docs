@@ -1,0 +1,151 @@
+---
+title: 'What a reference shows'
+tags:
+  - type: pro
+  - type: beta
+meta:
+  title: 'What a reference shows | Tiptap Page Layout Docs'
+  description: 'What a reference reads of its target is its show, an id — the "Insert reference to" of Word''s cross-reference dialog.'
+  category: Page Layout
+---
+
+What a reference reads of its target is its `show`, an id — the "Insert reference to" of Word's
+cross-reference dialog. The built-in ones:
+
+| `show`            | Reads                                                                   | For `(b)` under clause 3                |
+| ----------------- | ----------------------------------------------------------------------- | --------------------------------------- |
+| `relativeNumber`  | the number, with as much context as it needs where the reference stands | `(b)` inside clause 3, `3(b)` elsewhere |
+| `number`          | the number as the target shows it                                       | `(b)`                                   |
+| `fullNumber`      | the number with all of its context — the default                        | `3(b)`                                  |
+| `title`           | the target's title                                                      | `Late payment`                          |
+| `page`            | the page the target is on, from `pageOf`                                | `7`                                     |
+| `aboveBelow`      | `above` when the target comes first, `below` when it comes after        | `below`                                 |
+| `formattedNumber` | the number, printed as a note's mark is                                 | `²`                                     |
+
+`relativeNumber` needs to know which levels the number has: give the target's `label` a `counts`
+array, one count per level, `[3, 2]` for `3(b)`. A number without `counts` is written whole.
+
+```js
+heading: {
+  label: ({ doc, pos }) => {
+    const found = outlineNumberAt(doc, outline, pos)
+    return found && { number: found.label, fullNumber: found.fullLabel, counts: found.counts }
+  },
+},
+```
+
+`numberSeparator` applies to the three numbers and replaces every run of punctuation between the
+parts: `3-b` for `3(b)` with `-`. `aboveBelow: true` adds `above` or `below` to any of them —
+`3(b) below`, `page 7 above`.
+
+`formattedNumber` carries `data-tt-cross-reference-format="superscript"`, which the package's styles
+raise.
+
+A target outside the document — from a [source](/page-layout/extensions/cross-references/sources) — has no page and no side: `page`
+and `aboveBelow` are unresolved with `page` missing, `relativeNumber` reads the full number, and
+`aboveBelow: true` adds nothing.
+
+## Reference types
+
+A registered target has a type, which is what a picker lists first — Word's "Reference type".
+The Node type's name by default; a string, or a function of the Node where one Node type is two
+kinds of target:
+
+```js
+CrossReferences.configure({
+  targets: {
+    heading: { type: 'Heading', label: /* … */ },
+    footnote: {
+      type: node => (node.attrs.placement === 'endnote' ? 'Endnote' : 'Footnote'),
+      displays: ['number', 'formattedNumber', 'page', 'aboveBelow'],
+      label: /* … */,
+    },
+  },
+})
+```
+
+- **`type`** — the name a picker lists the target under.
+- **`displays`** — which values of `show` a reference to this target may have, in the order a
+  picker lists them. An entry is an id, or `{ id, title }` to name it differently for this type.
+  Without it: the three numbers, the text, the page and above/below where the target has a
+  `label`, and the text, the page and above/below where it has none.
+
+## Your own displays
+
+A display the package does not have is registered by id, and a type lists it like a built-in
+one:
+
+```js
+CrossReferences.configure({
+  displays: {
+    captionLabel: {
+      title: 'Only label and number',
+      numbered: true,
+      text: ({ target }) => target.label && `Figure ${target.label.number}`,
+    },
+  },
+  targets: {
+    figure: { type: 'Figure', displays: ['captionLabel', 'title', 'page'], label: /* … */ },
+  },
+})
+```
+
+- **`title`** — what a picker lists it as.
+- **`text(context)`** — what a reference reads of one target, or `null` where the target has no
+  answer, which leaves the reference unresolved. `context` is `{ target, reference, doc, context, phrases, pageOf }`: the target as `crossReferenceTargetsIn` lists it, the reference, the
+  document, the last target of the same type in front of the reference, the phrases, and
+  `pageOf`. A [source's](/page-layout/extensions/cross-references/sources) target carries what the source gave along in
+  `target.data`; one outside the document has `target.pos` and `target.node` `null`, and is
+  never the `context`.
+- **`missing`** — what an unresolved reference says is missing, `'number'` (the default) or
+  `'page'`.
+- **`numbered`** — whether `numberSeparator` applies to the text.
+- **`format`** — written to `data-tt-cross-reference-format` for a stylesheet.
+
+### A house style
+
+How a label reads is the display's, so a style guide is a display. A brief citing its own notes
+as `note 4` and its own parts as `Part II.B above`:
+
+```js
+CrossReferences.configure({
+  displays: {
+    noteCite: {
+      title: 'note N',
+      numbered: true,
+      text: ({ target }) => target.label && `note ${target.label.number}`,
+    },
+    partCite: {
+      title: 'Part N above/below',
+      numbered: true,
+      text: ({ target, reference, phrases }) =>
+        target.label &&
+        `Part ${target.label.fullNumber} ${target.pos < reference.pos ? phrases.above : phrases.below}`,
+    },
+  },
+  targets: {
+    footnote: { displays: ['noteCite', 'formattedNumber'], label: /* … */ },
+    heading: { displays: ['partCite', 'fullNumber', 'title'], label: /* … */ },
+  },
+})
+```
+
+A display with the id of a built-in one replaces it. `relativeNumberOf(target, context)` and
+`separatedNumber(number, separator)` are the helpers the built-in ones use, and
+`DEFAULT_CROSS_REFERENCE_DISPLAYS` is all of them.
+
+## Offering the choices
+
+What a dialog needs, in one call — every type the document has a target of, in the order a reader
+meets them, with its targets and what a reference to one can show:
+
+```js
+import { crossReferenceTypesIn } from '@tiptap-pro/extension-cross-references'
+
+for (const { name, targets, displays } of crossReferenceTypesIn(
+  editor.state.doc,
+  editor.storage.crossReferences,
+)) {
+  // name: 'Heading'; targets: [{ pos, id, title, label, type }, …]; displays: [{ id, title }, …]
+}
+```
