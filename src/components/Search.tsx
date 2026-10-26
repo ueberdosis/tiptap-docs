@@ -10,6 +10,7 @@ import { useCommands } from '@/hooks/useCommands'
 import { cn } from '@/utils'
 import { SearchHit } from '@/types'
 import { useAppState } from '@/providers/AppState'
+import { focusSidebarSearch } from '@/components/SidebarSearch.client'
 
 const SearchResult = ({ hit, active }: { hit: SearchHit; active?: boolean }) => {
   const { result, parents } = useMemo(() => {
@@ -179,7 +180,8 @@ const SearchContent = () => {
 
 export const Search = () => {
   const { searchOpen, setSearchOpen } = useAppState()
-  useHotkeys([['mod+k', () => setSearchOpen(!searchOpen)]])
+  // On desktop, ⌘K goes to the search field in the sidebar
+  useHotkeys([['mod+k', () => focusSidebarSearch() || setSearchOpen(!searchOpen)]])
 
   return (
     <Dialog.Root open={searchOpen} onOpenChange={setSearchOpen}>
@@ -187,7 +189,11 @@ export const Search = () => {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur" />
         <div className="fixed inset-0 z-50 flex items-start justify-center p-5 pointer-events-none">
-          <Dialog.Content className="flex flex-col bg-warmGray rounded-lg p-2 pointer-events-auto w-full max-w-124 max-h-[90%] shadow-xl">
+          <Dialog.Content
+            aria-describedby={undefined}
+            className="flex flex-col bg-warmGray rounded-lg p-2 pointer-events-auto w-full max-w-124 max-h-[90%] shadow-xl"
+          >
+            <Dialog.Title className="sr-only">Search the documentation</Dialog.Title>
             {searchOpen ? (
               <SearchWrapper>
                 <SearchContent />

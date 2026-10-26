@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { SidebarSearch } from './SidebarSearch.client'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
@@ -21,6 +22,23 @@ import { cn } from '@/utils'
 import { isNew } from '@/utils/isNew'
 
 export const DocsSidebar = ({
+  config,
+  onItemClick,
+}: {
+  config: SidebarConfig
+  onItemClick?: () => void
+}) =>
+  // On desktop, a search field sits above the navigation and takes its place while it holds a query
+  onItemClick ? (
+    <SidebarNav config={config} onItemClick={onItemClick} />
+  ) : (
+    <SidebarSearch config={config}>
+      <SidebarNav config={config} />
+    </SidebarSearch>
+  )
+
+/** The navigation itself. It keeps its scroll position while search results stand in for it. */
+const SidebarNav = ({
   config,
   onItemClick,
 }: {

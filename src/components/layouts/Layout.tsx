@@ -77,12 +77,9 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             </nav>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <div className="hidden xl:block">
-              <SearchButton />
-            </div>
+            {/* On desktop the search sits at the top of the sidebar */}
             <div className="items-center hidden gap-1 lg:flex xl:hidden">
               <ToCButton />
-              <SearchButton />
             </div>
             <div className="block lg:hidden">
               <MobileNavigationDropdown />
