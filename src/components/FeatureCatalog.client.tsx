@@ -16,17 +16,30 @@ import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import { MultiSelect, useListParam } from '@/components/FilterControls.client'
 import type { CatalogEntry } from '@/server/getCatalog'
+import { cn } from '@/utils'
 import { getIcon } from '@/utils/iconKit'
 
 const END_OF_LIFE = ['Legacy', 'Deprecated']
 
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
+  // A feature without docs yet is still to come, so its card is greyed out
+  const upcoming = !entry.url
   // Icons come by name from the frontmatter
-  const icon = createElement(getIcon(entry.icon), { className: 'w-3.5 h-3.5', 'aria-hidden': true })
+  const icon = createElement(getIcon(entry.icon), {
+    className: cn('w-3.5 h-3.5', upcoming ? 'text-grayAlpha-500' : undefined),
+    'aria-hidden': true,
+  })
   const content = (
     <>
       <div className="flex items-center justify-between gap-2 mb-5">{icon}</div>
-      <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
+      <div
+        className={cn(
+          'font-semibold leading-[140%]',
+          upcoming ? 'text-grayAlpha-700' : 'text-black',
+        )}
+      >
+        {entry.name}
+      </div>
       <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
       {entry.plan || entry.paid || entry.status ? (
         // Plan first, then status, as in the page header
@@ -55,7 +68,7 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
   // A feature without docs yet has no page to link to
   if (!entry.url)
     return (
-      <Card className="flex flex-col border border-dashed border-grayAlpha-300 shadow-none">
+      <Card className="flex flex-col bg-grayAlpha-50 border border-dashed border-grayAlpha-300 shadow-none">
         {content}
       </Card>
     )
