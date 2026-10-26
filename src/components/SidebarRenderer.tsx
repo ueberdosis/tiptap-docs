@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronRightIcon, ChevronsDownUpIcon, ExternalLinkIcon } from 'lucide-react'
+import { ChevronRightIcon, ExternalLinkIcon, ListCollapseIcon } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import {
   Fragment,
@@ -29,39 +29,27 @@ export const DocsSidebar = ({
 }) => {
   const listed = useMemo(() => collectHrefs(config.items), [config.items])
   const track = useRef<HTMLDivElement>(null)
-  const [collapseAll, setCollapseAll] = useState(0)
   useKeptScroll(track, onItemClick ? 'mobile' : 'desktop')
 
   return (
     <ListedPages.Provider value={listed}>
-      <CollapseAll.Provider value={collapseAll}>
-        <Sidebar.Track className="gap-0" ref={track}>
-          <button
-            type="button"
-            onClick={() => setCollapseAll((count) => count + 1)}
-            className="self-end flex items-center gap-1 -mb-1 px-2 py-1 rounded-md text-xs text-grayAlpha-500 hover:text-black hover:bg-grayAlpha-100"
-            title="Close every open section except the one with this page"
-          >
-            <ChevronsDownUpIcon className="size-3.5" aria-hidden="true" />
-            Collapse all
-          </button>
-          {config.items.map((item, i) =>
-            item.type === 'link' ? (
-              <LinkItem
-                link={item}
-                path={item.title}
-                key={`${item.href}-${i}`}
-                onClick={onItemClick}
-              />
-            ) : (
-              <Fragment key={`${item.href}-${i}`}>
-                {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
-                <GroupItem group={item} onClick={onItemClick} />
-              </Fragment>
-            ),
-          )}
-        </Sidebar.Track>
-      </CollapseAll.Provider>
+      <Sidebar.Track className="gap-0" ref={track}>
+        {config.items.map((item, i) =>
+          item.type === 'link' ? (
+            <LinkItem
+              link={item}
+              path={item.title}
+              key={`${item.href}-${i}`}
+              onClick={onItemClick}
+            />
+          ) : (
+            <Fragment key={`${item.href}-${i}`}>
+              {item.divider ? <hr className="my-3 mx-2.5 border-grayAlpha-200" /> : null}
+              <GroupItem group={item} onClick={onItemClick} />
+            </Fragment>
+          ),
+        )}
+      </Sidebar.Track>
     </ListedPages.Provider>
   )
 }
@@ -76,12 +64,12 @@ const rememberedScroll = new Map<string, number>()
 // eslint-disable-next-line no-unused-vars
 type SetOpen = (next: boolean | ((prev: boolean) => boolean)) => void
 
-/** Counts the clicks on "Collapse all"; every entry closes when it changes. */
+/** Counts the clicks on an area's "Collapse all"; the entries inside close when it changes. */
 const CollapseAll = createContext(0)
 
 /**
  * Open state that survives navigation. A page inside the entry always opens it,
- * and "Collapse all" closes every entry that doesn't hold the current page.
+ * and an area's "Collapse all" closes every entry in it that doesn't hold the current page.
  */
 function useRememberedOpen(key: string, mustOpen: boolean, initial: boolean): [boolean, SetOpen] {
   const [isOpen, setIsOpenState] = useState(() =>
@@ -349,6 +337,27 @@ export const LinkItem = ({
   )
 }
 
+/**
+ * Closes every open entry in an area, except the ones that hold the current
+ * page. It shows when the pointer is over the area's title, as in Figma's layers.
+ */
+const CollapseButton = ({ area, onClick }: { area: string; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={`Collapse all in ${area}`}
+    className="group/collapse absolute right-1 top-1/2 z-10 -translate-y-1/2 grid place-items-center size-6 rounded-md text-grayAlpha-500 opacity-0 transition-opacity hover:bg-grayAlpha-100 hover:text-black focus-visible:opacity-100 group-hover/area:opacity-100"
+  >
+    <ListCollapseIcon className="size-3.5" aria-hidden="true" />
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute right-0 top-full mt-1.5 whitespace-nowrap rounded-md bg-black px-2 py-1 text-xs font-normal normal-case text-white opacity-0 transition-opacity group-hover/collapse:opacity-100 group-focus-visible/collapse:opacity-100"
+    >
+      Collapse all in {area}
+    </span>
+  </button>
+)
+
 export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: () => void }) => {
   const pathname = usePathname()
   const holdsPage = hasActiveDescendant(group.children, pathname, useContext(ListedPages))
@@ -364,6 +373,8 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
     if (holdsPage) setIsOpen(true)
   }
 
+  const [collapseAll, setCollapseAll] = useState(0)
+
   const label = sidebarLabel(group.tags)
   const tags = label ? <LabelTag label={label} className="flex-none" /> : null
 
@@ -371,7 +382,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
   return (
     <Sidebar.Group className={cn('gap-0.5', isOpen ? 'pb-5' : undefined)}>
       {group.collapsible ? (
-        <Sidebar.GroupTitle className="mb-0 pl-0">
+        <Sidebar.GroupTitle className="group/area relative mb-0 pl-0">
           <button
             type="button"
             className="relative flex items-center w-full pl-5 pr-2.5 py-1.5 leading-5 rounded-md uppercase text-left hover:bg-grayAlpha-100"
@@ -384,6 +395,12 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
             {group.title}
           </button>
           {tags}
+          {isOpen ? (
+            <CollapseButton
+              area={group.title}
+              onClick={() => setCollapseAll((count) => count + 1)}
+            />
+          ) : null}
         </Sidebar.GroupTitle>
       ) : (
         <Sidebar.GroupTitle className="mb-0 pl-5 py-1.5 leading-5">
@@ -391,16 +408,18 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
           {tags}
         </Sidebar.GroupTitle>
       )}
-      {isOpen
-        ? group.children.map((link, i) => (
-            <LinkItem
-              link={link}
-              path={`${group.title}/${link.title}`}
-              key={`${link.href}-${i}`}
-              onClick={onClick}
-            />
-          ))
-        : null}
+      <CollapseAll.Provider value={collapseAll}>
+        {isOpen
+          ? group.children.map((link, i) => (
+              <LinkItem
+                link={link}
+                path={`${group.title}/${link.title}`}
+                key={`${link.href}-${i}`}
+                onClick={onClick}
+              />
+            ))
+          : null}
+      </CollapseAll.Provider>
     </Sidebar.Group>
   )
 }
