@@ -154,9 +154,17 @@ export const componentConverters: Record<string, ComponentConverter> = {
     }),
   }),
 
-  // <BundleParts bundle="…" /> → the bundle's parts as a table, as on the page.
-  BundleParts: (node) =>
-    markdownNodes(bundlePartsMarkdown(getAttr(node, 'bundle') ?? '', (url) => url)),
+  // <BundleParts bundle="…" license="…" /> → the bundle's parts as a table, as on the page.
+  BundleParts: (node) => {
+    const license = getAttr(node, 'license')
+    return markdownNodes(
+      bundlePartsMarkdown(
+        getAttr(node, 'bundle') ?? '',
+        license === 'paid' || license === 'open-source' ? license : undefined,
+        (url) => url,
+      ),
+    )
+  },
 
   // <CatalogGroup id="…" /> → the group's features as a list, with plan and status.
   CatalogGroup: (node) => catalogList(getAttr(node, 'id')),

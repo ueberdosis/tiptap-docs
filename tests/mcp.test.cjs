@@ -500,8 +500,12 @@ test('bundles only name catalog features, and their .md pages list the parts', a
   const { bundleParts } = loadSite('../src/server/bundles.ts')
   for (const bundle of BUNDLES) {
     assert.equal(bundleParts(bundle.id).length, bundle.parts.length, bundle.id)
+    assert.equal(
+      bundleParts(bundle.id, 'paid').length + bundleParts(bundle.id, 'open-source').length,
+      bundle.parts.length,
+    )
   }
   const markdown = await fileToMarkdown('src/content/bundles/docx.mdx')
-  assert.match(markdown, /\| Feature +\| What it adds +\| Status +\| On its own +\|/)
+  assert.match(markdown, /\| Feature +\| What it adds +\| Status +\|\n/)
   assert.match(markdown, /\| \[DOCX export\]\([^)]+\) +\|/)
 })
