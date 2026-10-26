@@ -305,31 +305,6 @@ function useFullText(query: string, pages: Map<string, Result>, byTitle: Result[
   }, [items, query, pages, byTitle])
 }
 
-/**
- * Where two results share a title, the part of their trail that tells them apart,
- * such as "DOCX" for one of several "Editor extension" pages.
- */
-function distinguishers(results: Result[]): Map<Result, string> {
-  const byTitle = new Map<string, Result[]>()
-  for (const result of results) {
-    const title = result.title.toLowerCase()
-    byTitle.set(title, [...(byTitle.get(title) ?? []), result])
-  }
-  const names = new Map<Result, string>()
-  for (const same of byTitle.values()) {
-    if (same.length < 2) continue
-    for (const result of same) {
-      const others = same.filter((other) => other !== result)
-      // The deepest part no other one has, or else one not all of them share
-      const segment =
-        result.trail.findLast((part) => !others.some((other) => other.trail.includes(part))) ??
-        result.trail.findLast((part) => !others.every((other) => other.trail.includes(part)))
-      if (segment) names.set(result, segment)
-    }
-  }
-  return names
-}
-
 /** The search field and, while it holds a query, the results in place of the navigation. */
 export function SidebarSearch({
   config,
@@ -425,7 +400,6 @@ function SearchBody({
     [results],
   )
   const pageRows = useMemo(() => rows.flatMap((row, index) => (row.section ? [] : [index])), [rows])
-  const names = useMemo(() => distinguishers(results), [results])
 
   const [active, setActive] = useState(rememberedActive)
   useEffect(() => {
@@ -709,7 +683,6 @@ function SearchBody({
           {results.map((result) => {
             const index = rows.findIndex((row) => row.result === result && !row.section)
             const isCurrent = result.href === pathname
-            const name = names.get(result)
             return (
               <div key={result.key} className="relative">
                 <Link
@@ -725,18 +698,17 @@ function SearchBody({
                     isCurrent ? 'text-purple-600' : 'text-grayAlpha-900',
                   )}
                 >
-                  <span className="block truncate text-[13px] font-semibold">
-                    {name ? (
-                      <span className="font-normal text-grayAlpha-500">{name} · </span>
-                    ) : null}
-                    {result.title}
-                  </span>
+                  <span className="block truncate text-[13px] font-semibold">{result.title}</span>
                   {/* On the open page, the matches there take the trail's place, so nothing moves */}
                   {isCurrent && count ? (
                     <span className="block mt-0.5 text-xs text-grayAlpha-600">On this page</span>
                   ) : result.trail.length ? (
-                    <span className="block mt-0.5 truncate text-xs text-grayAlpha-500">
-                      {result.trail.join(' / ')}
+                    // Cut at the start: the end of the trail tells pages of the same name apart
+                    <span
+                      dir="rtl"
+                      className="block mt-0.5 truncate text-left text-xs text-grayAlpha-500"
+                    >
+                      <bdi dir="ltr">{result.trail.join(' / ')}</bdi>
                     </span>
                   ) : null}
                 </Link>
