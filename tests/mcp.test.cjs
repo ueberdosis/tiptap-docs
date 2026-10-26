@@ -216,12 +216,13 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   const find = (entries, path) => {
     const [title, ...rest] = path
     const entry = entries.find((candidate) => candidate.title === title)
-    return rest.length ? find(entry.children, rest) : entry
+    return rest.length && entry ? find(entry.children, rest) : entry
   }
   const features = sidebarConfig.items.find((group) => group.title === 'Features').children
-  const label = (path) => {
-    const entry = find(features, path)
-    return sidebarLabel(entry.tags, entry.hidePlan)?.text
+  const legacyArea = sidebarConfig.items.find((group) => group.title === 'Legacy').children
+  const label = (path, entries = features) => {
+    const entry = find(entries, path)
+    return sidebarLabel(entry.tags, entry.hidePlan, entry.hideLegacy)?.text
   }
 
   // A group whose features all need a plan says Paid, whichever plans they need
@@ -229,10 +230,14 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   assert.equal(label(['Review', 'Comments']), undefined, 'repeats the group')
   assert.equal(label(['Composable Documents']), 'Paid')
   assert.equal(label(['Composable Documents', 'Slots']), undefined, 'repeats its feature')
-  // AI Legacy is paid too, so all of AI is; the end of life still shows
   assert.equal(label(['AI']), 'Paid')
   assert.equal(label(['AI', 'Server AI Toolkit']), undefined)
-  assert.equal(label(['AI', 'AI Legacy']), 'Legacy')
+  // Legacy entries have their own area, where they don't repeat the label
+  assert.equal(find(features, ['AI', 'AI Legacy']), undefined)
+  assert.equal(find(features, ['Compare', 'Compare snapshots']), undefined)
+  assert.equal(label(['AI'], legacyArea), 'Paid')
+  assert.equal(label(['AI', 'AI Suggestion'], legacyArea), undefined)
+  assert.equal(label(['Authentication'], legacyArea), undefined)
   // Upcoming features that will be paid make their group paid; they show Soon
   assert.equal(label(['Page Layout']), 'Paid')
   assert.equal(label(['Page Layout', 'Page Layout']), 'Soon')
@@ -240,7 +245,6 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
   // A group that mixes free and paid features says nothing; the paid ones do
   assert.equal(label(['Clipboard and files']), undefined)
   assert.equal(label(['Clipboard and files', 'Paste handler']), 'Paid')
-  assert.equal(label(['Compare', 'Compare snapshots']), 'Legacy')
   // Paid products and paid editor groups come first, the open source editor's groups after them
   const at = (title) => features.findIndex((entry) => entry.title === title)
   assert.ok(at('AI') < at('Starter kit'))

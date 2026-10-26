@@ -18,6 +18,7 @@ import { CATALOG_GROUPS, catalogGroupUrl, CatalogArea } from '@/content/catalog'
 import { getCatalog } from '@/server/getCatalog'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
+import { legacyFeature } from '@/content/legacy'
 
 // The one sidebar for all documentation. Each section keeps its own sidebar
 // next to its content; this file decides where the sections sit. UI Components
@@ -26,6 +27,35 @@ import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/comp
 /** One entry of a section sidebar, by its path of titles. */
 function link(config: SidebarConfig, titles: string[]): SidebarEntry {
   return toEntries([pick(config, titles)])[0]
+}
+
+/** Entries without the legacy pages, which have their place in the Legacy area. */
+function current(entries: SidebarEntry[]): SidebarEntry[] {
+  return entries
+    .filter((entry) => !entry.href || !legacyFeature(entry.href))
+    .map((entry) => (entry.children ? { ...entry, children: current(entry.children) } : entry))
+}
+
+/** The legacy pages of a section sidebar, as entries. */
+function legacyOf(config: SidebarConfig): SidebarEntry[] {
+  const found: SidebarEntry[] = []
+  const walk = (entries: SidebarEntry[]) =>
+    entries.forEach((entry) =>
+      entry.href && legacyFeature(entry.href)
+        ? found.push({ ...entry, children: undefined })
+        : walk(entry.children ?? []),
+    )
+  walk(toEntries(config.items))
+  return found
+}
+
+/** In the Legacy area, the entries don't each repeat the label. */
+function quiet(entries: SidebarEntry[]): SidebarEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    hideLegacy: true,
+    children: entry.children && quiet(entry.children),
+  }))
 }
 
 /** The catalog groups of an area, each folding open to its features. */
@@ -130,6 +160,8 @@ const compare = feature('Compare', compareSidebar, '/compare/getting-started/ove
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
+const clientToolkit = link(aiSidebar, ['Other Options', 'Client Toolkit'])
+
 const items: SidebarGroup[] = [
   {
     type: 'group',
@@ -156,10 +188,7 @@ const items: SidebarGroup[] = [
       {
         href: '/authentication',
         title: 'Authentication',
-        children: [
-          { href: '/authentication/migrate', title: 'Migrate from legacy' },
-          { href: '/authentication/legacy', title: 'Legacy authentication' },
-        ],
+        children: [{ href: '/authentication/migrate', title: 'Migrate from legacy' }],
       },
       { href: '/guides/pro-extensions', title: 'Pro access' },
       { href: '/resources/tiptap-trial', title: 'Tiptap trial' },
@@ -183,25 +212,15 @@ const items: SidebarGroup[] = [
             title: 'Server AI Toolkit',
             href: '',
             tags: planTags('/ai/ai-toolkit/overview'),
-            children: childrenOf(aiSidebar, ['AI Toolkit']),
+            children: current(childrenOf(aiSidebar, ['AI Toolkit'])),
           },
           {
-            ...link(aiSidebar, ['Other Options', 'Client Toolkit']),
+            ...clientToolkit,
             href: '',
             title: 'Client AI Toolkit',
+            children: current(clientToolkit.children ?? []),
           },
           { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
-          {
-            title: 'AI Legacy',
-            href: '',
-            // Paid like the rest of AI; the label says Legacy
-            tags: ['Legacy', 'Paid'],
-            children: [
-              section('AI Assistant', aiAssistantSidebar, legacyOptions),
-              section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
-              section('AI Changes', aiChangesSidebar, legacyOptions),
-            ],
-          },
         ],
       },
       {
@@ -223,20 +242,10 @@ const items: SidebarGroup[] = [
           ),
         ],
       },
-      {
-        ...compare,
-        children: [
-          ...compare.children!,
-          // Compares two snapshots; Compare is taking over its job
-          {
-            ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
-            title: 'Compare snapshots',
-            tags: planTags('/collaboration/documents/snapshot-compare'),
-          },
-        ],
-      },
+      compare,
       feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
         inline: ['Get started'],
+        omit: ['Legacy'],
       }),
       {
         ...feature(
@@ -373,6 +382,46 @@ const items: SidebarGroup[] = [
     href: '/resources',
     collapsible: true,
     children: childrenOf(resourcesSidebar, ['Resources']),
+  },
+  {
+    // Kept for existing projects. Its pages keep their URLs; only their place in
+    // the sidebar moves here, so the areas above show what to build with today.
+    // Pages stays under Page Layout until Page Layout ships.
+    type: 'group',
+    title: 'Legacy',
+    href: '/legacy',
+    collapsible: true,
+    divider: true,
+    children: quiet([
+      {
+        title: 'AI',
+        href: '',
+        // Paid like the rest of AI
+        tags: ['Legacy', 'Paid'],
+        children: [
+          section('AI Assistant', aiAssistantSidebar, legacyOptions),
+          section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
+          section('AI Changes', aiChangesSidebar, legacyOptions),
+          {
+            title: 'AI Toolkit',
+            href: '',
+            tags: planTags('/ai/ai-toolkit/overview'),
+            children: legacyOf(aiSidebar),
+          },
+        ],
+      },
+      {
+        ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
+        title: 'Compare snapshots',
+        tags: planTags('/collaboration/documents/snapshot-compare'),
+      },
+      {
+        ...toEntries([pick(conversionSidebar, ['Legacy'])])[0],
+        title: 'Conversion',
+        tags: ['Legacy', ...(planTags('/conversion/import/docx/editor-extension') ?? [])],
+      },
+      { href: '/authentication/legacy', title: 'Authentication' },
+    ]),
   },
 ]
 
