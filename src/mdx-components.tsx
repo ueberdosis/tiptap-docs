@@ -29,11 +29,15 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
     wrapper: ({ children }) => <>{children}</>,
-    pre: (props) => (
-      <Codeblock>
-        <pre className="hljs">{props.children}</pre>
-      </Codeblock>
-    ),
+    pre: (props) =>
+      // A diagram the build left as mermaid code; MermaidDiagrams draws it in the browser
+      props.className === 'mermaid' ? (
+        <pre className="mermaid">{props.children}</pre>
+      ) : (
+        <Codeblock>
+          <pre className="hljs">{props.children}</pre>
+        </Codeblock>
+      ),
     code: (props) => <code {...props} />,
     h1: ({ children, ...props }) => {
       const id = getHeadlineId(children)

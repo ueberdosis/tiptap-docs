@@ -50,16 +50,21 @@ const nextConfig = {
   },
 }
 
+// Turning ```mermaid into SVG at build time needs a browser: Alpine's Chromium in Docker,
+// Playwright's locally. Vercel's preview builds have none, so there the diagrams stay
+// mermaid code and MermaidDiagrams draws them in the reader's browser.
+const mermaidAtBuild = !!process.env.MERMAID_CHROMIUM_PATH || !process.env.VERCEL
+
 const withMDX = createMdx({
   options: {
     remarkPlugins: ['remark-frontmatter', 'remark-mdx-frontmatter', 'remark-gfm'],
     rehypePlugins: [
-      // ```mermaid blocks become SVG at build time, before Shiki would highlight them as code.
-      // A browser starts only for a page with a diagram; in Docker it is Alpine's Chromium.
+      // ```mermaid blocks become SVG, before Shiki would highlight them as code.
+      // A browser starts only for a page with a diagram.
       [
         'rehype-mermaid',
         {
-          strategy: 'inline-svg',
+          strategy: mermaidAtBuild ? 'inline-svg' : 'pre-mermaid',
           ...(process.env.MERMAID_CHROMIUM_PATH
             ? { launchOptions: { executablePath: process.env.MERMAID_CHROMIUM_PATH } }
             : {}),

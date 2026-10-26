@@ -16,6 +16,7 @@ import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { LegacyNotice } from '@/components/LegacyNotice'
+import { MermaidDiagrams } from '@/components/MermaidDiagrams.client'
 import { legacyFeature } from '@/content/legacy'
 import { AskAi } from '@/components/AskAi'
 import { DemoViewer } from '@/components/DemoViewer'
@@ -172,6 +173,7 @@ export default async function MarkdownPage({ params }: Props) {
   const content = (
     <>
       <div className="mdx-content">{pageMdx.default()}</div>
+      <MermaidDiagrams />
       {pageMdx.frontmatter?.extension?.package ? (
         <LatestVersion
           name={pageMdx.frontmatter.extension.name}
