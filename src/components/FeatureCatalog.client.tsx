@@ -5,7 +5,13 @@ import { createElement, useMemo } from 'react'
 import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { CATALOG_GROUPS, CATALOG_PLANS, CATALOG_STATUSES, catalogGroupUrl } from '@/content/catalog'
+import {
+  CATALOG_GROUPS,
+  CATALOG_PLANS,
+  CATALOG_STATUSES,
+  PLAN_LABELS,
+  catalogGroupUrl,
+} from '@/content/catalog'
 import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import { MultiSelect, useListParam } from '@/components/FilterControls.client'
@@ -27,8 +33,15 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
         // The labels sit at the bottom, whatever the length of the description
         <div className="mt-auto pt-5 flex items-center flex-wrap gap-1">
           {entry.plan || entry.paid ? (
-            <Tag variant={entry.plan === 'Open source' ? 'gray' : 'info'}>
-              {entry.plan ?? 'Paid'}
+            <Tag
+              variant={entry.plan === 'Open source' ? 'gray' : 'info'}
+              tooltip={
+                entry.plan
+                  ? PLAN_LABELS[entry.plan].tooltip
+                  : 'Will need a paid plan. Which one is set when it ships.'
+              }
+            >
+              {entry.plan ? PLAN_LABELS[entry.plan].label : 'Paid'}
             </Tag>
           ) : null}
           {entry.status ? (
@@ -133,7 +146,7 @@ export const FeatureCatalogGrid = ({ entries }: { entries: CatalogEntry[] }) => 
           <div className="order-3 sm:order-none flex flex-wrap gap-2">
             <MultiSelect
               label="Plan"
-              options={CATALOG_PLANS.map((id) => ({ id, label: id }))}
+              options={CATALOG_PLANS.map((id) => ({ id, label: PLAN_LABELS[id].label }))}
               values={plans}
               onChange={setPlans}
             />

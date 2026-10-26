@@ -60,6 +60,18 @@ export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot p
 
 export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 
+/** How the page header, the catalog cards, and the plan filter name each plan. */
+export const PLAN_LABELS: Record<CatalogPlan, { label: string; tooltip: string }> = {
+  'Open source': { label: 'Open source', tooltip: 'MIT licensed, free to use.' },
+  Start: { label: 'Start plan', tooltip: 'Included in Start, Team, Business, and Enterprise.' },
+  Team: { label: 'Team plan', tooltip: 'Included in Team, Business, and Enterprise.' },
+  'Add-on': { label: 'Paid add-on', tooltip: 'Added to a paid plan.' },
+  'Pilot program': {
+    label: 'Pilot program',
+    tooltip: 'Contact our team to join the pilot program.',
+  },
+}
+
 /** The statuses to filter by; Stable is a released feature without a status. */
 export const CATALOG_STATUSES = [
   'Stable',

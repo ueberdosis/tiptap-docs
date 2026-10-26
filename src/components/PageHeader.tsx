@@ -3,6 +3,7 @@ import { forwardRef } from 'react'
 import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
+import { PLAN_LABELS } from '@/content/catalog'
 import { cn } from '@/utils'
 import { isNew } from '@/utils/isNew'
 import { GeneralPageTag, ImagePageTag, PageTag } from '@/types'
@@ -202,16 +203,14 @@ export const PageHeaderTag = ({
     case 'start':
     case 'beginStart':
       return (
-        <PlanTag
-          tooltip={tag.tooltip || `Included in Start, Team, Business, and Enterprise.${license}`}
-        >
-          Start plan
+        <PlanTag tooltip={tag.tooltip || `${PLAN_LABELS.Start.tooltip}${license}`}>
+          {PLAN_LABELS.Start.label}
         </PlanTag>
       )
     case 'team':
       return (
-        <PlanTag tooltip={tag.tooltip || `Included in Team, Business, and Enterprise.${license}`}>
-          Team plan
+        <PlanTag tooltip={tag.tooltip || `${PLAN_LABELS.Team.tooltip}${license}`}>
+          {PLAN_LABELS.Team.label}
         </PlanTag>
       )
     case 'business':
@@ -221,22 +220,26 @@ export const PageHeaderTag = ({
         </PlanTag>
       )
     case 'addon':
-      return <PlanTag tooltip={tag.tooltip || 'Added to a paid plan.'}>Paid add-on</PlanTag>
+      return (
+        <PlanTag tooltip={tag.tooltip || PLAN_LABELS['Add-on'].tooltip}>
+          {PLAN_LABELS['Add-on'].label}
+        </PlanTag>
+      )
     case 'restricted':
       return (
         <PlanTag
           href="https://tiptap.dev/contact-sales?form=pilot-program"
-          tooltip={tag.tooltip || 'Contact our team to join the pilot program.'}
+          tooltip={tag.tooltip || PLAN_LABELS['Pilot program'].tooltip}
         >
-          {tag.label || 'Pilot program'}
+          {tag.label || PLAN_LABELS['Pilot program'].label}
         </PlanTag>
       )
     // Pro extensions became open source in Tiptap 3
     case 'mit':
     case 'pro':
       return (
-        <Tag variant="gray" tooltip={tag.tooltip || 'MIT licensed, free to use.'}>
-          Open source
+        <Tag variant="gray" tooltip={tag.tooltip || PLAN_LABELS['Open source'].tooltip}>
+          {PLAN_LABELS['Open source'].label}
         </Tag>
       )
     case 'alpha':

@@ -5,7 +5,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from './ui/Button'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { CATALOG_AREAS, CATALOG_GROUPS, CatalogArea } from '@/content/catalog'
+import {
+  CATALOG_AREAS,
+  CATALOG_GROUPS,
+  CatalogArea,
+  CatalogPlan,
+  PLAN_LABELS,
+} from '@/content/catalog'
 import { INDUSTRIES } from '@/content/industries'
 import { EDITOR_PRESETS } from '@/content/presets'
 import { useUrlParam } from '@/hooks/useUrlParam'
@@ -109,10 +115,10 @@ function ChoiceCard({
   )
 }
 
-function PlanTag({ plan }: { plan?: string }) {
+function PlanTag({ plan }: { plan?: CatalogPlan }) {
   return plan && plan !== 'Open source' ? (
-    <Tag size="small" variant="gray">
-      {plan}
+    <Tag size="small" variant="gray" tooltip={PLAN_LABELS[plan].tooltip}>
+      {PLAN_LABELS[plan].label}
     </Tag>
   ) : null
 }

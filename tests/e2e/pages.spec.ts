@@ -73,14 +73,14 @@ test('the feature catalog filters by plan and status, from the URL and on click'
   await page.goto(siteUrl(baseURL, '/editor/extensions/overview?plan=Add-on'))
   const cards = page.locator('section[aria-label] a')
   await expect(cards.first()).toBeVisible()
-  for (const card of await cards.all()) await expect(card).toContainText('Add-on')
+  for (const card of await cards.all()) await expect(card).toContainText('Paid add-on')
 
   // Several plans at once, picked in a dropdown that stays open
-  await page.getByRole('button', { name: 'Plan: Add-on' }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Team' }).click()
+  await page.getByRole('button', { name: 'Plan: Paid add-on' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Team plan' }).click()
   await expect(page).toHaveURL(/[?&]plan=Add-on,Team/)
-  await page.getByRole('menuitemcheckbox', { name: 'Add-on' }).click()
-  await page.getByRole('menuitemcheckbox', { name: 'Team' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Paid add-on' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Team plan' }).click()
   await page.keyboard.press('Escape')
   await expect(page).not.toHaveURL(/plan=/)
 
