@@ -67,11 +67,11 @@ export const LinkItem = ({
   // Open the entry when navigation makes it (or a page below it) active. Comparing
   // with the previous render instead of using an effect saves a second render;
   // a toggle after that keeps until the active state changes again.
-  const activeKey = `${isActive}:${isActiveParent}:${link.href}`
+  const activeKey = `${isActive}:${isActiveParent}:${hasActiveChild}:${link.href}`
   const [prevActiveKey, setPrevActiveKey] = useState(activeKey)
   if (activeKey !== prevActiveKey) {
     setPrevActiveKey(activeKey)
-    if ((isActive || isActiveParent) && link.href !== '') {
+    if ((isActive || isActiveParent || hasActiveChild) && link.href !== '') {
       setIsOpen(true)
     }
   }
