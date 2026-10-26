@@ -6,7 +6,7 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 
 /** The box under the header of a legacy page: what still works, and what to use instead. */
 export const LegacyNotice = ({ feature }: { feature: LegacyFeature }) => {
-  const { name, replacedBy, migrate, note } = feature
+  const { name, replacedBy, migrate, note, removal } = feature
   return (
     <Callout title="Legacy" variant="hint" size="sm" className="mb-0">
       <p>
@@ -25,9 +25,10 @@ export const LegacyNotice = ({ feature }: { feature: LegacyFeature }) => {
         ) : null}
         {note ? (
           <>
-            {note.text} <Link href={note.link.href}>{note.link.title}</Link>.
+            {note.text} <Link href={note.link.href}>{note.link.title}</Link>.{' '}
           </>
         ) : null}
+        {removal}
       </p>
     </Callout>
   )

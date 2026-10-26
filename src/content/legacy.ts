@@ -14,6 +14,8 @@ export type LegacyFeature = {
   migrate?: { title: string; href: string }
   /** In place of a replacement, for a feature without one. */
   note?: { text: string; link: { title: string; href: string } }
+  /** When it goes away, if that is decided. */
+  removal?: string
 }
 
 export const LEGACY_FEATURES: LegacyFeature[] = [
@@ -54,6 +56,11 @@ export const LEGACY_FEATURES: LegacyFeature[] = [
     },
   },
   {
+    path: '/ai/ai-toolkit/api-reference/rest-api-v3',
+    name: 'the v3 endpoints',
+    replacedBy: { title: 'the current REST API', href: '/ai/ai-toolkit/api-reference/rest-api' },
+  },
+  {
     path: '/ai/ai-toolkit/client/api-reference/diff-utility',
     name: 'the diff utility',
     replacedBy: { title: 'Tiptap Compare', href: '/compare/getting-started/overview' },
@@ -81,6 +88,21 @@ export const LEGACY_FEATURES: LegacyFeature[] = [
     name: 'the legacy conversion extensions and REST API',
     replacedBy: { title: 'Conversion', href: '/conversion/getting-started/overview' },
     migrate: { title: 'The migration guide', href: '/conversion/legacy/migration-guide' },
+    removal: "They get no new features, and Tiptap gives 90 days' notice before it removes them.",
+  },
+  {
+    path: '/conversion/legacy/markdown/',
+    name: 'the legacy Markdown extensions and REST API',
+    replacedBy: { title: 'Conversion', href: '/conversion/getting-started/overview' },
+    migrate: { title: 'The migration guide', href: '/conversion/legacy/migration-guide' },
+    removal: 'They will be removed in 2026, and the team will announce it first.',
+  },
+  {
+    path: '/conversion/legacy/odt/',
+    name: 'the legacy ODT extensions and REST API',
+    replacedBy: { title: 'Conversion', href: '/conversion/getting-started/overview' },
+    migrate: { title: 'The migration guide', href: '/conversion/legacy/migration-guide' },
+    removal: 'They will be removed in 2026, and the team will announce it first.',
   },
   {
     path: '/collaboration/documents/snapshot-compare',
@@ -127,5 +149,6 @@ export function legacyMarkdown(
   }
   if (migrate) parts.push(`[${migrate.title}](${link(migrate.href)}) shows how to move.`)
   if (note) parts.push(`${note.text} [${note.link.title}](${link(note.link.href)}).`)
+  if (feature.removal) parts.push(feature.removal)
   return `> **Legacy:** ${parts.join(' ')}`
 }
