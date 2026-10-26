@@ -25,6 +25,12 @@ To contribute, please follow these steps:
    - Any relevant information that will help the maintainers understand your changes.
 8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
+## Feature Catalog
+
+The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order, and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Features, next to the larger features such as Comments or Conversion, which keep their own sections. A page's plan comes from its `tags`. A new extension page needs a `group` and its npm `package`, as its install command names them.
+
+"Plan your editor" (`/configurator`) builds on the catalog. Its starting points are in `src/content/presets.ts`, with the services each feature needs. Industries for the catalog filter and the configurator are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
+
 ## Labels
 
 - **Plan and status come from the feature.** Tag the feature's overview page in its frontmatter (`start`, `team`, `addon`, `restricted`, `mit`; `alpha`, `beta`, `deprecated`). Its pages inherit the plan and status through the sidebar and show them in the page header. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
