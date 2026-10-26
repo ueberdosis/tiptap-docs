@@ -137,7 +137,11 @@ export default async function MarkdownPage({ params }: Props) {
         </div>
       ) : null}
       {tags.length ? (
-        <PageHeader.Tags tags={tags} isTemplate={markdownPath.includes('templates')} />
+        <PageHeader.Tags
+          tags={tags}
+          isTemplate={markdownPath.includes('templates')}
+          hideLegacy={!!legacy}
+        />
       ) : null}
       {pageMdx.frontmatter.description ? (
         <PageHeader.Description

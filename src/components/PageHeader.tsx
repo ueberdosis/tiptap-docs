@@ -142,15 +142,23 @@ export function headerTags(tags: PageTag[] = [], inherited?: { plan?: string; st
 export type PageHeaderTagsProps = {
   tags: PageTag[]
   isTemplate?: boolean
+  /** The Legacy box below says it already, so the tag would repeat it. */
+  hideLegacy?: boolean
 }
 
-export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
+export const PageHeaderTags = ({
+  tags,
+  isTemplate = false,
+  hideLegacy = false,
+}: PageHeaderTagsProps) => {
   // A legacy page shouldn't also invite you in as Beta or New
   const endOfLife = tags.some((tag) => tag.type === 'legacy')
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
     .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
+    .filter(({ tag }) => !(hideLegacy && tag.type === 'legacy'))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
+  if (!sorted.length) return null
   return (
     <div className="flex items-center gap-1 flex-wrap mt-6">
       {sorted.map(({ tag, index }) => (
