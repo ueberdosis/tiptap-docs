@@ -410,15 +410,16 @@ const items: SidebarGroup[] = [
           },
         ],
       },
-      {
-        ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
-        title: 'Compare snapshots',
-        tags: planTags('/collaboration/documents/snapshot-compare'),
-      },
+      // The two that fold open first, then the single pages
       {
         ...toEntries([pick(conversionSidebar, ['Legacy'])])[0],
         title: 'Conversion',
         tags: ['Legacy', ...(planTags('/conversion/import/docx/editor-extension') ?? [])],
+      },
+      {
+        ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
+        title: 'Compare snapshots',
+        tags: planTags('/collaboration/documents/snapshot-compare'),
       },
       { href: '/authentication/legacy', title: 'Authentication' },
     ]),
