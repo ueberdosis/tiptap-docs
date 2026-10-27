@@ -66,7 +66,7 @@ export function readFrontmatterSync(filePath: string): PageFrontmatter {
 
       totalBytes += bytesRead
       header += decoder.write(buffer.subarray(0, bytesRead))
-      if (!/^﻿?(---|= yaml =)(?:\r?\n|$)/.test(header)) {
+      if (!/^\ufeff?(---|= yaml =)(?:\r?\n|$)/.test(header)) {
         return {}
       }
 

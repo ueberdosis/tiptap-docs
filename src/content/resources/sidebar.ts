@@ -52,7 +52,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/authentication',
           title: 'Authentication',
-          tags: ['New'],
+          newSince: '2026-04-29',
           children: [
             {
               href: '/authentication/migrate',

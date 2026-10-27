@@ -37,7 +37,6 @@ export function statusFromTags(tags: string[]): string | undefined {
   if (tags.includes('alpha')) return 'Alpha'
   if (tags.includes('beta')) return 'Beta'
   if (tags.includes('experiment')) return 'Experimental'
-  if (tags.includes('new')) return 'New'
   return undefined
 }
 
