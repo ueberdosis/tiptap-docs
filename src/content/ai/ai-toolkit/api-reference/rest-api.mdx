@@ -103,6 +103,9 @@ Request body:
 - `readSelection` (`boolean`, optional)
 - `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
   include an extra metadata field on every proofreading edit, such as a short explanation.
+- `readBoard`, `createShapes`, `arrangeShapes`, `createDiagram`, `updateShapes`, `deleteShapes`,
+  `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
+  a whiteboard.
 
 Response:
 
@@ -261,6 +264,8 @@ This endpoint can return:
 - `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
   the editor schema does not support tracked changes.
 - `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `403` with `board_schema_not_supported`: A [board tool](#board-tools) got a document or an editor
+  schema that isn't a whiteboard it can work on.
 - `409` with `concurrent_edit_conflict`: The cloud document changed while the tool was executing.
   Retry the request with the latest document state.
 - `422` with `validation_failed`: The request body does not match the endpoint schema. The response
@@ -694,6 +699,321 @@ Success or partial-success response:
   - `target` (`string`): String identifier of the element targeted by the operation.
   - `success` (`boolean`): Whether the operation completed successfully.
   - `error` (`string | null`): Failure reason, or `null` when the operation succeeded.
+
+## Board tools
+
+<Callout title="Alpha feature" variant="hint">
+  The board tools are currently in alpha
+</Callout>
+
+These tools read and change a [whiteboard](/editor/whiteboard/getting-started/overview). Execute them with the editor context of the board's editor, on the board's document. See [Use with Whiteboard](/ai/ai-toolkit/agents/whiteboard) for the setup.
+
+The board tools take plain text, not document content, so they work the same in every `format`. They aren't available through `stream-tool`.
+
+A board tool that can't run changes nothing. When the model can fix the call, like an input that doesn't match the schema or ids that aren't on the board, the tool answers with HTTP status `200`, and with `success: false` and an `error` in its tool output.
+
+When the request itself can't work, `execute-tool` fails like it does for the other tools:
+
+- `403` with `board_schema_not_supported`: The document or the editor context isn't a whiteboard that the tool can work on, like a board without doc frames for `createDocFrame`.
+- `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `'trackedChanges'` for a tool that changes the board, but the editor context has no Tracked Changes. `readBoard` doesn't check this.
+
+### Board tool config
+
+`readBoard`, `createShapes`, `createDiagram` and `createDocFrame` take this tool config (`tool.config`):
+
+- `selectedIds` (`string[]`, optional): Ids of the shapes that the user selects, in the order of the selection.
+- `viewport` (`{ x: number, y: number, width: number, height: number }`, optional): The part of
+  the board that the user sees, in board units. `width` and `height` must be above `0`.
+
+Each field that is missing, `null` or invalid falls back on its own: to no selection, or to no viewport.
+
+### Board placement
+
+`createShapes`, `createDiagram` and `createDocFrame` take these fields in their input (`tool.input`), so the AI can name the place for new content:
+
+- `near` (`string[]`, optional): Up to 100 ids of the shapes that the new content belongs next to, like the diagram that a summary is about. Defaults to the selected shapes.
+- `side` (`'right' | 'below' | 'left' | 'above'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer.
+
+New shapes go beside the shapes in `near` that are on the board, or else beside the selected shapes. Without such shapes, they go in the middle of the viewport, or else right of all shapes on the board, or at the origin of an empty board. When other shapes are in the way, they move to the closest free spot.
+
+### Board suggestions
+
+With `reviewOptions.mode: 'trackedChanges'`, the board tools write their changes as suggestions of [Tracked Changes](/tracked-changes/getting-started/overview):
+
+- The shapes that one call adds or deletes share one suggestion, so one `acceptSuggestion` or `rejectSuggestion` reviews them all.
+- Each changed shape and each new text get a suggestion of their own. A later change of a shape that waits for a review of the same user goes into that suggestion.
+- The tools leave a shape alone that waits for another user's review, or for a review that deletes it, and don't delete a shape that waits for a review of a change. They say why in `skipped` or `skippedArrows`.
+
+`suggestionIds` (`string[]`) lists the suggestions that the call made or went on with. A suggestion that the call went on with also holds the earlier change, and a change to a shape that an earlier suggestion adds is part of that add, so it isn't listed. Other suggestions stay as they are when you review these ids. Without review, `suggestionIds` is empty, and the tools leave every shape alone that waits for a review.
+
+### `readBoard`
+
+Reads the shapes of the board, the arrows between them and the selection. It doesn't change the document.
+
+Tool input (`tool.input`):
+
+This tool does not take any input. Pass an empty object (`{}`).
+
+Tool config (`tool.config`):
+
+The [board tool config](#board-tool-config).
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the board was read.
+- `shapeCount` (`number`): Number of shapes on the board, arrows included.
+- `selectedIds` (`string[]`): Ids of the selected shapes that are on the board.
+- `shapes` (`array`): The shapes, selected ones first.
+  - `id` (`string`): Unique shape identifier.
+  - `type` (`string`): Node type, like `stickyNote`, `geo`, `freeText`, `freehand` or `docFrame`.
+  - `kind?` (`string`): Kind of a geometric shape, like `rectangle` or `diamond`.
+  - `x`, `y`, `width`, `height` (`number`): Box of the shape, in whole board units. `y` grows
+    downwards.
+  - `color?` (`string`): Color name, like `yellow`.
+  - `text?` (`string`): Text of the shape, one line per paragraph or list item. List items start
+    with `- `, `1. `, `[ ] ` or `[x] `. The text of shapes that aren't selected is cut after 280
+    characters.
+  - `docId?` (`string`): Id of the document that a doc frame shows. Every doc frame has it. For a
+    frame without a `docId` attribute, it is the shape id, whose document the frame shows.
+  - `selected?` (`true`): The user selects the shape.
+  - `suggestion?` (`'add' | 'delete' | 'change'`): A suggestion that waits for a review, and adds
+    or deletes the shape, or changes its attributes or its text.
+- `arrows` (`array`): The arrows on the board.
+  - `id` (`string`): Unique arrow identifier.
+  - `fromId` (`string | null`): Id of the shape where the arrow starts, or `null` for a free end.
+  - `toId` (`string | null`): Id of the shape that the arrow points to, or `null` for a free end.
+- `omittedShapeCount` (`number`): Number of shapes and arrows that the output leaves out. It
+  lists at most 300.
+- `viewport` (`object | null`): The `viewport` of the tool config.
+
+### `createShapes`
+
+Adds sticky notes as one grid, in front of all shapes.
+
+Tool input (`tool.input`):
+
+- `notes` (`array`, required): 1 to 24 notes, in reading order.
+  - `text` (`string`, required): Text of the note, up to 500 characters. A line break starts a
+    new paragraph. Lines that start with `- `, `1. `, `[ ] ` or `[x] ` make a bulleted list, a
+    numbered list or a task list.
+  - `color` (`'black' | 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'violet'`,
+    optional): Color of the note. Default: `'yellow'`
+- `near` and `side` (optional): Where the notes go. See [board placement](#board-placement).
+
+Tool config (`tool.config`):
+
+The [board tool config](#board-tool-config).
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the notes were added.
+- `createdIds` (`string[]`): Ids of the new notes, in the order of the input.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no notes were added.
+- `error` (`string`): Error message.
+
+### `arrangeShapes`
+
+Groups shapes into columns from left to right, each with a free text title on top. The columns start where the shapes are, or at the closest free spot when they would cover other shapes. Shapes only move, so the arrows that connect them follow.
+
+Tool input (`tool.input`):
+
+- `groups` (`array`, required): 1 to 12 groups, from left to right, with at most 300 ids in all.
+  - `title` (`string`, required): Title of the group, up to 60 characters.
+  - `ids` (`string[]`, required): Ids of the shapes in the group, in reading order. A shape joins
+    the first group that names it.
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the shapes were arranged.
+- `movedIds` (`string[]`): Ids of the shapes that moved.
+- `titleIds` (`string[]`): Ids of the new titles.
+- `skipped` (`array`): Shapes that stayed where they were, each with `id` and `reason`, like an
+  id that isn't a shape on the board, an arrow, an id that an earlier group names, or a shape that
+  waits for another user's review.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no shapes were arranged. The error lists the reasons.
+- `error` (`string`): Error message.
+
+### `createDiagram`
+
+Draws shapes with text, connected by arrows, and lays them out as a diagram. The arrows connect the shapes, so they follow when a user moves a shape.
+
+Tool input (`tool.input`):
+
+- `title` (`string`, optional): Title above the diagram, up to 80 characters.
+- `direction` (`'down' | 'right'`, optional): Where the arrows mostly point. Default: `'down'`
+- `nodes` (`array`, required): 1 to 40 shapes.
+  - `key` (`string`, required): The AI's own name for the shape, up to 40 characters and unique
+    in the diagram. Arrows refer to it.
+  - `text` (`string`, required): Text in the shape, up to 60 characters.
+  - `shape` (`'rectangle' | 'ellipse' | 'diamond'`, optional): Kind of the shape. Another kind
+    becomes a rectangle. Default: `'rectangle'`
+  - `color` (`string`, optional): One of the colors of `createShapes`. Default: `'black'`
+- `arrows` (`array`, optional): Up to 60 arrows.
+  - `from` (`string`, required): Key of the shape where the arrow starts.
+  - `to` (`string`, required): Key of the shape that the arrow points to.
+  - `label` (`string`, optional): Label beside the arrow, up to 24 characters.
+- `near` and `side` (optional): Where the diagram goes. See [board placement](#board-placement).
+
+Tool config (`tool.config`):
+
+The [board tool config](#board-tool-config).
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the diagram was drawn.
+- `createdIds` (`string[]`): Ids of all new shapes: the title, the shapes, the arrows and their
+  labels.
+- `nodeIds` (`Record<string, string>`): Id of each new shape, by its key.
+- `skippedArrows` (`array`): Arrows that were left out, each with `from`, `to` and `reason`. An
+  arrow with an unknown key, from a shape to itself, or that came earlier is left out.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that the diagram was not drawn.
+- `error` (`string`): Error message.
+
+### `updateShapes`
+
+Changes the text, color or kind of shapes. Shapes keep their place and size.
+
+Tool input (`tool.input`):
+
+- `shapes` (`array`, required): 1 to 40 shapes, each shape once, with only what changes.
+  - `id` (`string`, required): Id of the shape.
+  - `text` (`string`, optional): New text, up to 500 characters, with the same lines as for
+    `createShapes`. It replaces the text of the shape, without its formatting. The text that
+    `readBoard` gives for the shape is no change. Only sticky notes, geometric shapes and free
+    text have text.
+  - `color` (`string`, optional): New color, one of the colors of `createShapes`.
+  - `kind` (`'rectangle' | 'ellipse' | 'diamond' | 'triangle'`, optional): New kind of a geometric
+    shape.
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that at least one shape changed.
+- `updatedIds` (`string[]`): Ids of the changed shapes.
+- `skipped` (`array`): Shapes that stayed as they were, each with `id` and `reason`, like a shape
+  that waits for another user's review, or a shape without text that gets a `text`.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no shape changed. The error lists the reasons.
+- `error` (`string`): Error message.
+
+### `deleteShapes`
+
+Deletes shapes, arrows included. Arrows that connected a deleted shape keep a free end.
+
+Tool input (`tool.input`):
+
+- `ids` (`string[]`, required): 1 to 100 ids of shapes.
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the shapes were deleted. With review, they stay with a
+  `delete` suggestion until a user accepts it.
+- `deletedIds` (`string[]`): Ids of the deleted shapes.
+- `skipped` (`array`): Shapes that stayed on the board, each with `id` and `reason`, like an id
+  that isn't a shape on the board, or a shape that waits for a review.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no shapes were deleted. The error lists the reasons.
+- `error` (`string`): Error message.
+
+### `connectShapes`
+
+Draws arrows between shapes that are on the board, each with an optional label beside it.
+
+Tool input (`tool.input`):
+
+- `arrows` (`array`, required): 1 to 40 arrows.
+  - `from` (`string`, required): Id of the shape where the arrow starts.
+  - `to` (`string`, required): Id of the shape that the arrow points to.
+  - `label` (`string`, optional): Label beside the arrow, up to 24 characters.
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that at least one arrow was drawn.
+- `createdIds` (`string[]`): Ids of the new arrows and labels.
+- `skippedArrows` (`array`): Arrows that were left out, each with `from`, `to` and `reason`: an
+  unknown shape, an arrow from a shape to itself, a shape that waits to be deleted, or an arrow
+  that the board has already.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no arrow was drawn. The error lists the reasons.
+- `error` (`string`): Error message.
+
+### `createDocFrame`
+
+Adds a doc frame with a new, empty document, in front of all shapes. Write the document with `tiptapEdit`, on the Tiptap Cloud document of its `docId`. See [Write the documents of doc frames](/ai/ai-toolkit/agents/whiteboard#write-the-documents-of-doc-frames).
+
+Tool input (`tool.input`):
+
+- `lines` (`number`, optional): About how many lines the document will have, as a whole number
+  from 1 to 400. The frame keeps room for them. Default: `12`
+- `near` and `side` (optional): Where the frame goes. See [board placement](#board-placement).
+
+Tool config (`tool.config`):
+
+The [board tool config](#board-tool-config).
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the frame was added.
+- `frameId` (`string`): Id of the new frame.
+- `docId` (`string`): Id of the frame's document.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that no frame was added.
+- `error` (`string`): Error message.
 
 ## Related pages
 

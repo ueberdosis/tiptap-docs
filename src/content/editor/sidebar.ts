@@ -642,6 +642,58 @@ export const sidebarConfig: SidebarConfig = {
     },
     {
       type: 'group',
+      href: '/editor/whiteboard',
+      title: 'Whiteboard',
+      tags: ['alpha'],
+      children: [
+        { title: 'Overview', href: '/editor/whiteboard/getting-started/overview' },
+        {
+          title: 'Guides',
+          href: '/editor/whiteboard/guides/react',
+          children: [
+            { title: 'React', href: '/editor/whiteboard/guides/react' },
+            { title: 'Stage and camera', href: '/editor/whiteboard/guides/stage-and-camera' },
+            { title: 'Shapes and tools', href: '/editor/whiteboard/guides/shapes-and-tools' },
+            { title: 'Arrows', href: '/editor/whiteboard/guides/arrows' },
+            { title: 'Doc frames', href: '/editor/whiteboard/guides/doc-frames' },
+            { title: 'Images', href: '/editor/whiteboard/guides/images' },
+            { title: 'Custom shapes', href: '/editor/whiteboard/guides/custom-shapes' },
+            { title: 'Export and import', href: '/editor/whiteboard/guides/export-and-import' },
+            {
+              title: 'Collaboration on the board',
+              href: '/editor/whiteboard/guides/collaboration',
+            },
+            {
+              title: 'Tracked Changes on the board',
+              href: '/editor/whiteboard/guides/tracked-changes',
+            },
+          ],
+        },
+        {
+          title: 'Examples',
+          href: '/editor/whiteboard/examples/simple',
+          children: [
+            { title: 'Simple whiteboard', href: '/editor/whiteboard/examples/simple' },
+            { title: 'Custom shape', href: '/editor/whiteboard/examples/custom-shape' },
+          ],
+        },
+        { title: 'AI agents', href: '/ai/ai-toolkit/agents/whiteboard' },
+        {
+          title: 'API reference',
+          href: '/editor/whiteboard/api-reference/extensions',
+          children: [
+            { title: 'Extensions', href: '/editor/whiteboard/api-reference/extensions' },
+            { title: 'Commands', href: '/editor/whiteboard/api-reference/commands' },
+            { title: 'Utilities', href: '/editor/whiteboard/api-reference/utilities' },
+            { title: 'Types', href: '/editor/whiteboard/api-reference/types' },
+            { title: 'Styling', href: '/editor/whiteboard/api-reference/styling' },
+            { title: 'Editor events', href: '/editor/whiteboard/api-reference/events' },
+          ],
+        },
+      ],
+    },
+    {
+      type: 'group',
       href: '/editor/api',
       title: 'API',
       children: [
