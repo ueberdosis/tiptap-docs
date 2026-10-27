@@ -118,6 +118,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/export/docx/rest-api',
             },
             {
+              title: 'Migrate to v1',
+              href: '/conversion/export/docx/migrate-to-v1',
+            },
+            {
               title: 'Customize',
               href: '/conversion/export/docx/custom-nodes',
               children: [
