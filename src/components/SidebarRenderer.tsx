@@ -135,11 +135,8 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
-// One label per entry, the one that matters most for whether to open it:
-// end of life first, then Paid, then new pages. The page header names the
-// exact plan; open source stays unlabeled. Alpha and Beta change how you build
-// on a page, not whether you open it, so they show in the page header instead.
-// Labels stay grey, so the navigation stays calm.
+// One label per entry, ranked by what matters most for whether to open it.
+// Alpha and Beta change how you build on a page, so only the page header shows them.
 export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-life' }
 
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
@@ -158,12 +155,18 @@ const LABELS: Record<string, SidebarLabel & { rank: number }> = {
   new: { text: 'New', kind: 'status', rank: 4 },
 }
 
-/** The label an entry shows, the most important one if it has several. */
+/**
+ * The label an entry shows, the most important one if it has several. New comes
+ * from `newSince` only, so it goes away on its own.
+ */
 export function sidebarLabel(
   tags: string[] | undefined,
   hidePlan = false,
+  newSince?: string,
 ): SidebarLabel | undefined {
   const [label] = (tags ?? [])
+    .filter((tag) => tag.toLowerCase() !== 'new')
+    .concat(isNew(newSince) ? ['New'] : [])
     .map((tag) => LABELS[tag.toLowerCase()])
     .filter((label) => label && !(hidePlan && label.kind === 'plan'))
     .sort((a, b) => a.rank - b.rank)
@@ -238,10 +241,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(
-    isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags,
-    link.hidePlan,
-  )
+  const label = sidebarLabel(link.tags, link.hidePlan, link.newSince)
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(

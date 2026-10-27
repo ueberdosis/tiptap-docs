@@ -111,7 +111,9 @@ export function headerTags(tags: PageTag[] = [], inherited?: { plan?: Plan; stat
   const own = (types: string[]) => tags.some((tag) => types.includes(tag.type))
   const added: PageTag[] = []
   if (inherited?.plan && !own(PLAN_TYPES)) added.push({ type: PLAN_TAG[inherited.plan] })
-  if (inherited?.status && !own(STATUS_TYPES)) added.push({ type: STATUS_TAG[inherited.status] })
+  // New says when a page went live, not how stable it is
+  const ownStatus = own(STATUS_TYPES.filter((type) => type !== 'new'))
+  if (inherited?.status && !ownStatus) added.push({ type: STATUS_TAG[inherited.status] })
   return [...tags, ...added]
 }
 
@@ -126,6 +128,7 @@ export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
     .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
+    .filter(({ tag }) => tag.type !== 'new' || isNew((tag as GeneralPageTag).since))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
   if (!sorted.length) return null
   return (
