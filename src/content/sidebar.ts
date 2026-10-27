@@ -15,6 +15,7 @@ import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
 import { CATALOG_GROUPS, CatalogArea, catalogGroupUrl } from '@/content/catalog'
+import { planFromLabel } from '@/content/plans'
 import { getCatalog } from '@/server/getCatalog'
 import { legacyFeature } from '@/content/legacy'
 import { pagePlan } from '@/server/pagePlan'
@@ -101,9 +102,11 @@ function feature(
   return section(title, config, { ...options, tags: planTags(overview) })
 }
 
-const PAID_PLANS = ['Start', 'Starter', 'Team', 'Business', 'Add-on', 'Pilot program']
-const isPaid = (tags?: string[]) =>
-  !!tags?.some((tag) => tag === 'Paid' || PAID_PLANS.includes(tag))
+const isPaidPlan = (tag: string) => {
+  const plan = planFromLabel(tag)
+  return !!plan && plan !== 'Open source'
+}
+const isPaid = (tags?: string[]) => !!tags?.some((tag) => tag === 'Paid' || isPaidPlan(tag))
 
 /**
  * An entry whose children all need a paid plan, whichever, says "Paid"; a group
@@ -159,7 +162,7 @@ const items: SidebarGroup[] = [
       {
         href: '/authentication',
         title: 'Authentication',
-        tags: ['New'],
+        newSince: '2026-04-29',
         children: [{ href: '/authentication/migrate', title: 'Migrate from legacy' }],
       },
       { ...link(guidesSidebar, ['First Steps', 'Integrate Pro Extensions']), title: 'Pro access' },

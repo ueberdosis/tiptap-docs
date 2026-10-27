@@ -18,6 +18,7 @@ import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
+import { isAtOrBelow } from '@/utils/isAtOrBelow'
 import { isNew } from '@/utils/isNew'
 
 export const DocsSidebar = ({
@@ -135,11 +136,8 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
-// One label per entry, the one that matters most for whether to open it:
-// end of life first, then Paid, then new pages. The page header names the
-// exact plan; open source stays unlabeled. Alpha and Beta change how you build
-// on a page, not whether you open it, so they show in the page header instead.
-// Labels stay grey, so the navigation stays calm.
+// One label per entry, ranked by what matters most for whether to open it.
+// Alpha and Beta change how you build on a page, so only the page header shows them.
 export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-life' }
 
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
@@ -158,13 +156,19 @@ const LABELS: Record<string, SidebarLabel & { rank: number }> = {
   new: { text: 'New', kind: 'status', rank: 4 },
 }
 
-/** The label an entry shows, the most important one if it has several. */
+/**
+ * The label an entry shows, the most important one if it has several. New comes
+ * from `newSince` only, so it goes away on its own.
+ */
 export function sidebarLabel(
   tags: string[] | undefined,
   hidePlan = false,
   hideLegacy = false,
+  newSince?: string,
 ): SidebarLabel | undefined {
   const [label] = (tags ?? [])
+    .filter((tag) => tag.toLowerCase() !== 'new')
+    .concat(isNew(newSince) ? ['New'] : [])
     .map((tag) => LABELS[tag.toLowerCase()])
     .filter(
       (label) =>
@@ -191,17 +195,6 @@ function showTitleIfCut(event: React.MouseEvent<HTMLElement>) {
 
 /** Every href in the sidebar. A page that has its own entry opens only the entries above it. */
 const ListedPages = createContext<Set<string>>(new Set())
-
-/**
- * Whether the page is `href` or, for a page without its own entry, lies below it.
- * An entry that only folds open (`href: ''`) never matches.
- */
-function isAtOrBelow(pathname: string, href: string, listed: Set<string>): boolean {
-  if (href === '') return false
-  if (pathname === href) return true
-  if (href === '/' || listed.has(pathname)) return false
-  return pathname.startsWith(`${href}/`)
-}
 
 /**
  * Where an entry leads: its own page or, for an entry that only folds open, the page of its
@@ -244,11 +237,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(
-    isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags,
-    link.hidePlan,
-    link.hideLegacy,
-  )
+  const label = sidebarLabel(link.tags, link.hidePlan, link.hideLegacy, link.newSince)
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(
