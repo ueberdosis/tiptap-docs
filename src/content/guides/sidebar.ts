@@ -27,6 +27,7 @@ export const sidebarConfig: SidebarConfig = {
         { href: '/guides/accessibility', title: 'Accessibility' },
         { href: '/guides/performance', title: 'Performance' },
         { href: '/guides/typescript', title: 'TypeScript' },
+        { href: '/guides/mobile-apps', title: 'Mobile apps', tags: ['Experimental'] },
       ],
     },
     {
