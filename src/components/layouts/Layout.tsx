@@ -64,9 +64,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
               <TiptapLogo />
               <span className="whitespace-nowrap">
-                <span className="font-semibold">Tiptap</span>
-                {/* On phones the area menu next to it already says Docs */}
-                <span className="hidden sm:inline"> Docs</span>
+                <span className="font-semibold">Tiptap</span> Docs
               </span>
             </Link>
             <VersionSwitch />
@@ -78,7 +76,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               </NavLink>
             </nav>
           </div>
-          <div className="flex items-center gap-2 ml-auto min-w-0">
+          <div className="flex items-center gap-2 ml-auto">
             <div className="hidden xl:block">
               <SearchButton />
             </div>
@@ -86,7 +84,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               <ToCButton />
               <SearchButton />
             </div>
-            <div className="block min-w-0 lg:hidden">
+            <div className="block lg:hidden">
               <MobileNavigationDropdown />
             </div>
             <div className="hidden lg:block">
