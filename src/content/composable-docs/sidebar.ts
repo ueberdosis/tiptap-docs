@@ -3,8 +3,9 @@ import type { SidebarConfig } from '@/types'
 export const sidebarConfig: SidebarConfig = {
   id: 'composable-docs',
   title: 'Composable Documents',
-  rootHref: '/composable-docs/slots/getting-started/overview',
+  rootHref: '/composable-docs',
   items: [
+    { type: 'link', title: 'Overview', href: '/composable-docs' },
     {
       type: 'group',
       title: 'Slots',

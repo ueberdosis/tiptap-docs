@@ -265,14 +265,11 @@ const items: SidebarGroup[] = [
         inline: ['Get started'],
         omit: ['Legacy'],
       }),
-      {
-        ...feature(
-          'Composable Documents',
-          composableDocsSidebar,
-          '/composable-docs/slots/getting-started/overview',
-        ),
-        href: '/composable-docs',
-      },
+      feature(
+        'Composable Documents',
+        composableDocsSidebar,
+        '/composable-docs/slots/getting-started/overview',
+      ),
       {
         // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
         // Pages stays at its URLs for existing projects, labeled Legacy.
