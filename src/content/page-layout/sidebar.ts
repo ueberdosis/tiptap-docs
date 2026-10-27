@@ -14,8 +14,17 @@ export const sidebarConfig: SidebarConfig = {
       tags: ['Alpha'],
       children: [
         { title: 'Overview', href: '/page-layout/getting-started/overview' },
-        { title: 'Install', href: '/page-layout/getting-started/install' },
-        { title: 'Existing editor', href: '/page-layout/getting-started/existing-editor' },
+        {
+          title: 'Install',
+          href: '/page-layout/getting-started/install',
+          children: [
+            { title: 'React', href: '/page-layout/getting-started/install/react' },
+            {
+              title: 'Existing editor',
+              href: '/page-layout/getting-started/install/existing-editor',
+            },
+          ],
+        },
         {
           title: 'Document and pages',
           href: '/page-layout/getting-started/document-and-pages',
@@ -31,8 +40,8 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Migrate from Pages 1',
-          href: '/page-layout/getting-started/migrate-from-pages-1',
+          title: 'Migrate from Pages',
+          href: '/page-layout/getting-started/migrate-from-pages',
         },
         {
           title: 'Features',
@@ -63,40 +72,40 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Supported extensions',
-          href: '/page-layout/supported-extensions',
+          title: 'Extension behavior',
+          href: '/page-layout/extension-behavior',
           children: [
-            { title: 'Tables', href: '/page-layout/supported-extensions/tables' },
-            { title: 'Lists', href: '/page-layout/supported-extensions/lists' },
-            { title: 'Footnotes', href: '/page-layout/supported-extensions/footnotes' },
+            { title: 'Tables', href: '/page-layout/extension-behavior/tables' },
+            { title: 'Lists', href: '/page-layout/extension-behavior/lists' },
+            { title: 'Footnotes', href: '/page-layout/extension-behavior/footnotes' },
             {
               title: 'Cross-references',
-              href: '/page-layout/supported-extensions/cross-references',
+              href: '/page-layout/extension-behavior/cross-references',
             },
             {
               title: 'Document styles',
-              href: '/page-layout/supported-extensions/document-styles',
+              href: '/page-layout/extension-behavior/document-styles',
             },
             {
               title: 'Outline numbering',
-              href: '/page-layout/supported-extensions/outline-numbering',
+              href: '/page-layout/extension-behavior/outline-numbering',
             },
-            { title: 'Columns', href: '/page-layout/supported-extensions/columns' },
+            { title: 'Columns', href: '/page-layout/extension-behavior/columns' },
             {
               title: 'Your own extension',
-              href: '/page-layout/supported-extensions/your-own-extension',
+              href: '/page-layout/extension-behavior/your-own-extension',
               children: [
                 {
                   title: 'Layout rules',
-                  href: '/page-layout/supported-extensions/your-own-extension/layout-rules',
+                  href: '/page-layout/extension-behavior/your-own-extension/layout-rules',
                 },
                 {
                   title: 'When no rule fits',
-                  href: '/page-layout/supported-extensions/your-own-extension/when-no-rule-fits',
+                  href: '/page-layout/extension-behavior/your-own-extension/when-no-rule-fits',
                 },
                 {
                   title: 'NodeLayout reference',
-                  href: '/page-layout/supported-extensions/your-own-extension/node-layout-reference',
+                  href: '/page-layout/extension-behavior/your-own-extension/node-layout-reference',
                 },
               ],
             },
