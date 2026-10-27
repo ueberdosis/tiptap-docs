@@ -88,10 +88,8 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               <ToCButton />
               <SearchButton />
             </div>
-            <div className="block md:hidden">
-              <MobileNavigationDropdown />
-            </div>
-            <div className="hidden md:block">
+            {/* Sign up stays next to the menu as long as it fits */}
+            <div className="hidden min-[390px]:block">
               <NavLink
                 variant="invert"
                 href="https://cloud.tiptap.dev/register"
@@ -100,6 +98,9 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               >
                 Sign up
               </NavLink>
+            </div>
+            <div className="block md:hidden">
+              <MobileNavigationDropdown />
             </div>
           </div>
         </div>

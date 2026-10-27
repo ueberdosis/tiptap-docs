@@ -66,7 +66,8 @@ export const MobileNavigationDropdown = () => {
               Website
             </NavLink>
           </DropdownMenu.Item>
-          <DropdownMenu.Item asChild>
+          {/* Only where the header has no room for it */}
+          <DropdownMenu.Item asChild className="min-[390px]:hidden">
             <NavLink
               variant="invert"
               href="https://cloud.tiptap.dev/register"
