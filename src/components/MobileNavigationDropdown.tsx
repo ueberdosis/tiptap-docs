@@ -2,6 +2,7 @@
 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
+import { useRef, useState } from 'react'
 import { DOCS_AREAS, activeDocsArea } from './DocsSwitcher'
 import { NavLink } from './NavLink'
 
@@ -20,23 +21,33 @@ const MenuIcon = () => (
 /** The phone menu: the areas of the docs, the website and sign up, behind one button. */
 export const MobileNavigationDropdown = () => {
   const active = activeDocsArea(usePathname())
+  const trigger = useRef<HTMLButtonElement>(null)
+  // The menu spans the header bar and lines up with its right edge
+  const [frame, setFrame] = useState({ width: 0, offset: 0 })
+
+  const measure = (open: boolean) => {
+    const bar = trigger.current?.closest('[data-header-bar]')
+    if (!open || !bar || !trigger.current) return
+    const { width, right } = bar.getBoundingClientRect()
+    setFrame({ width, offset: right - trigger.current.getBoundingClientRect().right })
+  }
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={measure}>
       <DropdownMenu.Trigger
+        ref={trigger}
         aria-label="Menu"
-        className="flex items-center justify-center size-9 rounded-xl bg-grayAlpha-100 hover:bg-grayAlpha-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+        className="flex items-center justify-center size-9 rounded-xl bg-white hover:bg-grayAlpha-100 data-[state=open]:bg-grayAlpha-100 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
       >
         <MenuIcon />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
+          alignOffset={-frame.offset}
           sideOffset={14}
-          // Keeps the same 10px from the screen edge as the header
-          collisionPadding={10}
-          sticky="always"
-          className="z-50 flex flex-col gap-1 p-2 w-[calc(100vw-1.25rem)] sm:w-80 text-black bg-white rounded-pilled shadow-lg"
+          style={{ width: frame.width || undefined }}
+          className="z-50 flex flex-col gap-1 p-2 text-black bg-white rounded-pilled shadow-lg"
         >
           {DOCS_AREAS.map((area) => (
             <DropdownMenu.Item key={area.href} asChild>

@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { NavLink } from './NavLink'
 
 export const DOCS_AREAS = [
-  { label: 'Docs', href: '/', prefix: '' },
+  { label: 'Documentation', href: '/', prefix: '' },
   {
     label: 'UI Components',
     href: '/ui-components/getting-started/overview',
@@ -12,7 +12,7 @@ export const DOCS_AREAS = [
   },
 ]
 
-/** The area a path belongs to: UI Components, or the docs for everything else. */
+/** The area a path belongs to: UI Components, or the documentation for everything else. */
 export function activeDocsArea(pathname: string) {
   return DOCS_AREAS.find((area) => area.prefix && pathname.startsWith(area.prefix)) ?? DOCS_AREAS[0]
 }
