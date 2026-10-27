@@ -37,6 +37,11 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/agents/comments',
             },
             {
+              title: 'With Whiteboard',
+              href: '/ai/ai-toolkit/agents/whiteboard',
+              releaseTag: 'alpha',
+            },
+            {
               title: 'Selection awareness',
               href: '/ai/ai-toolkit/agents/selection-awareness',
             },
@@ -54,6 +59,11 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'REST API',
               href: '/ai/ai-toolkit/api-reference/rest-api',
+            },
+            {
+              title: 'Tiptap Query',
+              href: '/ai/ai-toolkit/api-reference/tiptap-query',
+              releaseTag: 'alpha',
             },
             {
               title: 'Editor context',

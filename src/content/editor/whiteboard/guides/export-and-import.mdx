@@ -1,0 +1,113 @@
+---
+title: Whiteboard export and import
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Whiteboard export and import | Tiptap Editor Docs
+  description: Save a whiteboard to a JSON file and open it again, and export its shapes as an SVG, PNG or JPEG image.
+  category: Editor
+---
+
+Save a board to a JSON file and open it again, in the same app or in another one. Export the board, or some of its shapes, as an SVG, PNG or JPEG image. The functions give you the file, and your app saves it, for example as a download.
+
+## Save a board to a file
+
+`exportBoard` returns a board file: the JSON of the board, and the documents that its doc frames show. Turn it into a file with `JSON.stringify`:
+
+```js
+import { exportBoard } from '@tiptap-pro/extension-whiteboard'
+
+const json = JSON.stringify(exportBoard({ editor }))
+const file = new Blob([json], { type: 'application/json' })
+```
+
+## Open a board file
+
+`importBoard` opens the parsed JSON of a board file. By default, the board of the file replaces the shapes on the board. With `mode: 'insert'`, it adds copies of the file's shapes in front of the other shapes, like a paste, and selects them:
+
+```js
+import { importBoard, scrollShapesIntoView } from '@tiptap-pro/extension-whiteboard'
+
+const text = await file.text()
+const { ids } = importBoard({ editor, file: JSON.parse(text), mode: 'insert' })
+scrollShapesIntoView({ stage, editor, ids, updateCamera: setCamera })
+```
+
+Like pasted shapes, the copies keep their positions from the file, and move 24 board units down and to the right while the first of them would start at the same point as a shape on the board. `scrollShapesIntoView` moves the camera to them. One undo takes an import back.
+
+`importBoard` returns the ids of the shapes that it added. In `skipped`, it returns the shapes that it left out, because the editor can't show them: a custom shape whose extension the editor doesn't have, or a shape with an attribute of the wrong type, like a position that is not a number. Inside the shapes, marks that the editor doesn't have are removed, and nodes that it doesn't have become paragraphs or are removed. Shapes without an id, or with the id of another shape in the file, get a new one.
+
+### Files that can't be opened
+
+`importBoard` throws a `BoardFileError` when the JSON is not a board file, or when a newer version of the whiteboard wrote it. Its `code` tells which, and the board stays as it was:
+
+```js
+import { BoardFileError, importBoard } from '@tiptap-pro/extension-whiteboard'
+
+try {
+  importBoard({ editor, file: JSON.parse(text) })
+} catch (error) {
+  if (error instanceof BoardFileError && error.code === 'version-too-new') {
+    showMessage('Update the app to open this board.')
+  } else {
+    showMessage('This file is not a board.')
+  }
+}
+```
+
+## Doc frames
+
+A board file holds the documents of its doc frames. Each doc frame that `importBoard` adds gets a new document id, so it never shares a document with a frame on another board. Fill the new documents with the `load` member of [`docs`](/editor/whiteboard/guides/doc-frames#provide-the-documents):
+
+```js
+load: ({ docId, content }) => documents.set(docId, content),
+```
+
+`load` runs before the frame shows, and before `start`. Without `load`, imported frames start with empty documents.
+
+## Images
+
+A board file holds the URL of each [image](/editor/whiteboard/guides/images), like the board does, but not the image's file. So an imported image shows only while its URL works.
+
+## Export an image
+
+`exportBoardImage` draws shapes of the board as a PNG or JPEG file, and `exportBoardSvg` as SVG markup with its size. They draw the shapes as the page shows them, with your app's CSS and fonts, but without selections, handles and carets:
+
+```js
+import { exportBoardImage, exportBoardSvg } from '@tiptap-pro/extension-whiteboard'
+
+const png = await exportBoardImage({ editor, background: '#fff' })
+const image = await exportBoardSvg({ editor, ids: ['note-1'] })
+```
+
+- Without `ids`, they draw every shape. They return `null` when there are no shapes to draw.
+- `padding` is the space around the shapes, 16 board units by default. Without a `background`, the image is transparent there, except for a JPEG, which gets white.
+- A PNG or JPEG has 2 pixels per board unit by default, set with `pixelRatio`. Large images get fewer, since browsers can't draw canvases beyond a certain size.
+
+The image comes from the board in the page, so the board's editor must be mounted. Otherwise the functions throw.
+
+- Fonts come along from the page's `@font-face` rules, also from imported style sheets and from style sheets of other origins, like Google Fonts. A font whose files can't load falls back to another font. Fonts that the `FontFace` API adds don't come along.
+- Images in shapes come along when their file is an image. An image that the page can't fetch, like one from another origin without CORS headers, shows nothing.
+- Files that don't load within 10 seconds are left out.
+- Text is HTML inside a `foreignObject`. Browsers show it, but some vector editors don't.
+- CSS background images, `canvas` elements and pseudo-elements like `::before` don't show.
+- In Safari, PNG and JPEG images have no box shadows, which Safari would draw as gray boxes.
+- The export reads the styles of every element, so large boards take a while: about a second for 1,000 notes.
+
+## Copy an image
+
+Safari writes to the clipboard only while it handles the click or key press that asks for it. So call `write` at once, and give `ClipboardItem` the promise of the image:
+
+```js
+const png = exportBoardImage({ editor }).then(
+  (image) => image ?? Promise.reject(new Error('No shapes to copy')),
+)
+
+await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+```
+
+## Next steps
+
+- Keep the documents of doc frames with [`docs`](/editor/whiteboard/guides/doc-frames)
+- See all options of [`importBoard`](/editor/whiteboard/api-reference/utilities#importboard) and [`exportBoardImage`](/editor/whiteboard/api-reference/utilities#exportboardimage)

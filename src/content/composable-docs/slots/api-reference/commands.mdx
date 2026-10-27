@@ -13,12 +13,33 @@ Add `Slot` before using `editor.commands`, `editor.chain()` or `editor.can()`. E
 
 Commands return `false` for invalid arguments, missing or ambiguous targets, schema violations or denied permissions. Invalid draft content is accepted; validation does not block edits.
 
+With the [Variable extension](/composable-docs/variables/guides/bind-slots), a slot controlled by an explicit value or resolver refuses content writes with `false`. This includes filling, clearing, removing, dissolving, or moving the controlled slot, and writes through parent or nested slots. Inserting or wrapping content inside it is also refused. These refusals emit `slotCommandRejected` with `code: 'variableControlled'`; `editor.can()` returns `false` without emitting an event. An explicit `null` or `undefined` still controls the slot. Slots bound to variables without an explicit definition remain editable.
+
 - Each call writes at most one transaction. No-op calls add no undo entry.
 - A refused Slot command cancels the writes assembled in its chain.
 - `editor.can()` emits no events, runs no validators and generates no real IDs. Dispatch checks again using the actual IDs.
 - JSON content must fit the schema. Commands do not parse HTML or silently coerce content.
 
 `JSONContent` comes from `@tiptap/core`. [Configuration](/composable-docs/slots/api-reference/concepts) and [result types](/composable-docs/slots/api-reference/types) are exported by the Slot package.
+
+## Value slot commands
+
+`insertSlot` also accepts `mode?: 'content' | 'value'` and `value?: JsonValue`. Mode defaults to `content`. Value insertion refuses `content`; content insertion refuses `value`. Placement still uses `kind`.
+
+```ts
+editor.commands.insertSlot({
+  mode: 'value',
+  id: 'budget',
+  value: '1.0',
+  config: { input: { type: 'number' } },
+})
+editor.commands.setSlotValue({ id: 'budget', value: '2.50' })
+editor.commands.setSlotValues({ values: [{ id: 'budget', value: '3.00' }] })
+```
+
+`setSlotValue({ id, value })` replaces one value attribute. `setSlotValues({ values })` applies a batch atomically. Both require unique IDs targeting value slots and finite JSON values. They respect protection, variable control, history, and dry runs. Duplicate batch targets are refused. Validation constraints do not block draft writes.
+
+`clearSlot` writes `null` for value slots. `moveSlot`, `removeSlot`, `repairSlotIds`, and `updateSlotConfig` support both modes. `focusSlot` selects a value slot and focuses its first input, select, textarea, button, or element with a tabindex when present. `fillSlot`, `fillSlots`, `dissolveSlot`, and `selectSlotContent` refuse value slots. Wrapping content creates a content slot.
 
 ## `insertSlot`
 
@@ -30,10 +51,12 @@ editor.commands.insertSlot()
 
 ### Parameters (`InsertSlotOptions`, optional)
 
+- `mode?` (`SlotMode`): `'content'` or `'value'`. Default: `'content'`.
 - `kind?` (`SlotKind`): `'block'` or `'inline'`. Omitted: `'inline'` when the parent at the insertion position accepts inline content (including an empty paragraph); otherwise `'block'`. Uses `at` or the current selection start.
 - `id?` (`string`): Unique, nonempty ID. Omitted: generated.
 - `config?` (`SlotConfig`): Embedded configuration. Default: `{}`.
-- `content?` (`JSONContent[]`): Initial content. Omitted: `defaultContent`, then empty content for the kind.
+- `content?` (`JSONContent[]`): Initial content for content slots only. Omitted: `defaultContent`, then empty content for the kind.
+- `value?` (`JsonValue`): Initial answer for value slots only. Omitted: `defaultValue`, then `null`. Explicit `null` overrides the default.
 - `at?` (`number`): Document position. Omitted: replace the current selection.
 
 ### Returns (`boolean`)
@@ -41,6 +64,31 @@ editor.commands.insertSlot()
 `true` when inserted; otherwise `false`. Placement must fit without wrapping or lifting surrounding content.
 
 Nested Slots in `defaultContent` receive fresh IDs on each insertion, with references between them remapped. Explicit `content` keeps supplied IDs and is refused if they duplicate existing IDs.
+
+## `setSlotValue`
+
+Replaces a value slot's answer while preserving its ID and configuration.
+
+### Parameters (`SetSlotValueOptions`)
+
+- `id` (`string`): Unique target value Slot ID.
+- `value` (`JsonValue`): Replacement finite JSON value, including `null`.
+
+### Returns (`boolean`)
+
+`true` when accepted, including an unchanged value; otherwise `false`. Content slots, invalid values, and denied writes are refused. Validation constraints do not block draft writes.
+
+## `setSlotValues`
+
+Updates multiple value slots atomically.
+
+### Parameters
+
+- `values` (`SetSlotValueOptions[]`): IDs and replacement values.
+
+### Returns (`boolean`)
+
+`true` when all writes succeed, including an empty batch. `false` for duplicate targets or any refused write, with no slots changed.
 
 ## `wrapInSlot`
 
@@ -70,6 +118,8 @@ Replaces content while preserving the Slot ID and configuration.
 
 `true` when accepted; otherwise `false`. Replacing a parent can remove nested Slots and requires permission to remove them.
 
+Returns `false` when a variable controls the target or any affected nested slot, even for a replacement matching the current content.
+
 ## `fillSlots`
 
 Fills multiple Slots atomically.
@@ -82,9 +132,11 @@ Fills multiple Slots atomically.
 
 `true` when all fills succeed, including an empty batch. `false` for duplicate targets, ancestor/descendant targets or any refused fill.
 
+If any target is variable-controlled, the entire batch returns `false` and no slot changes.
+
 ## `clearSlot`
 
-Replaces content with the kind’s empty content. Nested Slots are removed.
+For content slots, replaces content with the kind’s empty content and removes nested Slots. For value slots, writes `null` to the value attribute.
 
 ### Parameters (`SlotTarget`)
 
@@ -92,7 +144,7 @@ Replaces content with the kind’s empty content. Nested Slots are removed.
 
 ### Returns (`boolean`)
 
-`true` when cleared; otherwise `false`. Does not restore `defaultContent`.
+`true` when cleared; otherwise `false`. Does not restore `defaultContent` or `defaultValue`.
 
 ## `dissolveSlot`
 

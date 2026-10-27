@@ -12,6 +12,8 @@ Use this guide to integrate comments directly into your editor. For a complete l
 
 You can also interact with comments from outside your editor via our [Comments REST API](/comments/integrate/rest-api).
 
+To customize what happens when an anchor disappears or a thread changes state, configure [`onThreadAnchorRemoved`](/comments/core-concepts/configure#onthreadanchorremoved) and [`onThreadStateChanged`](/comments/core-concepts/configure#onthreadstatechanged).
+
 ## Learn about threads
 
 Tiptap's Comments feature organizes discussions into threads, enabling clear and context-relevant collaboration by distinguishing between threads and individual comments.
@@ -62,25 +64,70 @@ Now the thread and comment will have a user assigned to it.
 
 ## Receive and watch threads and comments
 
-Receiving and watching the threads on your current document can easily be done by using the `subscribeToThreads` function. This function will register a watcher, fetch the first initial list of threads and keep the list up to date.
+Use `subscribeToThreads` from `@tiptap-pro/extension-comments` to keep your thread list up to date. Pass `editor` to include each thread's current document ranges.
 
-To unsubscribe from the threads, you can call the callback function returned by the `subscribeToThreads` function.
+The callback receives the initial list immediately. With an editor, later updates are grouped into a microtask after thread data or ranges change. Ranges update after local edits, collaborative edits, and undo or redo. Selection changes alone do not trigger the callback.
 
 ```js
-// Subscribe to threads
+import { subscribeToThreads } from '@tiptap-pro/extension-comments'
+
 const unsubscribe = subscribeToThreads({
+  editor,
   provider: yourTiptapCollabProvider,
   callback: (threads) => {
-    // do something with threads, store in a state or variable from here
+    console.log(threads.map((thread) => ({ id: thread.id, ranges: thread.ranges })))
   },
-  // optional options
   getThreadsOptions: {
-    // only threads with the specific type will be fetched/watched, possible values are 'archived' and 'unarchived',
-    // if not set, only unarchived threads will be handled
-    // archived and unarchived threads represent soft-deleted threads
     types: ['archived', 'unarchived'],
   },
 })
+```
+
+By default, only unarchived threads are returned. Use `getThreadsOptions.types` to include archived threads, which are soft-deleted threads.
+
+With `editor`, the subscription defaults to the editor's collaboration field. Override it with `getThreadsOptions.field`. Field filtering also includes legacy threads that have no field assigned.
+
+Call `unsubscribe()` when you no longer need updates. The subscription also cleans up when the supplied editor is destroyed.
+
+Without `editor`, `subscribeToThreads` returns provider thread records without `ranges` and watches only provider changes.
+
+## Read current thread ranges
+
+Use `getThreads` from `@tiptap-pro/extension-comments` to read thread records with their current anchors in the editor. The editor must have `Comments` or `CommentsKit` installed.
+
+```js
+import { getThreads } from '@tiptap-pro/extension-comments'
+
+const threads = getThreads({
+  editor,
+  provider: yourTiptapCollabProvider,
+})
+```
+
+Each result keeps the provider's thread data and adds a read-only `ranges` array. The package exports the `ThreadWithPositions<Data, CommentData>` and `ThreadRange` types.
+
+Each range contains these fields:
+
+| Field  | Description                                                            |
+| ------ | ---------------------------------------------------------------------- |
+| `from` | Start position in the current ProseMirror document.                    |
+| `to`   | Exclusive end position in the current ProseMirror document.            |
+| `type` | `'inline'` for a marked range or `'block'` for a block thread wrapper. |
+
+Block ranges include the wrapper node. A thread can have several separate anchors, so `ranges` can contain multiple entries ordered by document position. Threads without an anchor in the supplied editor have `ranges: []`.
+
+These positions describe the current document, not permanent anchors. Read them again after edits or use `subscribeToThreads` with `editor` to receive updated ranges.
+
+`getThreads` accepts the same `getThreadsOptions` filters as the subscription and defaults to the editor's collaboration field. It preserves provider order rather than sorting threads by document position.
+
+To display threads in document order, sort by the first range. This example places threads without anchors last and uses the thread ID to break ties:
+
+```js
+const firstPosition = (thread) => thread.ranges[0]?.from ?? Infinity
+
+const orderedThreads = [...threads].sort(
+  (left, right) => firstPosition(left) - firstPosition(right) || left.id.localeCompare(right.id),
+)
 ```
 
 ## Receive and render threads manually
@@ -111,35 +158,49 @@ To unwatch the threads you can call `provider.unwatchThreads(getThreads)`.
 provider.unwatchThreads(getThreads)
 ```
 
-Let's say you want to write a react hook to get the threads and keep them up to date, you could write a hook like this.
+The watcher callback also receives the Yjs events and transaction. Use `transaction.local` to distinguish local and remote changes, and pass the same callback to `unwatchThreads` when you unsubscribe:
+
+```js
+const handleThreadChanges = (events, transaction) => {
+  console.log('Thread changes', events, transaction.local ? 'local' : 'remote')
+}
+
+provider.watchThreads(handleThreadChanges)
+
+// Unsubscribe when the watcher is no longer needed.
+provider.unwatchThreads(handleThreadChanges)
+```
+
+## Keep thread ranges in React state
+
+Use an editor-aware subscription in your React hook to receive both thread data and range updates:
+
+The hook also works without `editor`. In that case, it receives provider thread records without `ranges`.
 
 ```jsx
-const useThreads = (provider) => {
+import { subscribeToThreads } from '@tiptap-pro/extension-comments'
+import { useEffect, useState } from 'react'
+
+const useThreads = (provider, editor) => {
   const [threads, setThreads] = useState([])
 
   useEffect(() => {
     if (!provider) {
-      return () => null
+      return
     }
 
-    const getThreads = () => {
-      setThreads(provider.getThreads())
-    }
-
-    getThreads()
-
-    provider.watchThreads(getThreads)
-
-    return () => {
-      provider.unwatchThreads(getThreads)
-    }
-  }, [provider])
+    return subscribeToThreads({
+      editor,
+      provider,
+      callback: setThreads,
+    })
+  }, [provider, editor])
 
   return threads
 }
 ```
 
-Now those threads will be reactive and can be used to render the threads in your UI.
+Use the returned threads to render your UI. React calls the unsubscribe function when the dependencies change or the component unmounts.
 
 ## Update a thread
 
