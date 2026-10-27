@@ -64,7 +64,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
           className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center"
         >
           <div className="flex items-center gap-2">
-            <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
+            <Link href="/" className="text-lg flex items-center gap-2.5 pr-2.5">
               <TiptapLogo />
               <span className="whitespace-nowrap">
                 <span className="font-semibold">Tiptap</span> Docs
