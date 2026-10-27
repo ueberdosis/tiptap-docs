@@ -26,9 +26,9 @@ export const MobileNavigationDropdown = () => {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <NavLinkButton className="text-base outline-none font-semibold">
-          {activeItem.label}
-          <ChevronDownIcon className="w-3 h-3" />
+        <NavLinkButton className="text-base outline-none font-semibold whitespace-nowrap max-w-full">
+          <span className="truncate">{activeItem.label}</span>
+          <ChevronDownIcon className="w-3 h-3 flex-none" />
         </NavLinkButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
