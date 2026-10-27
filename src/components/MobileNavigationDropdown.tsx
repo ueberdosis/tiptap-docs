@@ -2,7 +2,7 @@
 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { usePathname } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DOCS_AREAS, activeDocsArea } from './DocsSwitcher'
 import { NavLink } from './NavLink'
 
@@ -18,22 +18,42 @@ const MenuIcon = () => (
   </svg>
 )
 
+/** The width of the header bar, and how far its right edge lies past the button's. */
+function frameOf(trigger: HTMLElement | null) {
+  const bar = trigger?.closest('[data-header-bar]')
+  if (!trigger || !bar) return undefined
+  const { width, right } = bar.getBoundingClientRect()
+  return { width, offset: right - trigger.getBoundingClientRect().right }
+}
+
 /** The phone menu: the areas of the docs, the website and sign up, behind one button. */
 export const MobileNavigationDropdown = () => {
   const active = activeDocsArea(usePathname())
   const trigger = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
   // The menu spans the header bar and lines up with its right edge
   const [frame, setFrame] = useState({ width: 0, offset: 0 })
 
-  const measure = (open: boolean) => {
+  // Follows the header when the screen turns or resizes while the menu is open
+  useEffect(() => {
     const bar = trigger.current?.closest('[data-header-bar]')
-    if (!open || !bar || !trigger.current) return
-    const { width, right } = bar.getBoundingClientRect()
-    setFrame({ width, offset: right - trigger.current.getBoundingClientRect().right })
+    if (!open || !bar) return
+    const observer = new ResizeObserver(() => {
+      const next = frameOf(trigger.current)
+      if (next) setFrame(next)
+    })
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [open])
+
+  const changeOpen = (next: boolean) => {
+    const measured = next ? frameOf(trigger.current) : undefined
+    if (measured) setFrame(measured)
+    setOpen(next)
   }
 
   return (
-    <DropdownMenu.Root onOpenChange={measure}>
+    <DropdownMenu.Root open={open} onOpenChange={changeOpen}>
       <DropdownMenu.Trigger
         ref={trigger}
         aria-label="Menu"
