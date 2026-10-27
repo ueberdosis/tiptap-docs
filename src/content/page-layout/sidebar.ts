@@ -67,13 +67,14 @@ export const sidebarConfig: SidebarConfig = {
           href: '/page-layout/supported-extensions',
           children: [
             { title: 'Tables', href: '/page-layout/supported-extensions/tables' },
+            { title: 'Lists', href: '/page-layout/supported-extensions/lists' },
             { title: 'Footnotes', href: '/page-layout/supported-extensions/footnotes' },
             {
               title: 'Cross-references',
               href: '/page-layout/supported-extensions/cross-references',
             },
             {
-              title: 'Document Styles',
+              title: 'Document styles',
               href: '/page-layout/supported-extensions/document-styles',
             },
             {

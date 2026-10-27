@@ -486,7 +486,7 @@ export const sidebarConfig: SidebarConfig = {
               ],
             },
             {
-              title: 'Document Styles',
+              title: 'Document styles',
               href: '/editor/extensions/functionality/document-styles',
               releaseTag: 'alpha',
               children: [
