@@ -89,6 +89,10 @@ export type FrontmatterHeaderDemo = {
   isPro?: boolean
   /** A full URL instead of `path`. */
   src?: string
+  /** `false` for a demo whose code is too much to read beside it, such as a whole app: no Preview / Code / Both. */
+  code?: boolean
+  /** A short line at the left of the bar, in HTML like `intro`. Shown only without code, where the view switch is not. */
+  caption?: string
 }
 
 export type FrontmatterSidebar = {

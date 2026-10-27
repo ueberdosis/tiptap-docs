@@ -146,6 +146,12 @@ export default async function MarkdownPage({ params }: Props) {
             path={headerDemo.path}
             isPro={headerDemo.isPro}
             src={headerDemo.src}
+            code={headerDemo.code}
+            caption={
+              headerDemo.caption ? (
+                <span dangerouslySetInnerHTML={{ __html: headerDemo.caption }} />
+              ) : undefined
+            }
             isLarge
             view="preview"
           />
