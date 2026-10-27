@@ -4,47 +4,52 @@ tags:
   - type: beta
 meta:
   title: Footnotes and Endnotes | Tiptap Conversion
-  description: How footnotes and endnotes are handled across the DOCX conversion pipeline, including import extraction and current limitations.
+  description: Import, edit, and export footnotes and endnotes with Pages and the DOCX editor extensions.
   category: Conversion
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-The DOCX import service extracts footnote and endnote content from imported documents. However, this data is only available via the [REST API](/conversion/import/docx/rest-api). The [editor extension](/conversion/import/docx/editor-extension) does not surface footnotes or endnotes in the `onImport` callback. There is no editor extension to render footnotes, and export is not supported.
+Footnotes and endnotes store extra information outside the document body. The DOCX import API returns their content as separate Tiptap JSON documents. [Pages](/pages/getting-started/overview) can display and edit the notes, and the DOCX export editor extension writes them as Word notes.
 
 ## Support overview
 
-| | Import | Editor | Export |
-| --- | --- | --- | --- |
-| Footnotes | REST API only (not in extension callback) | No extension | In development |
-| Endnotes | REST API only (not in extension callback) | No extension | In development |
+|           | Import                               | Editor                                            | DOCX editor export |
+| --------- | ------------------------------------ | ------------------------------------------------- | ------------------ |
+| Footnotes | REST response and extension callback | [Pages footnotes](/pages/core-concepts/footnotes) | Supported          |
+| Endnotes  | REST response and extension callback | [Pages endnotes](/pages/core-concepts/endnotes)   | Supported          |
 
 ## Import
 
-Footnote and endnote data is only available via the [REST API](/conversion/import/docx/rest-api). The [editor extension](/conversion/import/docx/editor-extension) calls the same API but does not include this data in the `onImport` callback.
+The [REST API](/conversion/import/docx/rest-api) returns `footnotes` and `endnotes` maps keyed by note ID. The [import editor extension](/conversion/import/docx/editor-extension#footnotes--endnotes) exposes the same maps in its `onImport` context.
 
-The REST API extracts footnotes and endnotes from the DOCX and returns them as `footnotes` and `endnotes` fields in the response, keyed by note ID. Inline references in the body text are represented as `footnoteReference` and `endnoteReference` nodes with a `noteId` attribute.
+Each map value is a Tiptap document with `type: 'doc'` and a `content` array. The body contains `footnoteReference` and `endnoteReference` nodes. Their `noteId` attributes link to the matching map entries.
 
-<Callout variant="warning" title="Extension does not surface footnote/endnote data">
-  To access footnote and endnote data, use the [REST API](/conversion/import/docx/rest-api) directly. The `footnoteReference` and `endnoteReference` nodes in the body text require a [custom extension](/editor/extensions/custom-extensions/extend-existing) to render in the editor. See the [invalid schema guide](/guides/invalid-schema) for strategies.
-</Callout>
-
-If you use the REST API directly, each footnote and endnote value is a Tiptap JSON document (`{ type: "doc", content: [...] }`). How you use this data is up to you. Some options include appending the notes as a numbered list at the end of the document, rendering them in a custom sidebar, or storing them for later use.
+When you call the import context's `setEditorContent()`, the extension applies the maps to Pages if the matching note feature is enabled. Without Pages, keep the maps alongside your document and provide your own reference nodes and note display. See the [invalid schema guide](/guides/invalid-schema) if your editor schema does not include the imported references.
 
 ## Editor
 
-There is no footnote or endnote extension in Tiptap or Tiptap Pro. The editor schema has no built-in node or mark type that can represent footnote references or footnote content.
+Enable `footnotes` or `endnotes` in `Pages.configure()`. Pages adds the reference nodes and provides editors for note content. Read the [footnote guide](/pages/core-concepts/footnotes) and [endnote guide](/pages/core-concepts/endnotes) for setup, storage, and editing commands.
 
-To render footnotes in your editor, you would need to build a custom extension that handles `footnoteReference` and `endnoteReference` node types and provides a UI for displaying the note content.
+Save the note maps with the body document. The body contains references, while `editor.storage.pages.footnotesJSON` and `editor.storage.pages.endnotesJSON` contain the note documents.
 
 ## Export
 
-Neither the [editor extension](/conversion/export/docx/editor-extension) nor the [REST API](/conversion/export/docx/rest-api) exports footnotes or endnotes. There is currently no way to produce footnotes or endnotes in exported DOCX files.
+The [DOCX export editor extension](/conversion/export/docx/editor-extension) reads the note maps from Pages automatically. You can also pass `footnotes` and `endnotes` maps in the export options, including when you use `exportDocx()` on the server. Explicit maps take priority over Pages storage.
 
-## Workarounds
+Each reference needs a matching note ID in its map. The exporter writes referenced notes in their first-reference order. Repeated references share the same note, and notes without a body reference do not appear in the exported file.
 
-If your workflow requires footnote-like content in the editor and exported documents, consider these alternatives:
+Notes use the normal block converters. They can contain paragraphs, lists, tables, images, and custom content that produces paragraphs or tables. If a note starts with a table, the exporter adds an empty first paragraph for Word's note reference.
 
-- **Inline parenthetical notes**: Convert footnote content to parenthetical text within the body. This survives the full round-trip.
-- **Endnote section**: Append a manually maintained "Notes" section at the end of the document using regular paragraphs and numbered text.
-- **Custom handling**: Use the import callback to extract footnote data, store it alongside your document, and inject it back during a custom export step.
+With `documentStyles` enabled in a mounted browser editor, the exporter reads each displayed note's styles. Custom formatting takes priority. List numbering and supported tracked changes also pass through note conversion. Automatic font embedding can include fonts and characters used only in notes.
+
+<Callout variant="info" title="Export with the editor extension">
+  This guide uses `@tiptap-pro/extension-export-docx`. For REST export, see the [REST API
+  reference](/conversion/export/docx/rest-api) for supported options.
+</Callout>
+
+## Limits
+
+Pages and Word calculate note placement separately. Word can move a note or continue it on another page when it lays out the exported document. The exporter does not guarantee the same page breaks as the editor.
+
+Reading displayed note styles requires a matching Pages preview or active note editor. Server-side export uses the JSON and the styles you provide. Unsupported custom nodes need an export renderer, just as they do in the document body.
