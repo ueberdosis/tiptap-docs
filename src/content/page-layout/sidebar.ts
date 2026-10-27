@@ -63,39 +63,39 @@ export const sidebarConfig: SidebarConfig = {
           ],
         },
         {
-          title: 'Paginating extensions',
-          href: '/page-layout/paginating-extensions',
+          title: 'Supported extensions',
+          href: '/page-layout/supported-extensions',
           children: [
-            { title: 'Tables', href: '/page-layout/paginating-extensions/tables' },
-            { title: 'Footnotes', href: '/page-layout/paginating-extensions/footnotes' },
+            { title: 'Tables', href: '/page-layout/supported-extensions/tables' },
+            { title: 'Footnotes', href: '/page-layout/supported-extensions/footnotes' },
             {
               title: 'Cross-references',
-              href: '/page-layout/paginating-extensions/cross-references',
+              href: '/page-layout/supported-extensions/cross-references',
             },
             {
               title: 'Document Styles',
-              href: '/page-layout/paginating-extensions/document-styles',
+              href: '/page-layout/supported-extensions/document-styles',
             },
             {
               title: 'Outline numbering',
-              href: '/page-layout/paginating-extensions/outline-numbering',
+              href: '/page-layout/supported-extensions/outline-numbering',
             },
-            { title: 'Columns', href: '/page-layout/paginating-extensions/columns' },
+            { title: 'Columns', href: '/page-layout/supported-extensions/columns' },
             {
               title: 'Your own extension',
-              href: '/page-layout/paginating-extensions/your-own-extension',
+              href: '/page-layout/supported-extensions/your-own-extension',
               children: [
                 {
                   title: 'Layout rules',
-                  href: '/page-layout/paginating-extensions/your-own-extension/layout-rules',
+                  href: '/page-layout/supported-extensions/your-own-extension/layout-rules',
                 },
                 {
                   title: 'When no rule fits',
-                  href: '/page-layout/paginating-extensions/your-own-extension/when-no-rule-fits',
+                  href: '/page-layout/supported-extensions/your-own-extension/when-no-rule-fits',
                 },
                 {
                   title: 'NodeLayout reference',
-                  href: '/page-layout/paginating-extensions/your-own-extension/node-layout-reference',
+                  href: '/page-layout/supported-extensions/your-own-extension/node-layout-reference',
                 },
               ],
             },
