@@ -72,6 +72,7 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/guides/mobile-apps',
           title: 'Mobile apps',
+          tags: ['Experimental'],
         },
       ],
     },
