@@ -141,3 +141,86 @@ editor.chain().exportDocx().run()
 You can construct any supported `DOCX` elements in the `render` function using the `Docx` library classes (`Paragraph`, `TextRun`, `Table`, etc.) that are provided via the `Docx` import from the `@tiptap-pro/extension-export-docx` package.
 
 See [Native DOCX options](/conversion/export/docx/styles#native-docx-options) for RTL alignment, percentage widths, and default styles.
+
+## Fit images to the page or table cell
+
+An image without `width` and `height` exports at its pixel size, so a large photo runs past the right margin in Word. A custom node that renders an image can keep it inside the page.
+
+`render` gets a second argument, `context`. Its `maxImageWidth` is the width of the page's text column in pixels, or the content width of the table cell the node is in (the cell width minus its left and right margins). List indents are not subtracted. `context` is `undefined` for a custom node inside a [`customNodeDsl`](/conversion/export/docx/custom-nodes-dsl) rule.
+
+Pass it as `maxWidth` to `convertImage` or `convertImageRun`:
+
+```ts
+import { convertImage, ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'photo',
+      render: (node, context) => {
+        const { src, width, height } = node.attrs ?? {}
+
+        return convertImage({
+          node: { type: 'image', attrs: { src, width, height } },
+          maxWidth: context?.maxImageWidth,
+        })
+      },
+    },
+  ],
+})
+```
+
+`maxWidth` only changes an image that has neither `width` nor `height`. A wider image shrinks to `maxWidth` and keeps its aspect ratio. An image with its own size, and `imageOverrides.transformation`, still win.
+
+When the node lays out content around the image, use `convertImageRunWithSize`. It returns the image run together with the size it gets in the document (`{ imageRun, width, height }`, in pixels), or `null` for an image the export skipped. This example puts a caption under the image in a table as wide as the image:
+
+```ts
+import {
+  convertImageRunWithSize,
+  Docx,
+  ExportDocx,
+  pixelsToPoints,
+  pointsToTwips,
+} from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'figure',
+      render: async (node, context) => {
+        const { src, width, height } = node.attrs ?? {}
+        const image = await convertImageRunWithSize({
+          node: { type: 'image', attrs: { src, width, height } },
+          maxWidth: context?.maxImageWidth,
+        })
+        if (!image) return null
+
+        // Word measures table widths in twips.
+        const tableWidth = Math.round(pointsToTwips(pixelsToPoints(image.width)))
+
+        return new Docx.Table({
+          // A fixed layout without cell margins keeps the table exactly as wide as the image.
+          layout: Docx.TableLayoutType.FIXED,
+          width: { size: tableWidth, type: Docx.WidthType.DXA },
+          columnWidths: [tableWidth],
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+          rows: [
+            new Docx.TableRow({
+              children: [
+                new Docx.TableCell({
+                  children: [
+                    new Docx.Paragraph({ children: [image.imageRun] }),
+                    new Docx.Paragraph({ text: node.attrs?.caption }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      },
+    },
+  ],
+})
+```
+
+Built-in `image` nodes are not affected: they keep exporting at their own size.
