@@ -1,6 +1,6 @@
 ---
 title: 'Data Sources'
-intro: 'A chart can take its data from somewhere other than the document: a CSV or JSON file at a URL, a table in the same document, or a provider you write. The chart always stores a <strong>snapshot</strong> of that data beside the <strong>address</strong> it came from, so it renders offline, in an export and for a reader without access to the source.'
+intro: 'A chart can take its data from a Data Source, a place outside the chart: a CSV or JSON file at a URL, a table in the same document, or a provider you write.'
 headerDemo:
   path: '/Extensions/DiagramsDataSources'
   isPro: true
@@ -9,11 +9,16 @@ tags:
   - type: restricted
 meta:
   title: 'Data Sources | Tiptap Diagrams Docs'
-  description: 'A chart can take its data from somewhere other than the document.'
+  description: 'A chart can take its data from a Data Source, a place outside the chart.'
   category: Diagrams
 ---
 
 import { CodeDemo } from '@/components/CodeDemo'
+
+The chart stores the **address**,
+which says where the data comes from. It also stores a **snapshot**, a copy of the data it last
+read. The chart draws from the snapshot, so it draws offline, in an export and for people who
+cannot reach the source.
 
 ## Quick start
 
@@ -34,25 +39,31 @@ editor.commands.linkChartSource({
 
 `listCharts()` reports both.
 
-## Linked, detached, read-only
+## Linked or detached
 
-- **Linked** (`mode: 'linked'`): the chart follows the source.
-  - A snapshot is replaced only by `syncChartData`, `requestSync`, `relinkChartSource` or a
-    provider that pushes changes.
-  - Until then, the chart shows the last snapshot.
-- **Read-only** (`readOnly: true`): while linked, Commands that change the data return
-  `false`.
-  - So a local edit is never overwritten by the next synchronization.
-  - The spec stays editable.
-- **Detached** (`mode: 'detached'`): `detachChartSource` keeps the snapshot and the address.
-  - The data can be edited again.
-  - `relinkChartSource` follows the source again and replaces the data with what it returns.
+`mode` says whether the chart follows its source. It is `'linked'` or `'detached'`.
+
+**Linked** (`mode: 'linked'`). The chart follows the source. Only these replace the snapshot:
+`syncChartData`, `requestSync`, `relinkChartSource`, and a provider that pushes changes with
+`subscribe` (see [Writing a provider](/diagrams/data/sources#writing-a-provider)). Until one of them runs, the chart
+shows the last snapshot.
+
+**Detached** (`mode: 'detached'`). `detachChartSource` stops following the source and keeps the
+snapshot and the address. You can edit the data again. `relinkChartSource` follows the source
+again and replaces the data with what the source returns.
+
+## Read-only
+
+`readOnly` is a separate flag. It only has an effect while the chart is linked. With
+`readOnly: true`, commands that change the data return `false`, so the next synchronization
+never overwrites a local edit. The Chart Spec stays editable. Detaching keeps the flag as it is,
+and it acts again when you relink.
 
 ## Showing only some columns
 
-A source delivers all of its columns, and a synchronization replaces them all. To show only
-some of them, set `encoding` in the Chart Spec with `updateChartSpec`. It survives every
-synchronization.
+A source delivers all of its columns, and a synchronization replaces them all. To show only some
+of them, set `encoding` in the Chart Spec with `updateChartSpec`. `encoding` survives every
+synchronization. [Which columns are drawn](/diagrams/data/overview#which-columns-are-drawn) describes it.
 
 ```ts
 editor.commands.updateChartSpec({ spec: { encoding: { label: 'region', series: ['revenue'] } } })
@@ -60,20 +71,26 @@ editor.commands.updateChartSpec({ spec: { encoding: { label: 'region', series: [
 
 ## When a chart synchronizes
 
-- **A snapshot written by a synchronization** is left out of the undo history.
-- **Every synchronization sets `syncedAt`**, also when the data it brings is the same. The
-  document then records when the data was last checked.
-- **In a version comparison** that counts as a change; see [Versions](/diagrams/guides/versions).
-- **When a source cannot be read**, the chart keeps its snapshot and `onSourceError` is called
-  with the error and `{ provider, address }`.
+A synchronization reads the source and writes a new snapshot into the chart.
 
-Synchronizing every chart that reads a URL:
+- **The snapshot is left out of the undo history**, so undo never takes back a synchronization
+  together with your edits.
+- **Every synchronization sets `syncedAt`**, also when the data is the same. The document then
+  records when the data was last checked. In a version comparison, that counts as a change, see
+  [Versions](/diagrams/guides/versions).
+- **When a source cannot be read**, the chart keeps its snapshot. The extension calls the
+  `onSourceError` option with the error and `{ provider, address }`.
+- **Every client that synchronizes needs the provider registered.** A client without it shows
+  the snapshot and cannot read the source.
+
+To synchronize every chart that reads a URL:
 
 ```ts
 await editor.storage.diagrams.requestSync({ provider: 'url-csv', address: { url } })
 ```
 
-Synchronizing on a schedule is up to the integration, for example with `setInterval`.
+The extension does not synchronize on a schedule. Your app can, for example with `setInterval`.
+Stay within the limits of the service you read.
 
 ## Built-in providers
 
@@ -85,23 +102,24 @@ Synchronizing on a schedule is up to the integration, for example with `setInter
 
 ### Reading a URL
 
-A URL must allow the page to read it (CORS); a published Google Sheet does. The read fails,
-and the chart keeps its data:
+A URL must be absolute and use `http:` or `https:`. When you set the
+[`allowSourceUrl`](/diagrams/api-reference/options#allowsourceurl) option, the URL must also pass it. The server
+must allow your app's web page to read the file (CORS). A published Google Sheet does.
 
-- when the server answers with an error status
-- when the request is blocked
-- when the answer is an HTML page instead of a file, which many hosts send with status 200
-  for an address they do not know
+The read fails, and the chart keeps its data, in these cases:
+
+- The address is not such a URL.
+- The server answers with an error status.
+- The request is blocked.
+- The answer is an HTML page instead of a file. Many hosts send one with status 200 for an
+  address they do not know.
 
 ### Reading a table
 
-- `document-table` is what `insertLinkedChart`, `linkChartToTable` and `setChartLayout` use;
-  see [Tables](/diagrams/data/tables).
-- The table can be anywhere in the document.
-- `listTables()` lists the tables a chart can follow.
-- It needs the option `chart.linkTables`, which gives the table a `chartTableId` attribute.
-- A chart linked to a table changes in the same Transaction as the edit of the table, so one
-  undo takes back both.
+`insertLinkedChart`, `linkChartToTable` and `setChartLayout` use `document-table`. The table can
+be anywhere in the document, and `listTables()` lists the tables a chart can follow. A chart
+that follows a table changes in the same undo step as your edit of the table. This needs the
+option `chart.linkTables`, see [Tables](/diagrams/data/tables).
 
 ## Writing a provider
 
@@ -109,8 +127,8 @@ A provider that reads a weather API and fills a chart with the next seven days:
 
 <CodeDemo isPro viewer view="preview" path="/Extensions/DiagramsCustomSource" />
 
-A provider is an object with an `id` and a `read` function. Pass it as the option `sources`,
-or add it at run time with `editor.storage.diagrams.registerSource(provider)`:
+A provider is an object with an `id` and a `read` function. Pass it in the `sources` option, or
+add it at run time with `editor.storage.diagrams.registerSource(provider)`:
 
 ```ts
 import type { ChartSourceProvider } from '@tiptap-pro/extension-diagrams'
@@ -140,15 +158,18 @@ const salesApi: ChartSourceProvider = {
 | `subscribe(address, onChange, context)` | No       | For a source that pushes changes: call `onChange(data)` with every new state and return a function that stops |
 | `describe(address)`                     | No       | A label for a user interface                                                                                  |
 
-- `context` has `fetch`, `decimalSeparator` and `editor`.
-- The Extension keeps one subscription per linked address and writes each change into every
+- `context` has `fetch`, `decimalSeparator` and `editor`. When your app sets `allowSourceUrl`,
+  it also has `allowUrl`.
+- To report an error, throw a `ChartSourceError` with a message a person can read.
+- The extension keeps one subscription per linked address and writes each change into every
   chart linked to it.
-- The document stores the address, never credentials.
-- A provider that needs a key or a token takes it from your application when you create the
-  provider.
 
-Providers for Google Sheets, Excel and Airtable, with what each service needs set up, are in
-[Google Sheets, Excel and Airtable](/diagrams/guides/spreadsheets).
+The document stores the address and shares it with everyone who opens the document. Never put
+credentials in it. A provider that needs a key or a token takes it from your app when you create
+the provider.
+
+[Google Sheets, Excel and Airtable](/diagrams/guides/spreadsheets) has a provider for each of these
+services, with what each service needs set up.
 
 ## Commands
 
@@ -172,6 +193,8 @@ editor.commands.linkChartSource({
 | `data`     | `ChartData` | The first snapshot. Without it, the source is read and the snapshot is written when it arrives |
 | `pos`      | `number`    | The chart's position. Defaults to the selected chart                                           |
 
+Returns `false` for an unknown provider.
+
 ### syncChartData
 
 Writes a new snapshot.
@@ -188,11 +211,13 @@ editor.commands.syncChartData({
 | `source` | `{ provider, address }` | Writes into every chart linked to that source. Without it, one chart |
 | `pos`    | `number`                | The chart's position. Defaults to the selected chart                 |
 
-A snapshot is left out of the undo history.
+The snapshot is left out of the undo history.
+
+Returns `false` without a matching chart, or without `data` for a chart that has no source.
 
 ### detachChartSource
 
-Keeps the snapshot and the address and stops following the source.
+Stops following the source, and keeps the snapshot and the address.
 
 ```ts
 editor.commands.detachChartSource()
@@ -201,6 +226,8 @@ editor.commands.detachChartSource()
 | Option | Type     | Description                                          |
 | ------ | -------- | ---------------------------------------------------- |
 | `pos`  | `number` | The chart's position. Defaults to the selected chart |
+
+Returns `false` for a chart without a source.
 
 ### relinkChartSource
 
@@ -213,3 +240,5 @@ editor.commands.relinkChartSource()
 | Option | Type     | Description                                          |
 | ------ | -------- | ---------------------------------------------------- |
 | `pos`  | `number` | The chart's position. Defaults to the selected chart |
+
+Returns `false` for a chart without a source.
