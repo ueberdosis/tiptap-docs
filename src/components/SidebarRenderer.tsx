@@ -51,7 +51,8 @@ export const LinkItem = ({
 }) => {
   const pathname = usePathname()
   const isExactMatch = link.isActive ?? pathname === link.href
-  const isActiveParent = pathname.startsWith(link.href)
+  // Every path starts with '', so an entry that only folds open would always start open
+  const isActiveParent = link.href !== '' && pathname.startsWith(link.href)
   const hasActiveChild = hasActiveDescendant(link.children, pathname)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
