@@ -27,11 +27,11 @@ export const useCodeCollapse = <T extends HTMLElement>(collapsedHeight: number |
       setAtEnd(element.scrollTop + element.clientHeight >= element.scrollHeight - 1)
     }
     element.addEventListener('scroll', measure, { passive: true })
-    // The code may change after the first render (highlighting, another file)
+    // The code may change after the first render (highlighting, another file, text in place)
     const resize = new ResizeObserver(measure)
     resize.observe(element)
     const mutation = new MutationObserver(measure)
-    mutation.observe(element, { childList: true, subtree: true })
+    mutation.observe(element, { childList: true, characterData: true, subtree: true })
     measure()
     return () => {
       element.removeEventListener('scroll', measure)

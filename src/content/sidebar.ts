@@ -7,6 +7,7 @@ import { sidebarConfig as commentsSidebar } from './comments/sidebar'
 import { sidebarConfig as compareSidebar } from './compare/sidebar'
 import { sidebarConfig as composableDocsSidebar } from './composable-docs/sidebar'
 import { sidebarConfig as conversionSidebar } from './conversion/sidebar'
+import { sidebarConfig as diagramsSidebar } from './diagrams/sidebar'
 import { sidebarConfig as editorSidebar } from './editor/sidebar'
 import { sidebarConfig as examplesSidebar } from './examples/sidebar'
 import { sidebarConfig as guidesSidebar } from './guides/sidebar'
@@ -270,6 +271,11 @@ const items: SidebarGroup[] = [
         composableDocsSidebar,
         '/composable-docs/slots/getting-started/overview',
       ),
+      // Not in the catalog: its generated pages carry no `extension` frontmatter
+      section('Diagrams', diagramsSidebar, {
+        inline: ['Diagrams'],
+        tags: catalogTags({ plan: 'Pilot program', status: 'Alpha' }),
+      }),
       {
         // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
         // Pages stays at its URLs for existing projects, labeled Legacy.

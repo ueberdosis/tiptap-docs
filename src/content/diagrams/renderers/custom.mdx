@@ -1,0 +1,304 @@
+---
+title: 'Your own Renderer'
+intro: 'A chart and a diagram are drawn by whatever Renderer you register. The document stores the data, the spec and the source text, never the picture, so a Renderer of your own draws every existing chart and diagram without a migration.'
+headerDemo:
+  path: '/Extensions/DiagramsCustomRenderer'
+  isPro: true
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Your own Renderer | Tiptap Diagrams Docs'
+  description: 'A chart and a diagram are drawn by whatever Renderer you register.'
+  category: Diagrams
+---
+
+## A chart Renderer
+
+This Renderer draws bar charts as plain SVG, with no library. It reads the colors from
+`theme` and the size from `size`, and writes every label as text.
+
+```ts
+import type { ChartRenderer, ChartRenderInput } from '@tiptap-pro/extension-diagrams'
+
+const SVG = 'http://www.w3.org/2000/svg'
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function barsSvg({ data, spec, theme, size }: ChartRenderInput): string {
+  const series = data.columns.flatMap((column, index) =>
+    column.role === 'series' ? [{ ...column, index }] : [],
+  )
+  const colors = spec.palette ?? theme.series
+  const values = data.rows
+    .flatMap((row) => series.map((column) => row[column.index]))
+    .filter((cell): cell is number => typeof cell === 'number')
+  const max = Math.max(1, ...values)
+  const band = size.width / Math.max(1, data.rows.length)
+  const bar = band / (series.length + 1)
+  const plot = size.height - 24
+
+  const bars = data.rows.flatMap((row, rowIndex) => [
+    ...series.map((column, seriesIndex) => {
+      const value = typeof row[column.index] === 'number' ? (row[column.index] as number) : 0
+      const height = (value / max) * plot
+      const x = rowIndex * band + bar * (seriesIndex + 0.5)
+      return `<rect x="${x}" y="${plot - height}" width="${bar}" height="${height}" fill="${colors[seriesIndex % colors.length]}"/>`
+    }),
+    `<text x="${rowIndex * band + band / 2}" y="${size.height - 6}" text-anchor="middle" fill="${theme.labelColor}" font-family="${escapeXml(theme.fontFamily)}" font-size="${theme.fontSize}">${escapeXml(String(row[0] ?? ''))}</text>`,
+  ])
+
+  return `<svg xmlns="${SVG}" width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}">${bars.join('')}</svg>`
+}
+
+export const plainBarsRenderer: ChartRenderer = {
+  id: 'plain-bars',
+  label: 'Plain bars',
+  types: ['bar'],
+  // Leaves stacked bars to the next Renderer that draws bar charts
+  draws: ({ spec }) => !spec.stacked,
+  mount(target, input) {
+    const draw = (next: ChartRenderInput) => {
+      const svg = new DOMParser().parseFromString(barsSvg(next), 'image/svg+xml').documentElement
+      target.replaceChildren(target.ownerDocument.importNode(svg, true))
+    }
+    draw(input)
+    return { update: draw, destroy: () => target.replaceChildren() }
+  },
+  async toSVG(input) {
+    return barsSvg(input)
+  },
+}
+```
+
+### Registering it
+
+Register it next to the Renderers you already use:
+
+```ts
+import { Diagrams } from '@tiptap-pro/extension-diagrams'
+import { echartsRenderer } from '@tiptap-pro/extension-diagrams/echarts'
+
+Diagrams.configure({
+  renderers: [echartsRenderer(), plainBarsRenderer],
+})
+
+editor.commands.setChartRenderer({ renderer: 'plain-bars' })
+```
+
+- A chart that names `plain-bars` is drawn by it.
+- Every other chart keeps its Renderer.
+
+### Members
+
+| Member                  | Type                                                                 | Description                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | `string`                                                             | What a chart stores as its `renderer`                                                                                                           |
+| `label`                 | `string`                                                             | Optional. For a menu                                                                                                                            |
+| `types`                 | `readonly ChartType[]`                                               | The chart types it draws                                                                                                                        |
+| `draws({ data, spec })` | `(chart) => boolean`                                                 | Optional. `false` for a chart of its types that it draws badly, so another Renderer takes it                                                    |
+| `rules`                 | `RendererRules`                                                      | Optional. See [Rules of your Renderer](/diagrams/renderers/custom#rules-of-your-renderer)                                                       |
+| `mount(target, input)`  | `(target, input) => ChartRenderHandle \| Promise<ChartRenderHandle>` | Draws into `target`, an element inside the editor, and returns `{ update, destroy }`                                                            |
+| `toSVG(input)`          | `(input) => Promise<string>`                                         | Returns a standalone SVG string with concrete colors, used by `export`                                                                          |
+| `toImage(input)`        | `(input) => Promise<Blob>`                                           | Returns a PNG at `input.size`. For a library that draws on a canvas, see [A Renderer that draws on a canvas](/diagrams/renderers/custom-canvas) |
+
+A Renderer has either `toSVG` or `toImage`:
+
+- **`toSVG`:** every file is made from the SVG. The type is `VectorChartRenderer`; the built-in
+  Renderers are of this kind.
+- **`toImage`:** every file is made from the picture. An SVG file holds the picture, not shapes,
+  and `export` returns `raster: true`. The type is `RasterChartRenderer`.
+
+The frame, the attribution and the size are the same either way.
+
+What `mount` returns:
+
+| Member          | Description                                                                            |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `update(input)` | Draws the chart again with new input. Called for a change of data, spec, theme or size |
+| `destroy()`     | Removes what `mount` added                                                             |
+
+### What a Renderer receives
+
+`input` is a `ChartRenderInput`:
+
+| Field     | Type                | Description                                                                     |
+| --------- | ------------------- | ------------------------------------------------------------------------------- |
+| `data`    | `ChartData`         | The Chart Data                                                                  |
+| `spec`    | `ChartSpec`         | The Chart Spec                                                                  |
+| `theme`   | `ChartTheme`        | Concrete values to draw with, listed below                                      |
+| `size`    | `{ width, height }` | In pixels                                                                       |
+| `animate` | `boolean`           | `true` when the chart may move as it is drawn and changed. A file never gets it |
+
+- `theme` holds `series` colors, `background`, `axisColor`, `gridColor`, `labelColor`,
+  `titleColor`, `fontFamily`, `fontSize`, `titleSize`, `titleWeight`, `legendGap` and
+  `legendMarkerSize`.
+- Draw with the `theme` values, not with `var(…)`, so the picture matches the page and
+  exports correctly.
+- A `spec.palette` takes the place of `theme.series`.
+- `animate` is `true` in the editor, with the `animation` option on and no request for
+  reduced motion.
+
+### What a Renderer must not do
+
+- Run code that comes from the document.
+- Insert markup that comes from the document.
+- Set text such as labels and titles as HTML. Text is data: set it as text.
+
+### Where the data comes from
+
+A Renderer never reads the document, a table or a Data Source.
+
+- Typed rows, rows from a table the chart follows and a snapshot of a URL all reach a
+  Renderer as Chart Data, in `input.data`.
+- When the data changes, the Renderer gets `update` with the new input.
+- So a Renderer works with every way data gets into a chart, and a way in works with every
+  Renderer. See [Data](/diagrams/data/overview).
+
+### What to honor in the spec
+
+| Spec field                  | What to draw                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `type`                      | Only the types in `types`. Return `false` from `draws` for a variant you cannot draw                                        |
+| `palette`                   | Use it instead of `theme.series`                                                                                            |
+| `stacked`                   | Stack the series of a bar or area chart                                                                                     |
+| `orientation`               | `'horizontal'`: lay the bars of a bar chart on their side                                                                   |
+| `axes.y.step`, `references` | Ticks at every step, and lines and bands at values. Decline through `draws` if you cannot draw them                         |
+| `range`                     | `{ min, max }` of a gauge                                                                                                   |
+| `legend`, `title`           | Show or hide the legend and the title                                                                                       |
+| `series`                    | Line style, width, marker and smoothing per series of a line or area chart. Decline through `draws` if you cannot draw them |
+| `renderer[id]`              | Options a chart stores for your Renderer only, under your `id`                                                              |
+
+- `valueAxisScale` works out the axis for `axes.y.step` and `references`.
+- `data` arrives with the columns the spec selected.
+- `theme` holds resolved colors, also in a dark color scheme.
+- `toSVG` and `toImage` receive the light colors unless the caller asked for `scheme: 'dark'`.
+
+### Text in the picture
+
+A double click renames a chart's text ([Text in the picture](/diagrams/charts/editing))
+when the handle `mount` returns has `onTextDoubleClick`. It takes a listener and returns a
+function that removes it. Call the listener while the double click is handled, with a
+`ChartTextHit`:
+
+| Field    | Type              | Description                                                                    |
+| -------- | ----------------- | ------------------------------------------------------------------------------ |
+| `target` | `ChartTextTarget` | Which text was hit, see below                                                  |
+| `text`   | `string`          | The text as drawn                                                              |
+| `box`    | `ChartTextBox`    | `x`, `y`, `width`, `height` in the page's pixels, from `getBoundingClientRect` |
+
+| Target                               | Text                                                       |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `{ kind: 'title' }`                  | The title                                                  |
+| `{ kind: 'axis', axis: 'x' \| 'y' }` | An axis title. `x` is the category axis, also on its side  |
+| `{ kind: 'series', column }`         | A series name, by the column id in `input.data`            |
+| `{ kind: 'category', row }`          | A category label or a pie part, by the row in `input.data` |
+
+```ts
+mount(target, input) {
+  const svg = draw(input)
+  target.append(svg)
+  const listeners = new Set<(hit: ChartTextHit) => void>()
+  svg.addEventListener('dblclick', event => {
+    const title = event.target instanceof Element ? event.target.closest('.title') : null
+    if (!title) return
+    const { x, y, width, height } = title.getBoundingClientRect()
+    const hit: ChartTextHit = {
+      target: { kind: 'title' },
+      text: title.textContent ?? '',
+      box: { x, y, width, height },
+    }
+    listeners.forEach(listener => listener(hit))
+  })
+  return {
+    update: next => {},
+    destroy: () => svg.remove(),
+    onTextDoubleClick: listener => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+```
+
+- **Without `onTextDoubleClick`** a double click opens nothing.
+- **The editor decides** whether a field opens: not in a read-only editor, and not for a series
+  or a category of read-only data.
+
+## Rules of your Renderer
+
+A chart library's licence may ask for a visible credit, or limit the files its pictures may
+be exported to. A Renderer declares this in `rules`, and the extension applies it everywhere
+the Renderer's pictures appear:
+
+```ts
+import type { DiagramRenderer } from '@tiptap-pro/extension-diagrams'
+
+export const creditedRenderer: DiagramRenderer = {
+  id: 'credited',
+  label: 'Credited',
+  formats: ['mermaid'],
+  rules: {
+    attribution: {
+      label: 'Drawn with Example',
+      href: 'https://example.com',
+      logo: '<svg viewBox="0 0 16 16">…</svg>',
+    },
+    exports: ['svg', 'png', 'docx'],
+  },
+  async render(input) {
+    // …
+  },
+}
+```
+
+| Rule          | Type                                                        | Description                                                      |
+| ------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
+| `attribution` | `{ label: string, href: string, logo?: string }`            | A credit shown with every picture, described below               |
+| `exports`     | `readonly ('svg' \| 'png' \| 'webp' \| 'jpeg' \| 'docx')[]` | The formats `export` may produce. Without the list, every format |
+
+### What attribution does
+
+- **In the editor** it is a link below the picture (`tiptap-chart-attribution`,
+  `tiptap-flow-diagram-attribution`).
+- **In every exported SVG, PNG, WebP, JPEG and Word picture** its label is drawn into the lower
+  right corner.
+- **`logo`** is standalone SVG markup, shown 16 pixels high.
+
+### What exports does
+
+- **Any other format** throws.
+- **Without `docx`**, `exportDocx` leaves the diagram out with a note, and writes a chart as a
+  native Word chart.
+
+### Adding rules
+
+Rules only grow.
+
+- `withRendererRules(renderer, rules)` returns the Renderer with rules added.
+- The `rendererRules` option adds rules by Renderer id.
+
+```ts
+import { Diagrams, withRendererRules } from '@tiptap-pro/extension-diagrams'
+
+Diagrams.configure({
+  renderers: [withRendererRules(plainBarsRenderer, { exports: ['svg', 'png'] })],
+  rendererRules: {
+    drawio: { attribution: { label: 'draw.io', href: 'https://www.drawio.com' } },
+  },
+})
+```
+
+- **An attribution the Renderer declares** stays.
+- **An attribution you add** applies only where the Renderer declares none.
+- **The allowed formats** are those both lists allow.
+- **`editor.storage.diagrams.rulesFor(renderer)`** returns the rules in effect.
+- **The built-in Renderers** for ECharts, d3, Mermaid and draw.io declare no attribution and
+  allow every format.

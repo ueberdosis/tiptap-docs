@@ -98,7 +98,12 @@ export type FrontmatterHeaderDemo = {
   isPro?: boolean
   /** A full URL instead of `path`. */
   src?: string
-  /** One sentence below the demo on what to try in it. */
+  /** `false` for a demo whose code is too much to read beside it, such as a whole app: no Preview / Code / Both. */
+  code?: boolean
+  /**
+   * One sentence on what to try in the demo, in HTML like `intro`. At the left of the bar
+   * when the demo shows no code, where the view switch is not, otherwise below the demo.
+   */
   caption?: string
 }
 

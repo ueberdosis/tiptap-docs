@@ -159,10 +159,17 @@ export default async function MarkdownPage({ params }: Props) {
             path={headerDemo.path}
             isPro={headerDemo.isPro}
             src={headerDemo.src}
+            code={headerDemo.code}
+            caption={
+              headerDemo.caption ? (
+                <span dangerouslySetInnerHTML={{ __html: headerDemo.caption }} />
+              ) : undefined
+            }
             isLarge
             view="preview"
           />
-          {headerDemo.caption ? (
+          {/* Without code the caption sits in the demo's bar */}
+          {headerDemo.caption && headerDemo.code !== false ? (
             <p className="mt-3 text-sm text-grayAlpha-600">{headerDemo.caption}</p>
           ) : null}
         </div>
