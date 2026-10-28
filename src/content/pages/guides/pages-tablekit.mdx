@@ -125,8 +125,8 @@ const editor = new Editor({
 - **Row height behaviour.**
   - `heightRule: "exact"`: the row renders at the declared height. Content and cell borders that don't fit are clipped.
   - `heightRule: "atLeast"` (or unset): the row grows vertically when content or narrower columns would otherwise force clipping.
-- **Merged cells.** Every cell stays in its own column, also in the rows below a merged cell. A cell merged down keeps its borders and background in every row it covers. If your borders come from your own CSS, see [Styling merged cells](#styling-merged-cells).
-- **Very narrow columns.** A cell's left and right margins are each at most a quarter of the cell's width, so the cell doesn't spill into the next column.
+- **Merged cells.** Every cell stays in its own column, also in the rows below a merged cell. A cell merged down keeps its borders and background in every row it covers, also when they come from your own CSS. See [Styling merged cells](#styling-merged-cells).
+- **Very narrow columns.** When a column is narrower than a cell's left and right padding, both sides shrink by the same ratio, so the cell and its borders stay inside the column. The document and the DOCX export keep the original padding. With ConvertKit, tables in page headers and footers cap each cell margin at a quarter of the cell's width instead.
 - **Live updates.** Edits that add, remove, or reorder cells re-lay the row out immediately.
 
 ### DOCX-specific behaviour (Scenario B)
@@ -141,25 +141,28 @@ These extras activate automatically when your document content was produced by t
 
 ## Styling merged cells
 
-In the rows below its first row, a merged cell is drawn by a `.tiptap-merged-cell-continuation` element. This element gets the cell's borders and background from the cell's attributes, for example from a DOCX import. Borders from your own CSS don't apply to it, so add them:
+In the rows below its first row, a merged cell is drawn by a `.tiptap-merged-cell-continuation` element. This element copies the background and side borders the cell shows, whether they come from the cell's attributes, for example from a DOCX import, or from your own CSS. It draws the cell's bottom border in the last row the cell covers. PagesTableKit hides the bottom border of the merged cell itself.
 
-```css
-.my-document .tiptap-merged-cell-continuation {
-  border-left: 1px solid #d5d5d5;
-  border-right: 1px solid #d5d5d5;
-}
+The element reads the cell's style again when:
 
-.my-document .tiptap-merged-cell-continuation[data-merged-cell-end] {
-  border-bottom: 1px solid #d5d5d5;
-}
+- its table changes.
+- a `<style>` or `<link>` element is added to or removed from the document head, the text of a `<style>` element there changes, or the `href`, `media` or `disabled` attribute of one of them changes.
+- a linked stylesheet finishes loading.
+- the `class` or `style` attribute of the editor or one of its ancestors changes.
+- the window is resized.
+- an edit elsewhere in the document changes the cell's background or borders. PagesTableKit checks this once typing pauses. A rule that changes only the bottom border width, based on content outside the table, shows after the next edit in that table.
 
-.my-document .tiptap-merged-cell-continuation[data-merged-cell='tableHeader'] {
-  background-color: #f1f1f1;
-}
+A stylesheet changed through the CSSOM, for example with `insertRule` or `deleteRule`, changes no element and fires no event, so PagesTableKit does not see it. Call `refreshTableStyles()` after such a change:
+
+```ts
+document.styleSheets[0].insertRule('td { border: 2px solid red }')
+editor.commands.refreshTableStyles()
 ```
 
+The copied background and borders are inline styles on the element. To style it in other ways, use its attributes:
+
 - `data-merged-cell` is the merged cell's node type: `tableCell` or `tableHeader`.
-- `data-merged-cell-end` is set in the last row the cell covers. Draw the bottom border there. PagesTableKit hides the bottom border of the merged cell itself.
+- `data-merged-cell-end` is set in the last row the cell covers.
 
 ## What won't work
 
@@ -260,6 +263,14 @@ TableKit.configure({
 ```
 
 See [Rows that span a page break](/pages/guides/row-fragmentation) for what it does and which rows it applies to.
+
+It also adds one command:
+
+```ts
+editor.commands.refreshTableStyles()
+```
+
+`refreshTableStyles()` reads table CSS again after a change that causes no DOM mutation, such as a rule added with `insertRule`. Merged cells and cell padding then follow the new styles. The command does not change the document and adds no undo step.
 
 ## Related
 
