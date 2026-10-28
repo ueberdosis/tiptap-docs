@@ -123,6 +123,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/editor/extensions/functionality/diagrams',
+    destination: '/diagrams/getting-started/overview',
+    permanent: true,
+  },
+  {
     source: '/editor/extensions/functionality/tracked-changes',
     destination: '/tracked-changes/getting-started/overview',
     permanent: true,
