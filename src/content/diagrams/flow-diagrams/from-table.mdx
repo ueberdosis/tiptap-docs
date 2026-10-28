@@ -1,0 +1,189 @@
+---
+title: 'A diagram from a table'
+intro: 'Draw a table as a Mermaid flowchart, one row per step. The diagram follows the table as it is edited.'
+headerDemo:
+  path: '/Extensions/DiagramsFromTable'
+  isPro: true
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'A diagram from a table | Tiptap Diagrams Docs'
+  description: 'Draw a table as a Mermaid flowchart, one row per step.'
+  category: Diagrams
+---
+
+## Quick start
+
+Requires `chart.linkTables`, as for a chart that follows a table. Given this table:
+
+| Step        | Next             | Team      | Label             | Shape    |
+| ----------- | ---------------- | --------- | ----------------- | -------- |
+| Order in    | Check stock      | Sales     |                   | start    |
+| Check stock | Pack, Back order | Warehouse | in stock, missing | decision |
+| Pack        | Invoice          | Warehouse |                   |          |
+
+place the selection in it and call:
+
+```ts
+editor.commands.insertDiagramFromTable({
+  columns: { step: 'Step', next: 'Next', lane: 'Team', label: 'Label', shape: 'Shape' },
+  title: 'Order process',
+})
+```
+
+A table edit and the diagram's update are one Transaction, so one undo takes back both.
+
+## How the table is read
+
+`columns` maps each role to a column, by its header text (ignoring case) or by its position
+from 0. Without `columns`, the roles are guessed from the header.
+
+| Role    | Required | Cell holds                                                            | Becomes                    |
+| ------- | -------- | --------------------------------------------------------------------- | -------------------------- |
+| `step`  | Yes      | The step's name                                                       | A node                     |
+| `next`  | Yes      | The steps that follow, separated by commas                            | Arrows to those steps      |
+| `lane`  | No       | A lane name                                                           | A `subgraph` with the step |
+| `label` | No       | Arrow labels, separated by commas                                     | Text on the arrows         |
+| `shape` | No       | A shape name, see [Shapes](/diagrams/flow-diagrams/from-table#shapes) | The node's shape           |
+
+- A step named only under `next` is drawn too.
+- `label`: one label per next step when the counts match, otherwise the whole cell on every
+  arrow.
+- `header: 'none'` reads every row as a step; `columns` must then give positions.
+- `range.rows` reads only some rows, as for a chart that follows a table.
+
+### Shapes
+
+| Shape         | Cell text                             |
+| ------------- | ------------------------------------- |
+| Box           | `box`, `rect`, `task`                 |
+| Rounded box   | `rounded`, `round`                    |
+| Stadium       | `start`, `end`, `stadium`, `terminal` |
+| Diamond       | `decision`, `diamond`, `gateway`      |
+| Circle        | `circle`, `event`                     |
+| Parallelogram | `data`                                |
+| Cylinder      | `database`                            |
+| Subroutine    | `subroutine`                          |
+
+Anything else is a box.
+
+## When the table changes
+
+- **Renaming a step** in its row renames it in every `next` cell, so its arrows stay. Names
+  compare ignoring case and surrounding spaces.
+- **Emptying a step cell**, or giving it another step's name, is not a rename. The `next` cells
+  stay.
+- **Changing a lane cell** moves that one step. To rename a lane in every row, use
+  [`renameDiagramLane`](/diagrams/flow-diagrams/from-table#renamediagramlane). Lanes compare by trimmed text, case included.
+- **Removing a column** the link names keeps the diagram as it is until the column is back.
+- **Changing the source** with `updateFlowDiagram` ends the link, as does
+  `detachDiagramFromTable`.
+- **Double-clicking a shape** does not edit its text. The text belongs to the table.
+
+## Stored in the document
+
+| Where                        | What                                    |
+| ---------------------------- | --------------------------------------- |
+| The diagram's `options.link` | `{ tableId, columns, header?, range? }` |
+| The table                    | A `chartTableId`                        |
+
+Read it with `flowDiagramLink(diagram)` or as `link` in `listDiagrams()`, which also returns the
+lanes as `lanes`. `updateLinkedTable` changes how the table is read.
+
+## Without an editor
+
+These functions do the same work on plain cell texts, for a server or a worker. `rows` is the
+cell texts, header row first unless `read.header` is `'none'`.
+
+| Function                                          | Returns                                                                                                               |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `tableToMermaid(rows, columns, read?)`            | The flowchart source, or `null` when a named column is missing                                                        |
+| `guessTableDiagramColumns(header)`                | `columns` guessed from the header row, or `null` for fewer than two columns                                           |
+| `tableStepRenames(before, after, columns, read?)` | `{ renames, firstRow, nextColumn }`; `renames` maps each old name (lower-cased, trimmed) to the new one, or is `null` |
+| `stepRenameEdits(text, renames)`                  | The `{ from, to, text }` replacements for one `next` cell                                                             |
+| `tableDiagramLanes(rows, columns, read?)`         | The lanes, in the order they appear                                                                                   |
+| `tableLaneCells(rows, columns, read, lane)`       | The `{ row, column }` of every cell below the header that names `lane`                                                |
+
+`guessTableDiagramColumns` recognizes headers such as Step, Task, Next, Then, Team, Owner, Label,
+Condition and Shape. It takes the first remaining columns for `step` and `next` when no header
+names them, and uses each column once.
+
+## Commands
+
+### insertDiagramFromTable
+
+Inserts a flowchart drawn from the table at the selection, or at `table`.
+
+```ts
+editor.commands.insertDiagramFromTable({
+  columns: { step: 'Step', next: 'Next', lane: 'Team' },
+  title: 'Order process',
+})
+
+// A table without a header, without its last row
+editor.commands.insertDiagramFromTable({
+  header: 'none',
+  range: { rows: { to: -2 } },
+  columns: { step: 0, next: 1 },
+})
+```
+
+| Option    | Type                                    | Description                                                                                                                 |
+| --------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `columns` | `{ step, next, lane?, label?, shape? }` | Header texts or positions from 0. Guessed from the header when left out                                                     |
+| `header`  | `'none'`                                | Reads every row as a step. Without it, the first row is the header                                                          |
+| `range`   | `{ rows }`                              | Reads only some rows, as for [`insertLinkedChart`](/diagrams/data/tables#insertlinkedchart). `range.columns` does not apply |
+| `table`   | `number`                                | The table's position. Defaults to the table at the selection                                                                |
+| `title`   | `string`                                | The diagram's title                                                                                                         |
+| `below`   | `boolean`                               | `false` inserts the diagram above the table. Default `true`                                                                 |
+
+`header` and `range` are stored in `options.link`.
+
+Returns `false` when a named column is not in the table, the table has fewer than two columns,
+the selection is outside a table, or `chart.linkTables` is off.
+
+### linkDiagramToTable
+
+Draws an existing diagram from a table, replacing its source, and has it follow that table.
+
+```ts
+editor.commands.linkDiagramToTable({ table: tablePos, columns: { step: 'Step', next: 'Next' } })
+```
+
+Takes `table`, `columns`, `header?` and `range?` as for `insertDiagramFromTable`, and `pos?` for
+a diagram other than the selected one.
+
+### detachDiagramFromTable
+
+Stops a diagram following its table. The source stays and can be edited.
+
+```ts
+editor.commands.detachDiagramFromTable({ removeTable: true })
+```
+
+| Option        | Type      | Description                                                                                                                |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `pos`         | `number`  | The diagram's position. Defaults to the selected diagram                                                                   |
+| `removeTable` | `boolean` | Also removes the table, unless another chart or diagram follows it. Like `setChartLayout({ layout: 'chart' })` for a chart |
+
+Returns `false` for a diagram that follows no table.
+
+### renameDiagramLane
+
+Renames a lane in every row of the table, also outside `range`. The diagram follows in the same
+Transaction.
+
+```ts
+editor.commands.renameDiagramLane({ lane: 'Warehouse', name: 'Warehouse North' })
+```
+
+| Option | Type     | Description                                              |
+| ------ | -------- | -------------------------------------------------------- |
+| `lane` | `string` | The lane's current name                                  |
+| `name` | `string` | The new name                                             |
+| `pos`  | `number` | The diagram's position. Defaults to the selected diagram |
+
+Returns `false` for a diagram that follows no table, a link without a `lane` column, a lane no
+cell names, and an empty `name`.

@@ -102,7 +102,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       )
     },
     table: (props) => (
-      <div className="w-full overflow-auto my-12 first:mt-0 last:mb-0">
+      <div className="w-full overflow-auto my-8 first:mt-0 last:mb-0">
         <table {...props} className="w-full" />
       </div>
     ),

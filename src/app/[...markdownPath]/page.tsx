@@ -16,6 +16,7 @@ import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { AskAi } from '@/components/AskAi'
+import { DemoViewer } from '@/components/DemoViewer'
 
 type Props = {
   params: Promise<{
@@ -98,6 +99,77 @@ export default async function MarkdownPage({ params }: Props) {
 
   // A sub-page shows the plan and status of its feature
   const tags = headerTags(pageMdx.frontmatter?.tags, inheritedLabels(`/${markdownPath.join('/')}`))
+  const headerDemo = pageMdx.frontmatter?.headerDemo
+  const showSecondarySidebar = !pageMdx.frontmatter?.sidebars?.hideSecondary
+
+  const header = pageMdx.frontmatter ? (
+    <PageHeader.Wrapper>
+      {sidebar.sidebarConfig ? (
+        <div className="flex items-start justify-between flex-wrap gap-y-2 mb-1">
+          <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} className="mb-0" />
+          <div className="flex items-center gap-2">
+            <CopyMarkdownButton title={pageMdx.frontmatter?.title} />
+            <AskAi />
+          </div>
+        </div>
+      ) : null}
+      {pageMdx.frontmatter?.title ? (
+        <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
+      ) : null}
+      {pageMdx.frontmatter?.intro ? (
+        <PageHeader.Intro dangerouslySetInnerHTML={{ __html: pageMdx.frontmatter.intro }} />
+      ) : null}
+      {pageMdx.frontmatter?.incident?.severity &&
+      ['high', 'critical'].includes(pageMdx.frontmatter.incident.severity) ? (
+        <div className="mt-6">
+          <Tag variant="warning">
+            Severity:{' '}
+            {pageMdx.frontmatter.incident.severity.charAt(0).toUpperCase() +
+              pageMdx.frontmatter.incident.severity.slice(1)}
+          </Tag>
+        </div>
+      ) : null}
+      {tags.length ? (
+        <PageHeader.Tags tags={tags} isTemplate={markdownPath.includes('templates')} />
+      ) : null}
+      {pageMdx.frontmatter.description ? (
+        <PageHeader.Description
+          dangerouslySetInnerHTML={{
+            __html: pageMdx.frontmatter.description,
+          }}
+        />
+      ) : null}
+      {headerDemo ? (
+        // The header shows the editor first; its code is one click away
+        <div className="mt-8 [&>div]:my-0">
+          <DemoViewer
+            path={headerDemo.path}
+            isPro={headerDemo.isPro}
+            src={headerDemo.src}
+            code={headerDemo.code}
+            caption={
+              headerDemo.caption ? (
+                <span dangerouslySetInnerHTML={{ __html: headerDemo.caption }} />
+              ) : undefined
+            }
+            isLarge
+            view="preview"
+          />
+        </div>
+      ) : null}
+    </PageHeader.Wrapper>
+  ) : null
+
+  const content = (
+    <>
+      <div className="mdx-content">{pageMdx.default()}</div>
+      <PrevNextTiles
+        config={sidebar.sidebarConfig}
+        currentPath={`/${markdownPath.join('/')}`}
+        isFullWidth={!showSecondarySidebar}
+      />
+    </>
+  )
 
   return (
     <>
@@ -105,51 +177,31 @@ export default async function MarkdownPage({ params }: Props) {
       <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
-        <Layout.Content contentPath={pageMdx.contentPath}>
-          {pageMdx.frontmatter ? (
-            <PageHeader.Wrapper>
-              {sidebar.sidebarConfig ? (
-                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
-                  <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
-                  <div className="flex items-center gap-2">
-                    <CopyMarkdownButton title={pageMdx.frontmatter?.title} />
-                    <AskAi />
-                  </div>
-                </div>
+        {headerDemo ? (
+          // A demo in the header spans the content and the table of contents, which start below it
+          <div className="flex-1 min-w-0 self-start">
+            <div className="px-2 sm:px-6 lg:pl-0 lg:pr-12 xl:pr-3 pt-6 sm:pt-8 lg:pt-10">
+              {header}
+            </div>
+            <div className="flex items-start lg:gap-8">
+              <Layout.Content contentPath={pageMdx.contentPath} flushTop>
+                {content}
+              </Layout.Content>
+              {showSecondarySidebar ? (
+                // Starts level with the content, and keeps the usual gap below the top bar once it sticks
+                <Layout.SecondarySidebar className="pt-0 top-[5.75rem] h-[calc(100vh-6.25rem)]" />
               ) : null}
-              {pageMdx.frontmatter?.title ? (
-                <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
-              ) : null}
-              {pageMdx.frontmatter?.incident?.severity &&
-              ['high', 'critical'].includes(pageMdx.frontmatter.incident.severity) ? (
-                <div className="mt-6">
-                  <Tag variant="warning">
-                    Severity:{' '}
-                    {pageMdx.frontmatter.incident.severity.charAt(0).toUpperCase() +
-                      pageMdx.frontmatter.incident.severity.slice(1)}
-                  </Tag>
-                </div>
-              ) : null}
-              {tags.length ? (
-                <PageHeader.Tags tags={tags} isTemplate={markdownPath.includes('templates')} />
-              ) : null}
-              {pageMdx.frontmatter.description ? (
-                <PageHeader.Description
-                  dangerouslySetInnerHTML={{
-                    __html: pageMdx.frontmatter.description,
-                  }}
-                />
-              ) : null}
-            </PageHeader.Wrapper>
-          ) : null}
-          <div className="mdx-content">{pageMdx.default()}</div>
-          <PrevNextTiles
-            config={sidebar.sidebarConfig}
-            currentPath={`/${markdownPath.join('/')}`}
-            isFullWidth={!!pageMdx.frontmatter?.sidebars?.hideSecondary}
-          />
-        </Layout.Content>
-        {!pageMdx.frontmatter?.sidebars?.hideSecondary ? <Layout.SecondarySidebar /> : null}
+            </div>
+          </div>
+        ) : (
+          <>
+            <Layout.Content contentPath={pageMdx.contentPath}>
+              {header}
+              {content}
+            </Layout.Content>
+            {showSecondarySidebar ? <Layout.SecondarySidebar /> : null}
+          </>
+        )}
       </Layout.Wrapper>
       <script
         type="application/ld+json"
