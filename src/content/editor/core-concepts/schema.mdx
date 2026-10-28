@@ -14,7 +14,7 @@ This schema is _very_ strict. You can’t use any HTML element or attribute that
 
 Let me give you one example: If you paste something like `This is <strong>important</strong>` into Tiptap, but don’t have any extension that handles `strong` tags, you’ll only see `This is important` – without the strong tags.
 
-If you want to know when this happens, you can listen to the [`contentError`](/editor/api/events#contenterror) event after enabling the `enableContentCheck` option.
+If you want to know when this happens, you can listen to the [`contentError`](/editor/api/events#list-of-available-events) event after enabling the `enableContentCheck` option.
 
 ## What a schema looks like
 
@@ -72,6 +72,99 @@ const Text = Node.create({
 })
 ```
 
+## Use an external schema spec
+
+Pass a complete ProseMirror `SchemaSpec` to the editor's [`schemaSpec`](/editor/api/editor#schemaspec) option to define document structure separately from local extension behavior. You can use this when several editors need to share the same structure but have different rendering or interaction code.
+
+The spec controls node and mark structure. Local extensions still provide HTML parsing and rendering, text serialization, commands, keyboard shortcuts, node views, and plugins.
+
+```ts
+import { Editor } from '@tiptap/core'
+import Bold from '@tiptap/extension-bold'
+import Document from '@tiptap/extension-document'
+import Paragraph from '@tiptap/extension-paragraph'
+import Text from '@tiptap/extension-text'
+import type { SchemaSpec } from '@tiptap/pm/model'
+
+const schemaSpec: SchemaSpec = {
+  nodes: {
+    doc: { content: 'block+' },
+    paragraph: {
+      group: 'block',
+      content: 'inline*',
+      marks: 'bold',
+      attrs: {
+        tone: { default: 'newsletter', validate: 'string' },
+      },
+    },
+    text: { group: 'inline' },
+  },
+  marks: {
+    bold: {},
+  },
+}
+
+const LocalParagraph = Paragraph.extend({
+  addAttributes() {
+    return {
+      tone: {
+        parseHTML: (element) => element.getAttribute('data-tone'),
+        renderHTML: (attributes) => ({ 'data-tone': attributes.tone }),
+      },
+    }
+  },
+})
+
+const editor = new Editor({
+  element: document.querySelector('.editor'),
+  extensions: [Document, LocalParagraph, Text, Bold],
+  schemaSpec,
+  content: '<p>Hello <strong>world</strong>.</p>',
+})
+
+editor.getHTML()
+// '<p data-tone="newsletter">Hello <strong>world</strong>.</p>'
+```
+
+Here, `schemaSpec` allows bold text and sets the default `tone` attribute. `LocalParagraph` inherits paragraph rendering and maps `tone` to the `data-tone` HTML attribute. The `Bold` extension supplies `<strong>` parsing, rendering, and the `toggleBold` command.
+
+### Matching extensions
+
+The spec and your resolved extensions must contain exactly the same node and mark names. A node in the spec requires a local node extension, and a mark requires a local mark extension. Duplicate local node or mark names are rejected.
+
+Extensions that do not define a node or mark can be added without an entry in the spec. For example, an extension that only adds keyboard shortcuts does not need one.
+
+If you use `StarterKit`, include every node and mark it enables in the spec, or disable the types you leave out. A paragraph-only spec cannot be used with the default `StarterKit` configuration.
+
+Local node and mark extensions can define only behavior. Their structural fields and attributes can come entirely from `schemaSpec`.
+
+### Structure rules
+
+The external spec replaces local structural fields rather than filling in missing ones. If a field is omitted, ProseMirror uses its default instead of the local extension's value.
+
+- For nodes, the spec controls `content`, `marks`, `group`, `inline`, `atom`, `selectable`, `draggable`, `code`, `whitespace`, `definingAsContext`, `definingForContent`, `defining`, `isolating`, and `linebreakReplacement`.
+- For marks, the spec controls `inclusive`, `excludes`, `group`, `spanning`, and `code`.
+- The spec determines the top node and node and mark order, regardless of local extension priorities.
+
+Keep DOM behavior in local extensions. The external spec's `parseDOM` and `toDOM` fields are ignored. Custom schema metadata, such as `tableRole` and `allowGapCursor`, also comes from local extensions.
+
+### Attribute rules
+
+The spec controls attribute names, defaults, requiredness, and validation for both nodes and marks.
+
+- Local attributes absent from the spec are removed, including attributes added through `addGlobalAttributes()`.
+- Matching local attributes keep their `parseHTML`, `renderHTML`, `rendered`, and `keepOnSplit` behavior. Their defaults and validation come from the spec.
+- Attributes present only in the spec use Tiptap's default attribute parsing and rendering. Define local attribute hooks when you need a custom HTML representation.
+- An attribute without a `default` is required. Provide a value when creating content that uses it.
+
+### Validation and updates
+
+Tiptap rejects invalid schema structure, invalid structural field types, missing local implementations, extra local node or mark types, and duplicate local type names when creating the editor.
+
+The spec is applied only at editor creation. `editor.setOptions({ schemaSpec })` does not rebuild the schema. To change structure, create a new editor and migrate existing content to match the new spec.
+
+If you omit `schemaSpec`, Tiptap continues to build the schema from the local extensions.
+
 ## Nodes and marks
 
 ### Differences
@@ -110,7 +203,7 @@ Node.create({
 
 #### Marks
 
-You can define which marks are allowed inside of a node with the `marks` setting of the schema. Add a one or more names or groups of marks, allow all or disallow all marks like this:
+You can define which marks are allowed inside of a node with the `marks` setting of the schema. Add one or more names or groups of marks, allow all or disallow all marks like this:
 
 ```js
 Node.create({
@@ -177,7 +270,7 @@ Inline nodes can be tricky to select, especially at line edges. A quick fix: add
 
 #### Atom
 
-Nodes with `atom: true` aren’t directly editable and should be treated as a single unit. It’s not so likely to use that in a editor context, but this is how it would look like:
+Nodes with `atom: true` aren’t directly editable and should be treated as a single unit. It’s not so likely to use that in an editor context, but this is what it would look like:
 
 ```js
 Node.create({
@@ -185,7 +278,7 @@ Node.create({
 })
 ```
 
-One example is the [`Mention`](/editor/extensions/nodes/mention) extension, which somehow looks like text, but behaves more like a single unit. As this doesn’t have editable text content, it’s empty when you copy such node. Good news though, you can control that. Here is the example from the [`Mention`](/editor/extensions/nodes/mention) extension:
+One example is the [`Mention`](/editor/extensions/nodes/mention) extension, which somehow looks like text, but behaves more like a single unit. As this doesn’t have editable text content, it’s empty when you copy such a node. Good news though, you can control that. Here is the example from the [`Mention`](/editor/extensions/nodes/mention) extension:
 
 ```js
 // Used to convert an atom node to plain text
@@ -268,7 +361,7 @@ Node.create({
 
 #### Table roles
 
-The [`Table`](/editor/extensions/nodes/table) extension registers a new schema attribute to configure which role an Node has. Allowed values are `table`, `row`, `cell`, and `header_cell`.
+The [`Table`](/editor/extensions/nodes/table) extension registers a new schema attribute to configure which role a Node has. Allowed values are `table`, `row`, `cell`, and `header_cell`.
 
 ```js
 Node.create({

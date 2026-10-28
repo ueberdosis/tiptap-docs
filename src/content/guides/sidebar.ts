@@ -38,6 +38,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Find and replace UI',
         },
         {
+          href: '/guides/spellcheck',
+          title: 'Spellcheck',
+        },
+        {
           href: '/guides/react-composable-api',
           title: 'React Composable API',
         },
@@ -72,6 +76,11 @@ export const sidebarConfig: SidebarConfig = {
         {
           href: '/guides/collaboration-api',
           title: 'Collaboration API',
+        },
+        {
+          href: '/guides/mobile-apps',
+          title: 'Mobile apps',
+          tags: ['Experimental'],
         },
       ],
     },

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
@@ -22,25 +23,37 @@ type Props = {
   searchParams: Promise<URLSearchParams>
 }
 
-export async function generateMetadata({ params }: Props) {
-  const { markdownPath } = await params
-  const directPath = `${markdownPath.join('/')}.mdx`
-  const indexPath = `${markdownPath.join('/')}/index.mdx`
-
-  const canonicalUrl = createCanonicalUrl(markdownPath)
+/**
+ * Helper function to load MDX file for a given path.
+ * Cached per-request to avoid duplicate file checks and imports between generateMetadata and page component.
+ */
+const loadPageMdx = cache(async (markdownPath: string) => {
+  const directPath = `${markdownPath}.mdx`
+  const indexPath = `${markdownPath}/index.mdx`
 
   const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
   const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
 
   if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
-    return {}
+    return null
   }
 
-  const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
+  const contentPath = hasDirectMdx ? directPath : indexPath
+  const pageMdx = (await import(`@/content/${contentPath}`)) as {
     default: () => JSX.Element
     frontmatter?: PageFrontmatter
+  }
+
+  return { ...pageMdx, contentPath, schemaDate: new Date().toISOString() }
+})
+
+export async function generateMetadata({ params }: Props) {
+  const { markdownPath } = await params
+  const canonicalUrl = createCanonicalUrl(markdownPath)
+  const pageMdx = await loadPageMdx(markdownPath.join('/'))
+
+  if (!pageMdx) {
+    return {}
   }
 
   return await createMetadata({
@@ -55,24 +68,12 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function MarkdownPage({ params }: Props) {
   const { markdownPath } = await params
-  const directPath = `${markdownPath.join('/')}.mdx`
-  const indexPath = `${markdownPath.join('/')}/index.mdx`
-
   const canonicalUrl = createCanonicalUrl(markdownPath)
   const sidebar = await importSidebarConfigFromMarkdownPath(markdownPath)
+  const pageMdx = await loadPageMdx(markdownPath.join('/'))
 
-  const hasDirectMdx = fs.existsSync(path.join(process.cwd(), 'src/content', directPath))
-  const hasIndexMdx = fs.existsSync(path.join(process.cwd(), 'src/content', indexPath))
-
-  if (!hasDirectMdx && !hasIndexMdx) {
-    // Return a 404 page if the markdown file doesn't exist
-    // give Next error page
+  if (!pageMdx) {
     notFound()
-  }
-
-  const pageMdx = (await import(`@/content/${hasDirectMdx ? directPath : indexPath}`)) as {
-    default: () => JSX.Element
-    frontmatter?: PageFrontmatter
   }
 
   const techArticleSchema = {
@@ -81,8 +82,8 @@ export default async function MarkdownPage({ params }: Props) {
     headline: pageMdx.frontmatter?.meta?.title ?? pageMdx.frontmatter?.title ?? '',
     description: pageMdx.frontmatter?.meta?.description ?? pageMdx.frontmatter?.description ?? '',
     url: canonicalUrl,
-    datePublished: new Date(Date.now()).toISOString(),
-    dateModified: new Date(Date.now()).toISOString(),
+    datePublished: pageMdx.schemaDate,
+    dateModified: pageMdx.schemaDate,
     publisher: {
       '@type': 'Organization',
       name: 'Tiptap',
@@ -100,17 +101,14 @@ export default async function MarkdownPage({ params }: Props) {
       <Layout.Header config={sidebar.sidebarConfig ?? undefined} />
       <Layout.Wrapper>
         {sidebar.sidebarConfig ? <Layout.Sidebar config={sidebar.sidebarConfig} /> : null}
-        <Layout.Content>
+        <Layout.Content contentPath={pageMdx.contentPath}>
           {pageMdx.frontmatter ? (
             <PageHeader.Wrapper>
               {sidebar.sidebarConfig ? (
                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
                   <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
                   <div className="flex items-center gap-2">
-                    <CopyMarkdownButton
-                      title={pageMdx.frontmatter?.title}
-                      content={pageMdx.default()}
-                    />
+                    <CopyMarkdownButton title={pageMdx.frontmatter?.title} />
                     <AskAi />
                   </div>
                 </div>

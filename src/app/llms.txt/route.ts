@@ -26,12 +26,14 @@ function markdownUrl(route: string): string {
 }
 
 function stripHtml(value?: string): string {
-  return value
-    ? value
-        .replace(/<[^>]+>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-    : ''
+  if (!value) return ''
+  let previous: string
+  let output = value
+  do {
+    previous = output
+    output = output.replace(/<[^<>]*>/g, '')
+  } while (output !== previous)
+  return output.replace(/\s+/g, ' ').trim()
 }
 
 function sectionTitle(section: string): string {

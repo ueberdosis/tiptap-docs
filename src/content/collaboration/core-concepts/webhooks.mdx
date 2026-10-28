@@ -42,9 +42,103 @@ All requests to your webhook URL will contain a header called `X-Hocuspocus-Sign
   "clientsCount": 100,// number of currently connected clients
   "type": "", // the payload type (if the document was changed, this is DOCUMENT) ; only available if you are on webhooks v2
   "trigger": "", // what triggered the event (usually "document.saved") ; only available if you are on webhooks v2
+  "changedFields": [], // names of the document fields whose content changed (see below)
   "users": [] // list of users who changed the content since the last webhook ("sub" field from the JWT)
 }
 ```
+
+## Content changes
+
+`document.saved` fires every time a document is written to our database, and not every write
+is a content change. The most common example: when you pass `user` to the
+`TiptapCollabProvider`, the provider records that client in the document on every connection,
+so merely opening a document produces a save — and therefore a webhook — even though nobody
+typed anything.
+
+There are two ways to tell the difference.
+
+### The `changedFields` array
+
+Every `document.saved` and `content.changed` payload lists the document fields whose content
+differs from the last change we reported:
+
+```json
+{
+  "changedFields": ["default"]
+}
+```
+
+Opening a document without editing it gives you `"changedFields": []`, because the client
+record the provider writes is an internal field and is not counted as content.
+
+`changedFields` is sent on every webhook version.
+
+<Callout title="An empty array is not a guarantee" variant="warning">
+  `changedFields` is empty when nothing changed, but it is *also* empty when the server could not
+  determine what changed — for instance when a document is written without ever having been loaded.
+  Treat an empty array as "no change reported", not as "nothing changed". If you need a signal you
+  can act on, use `content.changed` below: it is only ever sent when a content change was positively
+  identified.
+</Callout>
+
+### The `content.changed` event
+
+`content.changed` is a separate trigger, delivered to the same webhook URL with the same
+payload as `document.saved`, but **only** when the content actually changed. If your
+integration currently listens for `document.saved` and ignores the saves that carry no edit,
+you can subscribe to `content.changed` instead and drop that check.
+
+It also covers one case `document.saved` does not: if the server that observed an edit
+shuts down before its scheduled save runs, another server persists the content and reports
+it as `content.changed`. No `document.saved` is sent for that save.
+
+Two requirements:
+
+1. Set `webhook_version` to `2` or higher. On version 1 the payload carries no `trigger`
+   field, so you would not be able to tell the two events apart.
+2. Subscribe to it explicitly with `webhook_events` — see below.
+
+### Choosing which events you receive
+
+`webhook_events` is a comma-separated allowlist of the triggers you want delivered:
+
+| Value                            | Result                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| unset                            | every event except `content.changed` — what your endpoint received before this setting existed |
+| `document.saved,content.changed` | exactly those two                                                                              |
+| `*`                              | every event, including ones added in future releases                                           |
+| `none`                           | nothing                                                                                        |
+
+Unrecognised entries are ignored, and a value containing _only_ unrecognised entries
+delivers nothing rather than falling back to the default — so a typo fails loudly instead of
+quietly restoring full delivery.
+
+Available events: `document.saved`, `content.changed`, `user.connected`, `user.disconnected`,
+`thread.added`, `thread.updated`, `thread.resolved`, `thread.deleted`, `comment.added`,
+`comment.updated`, `comment.deleted`, `document.reverted`, `version.created`.
+
+### Choosing which fields count as content
+
+By default every field that is not internal to Tiptap Collaboration counts as content —
+that is, every field whose name does not start with `__tiptapcollab__`. Set `content_fields`
+to change that:
+
+| Value                     | Result                                                                |
+| ------------------------- | --------------------------------------------------------------------- |
+| unset                     | every field not prefixed `__tiptapcollab__`                           |
+| `default`                 | only the main editor field                                            |
+| `default,body`            | those two                                                             |
+| `body*`                   | one `*` per entry globs, so this matches every field with that prefix |
+| `__tiptapcollab__threads` | makes comment activity count as a content change                      |
+| `*`                       | every field, internal ones included                                   |
+
+A value **replaces** the default rule rather than narrowing it, which is what lets you opt an
+internal field such as `__tiptapcollab__threads` back in. Entries are case-sensitive, since
+these are Yjs field names.
+
+Changing this setting takes effect on the next save. A field you have just added to the set
+has no recorded state yet, so it reports a change once and then settles. Removing a field is
+not itself a change — it means "stop watching this".
 
 ## Retries
 

@@ -123,8 +123,10 @@ const editor = new Editor({
 - **Pagination-safe table rendering.** Tables sit inside the page content area and never horizontally overflow it.
 - **Column proportions preserved.** When every cell carries a `colwidth`, columns shrink proportionally to fit the page. A 10 % / 40 % / 50 % column split renders as 10 / 40 / 50 at any page width.
 - **Row height behaviour.**
-  - `heightRule: "exact"`: the row renders at the declared height and clips overflowing content.
+  - `heightRule: "exact"`: the row renders at the declared height. Content and cell borders that don't fit are clipped.
   - `heightRule: "atLeast"` (or unset): the row grows vertically when content or narrower columns would otherwise force clipping.
+- **Merged cells.** Every cell stays in its own column, also in the rows below a merged cell. A cell merged down keeps its borders and background in every row it covers, also when they come from your own CSS. See [Styling merged cells](#styling-merged-cells).
+- **Very narrow columns.** When a column is narrower than a cell's left and right padding, both sides shrink by the same ratio, so the cell and its borders stay inside the column. The document and the DOCX export keep the original padding. With ConvertKit, tables in page headers and footers cap each cell margin at a quarter of the cell's width instead.
 - **Live updates.** Edits that add, remove, or reorder cells re-lay the row out immediately.
 
 ### DOCX-specific behaviour (Scenario B)
@@ -136,6 +138,31 @@ These extras activate automatically when your document content was produced by t
 - **Narrow spacer columns preserved.** DOCX spacer columns (1–15 px) don't get inflated to a visible width.
 - **Negative DOCX indents.** Negative `w:tblInd` values (which Word renders into the paper gutter) are preserved in `attrs.indent` but clamped to 0 visually so tables don't push past the page edge.
 - **Cell background, vertical alignment, per-side borders.** Flow through from the DOCX import without extra work.
+
+## Styling merged cells
+
+In the rows below its first row, a merged cell is drawn by a `.tiptap-merged-cell-continuation` element. This element copies the background and side borders the cell shows, whether they come from the cell's attributes, for example from a DOCX import, or from your own CSS. It draws the cell's bottom border in the last row the cell covers. PagesTableKit hides the bottom border of the merged cell itself.
+
+The element reads the cell's style again when:
+
+- its table changes.
+- a `<style>` or `<link>` element is added to or removed from the document head, the text of a `<style>` element there changes, or the `href`, `media` or `disabled` attribute of one of them changes.
+- a linked stylesheet finishes loading.
+- the `class` or `style` attribute of the editor or one of its ancestors changes.
+- the window is resized.
+- an edit elsewhere in the document changes the cell's background or borders. PagesTableKit checks this once typing pauses. A rule that changes only the bottom border width, based on content outside the table, shows after the next edit in that table.
+
+A stylesheet changed through the CSSOM, for example with `insertRule` or `deleteRule`, changes no element and fires no event, so PagesTableKit does not see it. Call `refreshTableStyles()` after such a change:
+
+```ts
+document.styleSheets[0].insertRule('td { border: 2px solid red }')
+editor.commands.refreshTableStyles()
+```
+
+The copied background and borders are inline styles on the element. To style it in other ways, use its attributes:
+
+- `data-merged-cell` is the merged cell's node type: `tableCell` or `tableHeader`.
+- `data-merged-cell-end` is set in the last row the cell covers.
 
 ## What won't work
 
@@ -149,6 +176,7 @@ These extras activate automatically when your document content was produced by t
 - **Editors without the Pages extension.** PagesTableKit is designed for Pages' paginated layout; it relies on Pages to constrain rows within the page. In a standard editor rows won't render correctly and over-wide tables will overflow horizontally. Use a regular table extension instead.
 - **Hand-authored rows with mixed `colwidth` / no `colwidth`.** The proportional-shrink behaviour kicks in when **every** cell carries a column width. In rows where some cells do and some don't, columns may render with different proportions than you'd expect.
 - **Column resize handles.** Drag-to-resize from `@tiptap/extension-table` is supported, but the final rendered widths may be proportional rather than the exact pixel values you dragged to, especially when every cell already carries a column width.
+- **Tall merged cells.** The first row of a cell merged across rows grows to fit all of the cell's content, so the table can be taller than in Word.
 
 ### DOCX-specific limits (Scenario B)
 
@@ -169,7 +197,7 @@ If a row is taller than the page content area, moving it to the next page doesn'
 - DOCX imports that carry very tall exact-height rows authored for larger paper than your target page format.
 - Nested tables inside cells, which can force the outer row taller than the page.
 
-There is now an experimental opt-in that removes this limit for rows whose cells hold ordinary flowing content. See [Rows that span a page break](/pages/guides/row-fragmentation).
+To split tall rows across pages, including rows with merged cells or nested tables, turn on [row fragmentation](/pages/guides/row-fragmentation).
 
 ## What to expect
 
@@ -235,6 +263,14 @@ TableKit.configure({
 ```
 
 See [Rows that span a page break](/pages/guides/row-fragmentation) for what it does and which rows it applies to.
+
+It also adds one command:
+
+```ts
+editor.commands.refreshTableStyles()
+```
+
+`refreshTableStyles()` reads table CSS again after a change that causes no DOM mutation, such as a rule added with `insertRule`. Merged cells and cell padding then follow the new styles. The command does not change the document and adds no undo step.
 
 ## Related
 

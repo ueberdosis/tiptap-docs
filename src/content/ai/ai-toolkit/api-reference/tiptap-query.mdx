@@ -1,0 +1,509 @@
+---
+title: Tiptap Query
+meta:
+  title: Tiptap Query | Tiptap Server AI Toolkit
+  description: Reference for Tiptap Query, the tiptapQuery tool that reads, searches and edits Tiptap documents with JSON operations.
+  category: AI Toolkit
+tags:
+  - type: alpha
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="Alpha" variant="warning">
+  Tiptap Query is in alpha. The operation format may change.
+</Callout>
+
+Tiptap Query reads, searches and edits a Tiptap document with JSON operations. AI agents use it through the `tiptapQuery` tool. Each operation selects content, such as every heading or every occurrence of a word, and applies an action to it. The tool works on its own: an AI agent can find content and edit it without `tiptapRead` or `tiptapEdit`.
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "type": "heading" }, { "text": "Old title" }],
+      "action": { "type": "replace", "content": "New title" },
+      "expect": 1
+    }
+  ]
+}
+```
+
+## Enable the tool
+
+Enable `tiptapQuery` when you [fetch the tool definitions](/ai/ai-toolkit/api-reference/rest-api#fetch-tool-definitions):
+
+```json
+{
+  "editorContext": {
+    /* editor context data */
+  },
+  "tools": {
+    "tiptapQuery": true
+  }
+}
+```
+
+To make the AI explain its changes, pass a `meta` instruction instead of `true`, for example `{ "meta": "Briefly explain the change." }`. Every operation that changes the document must then include `meta`. Reads never need it.
+
+Run the tool call that the AI generates with the [`execute-tool`](/ai/ai-toolkit/api-reference/rest-api#execute-a-tool) endpoint:
+
+```json
+{
+  "editorContext": {
+    /* editor context data */
+  },
+  "document": { "type": "cloud", "id": "your-document-id" },
+  "tool": {
+    "name": "tiptapQuery",
+    "input": {
+      "operations": [
+        { "selector": [{ "type": "heading" }], "action": { "type": "read", "view": "summary" } }
+      ]
+    }
+  }
+}
+```
+
+`tiptapQuery` supports the `json`, `shorthand` and `shorthandV2` formats and works with [review options](/ai/ai-toolkit/api-reference/review-options). It is not available through the `stream-tool` endpoint.
+
+Tool config (`tool.config`):
+
+- `chunkSize` (`number`, optional, default: `32000`): Maximum number of characters that all reads of one call return together. The value is clamped between `512` and `32000`.
+- `threadData` (`object`, optional): Metadata added to created threads.
+- `commentData` (`object`, optional): Metadata added to created comments.
+
+## Input
+
+Tool input (`tool.input`):
+
+- `operations` (`array`, required): 1 to 50 operations, run in order. Each operation contains:
+  - `selector` (`array`, required): Up to 12 steps that select the content to read or edit. An empty array selects the whole document. See [Selectors](#selectors).
+  - `action` (`object`, required): What to do with the selected content. See [Actions](#actions).
+  - `expect` (`number`, optional): Exact number of matches that the selector must find. If it finds a different number, the operation fails with `unexpected_matches`. Use `expect: 1` to protect edits of a single target.
+  - `meta` (`string`, optional): Reason for the change, up to 4,000 characters. In tracked-changes mode, it becomes a comment on the suggestion when comments are available. See [Tracked changes and comments](#tracked-changes-and-comments). Required for changes when `fetch-tools` received a `meta` instruction for `tiptapQuery`.
+
+Unknown fields are rejected.
+
+## Selectors
+
+A selector is an array of steps. It starts at the document, and each step searches inside the content that the previous step selected. An empty selector (`[]`) selects the whole document.
+
+| Selector                                                    | Selects                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------- |
+| `[{ "type": "heading" }]`                                   | Every heading, including nested headings                   |
+| `[{ "hash": "HASH" }]`                                      | The node with this `_hash`                                 |
+| `[{ "type": "paragraph", "contains": "beta" }]`             | Every paragraph that contains the text `beta`              |
+| `[{ "text": "beta", "wholeWord": true }]`                   | Every occurrence of the word `beta`                        |
+| `[{ "type": "bulletList" }, { "text": "late" }]`            | Every occurrence of `late` inside bullet lists             |
+| `[{ "hash": "HASH" }, { "content": true }]`                 | The inside of the node with this `_hash`, without the node |
+| `[{ "range": { "from": "START_HASH", "to": "END_HASH" } }]` | Two sibling nodes and every node between them              |
+
+### Node steps
+
+A node step selects nodes inside the previous selection. All filters of one step must match.
+
+- `type` (`string`, optional): Node type, such as `"heading"`. A type that the editor schema doesn't define fails with `invalid_selector`.
+- `hash` (`string`, optional): Value of the node's `_hash` attribute. Reads return the hashes of the nodes they find.
+- `id` (`string`, optional): Value of the node's `id` attribute, such as the one added by the [Unique ID](/editor/extensions/functionality/uniqueid) extension. Several nodes can match the same ID.
+- `attrs` (`object`, optional): Attribute values that the node must have, such as `{ "level": 2 }`.
+- `contains` (`string`, optional): Text that the node must contain. The match is literal and case-sensitive.
+- `scope` (`'descendants' | 'children'`, optional, default: `'descendants'`): Searches all descendants, or only the direct children.
+- `pick` (`'all' | 'first' | 'last'`, optional, default: `'all'`): Keeps every match, or only the first or last match in document order. A step without `type` can't pick the first or last match when its matches are nested inside each other.
+
+Chaining two node steps searches inside the nodes that the first step found. It doesn't select the nodes between them: use a range step for that.
+
+### Text steps
+
+A text step selects every non-overlapping occurrence of a text inside the previous selection.
+
+- `text` (`string`, required): Text to find, up to 10,000 characters. The text is matched literally. Regular expressions aren't supported.
+- `caseSensitive` (`boolean`, optional, default: `true`): Set `false` to ignore case.
+- `wholeWord` (`boolean`, optional, default: `false`): Set `true` to match only whole words.
+- `pick` (`'all' | 'first' | 'last'`, optional, default: `'all'`): Keeps every match, or only the first or last match in document order.
+
+A match can span text with different formatting, but it never crosses a block, a hard break or an inline node. After a text step, only another text step can follow.
+
+### Content steps
+
+`{ "content": true }` selects the inside of each selected node, without the node itself. Use it to read or replace the children of a node while keeping the node and its attributes.
+
+### Range steps
+
+`{ "range": { "from": "START_HASH", "to": "END_HASH" } }` selects two sibling nodes and every node between them. Both hashes must belong to exactly one node inside the previous selection, and `from` must come before `to`. Omit `to` to select up to the end of the parent node, or of an enclosing range when that ends first.
+
+Read the hashes of the endpoints before you edit a range, and edit the whole range in one operation.
+
+## Actions
+
+### `read`
+
+Returns the selected content without changing the document.
+
+- `view` (`'content' | 'text' | 'summary'`, optional, default: `'content'`): How each match is returned:
+  - `'content'`: The content in the request `format`: Tiptap JSON nodes, or a Tiptap Shorthand string.
+  - `'text'`: Plain text.
+  - `'summary'`: Hash, type, attributes and plain text of each node.
+- `maxChars` (`number`, optional, default: `32000`): Maximum size of the returned page, between `512` and `32000` characters.
+- `cursor` (`string`, optional): Continuation of an earlier read. Don't create or change it: send the whole `next` operation that the read returned. See [Read long content](#read-long-content).
+
+### `replace`
+
+Replaces the selected content.
+
+- `content` (`JSONContent[] | string`, required): The new content.
+  - For text matches, `content` is always a plain string, in every format. Use `""` to delete the text. The new text keeps the formatting at the start of the match, and `\n` becomes a hard break where the parent allows one.
+  - For nodes, content steps, ranges and the whole document, `content` is a Tiptap JSON node array when `format` is `json`, or a [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand) string when `format` is `shorthand` or `shorthandV2`. Empty content (`[]`, or `""` in Tiptap Shorthand) deletes the selected nodes, if the schema allows it.
+
+### `insertBefore` and `insertAfter`
+
+Inserts nodes as siblings before or after each selected node or content range.
+
+- `content` (`JSONContent[] | string`, required): The nodes to insert, in the same format as node content for `replace`.
+
+Text matches can't be used. To add text inside a paragraph, replace a text match with the longer text instead. To add nodes at the start or end of the document, select `[{ "content": true }]`. The whole document (`[]`) can't be used for insertion.
+
+### `setAttrs`
+
+Merges attributes into each selected node.
+
+- `attrs` (`object`, required): The attributes to set. The editor schema must define them. Reserved attributes, such as `_hash` and the tracked-changes attributes, can't be set.
+
+### `addMark` and `removeMark`
+
+Adds or removes a mark on the selected text, or on all text inside the selected nodes.
+
+- `mark` (`string`, required): Mark type from the editor schema, such as `"bold"`. Tracked-changes and comment marks can't be used.
+- `attrs` (`object`, optional): Mark attributes for `addMark`, such as `{ "href": "https://tiptap.dev" }` for a link.
+
+`removeMark` removes every mark of that type, whatever its attributes.
+
+### Hashes in new content
+
+The tool adds a `_hash` to each new node. Hashes in the content you send are ignored. When `replace` swaps a node for a single node of the same type, the new node keeps the old hash. Tracked-changes marks and attributes in new content are rejected with `invalid_content`.
+
+## Output
+
+Tool output (`tool.output`):
+
+- `success` (`boolean`): Whether every operation succeeded.
+- `operationResults` (`array`): One result for each operation that ran, in order. See below.
+- `skipped` (`number`): Number of operations that didn't run because an earlier operation failed.
+
+Each result in `operationResults` has one of these shapes.
+
+Read result:
+
+- `index` (`number`): Position of the operation in `operations`.
+- `success` (`true`)
+- `complete` (`boolean`): Whether the read returned everything it selected. When `false`, call the tool again with `next`.
+- `totalMatches` (`number`): Number of matches of the selector. When the selector is empty, each top-level node counts as one match.
+- `items` (`array`): The returned matches. Each item contains:
+  - `hash` (`string`, optional): Hash of the node. For a text match, the hash of the node that contains the match. For a content step, the hash of the node whose content was selected. Items of a range have no hash.
+  - `type` (`string`): Node type, `"text"` for a text match, or `"content"` for a content step or range.
+  - `attrs` (`object`, optional): Node attributes, in the `summary` view. The `_hash` and tracked-changes attributes are left out. Text matches, content steps and ranges have no `attrs`.
+  - `text` (`string`): Plain text, in the `text` and `summary` views. Hard breaks become `\n`, and other inline nodes become the U+FFFC character.
+  - `content` (`JSONContent[] | string`): The content, in the `content` view.
+  - `excerpt` (`true`, optional): The item is a text excerpt of a node that doesn't fit in the page. It has `text` instead of `content`.
+- `next` (`object | null`): The operation that continues the read, or `null` when the read is complete.
+
+Edit result:
+
+- `index` (`number`): Position of the operation in `operations`.
+- `success` (`true`)
+- `matched` (`number`): Number of matches that the operation edited.
+- `changed` (`boolean`): Whether the operation changed the document. It is `false` when the edit has no effect, such as making bold text bold.
+
+Failed result:
+
+- `index` (`number`): Position of the operation in `operations`.
+- `success` (`false`)
+- `code` (`string`): Error code. See [Error codes](#error-codes).
+- `error` (`string`): Error message for the AI, up to 2,000 characters. It often suggests how to fix the operation.
+
+When the input itself is invalid, the output is `{ "success": false, "code": "invalid_input", "error": "..." }` and no operation runs.
+
+Failed operations and invalid input are reported in `tool.output`, and the `execute-tool` request still returns HTTP status `200`. Other failures, such as authentication, document access and server errors, return the HTTP errors described in the [REST API reference](/ai/ai-toolkit/api-reference/rest-api#execute-a-tool).
+
+## How operations run
+
+- Operations run in order. Each operation sees the changes of the operations before it.
+- An edit finds all its matches first and then changes all of them, or none if the edit fails.
+- An edit without matches fails with `no_matches`. A read without matches succeeds with no items.
+- The first failed operation stops the call. Changes of earlier operations are kept, and later operations are skipped. The call isn't rolled back.
+- Nodes without a `_hash` get one, even when the call only reads. Duplicate hashes are replaced. Existing hashes don't change.
+
+## Read long content
+
+A read returns at most `maxChars` characters. When there is more, `complete` is `false` and `next` contains the operation that continues the read. Send `next` as the operation of a new call, and repeat until `next` is `null`:
+
+```json
+{
+  "operations": [
+    /* the `next` value of the previous read */
+  ]
+}
+```
+
+A node that doesn't fit in a page is returned as text excerpts with `excerpt: true`, and `next` continues inside the same node. A read can therefore need more pages than it has matches, and `totalMatches: 1` doesn't mean that the node was read completely. To see the structure of a large node, read its children or use a larger page.
+
+The cursor in `next` stays valid when other parts of the document change, and when a node that was already read keeps its hash. When content that was already read changes in another way, the read fails with `stale_cursor`. Read again without a cursor, or start a range at the last hash you read.
+
+All reads in one call share the `chunkSize` budget. When the budget is spent, the remaining reads return no items, `complete: false` and their `next` operation. Later operations still run.
+
+## Tracked changes and comments
+
+With `reviewOptions: { mode: 'trackedChanges' }`, every edit becomes a suggestion that users can accept or reject, instead of a direct change.
+
+- Reads return the document as if all pending suggestions were accepted.
+- Suggestions of earlier calls are kept when the AI edits other content.
+- `meta` becomes a comment on the suggestions of its operation. Comments require a Tiptap Cloud document and an editor schema that supports comments. Inline documents receive suggestions, but no comments.
+- `setAttrs` rejects attributes that suggestions can't record with `invalid_attributes`. By default, these are `id` and `data-thread-id` (see `ignoreAttributes` in the [review options](/ai/ai-toolkit/api-reference/review-options)).
+- An edit that only changes ignored attributes or marks returns `changed: false` and doesn't change the document.
+
+## Error codes
+
+| Code                  | Cause                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invalid_input`       | The input doesn't match the schema, for example because of an unknown field or more than 50 operations. No operation runs.                        |
+| `invalid_selector`    | The node type isn't in the schema, a node, range or content step follows a text step, a content step selects a leaf node, or `pick` is ambiguous. |
+| `invalid_range`       | A range endpoint isn't exactly one node in the selected scope, or the endpoints aren't ordered siblings.                                          |
+| `no_matches`          | An edit selected nothing.                                                                                                                         |
+| `unexpected_matches`  | The number of matches differs from `expect`.                                                                                                      |
+| `too_many_matches`    | An edit selected more than 10,000 matches.                                                                                                        |
+| `overlapping_matches` | The matches of an edit overlap.                                                                                                                   |
+| `selection_limit`     | The selectors of the call examined more than 2,000,000 nodes and text matches.                                                                    |
+| `invalid_target`      | The action can't apply to the selection, for example inserting next to a text match or setting attributes on text.                                |
+| `invalid_content`     | The content has the wrong form for the selection or format, or it contains tracked changes.                                                       |
+| `invalid_operation`   | The editor schema rejects the content, or the Tiptap Shorthand can't be parsed. The message lists the issues.                                     |
+| `invalid_attributes`  | An attribute is unknown or reserved, or suggestions can't record it in tracked-changes mode.                                                      |
+| `invalid_mark`        | The mark isn't an ordinary mark of the schema, or the parent node doesn't allow it.                                                               |
+| `invalid_cursor`      | The cursor wasn't returned by the tool or was changed.                                                                                            |
+| `stale_cursor`        | Content that the read already returned has changed.                                                                                               |
+| `output_limit`        | A single item and its continuation don't fit in `maxChars`.                                                                                       |
+| `unsupported_content` | Tiptap Shorthand can't represent the content. Read it with the `text` or `summary` view.                                                          |
+
+## Limits
+
+| Limit                                                      | Value                    |
+| ---------------------------------------------------------- | ------------------------ |
+| Operations per call                                        | 50                       |
+| Steps per selector                                         | 12                       |
+| Length of `text` and `contains`                            | 10,000 characters        |
+| Length of `meta`                                           | 4,000 characters         |
+| Matches per edit                                           | 10,000                   |
+| Nodes and text matches examined by the selectors of a call | 2,000,000                |
+| Size of a read page (`maxChars`)                           | 512 to 32,000 characters |
+| Characters returned by all reads of a call (`chunkSize`)   | 512 to 32,000 characters |
+| Length of a cursor                                         | 2,048 characters         |
+
+## Examples
+
+The examples use a document with these nodes:
+
+| Hash     | Node                                    | Text                                                        |
+| -------- | --------------------------------------- | ----------------------------------------------------------- |
+| `k8Tq2m` | Heading, level 1                        | Launch plan                                                 |
+| `p3Lx7a` | Paragraph                               | This plan covers the beta and the public launch.            |
+| `Q9wE4r` | Heading, level 2                        | Timeline                                                    |
+| `Z2nB6c` | Paragraph                               | The beta starts in March. The public launch follows in May. |
+| `m5Ht8v` | Heading, level 2                        | Risks                                                       |
+| `J7sD1k` | Bullet list                             |                                                             |
+| `x4Pq9w` | List item in `J7sD1k`, with a paragraph | Hiring takes longer than planned.                           |
+| `R1yU5e` | List item in `J7sD1k`, with a paragraph | The scope changes late.                                     |
+| `W3gN7h` | Heading, level 2                        | Contacts                                                    |
+| `t5Mz1q` | Paragraph                               | Product: Ana. Engineering: Ben.                             |
+
+### Read the outline
+
+Read every heading with the `summary` view, without loading the body:
+
+```json
+{
+  "operations": [
+    { "selector": [{ "type": "heading" }], "action": { "type": "read", "view": "summary" } }
+  ]
+}
+```
+
+Output:
+
+```json
+{
+  "success": true,
+  "operationResults": [
+    {
+      "index": 0,
+      "success": true,
+      "complete": true,
+      "totalMatches": 4,
+      "items": [
+        { "hash": "k8Tq2m", "type": "heading", "attrs": { "level": 1 }, "text": "Launch plan" },
+        { "hash": "Q9wE4r", "type": "heading", "attrs": { "level": 2 }, "text": "Timeline" },
+        { "hash": "m5Ht8v", "type": "heading", "attrs": { "level": 2 }, "text": "Risks" },
+        { "hash": "W3gN7h", "type": "heading", "attrs": { "level": 2 }, "text": "Contacts" }
+      ],
+      "next": null
+    }
+  ],
+  "skipped": 0
+}
+```
+
+### Read forward from a heading
+
+Start a range at a heading hash and omit `to` to read until the end of the document. Add `{ "scope": "children" }` to return each node of the range as its own item:
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "range": { "from": "m5Ht8v" } }, { "scope": "children" }],
+      "action": { "type": "read", "view": "summary", "maxChars": 8000 }
+    }
+  ]
+}
+```
+
+The result contains four items: the `Risks` heading, the bullet list, the `Contacts` heading and its paragraph. A range doesn't stop at the next heading. To read one section only, set `to` to its last node.
+
+### Find a paragraph and edit it
+
+Search for the paragraphs that contain a text:
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "type": "paragraph", "contains": "March" }],
+      "action": { "type": "read", "view": "summary" }
+    }
+  ]
+}
+```
+
+The read returns one item: the paragraph with the hash `Z2nB6c`.
+
+Then edit the text inside that paragraph with its hash:
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "hash": "Z2nB6c" }, { "text": "March" }],
+      "action": { "type": "replace", "content": "April" },
+      "expect": 1
+    }
+  ]
+}
+```
+
+The edit returns `matched: 1` and `changed: true`. The paragraph now reads "The beta starts in April. The public launch follows in May."
+
+### Change the type of a node
+
+To change the type of a node, select the node, not its text, and replace it. This turns the contacts paragraph into a bullet list:
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "type": "paragraph", "contains": "Product:" }],
+      "action": {
+        "type": "replace",
+        "content": [
+          {
+            "type": "bulletList",
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  { "type": "paragraph", "content": [{ "type": "text", "text": "Product: Ana" }] }
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {
+                    "type": "paragraph",
+                    "content": [{ "type": "text", "text": "Engineering: Ben" }]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "expect": 1
+    }
+  ]
+}
+```
+
+### Insert a node
+
+Insert a paragraph after another paragraph:
+
+```json
+{
+  "operations": [
+    {
+      "selector": [{ "hash": "Z2nB6c" }],
+      "action": {
+        "type": "insertAfter",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [{ "type": "text", "text": "Feedback closes two weeks after launch." }]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+The edit returns `matched: 1` and `changed: true`.
+
+### Handle a failed operation
+
+The second operation expects one paragraph with the text "launch", but two paragraphs contain it:
+
+```json
+{
+  "operations": [
+    { "selector": [{ "text": "March" }], "action": { "type": "replace", "content": "April" } },
+    {
+      "selector": [{ "type": "paragraph", "contains": "launch" }],
+      "action": { "type": "addMark", "mark": "italic" },
+      "expect": 1
+    },
+    { "selector": [{ "text": "May" }], "action": { "type": "replace", "content": "June" } }
+  ]
+}
+```
+
+Output:
+
+```json
+{
+  "success": false,
+  "operationResults": [
+    { "index": 0, "success": true, "matched": 1, "changed": true },
+    {
+      "index": 1,
+      "success": false,
+      "code": "unexpected_matches",
+      "error": "Expected 1 matches, found 2. Narrow the selector or read first."
+    }
+  ],
+  "skipped": 1
+}
+```
+
+The first operation is kept, so the document now says "April". The third operation doesn't run.
+
+## Related pages
+
+- [REST API](/ai/ai-toolkit/api-reference/rest-api)
+- [Review options](/ai/ai-toolkit/api-reference/review-options)
+- [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand)

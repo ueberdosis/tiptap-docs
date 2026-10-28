@@ -53,6 +53,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/comments/integrate/editor-commands',
         },
         {
+          title: 'Comments on code',
+          href: '/comments/integrate/code',
+        },
+        {
           title: 'REST API',
           href: '/comments/integrate/rest-api',
         },

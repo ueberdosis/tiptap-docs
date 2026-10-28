@@ -1,0 +1,134 @@
+---
+title: Styling
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Styling | Tiptap Slots Docs
+  description: Customize Slot markup, NodeViews and view updates.
+  category: Composable Docs
+---
+
+Customize `BlockSlot` and `InlineSlot` as ordinary Tiptap Node extensions. Pass them to `Slot`; it retains the commands, indexing and validation behavior.
+
+## HTML attributes
+
+```ts
+Slot.configure({
+  blockSlot: BlockSlot.configure({ HTMLAttributes: { class: 'block-field' } }),
+  inlineSlot: InlineSlot.configure({ HTMLAttributes: { class: 'inline-field' } }),
+})
+```
+
+- `HTMLAttributes` (`Record<string, string>`): Outer-element attributes. Default: `{}`.
+- Required `data-slot-*` attributes take precedence over custom attributes.
+- The package supplies no toolbar, borders or colors. Style the wrapper in your application.
+
+### Serialized attributes
+
+| Attribute          | Value                   | Purpose                           |
+| ------------------ | ----------------------- | --------------------------------- |
+| `data-slot-kind`   | `'block'` or `'inline'` | Identifies the Node kind.         |
+| `data-slot-id`     | Slot ID                 | Preserves identity.               |
+| `data-slot-config` | Escaped JSON            | Preserves embedded configuration. |
+
+Default wrappers are `div` for block Slots and `span` for inline Slots. The accessible name uses `config.label`, falling back to the ID.
+
+### View-only attributes
+
+| Attribute               | Value                  | Purpose                                |
+| ----------------------- | ---------------------- | -------------------------------------- |
+| `data-slot-empty`       | `'true'` or `'false'`  | Styles empty fields.                   |
+| `data-slot-active`      | `'true'` or `'false'`  | Styles the active field.               |
+| `data-slot-placeholder` | Configured placeholder | Supplies text when the field is empty. |
+
+These attributes and placeholder presentation are not persisted in JSON, serialized HTML or clipboard content.
+
+## Custom NodeViews
+
+```ts
+const CustomBlockSlot = BlockSlot.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(MySlotView)
+  },
+})
+
+Slot.configure({ blockSlot: CustomBlockSlot })
+```
+
+`ReactNodeViewRenderer` comes from `@tiptap/react`. JavaScript and Vue use their standard Tiptap NodeView APIs.
+
+### Contract
+
+- Preserve the canonical Node name, `id`/`config` attributes, content expression and defining/isolating behavior.
+- Register customized instances through `Slot` only. Instances are fixed at editor construction.
+- Provide one editable `contentDOM`, or the framework's `NodeViewContent` equivalent.
+- Let Tiptap render document content. Do not render a second copy from `node.content`.
+- Mark controls and labels noneditable. Make edits through commands.
+- Inline wrappers and content containers must use inline-compatible elements, such as `span`.
+- Custom views own visible labels and placeholders. Default placeholder text is not added to custom views.
+- Preserve selection, nested editing, IME and caret behavior. Do not swallow required content events or mutations.
+
+See [Tiptap NodeViews](/editor/extensions/custom-extensions/node-views) for the framework APIs.
+
+## Validation and permission updates
+
+Use [`subscribeSlotViewUpdates`](/composable-docs/slots/api-reference/utilities#subscribeslotviewupdates) to refresh UI when attributes alone do not change.
+
+```ts
+const unsubscribe = subscribeSlotViewUpdates({ editor, onUpdate: refresh })
+// When disposing the view:
+unsubscribe()
+```
+
+- Read `editor.storage.slot` for the snapshot, active field and validation state.
+- Use `getPos()` and entry positions when imported IDs are ambiguous.
+- Use `editor.can()` for command availability and Content Protection queries for explanations.
+- Render only current validation results. Apply read permissions before displaying messages or content.
+- Mounting a view does not start validation.
+
+## HTML serialization
+
+- `addNodeView` controls the editor UI; `renderHTML` controls exported HTML.
+- For content-slot nodes (`BlockSlot` and `InlineSlot`), custom `renderHTML` must preserve the three serialized attributes and one content hole.
+- Generate attributes from the current Node with proper escaping.
+- Custom `parseHTML` must preserve IDs and complete configuration. Keep the default parser as a fallback.
+- Malformed configuration JSON in HTML becomes `config: null` and produces a validation issue.
+- UI controls, placeholders and validation messages belong to the NodeView, not exported content.
+
+## Value slot NodeViews
+
+Customize `BlockValueSlot` or `InlineValueSlot` through `addNodeView`. These leaf nodes have no `contentDOM` or `NodeViewContent`. Keep their wrappers noneditable and use native controls or framework components inside them. See the [value slots guide](/composable-docs/slots/guides/value-slots#mix-custom-and-default-nodeviews) for a complete demo.
+
+### `createSlotValueController`
+
+```ts
+const slot = createSlotValueController({ editor, getPos })
+```
+
+Accepts an `Editor` and the NodeView's live `getPos: () => number | undefined` callback. No framework dependency is required.
+
+- `getState(): SlotValueState`: Stable immutable snapshot with `value: JsonValue`, `config: SlotConfig | null`, `editable: boolean`, and `available: boolean`.
+- `getValue(): JsonValue`: Latest readable value; `null` when unavailable.
+- `setValue(value: JsonValue): boolean`: Guarded command; false when unavailable, protected, ambiguous, or variable-controlled.
+- `subscribe(listener: () => void): () => void`: Notify on state changes; returns an unsubscribe function. Read initial state explicitly. The editor listener is removed after the last subscriber unsubscribes.
+- `focus(): void`: Select the readable value node when its control receives focus. It does not move DOM focus.
+- `destroy(): void`: Release subscriptions and prevent further writes.
+
+The snapshot reference changes only when its properties change, making it suitable for React's `useSyncExternalStore`. Do not destroy a controller while other consumers still use it. Missing or unreadable fields have `available: false` and do not expose their value or configuration.
+
+### `createDefaultSlotValueView`
+
+Accepts standard `NodeViewRendererProps` and returns a complete ProseMirror `NodeView`. Call it inside `addNodeView` for fields that should retain built-in controls. It never calls your renderer again.
+
+The default view manages events, composition, value updates, permission changes, and disposal. It recreates when the input type changes. Custom views must also return false from `update` when a configuration change requires a different renderer.
+
+### Value HTML
+
+Value nodes serialize `data-slot-kind`, `data-slot-mode="value"`, `data-slot-id`, `data-slot-config`, and `data-slot-value`. Config and value use escaped JSON. Exported HTML includes a static value representation and no content hole or interactive control. Custom value-slot serialization must preserve these attributes without adding a content hole.
+
+## Redacted content
+
+Content Protection replaces concealed Nodes with its own [redaction renderer](/composable-docs/content-protection/api-reference/rendering). Their original Slot NodeViews do not remain mounted.
+
+A readable parent may contain concealed children. Its custom controls must not display those children's text, attributes or JSON elsewhere. The complete source document remains in client memory.

@@ -206,10 +206,7 @@ export const PageHeaderTag = ({
       <Tag
         asChild
         variant="info"
-        tooltip={
-          tag.tooltip ||
-          'Compare is part of a pilot program for Business and Enterprise customers. Pilot participants get early access and give direct input on how the feature develops. Contact our team to join.'
-        }
+        tooltip={tag.tooltip || 'Contact our team to join the pilot program.'}
       >
         <Link
           href="https://tiptap.dev/contact-sales?form=pilot-program"

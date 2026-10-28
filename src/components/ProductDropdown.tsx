@@ -14,6 +14,7 @@ const options = [
   { label: 'Collaboration', href: '/collaboration/getting-started/overview' },
   { label: 'Comments', href: '/comments/getting-started/overview' },
   { label: 'Compare', href: '/compare/getting-started/overview' },
+  { label: 'Composable Docs', href: '/composable-docs/slots/getting-started/overview' },
   { label: 'Conversion', href: '/conversion/getting-started/overview' },
   { label: 'Pages', href: '/pages/getting-started/overview' },
   { label: 'Snapshots', href: '/collaboration/documents/snapshot' },

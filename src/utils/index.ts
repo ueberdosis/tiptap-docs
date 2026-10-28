@@ -6,5 +6,7 @@ export const cn = (...classes: (string | undefined)[]) => {
 }
 
 export const getRepoBase = () => {
-  return `${process.env.NEXT_PUBLIC_REPO}/blob/main${process.env.NEXT_PUBLIC_REPO_BASE}`
+  const repo = process.env.NEXT_PUBLIC_REPO || 'ueberdosis/tiptap-docs'
+  const base = process.env.NEXT_PUBLIC_REPO_BASE || '/src'
+  return `${repo}/blob/main${base.replace(/\/$/, '')}`
 }

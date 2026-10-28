@@ -1,42 +1,35 @@
+import path from 'path'
 import { glob } from 'fast-glob'
-import { UIComponentMetaWithUrl } from '@/types'
+import { cache } from 'react'
+import { readFrontmatter } from './readFrontmatter'
+import type { UIComponentMetaWithUrl } from '@/types'
 
-export const getUIComponents = async (path: string = '') => {
-  let pages = (await glob(`**/*.mdx`, { cwd: `src/${path}` })).filter((p) => {
-    return !p.endsWith('index.mdx') && !p.endsWith('overview.mdx')
+export const getUIComponents = cache(async (pathParam: string = '') => {
+  const pages = (await glob('**/*.mdx', { cwd: `src/${pathParam}` })).filter(
+    (page) => !page.endsWith('index.mdx') && !page.endsWith('overview.mdx'),
+  )
+  const pathPrefix = pathParam ? `${pathParam}/` : ''
+  const entries: [string, UIComponentMetaWithUrl][] = []
+
+  for (const page of pages) {
+    const pagePath = `/${pathPrefix}${page}`
+    const attributes = await readFrontmatter(path.join(process.cwd(), 'src', pathPrefix, page))
+    if (!attributes.component) continue
+
+    entries.push([
+      `${pathParam}${pagePath}`,
+      {
+        ...attributes.component,
+        path: page,
+        url: pagePath.replace('content/', '').replace('.mdx', ''),
+      },
+    ])
+  }
+
+  entries.sort((a, b) => {
+    const nameA = a[1].name.toLowerCase()
+    const nameB = b[1].name.toLowerCase()
+    return nameA < nameB ? -1 : nameA > nameB ? 1 : 0
   })
-
-  const pathPrefix = path ? `${path}/` : ''
-
-  let allComponents = (await Promise.all(
-    pages.map(async (page) => {
-      const pagePath = `/${pathPrefix + page}`
-      const componentData = (await import(`@/content/${pagePath.replace('/content/', '')}`))
-        .frontmatter?.component as UIComponentMetaWithUrl | undefined
-
-      if (!componentData) {
-        return null
-      }
-
-      return [
-        path + pagePath,
-        {
-          ...componentData,
-          path: page,
-          url: pagePath.replace('content/', '').replace('.mdx', ''),
-        },
-      ] as [string, UIComponentMetaWithUrl]
-    }),
-  )) as Array<[string, UIComponentMetaWithUrl]>
-
-  allComponents = allComponents
-    .filter((entry): entry is [string, UIComponentMetaWithUrl] => entry !== null)
-    .sort((a, b) => {
-      const nameA = a[1].name.toLowerCase()
-      const nameB = b[1].name.toLowerCase()
-      return nameA < nameB ? -1 : nameA > nameB ? 1 : 0
-    })
-
-  const componentsData = Object.fromEntries(allComponents)
-  return componentsData
-}
+  return Object.fromEntries(entries)
+})

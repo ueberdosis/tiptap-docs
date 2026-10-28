@@ -1,0 +1,366 @@
+---
+title: Enable spellcheck in Tiptap
+meta:
+  title: Spellcheck and spell checking | Tiptap Editor Docs
+  description: Enable browser spellcheck in Tiptap and ProseMirror, troubleshoot missing spelling suggestions, or build a custom spell checker with decorations.
+  category: Editor
+---
+
+Use browser spellcheck to underline misspelled words and offer corrections in the browser's context menu. Set two editor attributes. No extra extension is needed.
+
+If you need your own suggestion menu, custom dictionaries, or consistent results across browsers, [integrate a custom spell checker](#integrate-a-custom-spell-checker).
+
+The examples assume you have [installed Tiptap](/editor/getting-started/install/vanilla-javascript).
+
+## Enable browser spellcheck
+
+In an existing editor, add `spellcheck` and `lang` to [`editorProps.attributes`](/editor/api/editor#editorprops). Use the string `'true'`, because these DOM attributes use strings.
+
+For a new JavaScript editor, add a container to your HTML:
+
+```html
+<div id="editor"></div>
+```
+
+Then create the editor:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit],
+  content: '<p>This sentense has a spelling mistake.</p>',
+  editorProps: {
+    // Apply these attributes to the editable element.
+    attributes: {
+      // Ask the browser to check spelling.
+      spellcheck: 'true',
+      // Declare the text's language. Browser dictionary settings still apply.
+      lang: 'en-US',
+    },
+  },
+})
+```
+
+In React or Vue, pass the same `editorProps` option to `useEditor`. This puts the attributes on the editable element inside `EditorContent`.
+
+Click inside the editor, type `sentense`, and press Space. If spell checking is enabled, the browser can underline the word. Open the word's context menu to see suggestions.
+
+The HTML [`spellcheck` attribute](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/spellcheck) asks the browser to check spelling. The user can still disable checking. Set [`lang`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/lang) to your text's language, such as `de-DE` for German. The browser also needs a matching dictionary.
+
+### Change spellcheck at runtime
+
+Use [`setOptions()`](/editor/api/editor#setoptions) to turn browser spellcheck on or off. Copy the existing props and attributes so you keep your event handlers and settings.
+
+Add this function after the editor setup above:
+
+```js
+function setSpellcheck(enabled) {
+  const editorProps = editor.options.editorProps
+
+  editor.setOptions({
+    editorProps: {
+      // Keep existing event handlers and other editor props.
+      ...editorProps,
+      attributes: {
+        // Keep attributes such as class, role, and lang.
+        ...editorProps.attributes,
+        // DOM attribute values are strings.
+        spellcheck: enabled ? 'true' : 'false',
+      },
+    },
+  })
+}
+
+setSpellcheck(false)
+```
+
+If you use an `attributes` function, update that function instead of spreading it as an object.
+
+### Enable spellcheck in plain ProseMirror
+
+In ProseMirror, pass the attributes directly to [`EditorView`](https://prosemirror.net/docs/ref/#view.EditorProps.attributes):
+
+```js
+import { EditorView } from 'prosemirror-view'
+
+// state is your existing EditorState, including its schema and plugins.
+const view = new EditorView(document.querySelector('#editor'), {
+  state,
+  // ProseMirror applies these attributes to its editable element.
+  attributes: {
+    // Request native spelling checks for English text.
+    spellcheck: 'true',
+    lang: 'en-US',
+  },
+})
+```
+
+### Troubleshoot missing spelling suggestions
+
+If you don't see spelling underlines, check these settings:
+
+1. Inspect the editable `.tiptap` or `.ProseMirror` element. Confirm that it has `contenteditable="true"` and `spellcheck="true"`.
+2. Enable spell checking in your browser or operating system, and install or select the dictionary for your text's language.
+3. Click inside the editor, type a misspelled word, and press Space. Some browsers don't check existing text until you edit it.
+4. Inspect custom node views and nested elements for `spellcheck="false"` or `contenteditable="false"`. These can exclude text from checking.
+5. If underlines appear but suggestions don't, check whether your app replaces the browser's context menu or prevents the `contextmenu` event.
+
+Test in the browsers and on the devices your app supports. The browser controls its underlines and suggestion menu. To read errors in your app or style their underlines, use a custom checker.
+
+## Integrate a custom spell checker
+
+The example below uses nspell to check English text. It stores errors in an extension and underlines them with [`addDecorations()`](/editor/api/decorations#adddecorations). Decorations change how text looks without changing the saved document.
+
+For more examples, read the [Decorations guide](/editor/core-concepts/decorations). Use the [Decorations API reference](/editor/api/decorations) to look up methods and update settings.
+
+### Choose a checking engine
+
+- [`nspell`](https://github.com/wooorm/nspell) checks words against a dictionary. `correct(word)` checks spelling. `suggest(word)` returns possible corrections. Use it for local spelling checks, as shown below.
+- [LanguageTool](https://dev.languagetool.org/http-server) checks spelling and grammar through an HTTP service. To check as users type, use your own server or an API plan that allows automated requests. Its [free public endpoint](https://dev.languagetool.org/public-http-api.html) forbids automated requests.
+
+Put the following JavaScript snippets in one browser module, in the order shown. This is a separate editor setup from the browser example. It uses the same `<div id="editor"></div>` container.
+
+### 1. Store errors and underline them
+
+Create a `Spellcheck` extension. Its storage holds the errors and `checkedDoc`, the document version that the checker read. If the document changes, the extension hides the old underlines.
+
+```js
+import { Decoration, Extension } from '@tiptap/core'
+
+const Spellcheck = Extension.create({
+  name: 'spellcheck',
+
+  addStorage() {
+    // Keep checker results outside the saved document.
+    return { checkedDoc: null, errors: [] }
+  },
+
+  addDecorations() {
+    return {
+      // Rebuild after edits so results for the old document disappear.
+      update: 'document',
+      create: ({ state }) => {
+        // Show results only for the document snapshot the checker used.
+        if (this.storage.checkedDoc !== state.doc) return []
+
+        // Underline each error's document range without changing its text.
+        return this.storage.errors.map(({ from, to }) =>
+          Decoration.Inline(from, to, { class: 'spellcheck-error' }),
+        )
+      },
+    }
+  },
+})
+```
+
+### 2. Create the editor
+
+Register `Spellcheck` alongside `StarterKit`. Disable browser spellcheck so only your own checker draws underlines:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Spellcheck],
+  content: '<p>This sentense has a spelling mistake.</p>',
+  editorProps: {
+    attributes: { spellcheck: 'false', lang: 'en-US' },
+  },
+})
+```
+
+Add a function to save results and refresh the underlines. Each error needs `from` and `to`, the start and end positions of the word in the document:
+
+```js
+function showSpellcheckResults(checkedDoc, errors) {
+  // Ignore results if the editor closed or the document changed during the check.
+  if (editor.isDestroyed || editor.state.doc !== checkedDoc) return
+
+  // Store the checked snapshot and the errors that belong to it.
+  editor.storage.spellcheck.checkedDoc = checkedDoc
+  editor.storage.spellcheck.errors = errors
+  // Storage changes need an explicit decoration refresh.
+  editor.commands.updateDecorations('spellcheck')
+}
+```
+
+Add this rule to your app's stylesheet:
+
+```css
+.spellcheck-error {
+  /* Draw a red, wavy underline beneath each error. */
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #c62828;
+}
+```
+
+Changing storage alone doesn't redraw the underlines. [`updateDecorations()`](/editor/api/decorations#updatedecorations) tells Tiptap to rebuild them from the stored errors.
+
+### 3. Load the English dictionary
+
+Install nspell and the [English Hunspell dictionary](https://github.com/wooorm/dictionaries/tree/main/dictionaries/en):
+
+```sh
+npm install nspell dictionary-en
+```
+
+`dictionary-en` uses Node.js to read its files. To use the dictionary in a browser, copy the files into your app's public assets. Run these commands from your app's root directory:
+
+```sh
+mkdir -p public/dictionaries
+cp node_modules/dictionary-en/index.aff public/dictionaries/en.aff
+cp node_modules/dictionary-en/index.dic public/dictionaries/en.dic
+```
+
+This assumes your app serves `public/dictionaries/en.aff` at `/dictionaries/en.aff`. Adjust the paths for your framework or base URL.
+
+Load the files once at startup. Put this code in the same browser module as your editor:
+
+```js
+import nspell from 'nspell'
+
+async function createEnglishSpellchecker() {
+  // Fetch the affix rules and word list from your app's static assets.
+  const [aff, dic] = await Promise.all(
+    ['/dictionaries/en.aff', '/dictionaries/en.dic'].map(async (url) => {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`Failed to load dictionary: ${url}`)
+      return response.text()
+    }),
+  )
+
+  // nspell accepts dictionary data as strings.
+  return nspell({ aff, dic })
+}
+
+const spell = await createEnglishSpellchecker()
+```
+
+### 4. Find errors and save them
+
+Check each paragraph or heading separately. Join text across formatting marks so `sen<strong>ten</strong>se` becomes one word. Skip code and non-text inline nodes, such as images.
+
+Document positions count text and node boundaries. They differ from offsets in `editor.getText()`. The function below keeps positions aligned by replacing skipped content with spaces of the same length:
+
+```js
+function findSpellingErrors(doc, spell) {
+  const errors = []
+
+  doc.descendants((block, blockPos) => {
+    // Skip code blocks, including their descendants.
+    if (block.type.spec.code) return false
+    if (!block.isTextblock) return
+
+    let text = ''
+
+    block.forEach((child) => {
+      const isCode = child.marks.some((mark) => mark.type.spec.code)
+
+      // Text node sizes equal their JavaScript string lengths.
+      // Spaces keep offsets aligned for code, hard breaks, and inline nodes.
+      text += child.isText && !isCode ? child.text : ' '.repeat(child.nodeSize)
+    })
+
+    // nspell checks words. This tokenizer includes letters and contractions.
+    for (const match of text.matchAll(/[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu)) {
+      const checkedWord = match[0]
+      // Normalize curly apostrophes only for the dictionary lookup.
+      const word = checkedWord.replaceAll('’', "'")
+      if (spell.correct(word)) continue
+
+      // Add one for the text block's opening token.
+      const from = blockPos + 1 + match.index
+      errors.push({
+        from,
+        to: from + checkedWord.length,
+        checkedWord,
+        suggestions: spell.suggest(word),
+      })
+    }
+
+    // We already checked this block. Don't visit its children again.
+    return false
+  })
+
+  return errors
+}
+
+function checkEnglishDocument() {
+  if (editor.isDestroyed) return
+
+  // Check one snapshot, then save results and refresh its decorations.
+  const checkedDoc = editor.state.doc
+  const errors = findSpellingErrors(checkedDoc, spell)
+  showSpellcheckResults(checkedDoc, errors)
+}
+
+checkEnglishDocument()
+```
+
+For the sample document, `editor.storage.spellcheck.errors` contains an error for `sentense` at `from: 6`, `to: 14`. The word should have a red, wavy underline. Use the error's `suggestions` array to build your correction menu.
+
+To check again as the user types, wait until typing pauses for 300 milliseconds. Add this after the first check:
+
+```js
+let spellcheckTimer
+
+editor.on('update', () => {
+  // Restart the timer on each document change.
+  clearTimeout(spellcheckTimer)
+  spellcheckTimer = setTimeout(checkEnglishDocument, 300)
+})
+
+editor.on('destroy', () => {
+  // Cancel a scheduled check when the editor closes.
+  clearTimeout(spellcheckTimer)
+})
+```
+
+This example checks the whole document on the main thread. For large documents, use a Web Worker or check only changed blocks. The word-matching pattern handles letters and contractions. Adjust it for your app's rules about numbers and URLs.
+
+### 5. Apply a correction
+
+When the user picks a suggestion, pass the stored error and replacement text to this function:
+
+```js
+function applySpellingSuggestion(error, replacement) {
+  if (editor.isDestroyed) return
+  const { state, view } = editor
+  const { from, to, checkedWord } = error
+
+  // Ignore suggestions from an older version of the document.
+  if (editor.storage.spellcheck.checkedDoc !== state.doc) return
+
+  // Confirm that the range still contains the checked word.
+  if (state.doc.textBetween(from, to, '') === checkedWord) {
+    // A transaction lets history and collaboration track the replacement.
+    view.dispatch(state.tr.insertText(replacement, from, to))
+  }
+}
+```
+
+Use [`insertText()`](https://prosemirror.net/docs/ref/#state.Transaction.insertText) for replacements so the configured history and collaboration plugins can track them. Don't replace `innerHTML` or edit DOM text nodes.
+
+Make the suggestion menu work with a keyboard. Add controls to accept a correction, ignore a word, or add it to your app's dictionary. If a word spans bold or italic text, decide which formatting the replacement should keep.
+
+### Use another checker
+
+To use LanguageTool or another service, replace `findSpellingErrors()` with a call to that checker. Keep the same error fields and pass the results to `showSpellcheckResults()`.
+
+For an asynchronous check, capture `editor.state.doc` before sending the request. Pass that document version back with the results. `showSpellcheckResults()` discards them if the document changed during the request, including edits from collaborators. Schedule a new check after each document change.
+
+If the service returns offsets in plain text, convert them to document positions before saving errors. Preserve a position map when you add separators or remove content from the text you send.
+
+For more decoration examples, follow the tutorials for [Vanilla JavaScript](/guides/decorations-vanilla), [React](/guides/decorations-react), and [Vue](/guides/decorations-vue).
+
+### Handle document privacy
+
+If you use a remote checking service, send only the text you intend to check and keep service credentials on your server. For content that must stay on the device, use a local checking engine.
+
+Browser spell checking can also send text to a remote service, depending on the user's browser settings. See MDN's [spellcheck privacy notes](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/spellcheck#security_and_privacy_concerns) before enabling it for sensitive content.
