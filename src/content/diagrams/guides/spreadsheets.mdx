@@ -1,0 +1,410 @@
+---
+title: 'Google Sheets, Excel and Airtable'
+intro: 'A chart can follow a range in Google Sheets, a table in an Excel workbook or the records of an Airtable table. For each service you write a small provider, register it with <code>Diagrams</code>, and link a chart to an address in that service.'
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Google Sheets, Excel and Airtable | Tiptap Diagrams Docs'
+  description: 'Link a chart to a Google Sheet, an Excel workbook or an Airtable table with a Data Source provider of your own.'
+  category: Diagrams
+---
+
+## How it fits together
+
+- **The provider reads.** It calls the service's API and returns Chart Data.
+- **The document stores the address and a snapshot.** The chart renders from the snapshot,
+  offline, in an export and for a reader who has no access to the service.
+- **Credentials stay with your application.** A provider gets its token from your sign-in or
+  your server when you create it; the address never holds one.
+- **A chart updates when you synchronize it.** See
+  [Keeping a chart up to date](/diagrams/guides/spreadsheets#keeping-a-chart-up-to-date).
+
+| Service       | Provider id     | Address                                               | Credentials                         |
+| ------------- | --------------- | ----------------------------------------------------- | ----------------------------------- |
+| Google Sheets | `google-sheets` | `{ spreadsheetId, range }`                            | The user's Google sign-in (OAuth)   |
+| Excel         | `excel`         | `{ itemId, table }` or `{ itemId, worksheet, range }` | The user's Microsoft sign-in (MSAL) |
+| Airtable      | `airtable`      | `{ baseId, table, fields }`                           | A token on your server              |
+
+The provider ids are yours to choose. [Data Sources](/diagrams/data/sources) describes the provider
+contract and the Commands used below.
+
+## Google Sheets
+
+### A published sheet, without credentials
+
+A sheet published as CSV needs no provider: the built-in `url-csv` reads it.
+
+1. In Google Sheets, choose File, Share, Publish to web.
+2. Pick the sheet and Comma-separated values (.csv), then Publish.
+3. Link a chart to the URL it shows.
+
+```ts
+editor.commands.linkChartSource({
+  provider: 'url-csv',
+  address: {
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-…/pub?gid=0&single=true&output=csv',
+  },
+  readOnly: true,
+})
+```
+
+- Anyone who has the URL can read the published sheet.
+- Google updates a published sheet a few minutes after a change, not at once.
+
+### A private sheet, through the Sheets API
+
+What to set up:
+
+- A Google Cloud project with the Google Sheets API enabled.
+- An OAuth client ID of type Web application, with your site as an authorized JavaScript origin.
+- The scope `https://www.googleapis.com/auth/spreadsheets.readonly`.
+- A sign-in that returns an access token, such as the token client of Google Identity Services.
+
+The provider reads a range with
+[`spreadsheets.values.get`](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/get):
+
+```ts
+import {
+  ChartSourceError,
+  gridToChartData,
+  type ChartSourceProvider,
+} from '@tiptap-pro/extension-diagrams/core'
+
+function sheetAddress(address: unknown): { spreadsheetId: string; range: string } {
+  if (
+    typeof address === 'object' &&
+    address !== null &&
+    'spreadsheetId' in address &&
+    typeof address.spreadsheetId === 'string' &&
+    'range' in address &&
+    typeof address.range === 'string'
+  ) {
+    return { spreadsheetId: address.spreadsheetId, range: address.range }
+  }
+  throw new ChartSourceError('The address needs a spreadsheetId and a range.')
+}
+
+/** Reads a range of a Google Sheet. `getAccessToken` comes from your own Google sign-in. */
+export function googleSheetsSource(options: {
+  getAccessToken: () => Promise<string>
+}): ChartSourceProvider {
+  return {
+    id: 'google-sheets',
+    read: async (address, { fetch }) => {
+      const { spreadsheetId, range } = sheetAddress(address)
+      const url =
+        `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}` +
+        `/values/${encodeURIComponent(range)}` +
+        '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING'
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${await options.getAccessToken()}` },
+      })
+      if (!response.ok) throw new ChartSourceError(`Google Sheets answered ${response.status}.`)
+
+      const { values = [] }: { values?: unknown[][] } = await response.json()
+      return gridToChartData(
+        values.map((row) => row.map((cell) => String(cell ?? ''))),
+        { decimalSeparator: '.' },
+      )
+    },
+    describe: (address) => `Google Sheet, ${sheetAddress(address).range}`,
+  }
+}
+```
+
+Register it and link a chart:
+
+- `getGoogleAccessToken` is your function that returns the signed-in user's access token.
+- `spreadsheetId` is the long id in the sheet's URL.
+- `range` is in A1 notation, with the sheet's name.
+
+```ts
+import { Diagrams } from '@tiptap-pro/extension-diagrams'
+
+Diagrams.configure({
+  sources: [googleSheetsSource({ getAccessToken: getGoogleAccessToken })],
+})
+
+editor.commands.linkChartSource({
+  provider: 'google-sheets',
+  address: { spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms', range: 'Sales!A1:D13' },
+  readOnly: true,
+})
+```
+
+- **The first row is the header.** The first column holds the labels.
+- **Numbers arrive as numbers.** `UNFORMATTED_VALUE` keeps `1200.5` instead of `$1,200.50`.
+- **Dates arrive as the sheet shows them**, through `FORMATTED_STRING`.
+- **Empty cells at the end of a row are left out** by the API; the chart shows them as no value.
+- **Limits:** 300 read requests per minute per project and 60 per minute per user. Past that,
+  the API answers 429.
+
+## Excel
+
+The provider reads an Excel workbook in OneDrive or SharePoint through Microsoft Graph.
+
+What to set up:
+
+- An app registration in Microsoft Entra ID, with a single-page application redirect URI.
+- The delegated permission `Files.ReadWrite`, the one Microsoft Graph lists for reading a range.
+- MSAL (`@azure/msal-browser`) to sign the user in and get a token.
+- The workbook as an `.xlsx` file. Its `itemId` is the drive item id that Microsoft Graph
+  returns for the file.
+
+The provider reads a
+[table's range](https://learn.microsoft.com/en-us/graph/api/table-range?view=graph-rest-1.0)
+or a [worksheet range](https://learn.microsoft.com/en-us/graph/api/range-get?view=graph-rest-1.0):
+
+```ts
+import {
+  ChartSourceError,
+  gridToChartData,
+  type ChartSourceProvider,
+} from '@tiptap-pro/extension-diagrams/core'
+
+const text = (value: unknown): string => (typeof value === 'string' ? value : '')
+
+/** `{ itemId, table }` or `{ itemId, worksheet, range }`, with a `driveId` for SharePoint. */
+function rangePath(address: unknown): string {
+  const field = (key: string) =>
+    typeof address === 'object' && address !== null && key in address
+      ? text(Reflect.get(address, key))
+      : ''
+  if (!field('itemId')) throw new ChartSourceError('The address needs an itemId.')
+
+  const drive = field('driveId') ? `drives/${field('driveId')}` : 'me/drive'
+  const workbook = `${drive}/items/${field('itemId')}/workbook`
+  if (field('table')) return `${workbook}/tables/${encodeURIComponent(field('table'))}/range`
+  const sheet = encodeURIComponent(field('worksheet'))
+  return `${workbook}/worksheets/${sheet}/range(address='${field('range')}')`
+}
+
+/** Reads an Excel workbook in OneDrive or SharePoint. `getAccessToken` comes from MSAL. */
+export function excelSource(options: {
+  getAccessToken: () => Promise<string>
+}): ChartSourceProvider {
+  return {
+    id: 'excel',
+    read: async (address, { fetch }) => {
+      const url = `https://graph.microsoft.com/v1.0/${rangePath(address)}?$select=values,text`
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${await options.getAccessToken()}` },
+      })
+      if (!response.ok) throw new ChartSourceError(`Microsoft Graph answered ${response.status}.`)
+
+      const range: { values: unknown[][]; text: string[][] } = await response.json()
+      // A date is a number in Excel, so the label column is read as the workbook shows it
+      return gridToChartData(
+        range.values.map((row, r) =>
+          row.map((value, c) =>
+            c > 0 && typeof value === 'number' ? String(value) : text(range.text[r]?.[c]),
+          ),
+        ),
+        { decimalSeparator: '.' },
+      )
+    },
+  }
+}
+```
+
+A token from MSAL, signed in silently when it can, with a popup when it must:
+
+```ts
+import { PublicClientApplication } from '@azure/msal-browser'
+
+const msal = new PublicClientApplication({ auth: { clientId: 'your-client-id' } })
+await msal.initialize()
+
+async function getAccessToken(): Promise<string> {
+  const request = { scopes: ['Files.ReadWrite'], account: msal.getAllAccounts()[0] }
+  try {
+    return (await msal.acquireTokenSilent(request)).accessToken
+  } catch {
+    return (await msal.acquireTokenPopup(request)).accessToken
+  }
+}
+```
+
+Register it and link a chart to a table named `Sales`:
+
+```ts
+Diagrams.configure({ sources: [excelSource({ getAccessToken })] })
+
+editor.commands.linkChartSource({
+  provider: 'excel',
+  address: { itemId: '01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K', table: 'Sales' },
+  readOnly: true,
+})
+```
+
+- **A table is the better address.** It grows with new rows; a range like `A1:D13` does not.
+- **A workbook in SharePoint or shared with the user** needs its `driveId` in the address too.
+- **Numbers come from `values`, labels from `text`.** Excel stores a date as a number, so the
+  label column is read as the workbook shows it.
+- **Limits:** 1,500 requests per 10 seconds per app in one tenant. Past that, Microsoft Graph
+  answers 429.
+
+## Airtable
+
+The provider reads the records of an Airtable table through a route on your server, which adds
+the token.
+
+What to set up:
+
+- A personal access token with the scope `data.records:read` and access to the base. It stays
+  on your server.
+- The base id (`app…`) and the table name or id (`tbl…`), both in the URL of the table.
+- The route below on your server.
+
+**Why a server route:** a token in the page can be read by everyone who opens it, and it
+reaches every base the token can reach. The route sends only `GET` requests, and only to the
+bases you allow:
+
+```ts
+/**
+ * Runs on your server. Forwards `GET /api/airtable/<baseId>/<table>?…` to Airtable with a
+ * personal access token, for the bases you allow.
+ */
+export function airtableProxy(options: {
+  token: string
+  bases: string[]
+}): (request: Request) => Promise<Response> {
+  return async (request) => {
+    const url = new URL(request.url)
+    const path = url.pathname.replace(/^\/api\/airtable\//, '')
+    if (request.method !== 'GET' || !options.bases.includes(path.split('/')[0] ?? '')) {
+      return new Response('Not allowed', { status: 403 })
+    }
+
+    const response = await fetch(`https://api.airtable.com/v0/${path}${url.search}`, {
+      headers: { Authorization: `Bearer ${options.token}` },
+    })
+    return new Response(response.body, {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+}
+```
+
+Mount it where your server takes requests, for example `app.get('/api/airtable/*', …)`. Check
+there, too, that the signed-in user may read the base.
+
+The provider reads
+[the records of a table](https://airtable.com/developers/web/api/list-records), 100 per page,
+and follows `offset` to the next page:
+
+```ts
+import {
+  ChartSourceError,
+  gridToChartData,
+  type ChartSourceProvider,
+} from '@tiptap-pro/extension-diagrams/core'
+
+function tableAddress(address: unknown): { baseId: string; table: string; fields: string[] } {
+  if (
+    typeof address === 'object' &&
+    address !== null &&
+    'baseId' in address &&
+    typeof address.baseId === 'string' &&
+    'table' in address &&
+    typeof address.table === 'string' &&
+    'fields' in address &&
+    Array.isArray(address.fields)
+  ) {
+    return { baseId: address.baseId, table: address.table, fields: address.fields.map(String) }
+  }
+  throw new ChartSourceError('The address needs a baseId, a table and its fields.')
+}
+
+/** Reads the records of an Airtable table through `proxyUrl`, a route of your server. */
+export function airtableSource(options: { proxyUrl: string }): ChartSourceProvider {
+  return {
+    id: 'airtable',
+    read: async (address, { fetch }) => {
+      const { baseId, table, fields } = tableAddress(address)
+      const records: Record<string, unknown>[] = []
+      let offset = ''
+      do {
+        const query = new URLSearchParams(offset ? { offset } : {})
+        for (const field of fields) query.append('fields[]', field)
+        const path = `${encodeURIComponent(baseId)}/${encodeURIComponent(table)}`
+        const response = await fetch(`${options.proxyUrl}/${path}?${query}`)
+        if (!response.ok) throw new ChartSourceError(`Airtable answered ${response.status}.`)
+
+        const page: { records: { fields: Record<string, unknown> }[]; offset?: string } =
+          await response.json()
+        records.push(...page.records.map((record) => record.fields))
+        offset = page.offset ?? ''
+      } while (offset)
+
+      // Airtable leaves out empty fields, so the columns are the fields the address names
+      const cell = (value: unknown) =>
+        typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+      return gridToChartData(
+        [fields, ...records.map((record) => fields.map((field) => cell(record[field])))],
+        { decimalSeparator: '.' },
+      )
+    },
+    describe: (address) => `Airtable, ${tableAddress(address).table}`,
+  }
+}
+```
+
+Register it and link a chart to two fields of a table:
+
+```ts
+Diagrams.configure({ sources: [airtableSource({ proxyUrl: '/api/airtable' })] })
+
+editor.commands.linkChartSource({
+  provider: 'airtable',
+  address: { baseId: 'appXXXXXXXXXXXXXX', table: 'Deals', fields: ['Stage', 'Count'] },
+  readOnly: true,
+})
+```
+
+- **`fields` are the columns, in their order.** Airtable leaves empty fields out of a record, so
+  the records alone do not say which columns there are.
+- **The first field holds the labels.** Text and numbers are read; any other field, such as an
+  attachment or a linked record, shows as no value.
+- **Limits:** 5 requests per second per base. Past that, Airtable answers 429 and accepts
+  requests again after 30 seconds. A table of 1,000 records takes 10 requests.
+
+## Keeping a chart up to date
+
+A linked chart shows its snapshot until it is synchronized.
+
+```ts
+// The selected chart
+editor.commands.syncChartData()
+
+// Every chart that reads this range
+await editor.storage.diagrams.requestSync({
+  provider: 'google-sheets',
+  address: { spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms', range: 'Sales!A1:D13' },
+})
+```
+
+- **On a schedule:** call `requestSync` from `setInterval`, and stay within the service's limits.
+- **When a read fails**, the chart keeps its snapshot and the option `onSourceError` gets the
+  error and `{ provider, address }`. A provider throws a `ChartSourceError` with a message a
+  person can read.
+- **A synchronization is not undone** with the user's edits: it is left out of the undo history.
+
+## What to watch for
+
+- **No token in an address.** The address is stored in the Tiptap Document and shared with
+  everyone who opens it.
+- **Link with `readOnly: true`.** While linked, Commands that change the data return `false`, so
+  a local edit is never overwritten by the next synchronization.
+- **The chart's settings stay yours.** A synchronization replaces the data, never the Chart
+  Spec. To show only some columns, set `encoding`; see
+  [Showing only some columns](/diagrams/data/sources#showing-only-some-columns).
+- **Every client that synchronizes registers the provider.** A client without it shows the
+  snapshot and cannot read the source.
+- **Each reader signs in to Google or Microsoft.** A user without access to the sheet or the
+  workbook still sees the snapshot; a synchronization fails for them.
+- **Detach to edit the data by hand.** `detachChartSource` keeps the snapshot and the address,
+  and `relinkChartSource` follows the source again.

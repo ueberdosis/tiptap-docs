@@ -16,7 +16,7 @@ const PageHeaderWrapper = forwardRef<HTMLDivElement, PageHeaderWrapperProps>(
   ({ asChild, children, className, ...props }, ref) => {
     const Component = asChild ? Slot : 'header'
 
-    const wrapperClass = cn('mb-12', className)
+    const wrapperClass = cn('mb-12 pb-12 border-b border-grayAlpha-200', className)
 
     return (
       <Component className={wrapperClass} {...props} ref={ref}>
@@ -37,7 +37,7 @@ const PageHeaderTitle = forwardRef<HTMLHeadingElement, PageHeaderTitleProps>(
     const Component = asChild ? Slot : 'h1'
 
     const titleClass = cn(
-      'text-[3.125rem] font-bold text-black leading-none text-balance max-w-[42rem]',
+      'text-[2.8rem] font-bold text-black leading-none text-balance max-w-[42rem]',
       className,
     )
 
@@ -70,6 +70,29 @@ const PageHeaderDescription = forwardRef<HTMLParagraphElement, PageHeaderDescrip
 )
 
 PageHeaderDescription.displayName = 'PageHeader.Description'
+
+export type PageHeaderIntroProps = React.HTMLAttributes<HTMLDivElement>
+
+// A div, not a p: the intro is HTML and may hold paragraphs or lists of its own
+const PageHeaderIntro = forwardRef<HTMLDivElement, PageHeaderIntroProps>(
+  ({ children, className, ...props }, ref) => {
+    // Code and links look as they do in the content below
+    const introClass = cn(
+      'text-[1.125rem] leading-[150%] text-grayAlpha-700 mt-4 max-w-[42rem] text-pretty',
+      '[&_code]:bg-gray-200 [&_code]:text-purple-600 [&_code]:rounded-[6px] [&_code]:px-[0.4em] [&_code]:text-[0.9em]',
+      '[&_a]:border-b [&_a]:border-current [&_a:hover]:text-purple-500 [&>*+*]:mt-2',
+      className,
+    )
+
+    return (
+      <div className={introClass} {...props} ref={ref}>
+        {children}
+      </div>
+    )
+  },
+)
+
+PageHeaderIntro.displayName = 'PageHeader.Intro'
 
 const isImageTag = (tag: PageTag): tag is ImagePageTag => {
   return tag.type === 'image'
@@ -131,15 +154,20 @@ export const PageHeaderTags = ({
 }: PageHeaderTagsProps) => {
   // A legacy page shouldn't also invite you in as Beta or New
   const endOfLife = tags.some((tag) => tag.type === 'legacy')
+  // `pro` reads as Open source, which a page that names a paid plan isn't
+  const paidPlan = tags.some(
+    (tag) => PLAN_TYPES.includes(tag.type) && !['mit', 'pro'].includes(tag.type),
+  )
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
     .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
     .filter(({ tag }) => !(hideLegacy && tag.type === 'legacy'))
     .filter(({ tag }) => tag.type !== 'new' || isNew((tag as GeneralPageTag).since))
+    .filter(({ tag }) => !(paidPlan && tag.type === 'pro'))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
   if (!sorted.length) return null
   return (
-    <div className="flex items-center gap-1 flex-wrap mt-6 last:mb-12">
+    <div className="flex items-center gap-1 flex-wrap mt-6">
       {sorted.map(({ tag, index }) => (
         <PageHeaderTag tag={tag} isTemplate={isTemplate} key={index} />
       ))}
@@ -276,6 +304,7 @@ export const PageHeader = {
   Wrapper: PageHeaderWrapper,
   Title: PageHeaderTitle,
   Description: PageHeaderDescription,
+  Intro: PageHeaderIntro,
   Breadcrumbs: PageHeaderBreadcrumbs,
   Tags: PageHeaderTags,
   Tag: PageHeaderTag,

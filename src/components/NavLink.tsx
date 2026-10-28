@@ -15,7 +15,8 @@ export type NavLinkProps = {
   isDirectActive?: boolean
   hideIcon?: boolean
   variant?: 'default' | 'invert'
-}
+  // Anything else goes to the link, such as the role and handlers of a menu item
+} & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'target' | 'className'>
 
 export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
   (
@@ -28,6 +29,7 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
       target,
       isDirectActive,
       isActive: isActiveProp,
+      ...rest
     },
     ref,
   ) => {
@@ -46,7 +48,7 @@ export const NavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(
         variant={variant}
         className={className}
       >
-        <Link ref={ref} target={target} href={href}>
+        <Link {...rest} ref={ref} target={target} href={href}>
           {children}
           {isExternal && !hideIcon ? (
             <ExternalLinkIcon className="size-3.5 text-grayAlpha-400" />

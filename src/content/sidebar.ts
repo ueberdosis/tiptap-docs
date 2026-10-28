@@ -7,6 +7,7 @@ import { sidebarConfig as commentsSidebar } from './comments/sidebar'
 import { sidebarConfig as compareSidebar } from './compare/sidebar'
 import { sidebarConfig as composableDocsSidebar } from './composable-docs/sidebar'
 import { sidebarConfig as conversionSidebar } from './conversion/sidebar'
+import { sidebarConfig as diagramsSidebar } from './diagrams/sidebar'
 import { sidebarConfig as editorSidebar } from './editor/sidebar'
 import { sidebarConfig as examplesSidebar } from './examples/sidebar'
 import { sidebarConfig as guidesSidebar } from './guides/sidebar'
@@ -220,6 +221,9 @@ const items: SidebarGroup[] = [
         composableDocsSidebar,
         '/composable-docs/slots/getting-started/overview',
       ),
+      feature('Diagrams', diagramsSidebar, '/diagrams/getting-started/overview', {
+        inline: ['Diagrams'],
+      }),
       feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
         inline: ['Getting started'],
       }),
