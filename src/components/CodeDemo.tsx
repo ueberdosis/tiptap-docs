@@ -2,8 +2,9 @@
 
 import { ExternalLink } from 'lucide-react'
 import IframeResizer from 'iframe-resizer-react'
+import { DemoViewer, DemoViewerProps } from './DemoViewer'
 import { Button } from './ui/Button'
-import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
+import { DEMO_URL, DEMO_VIEWER, PRO_DEMO_URL } from '@/utils/constants'
 
 export type CodeDemoProps = {
   src?: string
@@ -18,7 +19,20 @@ export type CodeDemoProps = {
   externalIcon?: React.ReactNode
   caption?: React.ReactNode
   captionActions?: React.ReactNode
-}
+  /** Shows the demo in the `DemoViewer`: a bar with Preview / Code / Both, theme, width and Expand. */
+  viewer?: boolean
+} & Pick<
+  DemoViewerProps,
+  | 'view'
+  | 'code'
+  | 'codeHeight'
+  | 'frameworks'
+  | 'height'
+  | 'maxHeight'
+  | 'resizable'
+  | 'themes'
+  | 'sizes'
+>
 
 export const CodeDemo = ({
   src,
@@ -33,7 +47,23 @@ export const CodeDemo = ({
   externalIcon,
   caption,
   captionActions,
+  viewer = DEMO_VIEWER,
+  ...viewerProps
 }: CodeDemoProps) => {
+  if (viewer && !external && !captionActions) {
+    return (
+      <DemoViewer
+        path={path}
+        isPro={isPro}
+        src={src}
+        isSmall={isSmall}
+        isLarge={isLarge}
+        caption={caption}
+        {...viewerProps}
+      />
+    )
+  }
+
   const iframeHeightClass = isSmall ? 'h-60' : isLarge ? 'h-[70vh] md:h-124' : 'h-96'
   const hasCaption = caption || captionActions
   const url = src ? src : (isPro ? PRO_DEMO_URL : DEMO_URL) + path
@@ -68,7 +98,7 @@ export const CodeDemo = ({
         </div>
       )}
       <div
-        className={`shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
+        className={`c-demo shadow-cardHover rounded-[0.625rem] ${hasCaption ? 'mb-12' : 'my-12'} bg-white overflow-hidden`}
       >
         {external ? (
           <div

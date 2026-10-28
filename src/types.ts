@@ -83,6 +83,22 @@ export type PageFrontmatter = {
   component?: Omit<UIComponentMetaWithUrl, 'path' | 'url'>
   incident?: IncidentMeta
   tags?: PageTag[]
+  /** A short introduction shown right below the title, before the tags. HTML, like `description`. */
+  intro?: string
+  /** A demo shown across the full width of the header, above the content and the table of contents. */
+  headerDemo?: FrontmatterHeaderDemo
+}
+
+export type FrontmatterHeaderDemo = {
+  /** The demo's path, such as `/Extensions/DiagramsChartTypes`. */
+  path: string
+  isPro?: boolean
+  /** A full URL instead of `path`. */
+  src?: string
+  /** `false` for a demo whose code is too much to read beside it, such as a whole app: no Preview / Code / Both. */
+  code?: boolean
+  /** A short line at the left of the bar, in HTML like `intro`. Shown only without code, where the view switch is not. */
+  caption?: string
 }
 
 export type FrontmatterSidebar = {

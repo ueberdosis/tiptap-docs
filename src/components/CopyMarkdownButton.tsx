@@ -5,6 +5,7 @@ import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useState } from 'react'
 import TurndownService from 'turndown'
 import { Button } from './ui/Button'
+import { cn } from '@/utils'
 
 export type CopyMarkdownButtonClientProps = {
   title?: string
@@ -45,7 +46,8 @@ export const CopyMarkdownButton = ({ title, className }: CopyMarkdownButtonClien
       onClick={handleCopy}
       disabled={isCopied}
       aria-label={isCopied ? 'Copied markdown' : 'Copy markdown'}
-      className={className}
+      // The same hover as the sidebar links
+      className={cn('hover:bg-grayAlpha-100 group-hover:bg-grayAlpha-100', className)}
     >
       <IconComponent className="size-3" />
       Copy markdown

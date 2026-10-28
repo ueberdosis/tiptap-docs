@@ -1,0 +1,146 @@
+---
+title: 'draw.io'
+intro: '<code>@tiptap-pro/extension-diagrams/drawio</code> draws diagrams stored as draw.io XML, and connects the draw.io editor for changing them. It draws no charts.'
+headerDemo:
+  path: '/Extensions/DiagramsDrawio'
+  isPro: true
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'draw.io | Tiptap Diagrams Docs'
+  description: '@tiptap-pro/extension-diagrams/drawio draws diagrams stored as draw.io XML, and connects the draw.io editor for changing them.'
+  category: Diagrams
+---
+
+## Quick start
+
+```ts
+import { Diagrams } from '@tiptap-pro/extension-diagrams'
+import { drawioDiagramRenderer } from '@tiptap-pro/extension-diagrams/drawio'
+import rendererUrl from '@tiptap-pro/extension-diagrams/drawio-renderer?url&no-inline'
+import viewerUrl from './vendor/drawio/viewer-static.min.js?url'
+
+Diagrams.configure({
+  diagramRenderers: [drawioDiagramRenderer({ viewerUrl, rendererUrl })],
+})
+```
+
+## Options
+
+| Option        | Type             | Description                                                                                                                                                                |
+| ------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `viewerUrl`   | `string`         | Required. The draw.io viewer, `viewer-static.min.js` from a draw.io release (`src/main/webapp/js/` in the `jgraph/drawio` repository). Serve it yourself; it is not on npm |
+| `rendererUrl` | `string`         | Required. `@tiptap-pro/extension-diagrams/drawio-renderer`, served as a file. With Vite, `?url&no-inline`                                                                  |
+| `scriptNonce` | `string \| null` | For pages with a nonce-based Content Security Policy                                                                                                                       |
+| `id`          | `string`         | Default `'drawio'`                                                                                                                                                         |
+| `label`       | `string`         | Default `'draw.io'`                                                                                                                                                        |
+
+## How it draws
+
+- **The viewer** runs in one hidden iframe per page, with `sandbox="allow-scripts"` and a
+  policy that allows no network request.
+- **It loads** the first time a draw.io diagram is drawn.
+- **Its size** is about 4.4 MB, 940 kB compressed.
+- **A drawing** takes tens of milliseconds and is cached by source.
+
+### What the picture looks like
+
+- **Colors:** a diagram keeps the colors it was drawn with. The `--tt-flow-diagram-*`
+  properties do not reach it.
+- **Background:** a diagram is drawn on its own background, or on white.
+- **Color scheme:** the SVG follows the page's light or dark color scheme where draw.io
+  supports it.
+- **HTML labels** are drawn.
+- **Links in labels** do nothing, since the picture is an image.
+- **Stencil shapes** (AWS, Azure, Cisco and other libraries) draw as empty boxes. The viewer
+  cannot load their files in the sandbox.
+- **Images** in a diagram must be `data:` URLs.
+
+### In an export
+
+- **PNG, WebP, JPEG and Word:** labels are plain text. Bold, colors and line breaks written as
+  HTML inside a label are lost.
+- **On a server:** a draw.io diagram cannot be exported. The viewer lays out text in a
+  browser.
+
+## Editing in the draw.io editor
+
+The entry connects the draw.io editor in its JSON embed mode. You build the dialog and the
+iframe; the package speaks the protocol and hands back what the editor saves.
+
+```ts
+import { connectDrawioEditor, drawioEditorUrl } from '@tiptap-pro/extension-diagrams/drawio'
+
+const frame = document.createElement('iframe')
+frame.src = drawioEditorUrl() // https://embed.diagrams.net/?embed=1&proto=json…
+dialog.append(frame)
+
+const connection = connectDrawioEditor(frame, {
+  source: diagram.source,
+  title: diagram.title ?? undefined,
+  onSave: (source) => editor.commands.updateFlowDiagram({ pos, source, format: 'drawio' }),
+  onExit: () => {
+    connection.destroy()
+    dialog.close()
+  },
+})
+```
+
+### drawioEditorUrl(options?)
+
+Builds the editor URL.
+
+| Option        | Type                     | Description                                                                                                                    |
+| ------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `base`        | `string`                 | The draw.io editor. Default `https://embed.diagrams.net/`. Point it at your own copy to keep diagrams off a third-party origin |
+| `saveAndExit` | `boolean`                | Offers Save and Exit beside Save. Default `true`                                                                               |
+| `params`      | `Record<string, string>` | Adds editor URL parameters, such as `lang`                                                                                     |
+
+### connectDrawioEditor(frame, options)
+
+Opens a diagram in the editor in `frame`. Returns `{ destroy }`.
+
+| Option                     | Type                         | Description                                                                                          |
+| -------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `source`                   | `string`                     | The draw.io XML to open. Empty opens a blank page                                                    |
+| `mermaid`                  | `string`                     | Mermaid source to open instead. The editor converts it to draw.io shapes, a `subgraph` to a swimlane |
+| `title`                    | `string`                     | Shown in the editor's title bar                                                                      |
+| `onSave(source, { exit })` | `(source, { exit }) => void` | Required. Called with the XML on Save, and on Save and Exit with `exit: true`                        |
+| `onExit()`                 | `() => void`                 | Required. Called when the editor closes, after Save and Exit too                                     |
+| `onAutosave(source)`       | `(source) => void`           | When set, called with the XML after every change                                                     |
+| `onError(message)`         | `(message) => void`          | The editor could not open the source, or sent something that is not draw.io XML                      |
+
+- **The diagram** is posted only to the origin of the iframe's URL.
+- **Messages** are read only from that iframe and origin.
+- **What `onSave` receives** is normalized like any stored draw.io source.
+- **The editor works on a copy:** changes others make to the same diagram while it is open
+  are replaced by the next save.
+
+### From Mermaid to draw.io
+
+- **Opening a Mermaid diagram** with `mermaid` and saving with `format: 'drawio'` turns it
+  into a draw.io diagram.
+- **Going back to Mermaid** is possible only with undo.
+
+### Hosting the editor yourself
+
+The draw.io editor is a static web app, published as the `jgraph/drawio` Docker image:
+
+```sh
+docker run --rm -p 8080:8080 jgraph/drawio
+```
+
+```ts
+frame.src = drawioEditorUrl({ base: 'http://localhost:8080/' })
+```
+
+- The diagram is posted only to that origin, so nothing reaches draw.io's servers.
+- Serve it over HTTPS on a page served over HTTPS.
+- The embed protocol is the same as on `embed.diagrams.net`; nothing else changes.
+- Editing then works without an internet connection, as drawing already does.
+- Features that fetch from elsewhere, such as web fonts in labels or online shape libraries,
+  need the network in either case.
+- Pin the image to a tag and update it with the viewer you serve as `viewerUrl`, so the
+  editor and the viewer read the same XML.

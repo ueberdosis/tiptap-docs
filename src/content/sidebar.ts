@@ -7,6 +7,7 @@ import { sidebarConfig as commentsSidebar } from './comments/sidebar'
 import { sidebarConfig as compareSidebar } from './compare/sidebar'
 import { sidebarConfig as composableDocsSidebar } from './composable-docs/sidebar'
 import { sidebarConfig as conversionSidebar } from './conversion/sidebar'
+import { sidebarConfig as diagramsSidebar } from './diagrams/sidebar'
 import { sidebarConfig as editorSidebar } from './editor/sidebar'
 import { sidebarConfig as examplesSidebar } from './examples/sidebar'
 import { sidebarConfig as guidesSidebar } from './guides/sidebar'
@@ -109,6 +110,7 @@ const items: SidebarGroup[] = [
       },
       section('Conversion', conversionSidebar, { inline: ['Get started'] }),
       section('Composable Docs', composableDocsSidebar),
+      section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
       section('Pages', pagesSidebar, { inline: ['Getting started'] }),
       {
         ...link(editorSidebar, ['Whiteboard']),
