@@ -19,6 +19,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/editor/getting-started/install',
           children: [
             {
+              href: '/editor/getting-started/install/agent',
+              title: 'Agent setup',
+            },
+            {
               href: '/editor/getting-started/install/vanilla-javascript',
               title: 'Vanilla JavaScript',
             },
