@@ -77,6 +77,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/guides/collaboration-api',
           title: 'Collaboration API',
         },
+        {
+          href: '/guides/mobile-apps',
+          title: 'Mobile apps',
+          tags: ['Experimental'],
+        },
       ],
     },
     {
