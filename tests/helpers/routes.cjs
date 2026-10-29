@@ -199,6 +199,8 @@ function sidebarLinks(config) {
 }
 
 const DOCS_ORIGIN = /^https:\/\/tiptap\.dev\/docs(?=\/|$)/
+// Frontmatter HTML such as `intro` renders as is, so its links carry the production basePath
+const BASE_PATH = /^\/docs(?=\/|$)/
 const LINK_PATTERN = new RegExp(
   [
     // Markdown links: [text](/path)
@@ -217,10 +219,12 @@ function extractLinks(source) {
   const prose = source.replace(/^(\s*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2\s*$/gm, (block) =>
     block.replace(/[^\n]/g, ''),
   )
+  const frontmatterEnd = prose.startsWith('---\n') ? prose.indexOf('\n---', 3) : -1
   const links = []
   for (const match of prose.matchAll(LINK_PATTERN)) {
     const raw = match[1] ?? match[2]
-    const href = raw.replace(DOCS_ORIGIN, '') || '/'
+    const local = raw.replace(DOCS_ORIGIN, '')
+    const href = (match.index < frontmatterEnd ? local.replace(BASE_PATH, '') : local) || '/'
     const target = href.split(/[?#]/)[0]
     if (ASSET_FOLDER.test(target) || ASSET_FILE.test(target)) continue
     const line = prose.slice(0, match.index).split('\n').length
