@@ -258,7 +258,7 @@ test('the sidebar labels paid features once, and mixed groups not at all', () =>
 test('page headers show the plan and status a page inherits, unless it has its own', () => {
   const page = getDocsIndex().find((entry) => entry.route === '/ai/ai-toolkit/agents/streaming')
   const types = (tags) => tags.map((tag) => tag.type)
-  assert.deepEqual(types(headerTags([], page)), ['addon', 'alpha'])
+  assert.deepEqual(types(headerTags([], page)), ['addon', 'beta'])
   // Its own tags win over the inherited ones
   assert.deepEqual(types(headerTags([{ type: 'team' }, { type: 'beta' }], page)), ['team', 'beta'])
   assert.deepEqual(types(headerTags(undefined, undefined)), [])
