@@ -48,7 +48,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Streaming',
               href: '/ai/ai-toolkit/agents/streaming',
-              releaseTag: 'alpha',
             },
           ],
         },

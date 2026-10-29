@@ -69,6 +69,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Conversion',
         },
         {
+          href: '/diagrams/getting-started/overview',
+          title: 'Diagrams',
+          releaseTag: 'alpha',
+        },
+        {
           href: '/pages/getting-started/overview',
           title: 'Pages',
         },

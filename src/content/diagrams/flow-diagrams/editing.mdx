@@ -1,0 +1,175 @@
+---
+title: 'Editing in the picture'
+intro: "A Mermaid diagram can be changed where it is drawn: its text by a double click, a flowchart's shapes by dragging. Both write the source through Commands, so they undo as one step and reach collaborators like any other change."
+headerDemo:
+  path: '/Extensions/DiagramsEditInPicture'
+  isPro: true
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Editing in the picture | Tiptap Diagrams Docs'
+  description: 'A Mermaid diagram can be changed where it is drawn.'
+  category: Diagrams
+---
+
+## Text in the picture
+
+In an editable editor, a double click on a piece of text in a Mermaid diagram opens a field over
+it with that text.
+
+- **Enter, or leaving the field,** writes the text into the source through `updateFlowDiagram`,
+  as one undo step.
+- **Escape** closes the field unchanged.
+- **Only the text changes.** Shapes and lines come from the source.
+- **A diagram drawn from a table** opens no field. Its text is the table's.
+- **The Renderer finds the text.** Each one knows its own picture, through its
+  [`editing`](/diagrams/renderers/custom-diagrams#editing-in-the-picture). A Renderer without
+  it shows the picture only.
+
+### What a double click edits
+
+| Kind      | What a double click opens               | Written as                                                            |
+| --------- | --------------------------------------- | --------------------------------------------------------------------- |
+| Flowchart | A shape                                 | `id["text"]` at its first mention, or `label:` in `id@{ … }`          |
+| Flowchart | The text on an edge                     | `-->\|"text"\|`, or `-- "text" -->` where the edge has that form      |
+| Sequence  | A participant, at the top or the bottom | `participant id as text`, declared before its first mention if needed |
+| Sequence  | A message                               | The text after the colon                                              |
+| State     | A state                                 | `state "text" as id`, or the first `id : text` line                   |
+| Class     | A class name                            | `class id["text"]`. The id stays, so relations and members keep it    |
+| Any other | A text the source writes once           | That text, in its place                                               |
+
+- **Any other kind**, such as a timeline, a kanban, a mind map, a journey or a Gantt chart,
+  opens a text the source writes once as a whole: a timeline's periods and events, a kanban's
+  columns and cards, a mind map's nodes, a task or a section.
+- **A text written more than once** opens nothing, so a gitGraph branch named on `branch` and
+  `checkout` keeps both. Neither does a text the picture adds, such as a count.
+- **A new text with `:`, `,`, quotes or brackets** is not written in those kinds: it would change
+  more than the text.
+- **An edge without text** has nothing to double-click. Give it text in the source or with
+  `renameMermaidLabel`.
+- **Edges written as one statement**, `A & B --> C`, share their text.
+- **A straight double quote** in the text becomes a typographic one (“ ”).
+
+### Without a picture
+
+`renameMermaidLabel(source, target, label)` from `@tiptap-pro/extension-diagrams/core` does the
+same without a picture.
+
+```ts
+import { renameMermaidLabel } from '@tiptap-pro/extension-diagrams/core'
+
+const source = renameMermaidLabel(
+  'flowchart LR\n  A[Order] --> B{Paid?}',
+  { kind: 'edge', id: 'L_A_B_0' },
+  'placed',
+)
+// 'flowchart LR\n  A[Order] -->|"placed"| B{Paid?}'
+if (source) editor.commands.updateFlowDiagram({ pos, source })
+```
+
+`target` is `{ kind, id }`:
+
+| `kind`                                | `id`                                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `'node'`                              | A flowchart shape's id                                                                                                       |
+| `'edge'`                              | A flowchart edge's id as Mermaid gives it: `L_<from>_<to>_<n>`, where `n` counts the edges between the same two nodes from 0 |
+| `'participant'`, `'state'`, `'class'` | Its id                                                                                                                       |
+| `'message'`                           | Its place among the messages, from `'0'`                                                                                     |
+| `'text'`                              | The text itself, in any other kind; the source has to write it once as a whole                                               |
+
+| Function                                    | Returns                                                                                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renameMermaidLabel(source, target, label)` | The source with that text replaced, every other character kept, or `null` when the source is not of the target's kind, the target is not in it, or the label is empty |
+| `renameMermaidNode(source, nodeId, label)`  | The same as `renameMermaidLabel` with a target of kind `'node'`                                                                                                       |
+| `renameMermaidText(source, text, label)`    | The same with a target of kind `'text'`                                                                                                                               |
+| `isRenamableMermaidText(source, text)`      | Whether the source writes the text once as a whole, so it can be renamed                                                                                              |
+
+## Moving shapes
+
+In an editable editor, dragging a shape of a Mermaid flowchart moves it.
+
+```ts
+editor.commands.setDiagramNodePosition({ nodeId: 'ship', dx: 40, dy: 60 })
+editor.commands.resetDiagramPositions()
+```
+
+- **Dragging next to a shape** pans a zoomed picture, as before.
+- **The offset** snaps to 10 pixels.
+- **Letting go of the pointer** writes the offset once, through
+  [`setDiagramNodePosition`](/diagrams/flow-diagrams/editing#setdiagramnodeposition), so one undo puts the shape back.
+- **Putting all shapes back:** [`resetDiagramPositions`](/diagrams/flow-diagrams/editing#resetdiagrampositions).
+
+### How moved shapes are drawn
+
+Mermaid lays the diagram out from its source first. The moved shapes are then drawn at their
+offsets, in the editor and in every export.
+
+- **Lines of a moved shape** are drawn straight from border to border, with their label in the
+  middle.
+- **Lines between shapes that did not move** keep their routing.
+- **A subgraph's frame** stays where the layout put it, even when a shape is moved out of it.
+- **The picture grows** when a shape is moved past its edge.
+
+### Where the offsets are kept
+
+- **Stored** per node id in `options.positions`.
+- **Renaming the id** in the source loses the offset.
+- **An id that is gone** moves nothing.
+- **A change of the source** keeps the offsets.
+- **Only flowcharts.** Shapes of other Mermaid kinds, draw.io and BPMN diagrams are not moved
+  this way.
+- **Only where the Renderer moves shapes.** A Renderer without `nodeAt` and `movePositions`
+  draws the layout without the offsets, and keeps them in the document.
+
+`flowDiagramPositions(diagram)` reads the offsets as `{ [nodeId]: { dx, dy } }`, leaving out
+entries that are not valid.
+
+## Lines in a diagram
+
+The lines of a Mermaid diagram are styled in its source, with `linkStyle`. There is no field for
+them outside it.
+
+```txt
+flowchart LR
+  a --> b --> c
+  linkStyle 0 stroke-dasharray: 5 5, stroke-width: 2px
+```
+
+## Commands
+
+See [Moving shapes](/diagrams/flow-diagrams/editing#moving-shapes) for how a moved shape is drawn.
+
+### setDiagramNodePosition
+
+Moves one shape of the selected Mermaid flowchart, or the one at `pos`, away from where the
+layout puts it.
+
+```ts
+editor.commands.setDiagramNodePosition({ nodeId: 'ship', dx: 40, dy: 60 })
+```
+
+| Option   | Type     | Description                                                             |
+| -------- | -------- | ----------------------------------------------------------------------- |
+| `nodeId` | `string` | The id the source gives the shape, such as `ship` in `ship[Shipped]`    |
+| `dx`     | `number` | The horizontal offset, in the picture's units                           |
+| `dy`     | `number` | The vertical offset, in the picture's units. `0, 0` puts the shape back |
+| `pos`    | `number` | The diagram's position. Defaults to the selected diagram                |
+
+Returns `false` for a diagram that is not a Mermaid flowchart, an id with a space or punctuation
+other than `-` and `_`, and an offset that is not a number or is beyond 10,000.
+
+### resetDiagramPositions
+
+Puts every moved shape back where the layout puts it.
+
+```ts
+editor.commands.resetDiagramPositions()
+```
+
+| Option | Type     | Description                                              |
+| ------ | -------- | -------------------------------------------------------- |
+| `pos`  | `number` | The diagram's position. Defaults to the selected diagram |
+
+Returns `false` for a diagram without moved shapes.
