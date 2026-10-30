@@ -93,6 +93,8 @@ export type FrontmatterHeaderDemo = {
   code?: boolean
   /** A short line at the left of the bar, in HTML like `intro`. Shown only without code, where the view switch is not. */
   caption?: string
+  /** A CSS length, such as `min(80vh, 52rem)`, for a taller demo. Defaults to `min(70vh, 31rem)`. */
+  height?: string
 }
 
 export type FrontmatterSidebar = {
