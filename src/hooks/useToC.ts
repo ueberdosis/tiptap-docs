@@ -11,6 +11,8 @@ export const useToC = () => {
     const headlines = mdxContent?.querySelectorAll('h2')
     const headlineArray = Array.from(headlines || []).filter((headline) => !!headline.id)
 
+    // The headings are in the DOM only after the page has rendered
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHeadlines(headlineArray)
 
     const scrollObserver = () => {

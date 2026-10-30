@@ -1,11 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { SetStateAction, useCallback, useState } from 'react'
 
 export const useCommands = (items: any[]) => {
-  const [currentIndex, setCurrentIndex] = useState<number | null>(null)
+  // The selected index belongs to the list it was picked in, so a new list starts unselected
+  const [selection, setSelection] = useState<{ items: any[]; index: number | null }>({
+    items,
+    index: null,
+  })
+  const currentIndex = selection.items === items ? selection.index : null
 
-  useEffect(() => {
-    setCurrentIndex(null)
-  }, [items])
+  const setCurrentIndex = useCallback(
+    (action: SetStateAction<number | null>) => {
+      setSelection((prev) => {
+        const prevIndex = prev.items === items ? prev.index : null
+        return { items, index: typeof action === 'function' ? action(prevIndex) : action }
+      })
+    },
+    [items],
+  )
 
   const handleUp = useCallback(
     (e: React.KeyboardEvent) => {
@@ -28,7 +39,7 @@ export const useCommands = (items: any[]) => {
         return prev === 0 ? items.length - 1 : prev - 1
       })
     },
-    [currentIndex, items],
+    [currentIndex, items, setCurrentIndex],
   )
 
   const handleDown = useCallback(
@@ -52,7 +63,7 @@ export const useCommands = (items: any[]) => {
         return prev === items.length - 1 ? 0 : prev + 1
       })
     },
-    [currentIndex, items],
+    [currentIndex, items, setCurrentIndex],
   )
 
   const onKeyDown = useCallback(
