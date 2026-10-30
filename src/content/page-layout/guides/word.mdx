@@ -38,7 +38,37 @@ editor.commands.exportDocx()
 
 The export sends the document you save, not the pages, with its headers, footers, footnotes, endnotes and page setup. Without a `token` it fails with "The [exportDocx] command needs a [token] for the Tiptap convert API. The DOCX is built in the Tiptap Cloud."
 
-To import, add `ImportDocx` from `@tiptap-pro/extension-import-docx` with your `token`, and run its `importDocx` command with the file.
+## Importing a .docx
+
+To import, add `ImportDocx` from `@tiptap-pro/extension-import-docx` with your `token`, and run its `importDocx` command with the file. Here, `file` is a `File`, such as from an `<input type="file">`:
+
+```js
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+import { createPageLayoutEditor, PageLayout } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, PageLayout, ImportDocx.configure({ token })],
+})
+
+editor.commands.importDocx({ file })
+```
+
+The import replaces the whole document in one step, and one undo takes it back. It brings along:
+
+- the paper, orientation and margins of the file,
+- how far the header and footer sit from the edge,
+- the headers and footers, with a different first page and different odd and even pages,
+- the footnotes and endnotes, when `@tiptap-pro/extension-footnotes` is registered. Without it, they are left out.
+
+`ImportDocx` hands the import to `editor.storage.pageLayout.applyDocxImport` instead of calling `setContent()`. Without an editor, such as on a server, `sourceDocumentFromDocxImport({ docxImport, setup })` returns the document as JSON. `docxImport` has the shape `ImportDocx` hands over, and `setup` is the page format to keep when the import has none, or `null`.
+
+What the import does not bring yet:
+
+- The convert service reports the page setup of one section, so the whole document gets it.
+- Page numbers in a header or footer arrive as plain text, the number Word last showed.
+- The page color and the gutter of the file are not read.
 
 ## Pasting from Word
 
@@ -112,12 +142,37 @@ The functions apply these rules, so you need them only to check what a file turn
 
 - `w:type` is `kind`. `continuous` starts on the same sheet, and `nextPage`, `evenPage`, `oddPage` and `nextColumn` start a new sheet.
 - `w:pgSz` is `format` and `orientation`. A size within a pixel of a built-in format, such as A4, is that format, and a landscape page has `w` larger than `h`.
-- `w:pgMar` is `margins`. Word's "at least" margin, a negative top or bottom, is a margin of that size.
+- `w:pgMar` is `margins`. Word's "at least" margin, a negative top or bottom, is a margin of that size. Its `header` and `footer` are how far the header and footer sit from the edge.
 - `w:cols` is `columns`. `num` is `count`, `sep` is `rule`, and `space` or the `w:col` list give `gaps` and `widths`.
 - `w:pgNumType` is `pageNumbering`. `fmt` is the format, `start` the first number, and `chapStyle` with `chapSep` adds a chapter number.
 - `w:footnotePr` is `notePlacement`, from `pos`, and the footnote numbering, from `numFmt`, `numStart` and `numRestart`. `w:endnotePr` numbers the endnotes the same way.
 
-The page color is not in a `w:sectPr` but in `w:background`, which your converter reads and writes, see [Word and .docx](/page-layout/features/page-colors#word-and-docx). Headers and footers, `w:titlePg` included, are content of the section break: write them as other content, see [Headers and footers](/page-layout/guides/on-a-server#headers-and-footers).
+Headers and footers, `w:titlePg` included, are content of the section break: write them as other content, see [Headers and footers](/page-layout/guides/on-a-server#headers-and-footers).
+
+## Page color
+
+The page color is `w:background` of the whole document, since a `w:sectPr` has no color. In Page Layout it is the `page` color of the first section's [theme](/page-layout/features/page-colors). Pass the element to `sectionBreaksFromOoxml`, and the first break carries it:
+
+```js
+import { sectionBreaksFromOoxml } from '@tiptap-pro/extension-page-layout'
+
+// Leave out background when the file has no w:background
+const breaks = sectionBreaksFromOoxml(sections, { background: { color: 'FDF6E3' } })
+```
+
+On the way out, `toOoxmlBackground(theme)` returns `{ color }`, six digits without `#`, or `null` when the document has no page color. Then write no `w:background`. That is Word's "No Color", which is not white: an explicit white stays white.
+
+```js
+import { toOoxmlBackground } from '@tiptap-pro/extension-page-layout'
+
+const background = toOoxmlBackground(engine.getSections()[0].setup.theme)
+
+if (background !== null) {
+  writeBackground(background.color)
+}
+```
+
+Here, `writeBackground` stands for your converter's code. `fromOoxmlBackground(background)` reads one element on its own and returns `#rrggbb` or `null`, and `auto` reads as `null`. A section with a color of its own has no place in the file.
 
 ## Number formats
 
@@ -132,7 +187,7 @@ fromOoxmlNumberFormat('lowerLetter') // { format: 'lowerAlpha' }
 
 Word also has custom formats, such as `001, 002, 003, ...`. Page Layout has no name for one, so a section function reads it as the default for that kind of number: decimal for pages and footnotes, lower Roman for endnotes.
 
-To keep a custom format, pass a function as second argument to `fromOoxmlSectionProperties()` or `sectionBreaksFromOoxml()`. It gets the definition, an object that describes the format, stores it under a name you choose, and returns the name.
+To keep a custom format, pass a function as second argument to `fromOoxmlSectionProperties()`, or as `nameDefinition` in the options of `sectionBreaksFromOoxml()`. It gets the definition, an object that describes the format, stores it under a name you choose, and returns the name.
 
 Here, the Number formats command `setNumberFormat()` stores it, and `properties` is one `w:sectPr` your converter read:
 
