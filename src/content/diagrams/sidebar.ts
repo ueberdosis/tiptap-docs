@@ -13,7 +13,6 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         { title: 'Overview', href: '/diagrams/getting-started/overview' },
         { title: 'Install', href: '/diagrams/getting-started/install' },
-        { title: 'Live demo', href: '/diagrams/getting-started/live-demo' },
         {
           title: 'Charts',
           href: '/diagrams/charts/overview',
