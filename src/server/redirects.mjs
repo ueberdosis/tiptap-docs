@@ -4,6 +4,12 @@
 
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
+  // The Diagrams live demo moved onto the overview
+  {
+    source: '/diagrams/getting-started/live-demo',
+    destination: '/diagrams/getting-started/overview',
+    permanent: true,
+  },
   {
     source: '/composable-docs/slots/guides/bind-variables',
     destination: '/composable-docs/variables/guides/bind-slots',
