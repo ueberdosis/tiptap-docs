@@ -1,0 +1,108 @@
+---
+title: Page Layout in React
+meta:
+  title: Page Layout in React | Tiptap Pages
+  description: Build a paginated editor in React with usePageLayoutEditor, and render React NodeViews on pages.
+  category: Pages
+---
+
+`@tiptap-pro/extension-page-layout-react` gives you `usePageLayoutEditor`, a hook that builds a paginated editor and destroys it when the component that shows it unmounts. It replaces `useEditor` and `EditorContent` for an editor with pages. Both packages come from Tiptap's registry, so set it up first as described in [Install Page Layout](/pages/v2/getting-started/install).
+
+## Install
+
+```bash
+npm install @tiptap-pro/extension-page-layout-react @tiptap-pro/extension-page-layout @tiptap/react
+```
+
+## Replace useEditor
+
+`useEditor` and `EditorContent` build an editor of their own, so they cannot draw pages. Swap them for the hook.
+
+```jsx
+// Before
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+
+function MyEditor({ content, onSave }) {
+  const editor = useEditor({
+    content,
+    extensions: [StarterKit],
+    onUpdate: ({ editor }) => onSave(editor.getJSON()),
+  })
+
+  return <EditorContent editor={editor} />
+}
+```
+
+```jsx
+// After
+import { PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import { usePageLayoutEditor } from '@tiptap-pro/extension-page-layout-react'
+import StarterKit from '@tiptap/starter-kit'
+
+function MyEditor({ content, onSave }) {
+  const { editor, ref, nodeViews } = usePageLayoutEditor({
+    content,
+    extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4') })],
+    onUpdate: ({ editor }) => onSave(editor.getJSON()),
+  })
+
+  return (
+    <>
+      {editor && <Toolbar editor={editor} />}
+      <div ref={ref} />
+      {nodeViews}
+    </>
+  )
+}
+```
+
+`Toolbar` is your own component. See [Build a toolbar](/pages/v2/getting-started/toolbar).
+
+## Options and result
+
+`usePageLayoutEditor` takes the options of `createPageLayoutEditor` without `element`, and an optional list of dependencies as its second argument. It returns an object with three values.
+
+| Value       | What it is                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| `ref`       | Goes on the element the pages are drawn into.                                              |
+| `editor`    | The editor, or `null` until that element is mounted.                                       |
+| `nodeViews` | The components of the editor's React NodeViews. Render it once, anywhere in the component. |
+
+The package also exports the types `UsePageLayoutEditorOptions` and `UsePageLayoutEditorResult`.
+
+How the hook behaves:
+
+- It builds the editor once the element is mounted, and destroys it on unmount.
+- It reads `content` and `extensions` when it builds the editor. A change to them rebuilds the editor only when a value in the dependency list changes, as with `useEditor`.
+- Callbacks always come from the latest render, so `onUpdate` sees current props.
+- A change of `editable` applies without a rebuild.
+- Under `StrictMode`, the editor from the first of the two mounts is destroyed, and one editor remains.
+- It draws the editor into an element of its own inside the one `ref` is on.
+
+A toolbar that re-renders on the editor's `transaction` event stays current. `useEditorState` from `@tiptap/react` does this.
+
+## React NodeViews
+
+A node that uses `addNodeView() { return ReactNodeViewRenderer(Component) }` works as it does with `EditorContent`, as long as you render `nodeViews`.
+
+- The components render where `nodeViews` is, with the React context it has there.
+- Without `nodeViews`, a node with a React NodeView is drawn empty, and the console says so once.
+- When a component changes height after it was drawn, the pages are laid out again. This covers an image that loads, data that arrives and state of its own.
+- `updateAttributes` and `deleteNode` change the whole node once, from whichever page they are called on. Both can be undone like any edit.
+- A component unmounts and mounts again when its node moves to another page, for example because a node above it grew. Typing elsewhere does not do that. State that has to survive a move belongs in the node's attributes or outside the component.
+- When a page boundary splits a node, one component renders each piece, and `node` is the piece on that page.
+- `getPos()` returns a position in the pages, as dragging the node and its `selected` prop need. The source document node behind it, and which piece of it this component draws, come from `sourceNodeOfView`. See [positions and events](/pages/v2/core-concepts/positions-and-events).
+
+```jsx
+function Callout({ editor, getPos }) {
+  const drawn = editor.storage.pageLayout.engine.sourceNodeOfView(getPos())
+  // drawn is { pos, node, piece: { index, count } }, or null while the pages are redrawn
+  const label =
+    drawn && drawn.piece.count > 1 ? `part ${drawn.piece.index + 1} of ${drawn.piece.count}` : null
+
+  return <div>{label}</div>
+}
+```
+
+`pos` and `node` are the same on every page.

@@ -1,0 +1,391 @@
+---
+title: Custom nodes
+meta:
+  title: Custom nodes | Tiptap Pages
+  description: Tell Page Layout how a page boundary may meet a node type of your own, and what Page Layout needs from its rendering.
+  category: Pages
+---
+
+When a page ends inside a node Page Layout has never heard of, it needs to know what it may do. You say so with a layout rule, registered per node type name. The node keeps its extension, schema, attributes, NodeView and commands.
+
+## The default
+
+A type with no rule moves whole. If it doesn't fit in the space left on the page, all of it goes to the next page. Its children run one below the next, nothing repeats on a continuation, and it never forces a page to end.
+
+That is right for most nodes. It stops being right in three cases:
+
+- The node can be taller than a page, so moving it on doesn't help.
+- The node has parts that shouldn't be separated, such as a card whose image lands on page two while its heading stays on page one.
+- The children sit beside each other instead of one below the next. See [children side by side](#children-side-by-side).
+
+## Register a rule
+
+```js
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('callout', {
+  splitDepth: 'intoText',
+})
+```
+
+Call it at module level, before you create the editor. Page Layout builds its schemas when the editor starts and reads some fields then. A rule registered later still applies to everything Page Layout asks per node, but not to what it decided about the schema.
+
+Rules merge field by field and the later call wins. You can change one thing about a type Page Layout already knows:
+
+```js
+// Lists may break inside an item, not only between items.
+defineNodeLayout('listItem', { splitDepth: 'intoText' })
+```
+
+Fields in this guide take one of three shapes:
+
+- A value for the whole type, or a function of the node for one that depends on its attributes: `splitDepth`, `keepTogether`, `keepWithNext`, `parallelChildren`, `parallelCutRank`, `repeatedLead`, `breakMarker`, `startsPage`, `forcedCut`, `chapterLevel`, `remeasuresDocument`, `isWellFormed` and `childSpans`.
+- Always a function, with its own arguments: `pageText`, `ignoredMutation`, `completeEdit` and `sourcePlugins`.
+- A plain value only: `parallelCutNode`, `labelAttribute`, `viewContent`, `viewCommands` and `sourceCommands`.
+
+```js
+defineNodeLayout('card', {
+  keepTogether: (node) => node.attrs.keepWhole !== false,
+})
+```
+
+Every editor on the page shares one registry. Two editors that disagree about a type share one rule.
+
+## How deep a page may split a node
+
+`splitDepth` takes one of three values.
+
+| Value               | What a page may do                                                       |
+| ------------------- | ------------------------------------------------------------------------ |
+| `'none'`            | Never split. The node moves to the next page whole. This is the default. |
+| `'betweenChildren'` | Split between two children, never inside one. A list does this.          |
+| `'intoText'`        | Split between two lines of text. A paragraph does this.                  |
+
+A node taller than a page is split anyway. It fits on no page, so Page Layout goes one level deeper for that node instead of letting it hang off the sheet.
+
+## Keep a node whole
+
+```js
+defineNodeLayout('card', {
+  splitDepth: 'betweenChildren',
+  keepTogether: true,
+})
+```
+
+`splitDepth` says how deep a split may go. `keepTogether` says whether to make one at all. With it set, the node is split only when it is already at the top of an empty page. Everywhere else it moves on whole.
+
+It is a preference, like Keep lines together in Word. A card with forty rows and `keepTogether` doesn't vanish and doesn't overflow. It breaks as it would without the rule, which for this card is between its children.
+
+## Keep a block with the next
+
+```js
+defineNodeLayout('figureCaption', { keepWithNext: true })
+```
+
+The block stays on the page of the first line of the block after it. When the two don't fit together in what is left of the page, the page ends above it. Word calls this Keep with next. It keeps a heading from standing alone at the foot of a page.
+
+A run of such blocks moves as one. It is a preference too. The block stays where it is when it is already at the top of a page, when the run and the next line wouldn't fit on a page of their own, and in front of a page break or a section that starts a page.
+
+The rule applies to top-level blocks.
+
+### Per block, from a style
+
+When the setting lives somewhere else, such as a paragraph style or an attribute of your own, return it per block with `blockBreaksOf`:
+
+```js
+PageLayout.configure({
+  blockBreaksOf: (block, doc) => (block.attrs.keepWithNext ? { keepWithNext: true } : null),
+})
+```
+
+| Field             | What it does                         |
+| ----------------- | ------------------------------------ |
+| `keepWithNext`    | As above.                            |
+| `keepTogether`    | As `keepTogether` in a layout rule.  |
+| `pageBreakBefore` | The page ends in front of the block. |
+
+`null`, or a field left out, adds nothing to what the type's rule says. Neither can turn off what the rule turns on. Page Layout calls it for every top-level block on every layout, so return a value from what the block holds and don't walk the document. See [options](/pages/v2/api/options).
+
+## Children side by side
+
+If the children sit beside each other, such as a row of cells or a strip of panels, a split through the node is a height instead of a position. It falls at a different offset in each child.
+
+```js
+defineNodeLayout('panelStrip', {
+  splitDepth: 'none',
+  parallelChildren: true,
+  parallelCutRank: 'equal',
+  parallelCutNode: true,
+})
+
+defineNodeLayout('panel', {
+  parallelCutNode: true,
+  viewContent: 'block*',
+})
+```
+
+| Field              | What it does                                                                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parallelChildren` | Says the children are side by side. Page Layout never splits the container between them, which is why `splitDepth` is `'none'`.                                  |
+| `parallelCutRank`  | `'equal'` weighs the split like any other, so the option that fills more of the page wins. `'lastResort'` moves the node on whole and splits only if that fails. |
+| `parallelCutNode`  | Names the types the split reopens: the container and the children it splits.                                                                                     |
+| `viewContent`      | The content expression a split child takes while the split is open.                                                                                              |
+
+Both pieces of a split keep every child, so the columns stay lined up. That leaves a child shorter than the split with nothing in it. If your schema says `block+`, give the child `'block*'` here. The relaxed shape exists only while a boundary sits inside the node, and never in the document you save.
+
+### Content that spans several children
+
+Use `childSpans` when content inside one child extends down through later children, as a merged table cell does across rows. It takes an array, or a function of the node that returns one. Each entry has three fields:
+
+| Field           | What it holds                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `contentOffset` | The offset of the descendant's opening token inside the container's content. Count opening and closing tokens as well as text. |
+| `fromChild`     | The first covered direct child, counting from zero.                                                                            |
+| `toChild`       | The index after the last covered direct child.                                                                                 |
+
+Each entry must point at a container with Tiptap child content, not at a leaf node that draws content from attributes. A page may end between those children, or inside a later child, only after the spanning content fits above the split. The table rule that ships with Page Layout fills this in for merged cells.
+
+## Repeat something on every continuation
+
+```js
+defineNodeLayout('dataBlock', {
+  splitDepth: 'betweenChildren',
+  repeatedLead: (node) => (node.attrs.repeatHeading ? 1 : 0),
+})
+```
+
+`repeatedLead` is how many leading children every continuation repeats, as a table does with a header row. The repeated children are drawn above each continuation. Each page pays for their height out of its content space.
+
+## Breaks of your own
+
+Use these fields when your node is itself a break. Page Layout's own page, column and section breaks are in [breaks](/pages/v2/core-concepts/breaks).
+
+```js
+// A block that always starts a sheet and adds no height to it.
+defineNodeLayout('chapterStart', {
+  breakMarker: true,
+  startsPage: true,
+})
+
+// An inline marker that ends the page where it sits.
+defineNodeLayout('myPageBreak', {
+  forcedCut: 'page',
+})
+```
+
+| Field         | What it does                                                                                                   |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| `breakMarker` | The block adds no height to the page it starts.                                                                |
+| `startsPage`  | The page ends in front of the block.                                                                           |
+| `forcedCut`   | For an inline marker. `'page'` ends the sheet and `'region'` ends the column. In one column they are the same. |
+
+## Chapters
+
+A node that begins a chapter says at which level. A section that writes the chapter in front of its page numbers, as in `2-14`, uses it. Tiptap's `heading` already does this at its `level`:
+
+```js
+defineNodeLayout('chapterTitle', {
+  chapterLevel: (node) => node.attrs.depth ?? 1,
+})
+```
+
+Return `null` for a node that begins none. See [number the pages](/pages/v2/core-concepts/page-numbers#number-the-pages).
+
+## Blocks that restyle the others
+
+Page Layout measures a block again when that block changes. A block whose change makes other blocks look different says so with `remeasuresDocument`. Page Layout then measures every block again when that block is added, removed or changed:
+
+```js
+defineNodeLayout('themeSettings', {
+  breakMarker: true,
+  remeasuresDocument: true,
+})
+```
+
+Document styles use this for their definitions. Measuring the whole document costs as much as a change of page width, so keep it for blocks that rarely change.
+
+## Nodes that must stay consistent
+
+An edit made on the pages sees only the piece of a node that is on one page. For a node that has to be consistent as a whole, such as a timeline whose step count must match an attribute, that edit can be right for the piece and wrong for the node. Say what consistent means, and Page Layout refuses an edit from the pages that would leave the node inconsistent:
+
+```js
+defineNodeLayout('timeline', {
+  isWellFormed: (node) => node.childCount === node.attrs.steps,
+})
+```
+
+A node that is already inconsistent stays editable. `editor.storage.pageLayout.engine.getDiagnostics()` counts a refused edit in `refusedTransactions` and sets `lastRefusedReason` to `'inconsistent-in-the-document'`.
+
+Where you can tell what such an edit meant for the whole node, write it instead of refusing it. `completeEdit` receives the edit and returns a transaction on `state` that does to the whole node what the edit did to its part, or `null` to refuse.
+
+The usual fix is to run the command that made the edit again on the whole node, where the user ran it. `ranOnThePages` tells which command made the edit, and `onTheDocument` runs it on the document:
+
+```js
+// insertStep and removeStep stand for your own commands.
+import { insertStep, removeStep } from './timeline-commands'
+
+defineNodeLayout('timeline', {
+  isWellFormed: (node) => node.childCount === node.attrs.steps,
+  completeEdit: (edit) => {
+    const command = [insertStep, removeStep].find(edit.ranOnThePages)
+    return command ? edit.onTheDocument(command) : null
+  },
+})
+```
+
+| Field           | What it holds                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ranOnThePages` | Takes a command. Returns `true` if that command, run where the user ran it, makes exactly this edit.                                      |
+| `onTheDocument` | Takes a command and runs it on the document at the user's selection there. Returns the transaction, or `null` where the command declines. |
+| `state`         | The editor state of the document before the edit. Build your own transaction on it.                                                       |
+| `pos`           | Where the node starts in `state.doc`.                                                                                                     |
+| `before`        | The node before the edit.                                                                                                                 |
+| `after`         | The node as the edit left it: right for the piece on one page, inconsistent as a whole.                                                   |
+| `transaction`   | The edit itself, with steps that apply to `state.doc`.                                                                                    |
+
+A command here has the form `(state, dispatch) => boolean`. Page Layout checks the transaction you return like the edit. If it leaves the node inconsistent, Page Layout refuses the edit all the same. `getDiagnostics()` counts a completed edit in `completedEdits`.
+
+The table rule that ships with Page Layout does this with the commands of the table extension, so a table menu that runs them on `editor.state` works unchanged.
+
+### A plugin that keeps the node consistent
+
+A plugin that an extension registers runs on the pages. An `appendTransaction` there repairs only the part of a node on one page. Give the repair to the layout rule instead and it runs on the document, where the node is whole:
+
+```js
+import { Plugin } from '@tiptap/pm/state'
+
+// numberStepsTransaction stands for your own code.
+
+defineNodeLayout('timeline', {
+  sourcePlugins: () => [
+    new Plugin({
+      appendTransaction: (transactions, oldState, newState) => numberStepsTransaction(newState),
+    }),
+  ],
+})
+```
+
+`sourcePlugins` is called once per editor whose schema has the type, so return new plugin instances each time. What such a plugin appends goes into the same undo step as the change it responds to.
+
+## Commands of your own extension
+
+Every command of an extension runs on the document, not on the pages. It reads the document and the user's selection in it, and writes through `tr` into the document. The user can undo the change, and it keeps the cursor where it placed it. `can()` asks the document too, and a command that calls another through `commands` or `chain()` keeps writing into the same transaction.
+
+A position that a command takes, or reads off the selection, is a position in `editor.storage.pageLayout.engine.getSourceDocument()`.
+
+A few commands belong to what the editor shows. One moves the cursor through what is drawn. Another only sends a meta to a plugin of the editor, such as a toggle or a refresh of drawn labels. Run on the document, that meta reaches no plugin. Name those in `addViewCommands` and they run on the pages as they would in an editor without pages. Page Layout asks once, before the editor exists:
+
+```js
+const Comments = Extension.create({
+  name: 'comments',
+  addCommands() {
+    return { addComment, resolveComment, removeComment, toggleComments }
+  },
+  addViewCommands() {
+    return ['toggleComments']
+  },
+})
+```
+
+For TypeScript, declare the field once in your package:
+
+```ts
+declare module '@tiptap/core' {
+  interface ExtensionConfig<Options, Storage> {
+    addSourceCommands?: (this: { name: string; options: Options; storage?: Storage }) => string[]
+    addViewCommands?: (this: { name: string; options: Options; storage?: Storage }) => string[]
+  }
+  interface NodeConfig<Options, Storage> {
+    addSourceCommands?: (this: { name: string; options: Options; storage?: Storage }) => string[]
+    addViewCommands?: (this: { name: string; options: Options; storage?: Storage }) => string[]
+  }
+}
+```
+
+Write it exactly like this. Other packages declare the same fields, and TypeScript merges the declarations only when they are identical.
+
+For an extension somebody else wrote, name its view commands in a layout rule under the extension's name. Page Layout uses both lists together:
+
+```js
+defineNodeLayout('comments', {
+  viewCommands: ['toggleComments'],
+})
+```
+
+`addSourceCommands`, and `sourceCommands` in a layout rule, name commands that run on the document even where a view list names them too.
+
+Tiptap's own commands, such as `insertContent`, `setTextSelection` and `toggleMark`, aren't an extension's. They run on the pages. To write at a position in the document, use `editor.commands.onSourceDocument(command)` or `engine.dispatchSourceTransaction(tr)`. See [components](/pages/v2/getting-started/components).
+
+Page Layout reports a view command that writes something the editor can't take back to the document as written. Without an `onCommandOnPages` option, the editor warns on the console once per command. With one, Page Layout calls it instead:
+
+```js
+PageLayout.configure({
+  onCommandOnPages: ({ command, extension, reason, refused }) => {
+    reportToYourLogging(`${extension}.${command}: ${reason}`)
+  },
+})
+```
+
+`refused` is `true` where nothing was written. It is `false` where Page Layout worked the edit out from the difference between the two states, which is right for the text and may lose where the cursor was. `getDiagnostics()` counts these in `commandsOnPages` and keeps the last one in `lastCommandOnPages`.
+
+## What Page Layout needs from your rendering
+
+A NodeView is fine, and so is anything a browser can lay out. Watch for these.
+
+- The height on screen is the height the pages are planned from. A NodeView that renders late, such as an image without dimensions, a chart drawn after a fetch or a font that arrives afterwards, is measured at whatever height it has at that moment. A React NodeView in an editor built with `usePageLayoutEditor` is measured again whenever its height changes. Any other NodeView says when its rendering changed:
+
+  ```js
+  image.addEventListener('load', () => {
+    editor.storage.pageLayout.engine.measureAgain([dom])
+  })
+  ```
+
+  `measureAgain` takes the elements of the NodeView and lays out the pages again if one of them came out at another height. The pages move when the height arrives, so reserve the space in CSS where you know it.
+
+- Don't decide layout in the rendering. Use no `page-break-inside`, no fixed height meant to make something fit, and no scrolling container that hides part of the node.
+- A split node is rendered once per piece, and every piece after the first is marked as a continuation. A NodeView that counts its instances, keeps state per mount or registers something globally on create will notice. Keep state on the node. Its `updateAttributes` and `deleteNode` act on the whole node from any piece. `engine.sourceNodeOfView(getPos())` says which piece it is and returns `{ pos, node, piece: { index, count } }`.
+- Page Layout writes some elements of a table. Every piece of a table on a page gets the columns of the whole table, so Page Layout writes the `<colgroup>` and the width on the `<table>` itself. Page Layout tells your own table NodeView, built on `TableView` from `@tiptap/pm/tables`, to leave those changes alone. Its `ignoreMutation` still decides for everything else. If your code writes into the rendering of a node that another extension draws, say which changes are yours, and every NodeView of that type lets them pass:
+
+  ```js
+  defineNodeLayout('image', {
+    ignoredMutation: (mutation) => mutation.target.classList?.contains('my-image-badge'),
+  })
+  ```
+
+- Name a label that a decoration draws. Page Layout keeps a measurement until the node changes. A number that a decoration writes into an attribute for CSS to print, such as a note mark or a figure number, changes without the node changing. Name the attribute and Page Layout measures the line again when the number gets a digit longer. The footnote reference comes with this rule:
+
+  ```js
+  defineNodeLayout('footnoteReference', {
+    labelAttribute: 'data-tt-footnote-number',
+  })
+  ```
+
+  A label on a sheet that isn't drawn is noticed when the sheet is drawn. The node can be a block as well, such as a heading with an outline number in front of its text:
+
+  ```js
+  defineNodeLayout('heading', { labelAttribute: 'data-tt-outline-number' })
+  ```
+
+- A node in a header or footer is the same node on every page. Ask for what should differ per page, such as a number or a count, with `pageText`. It is written into the `labelAttribute`:
+
+  ```js
+  defineNodeLayout('pageVariable', {
+    labelAttribute: 'page-variable-text',
+    pageText: (node, page) => page.label,
+  })
+  ```
+
+  `page` is described in [your own value per page](/pages/v2/core-concepts/page-numbers#your-own-value-per-page).
+
+- Counting nodes of the editor's document counts the copy that the pages hold. A block split across two pages is two nodes there, and the header or footer being edited is a node too. An extension that numbers or lists nodes leaves those out with `ignoreLayoutArtifacts`. See [packages that work without pages](/pages/v2/extensions/overview#packages-that-work-without-pages).
+
+## What must never go into the document
+
+Keep these out of the document:
+
+- Page numbers.
+- A flag that says "this is a continuation".
+- A measured height.
+- A break your code inserted because something didn't fit.
+
+All of them change when a font loads, when the paper changes, or when a collaborator on another screen edits the same text. In the document they would be saved to your database and synchronized to everybody. The next user would see somebody else's page breaks.

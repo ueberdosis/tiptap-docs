@@ -1,0 +1,99 @@
+---
+title: Page structure
+meta:
+  title: Page structure | Tiptap Conversion
+  description: See how Word page size, margins, sections, columns, page numbering and page color move through DOCX import and export with Page Layout.
+  category: Conversion
+---
+
+Export writes the page setup of [Page Layout](/pages/v2/core-concepts/sections) as Word sections. Import returns the page size and margins of the file to you, and only turns multi-column sections into nodes.
+
+## Set up the editor
+
+Page Layout holds the page setup, one for each section. See [page format](/pages/v2/core-concepts/page-format) and [sections](/pages/v2/core-concepts/sections).
+
+Without Page Layout, export writes one section with the `pageSize` and `pageMargins` options. The defaults are A4 with 2.54cm top and bottom margins and 3.17cm side margins. An editor without pages, or a pageless one, does the same.
+
+## Import
+
+`onImport` receives [`pageLayout`](/conversion/v3/import/docx/api#importcontext), or `null` when the file has no page size.
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.pageLayout?.orientation)
+  },
+})
+```
+
+`pageLayout` holds `width`, `height`, `orientation` and `margins`, in twips. A twip is 1/1440 inch. The margins are `top`, `right`, `bottom`, `left`, `header`, `footer` and `gutter`. Import reads them from the end of the file, so they describe the last section.
+
+Import doesn't write them into the editor. Apply them with a Page Layout command such as `setSectionSetup`. Page Layout counts in CSS pixels, so convert the twips first.
+
+Import doesn't create section breaks. A file with several sections arrives as one flow of content, and import loses each section's size, orientation and margins.
+
+### Section columns
+
+Import wraps each section that has several columns in a `columns` node. It holds one `column` node with the section's blocks.
+
+| Node      | Attributes                                     |
+| --------- | ---------------------------------------------- |
+| `columns` | `count`, `separator`, `space` and `equalWidth` |
+| `column`  | `width` and `space`                            |
+
+The editor needs nodes with those names to keep them. The [`prosemirrorNodes`](/conversion/v3/import/docx/custom-node-mapping) option of `ImportDocx` renames them. The Columns extension isn't compatible with this shape, so define your own nodes, or unwrap the blocks in `onImport`.
+
+Export has no output for `columns` and `column` and leaves them out with their content. To keep that content through a re-export, define your own nodes and add a [custom node rule](/conversion/v3/export/docx/custom-nodes) for them.
+
+Without the nodes, `onWarning` receives an `unsupported` warning. The editor keeps the section's blocks as paragraphs. A section with one column isn't wrapped.
+
+## Export
+
+Export reads the page setup of the first section and a `sectionBreak` node for each later section.
+
+| Setting              | Word                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| Paper size           | The page size, from the format width and height                                         |
+| Orientation          | Portrait or landscape                                                                   |
+| Margins              | Top, right, bottom and left                                                             |
+| Section break kind   | `nextPage` starts a new page, `continuous` stays on the sheet                           |
+| Columns              | Count, gaps, widths and the line between columns                                        |
+| Page numbering       | Format, start number and chapter prefix                                                 |
+| Different first page | Per section                                                                             |
+| Header and footer    | See [headers and footers](/conversion/v3/content-reference/page-layout/headers-footers) |
+
+A continuous section takes the paper of the section above it, because paper can't change halfway down a sheet.
+
+Page numbers use the number format of the section, such as `decimal` or `lowerRoman`. Export writes the start number and the chapter prefix with its separator. Export writes a format with no exact Word match as the closest one and reports a warning.
+
+### Page color
+
+Word has one page color for the whole document. Export writes the page color of the first section. To set it yourself, pass `pageColor`.
+
+```ts
+editor.commands.exportDocx({ pageColor: '#fff8e8' })
+```
+
+Export drops a different page color on a later section, and the text and accent colors of every section. Export reports an `unsupported` warning for each. Word prints the page color only when its print background setting is on.
+
+### Options
+
+[`pageSetup`](/conversion/v3/export/docx/usage#set-page-size-and-margins) sends a Page Layout setup other than the editor's. `pageSize` and `pageMargins` take a string with a unit, such as `'2cm'` or `'1in'`, or a number of twips. Top and bottom margins can be negative.
+
+```ts
+editor.commands.exportDocx({
+  pageSize: { width: '21cm', height: '29.7cm' },
+  pageMargins: { top: '2cm', bottom: '2cm', left: '2cm', right: '2cm' },
+})
+```
+
+## Limitations
+
+- Import returns the page size and margins of the last section and doesn't apply them.
+- Import doesn't create section breaks.
+- A multi-column section imports as `columns` and `column` nodes. The editor needs nodes with those names to keep them.
+- Export keeps one page color for the whole document.
+- Export drops section text and accent colors.

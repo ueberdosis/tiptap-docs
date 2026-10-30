@@ -1,0 +1,193 @@
+---
+title: Export DOCX REST API
+meta:
+  title: Export DOCX REST API | Tiptap Conversion
+  description: Send a Tiptap document to Convert and get a .docx file back. JSON and multipart requests, every body field, uploaded fonts and images, limits, errors and warnings.
+  category: Conversion
+---
+
+Send a Tiptap document to `POST /v3/convert/export/docx` and get a `.docx` file back. Call it from your own server. The [editor extension](/conversion/v3/export/docx/editor-extension) calls the same endpoint for you.
+
+On-premises, the endpoint is also available at `POST /v3/export/docx`. See the [REST API overview](/conversion/v3/rest-api/overview) for base URLs, regions and authentication.
+
+## Request
+
+| Header          | Value                                                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Authorization` | `Bearer <token>`. The token must allow `Convert:Export:Docx`.                                                                     |
+| `Content-Type`  | `application/json`, or `multipart/form-data` when you upload fonts or images.                                                     |
+| `X-App-Id`      | Your Tiptap app id. Only needed with a Tiptap Cloud app token. See the [overview](/conversion/v3/rest-api/overview#authenticate). |
+
+Any other content type fails with `400 INVALID_EXPORT_OPTIONS`.
+
+## Send JSON
+
+Put the options in the body. Only `document` is required.
+
+```bash
+curl -X POST https://api.tiptap.dev/v3/convert/export/docx \
+  -H "Authorization: Bearer $CONVERT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -D headers.txt \
+  -o report.docx \
+  -d '{
+    "document": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": { "level": 1 },
+          "content": [{ "type": "text", "text": "My report" }]
+        },
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Hello from Tiptap." }]
+        }
+      ]
+    },
+    "pageSize": { "width": "21cm", "height": "29.7cm" },
+    "pageMargins": { "top": "2.5cm", "bottom": "2.5cm", "left": "2cm", "right": "2cm" }
+  }'
+```
+
+`-o` saves the file and `-D` saves the response headers, where Convert reports [warnings](/conversion/v3/rest-api/overview#export-warnings-headers).
+
+## Send multipart
+
+Use `multipart/form-data` to upload fonts and images with the document. Send these parts.
+
+- One `options` part with the same JSON you would send as the body. It must be text, not a file.
+- One file part for each entry in `assets`. Name the part after the `part` value of its entry.
+
+Don't set the `Content-Type` header yourself. `curl` adds it with the boundary.
+
+```json
+{
+  "document": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Hello from Tiptap." }]
+      },
+      { "type": "image", "attrs": { "src": "https://example.com/logo.png" } }
+    ]
+  },
+  "assets": [
+    { "id": "logo", "kind": "image", "part": "logo", "src": "https://example.com/logo.png" },
+    { "id": "inter", "kind": "font", "part": "inter", "name": "Inter" }
+  ]
+}
+```
+
+Save that as `options.json`, then send it with the files.
+
+```bash
+curl -X POST https://api.tiptap.dev/v3/convert/export/docx \
+  -H "Authorization: Bearer $CONVERT_TOKEN" \
+  -F 'options=<options.json' \
+  -F 'logo=@logo.png' \
+  -F 'inter=@Inter-Regular.ttf' \
+  -o report.docx
+```
+
+## Body fields
+
+Every field is optional except `document`. An unknown field fails with `400 INVALID_EXPORT_OPTIONS`.
+
+| Field                    | Type                | What it holds                                                                                     |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------------------------------- |
+| `document`               | `object`            | Required. The Tiptap document as JSON, with `type: "doc"`.                                        |
+| `pageSetup`              | `object`            | The Page Layout setup. Convert builds the page size, margins, headers and footers from it.        |
+| `outline`                | `object`            | Outline numbering data.                                                                           |
+| `numberingFormats`       | `object[]`          | Numbering format definitions.                                                                     |
+| `listLevels`             | `object`            | Positions for bullet, ordered and task lists.                                                     |
+| `defaultTabStop`         | `number`            | Twips between default tab stops. Must be greater than 0.                                          |
+| `pageColor`              | `string`            | The page background color.                                                                        |
+| `pageSize`               | `object`            | `width` and `height`, each a number or a measure such as `"21cm"`.                                |
+| `pageMargins`            | `object`            | `top`, `bottom`, `left`, `right`, `header` and `footer`. `top` and `bottom` can be negative.      |
+| `styleOverrides`         | `object`            | Word style definitions.                                                                           |
+| `cssStyles`              | `object`            | Styles written as CSS properties, with `styles` and `baseFontSize`.                               |
+| `documentCss`            | `object`            | The CSS the editor measured in the browser.                                                       |
+| `cellParagraphIds`       | `string[]`          | Ids of table cell paragraphs, sent with `documentCss`.                                            |
+| `listParagraphOverrides` | `object[]`          | Paragraph overrides for list paragraphs. Each has a `path` and `overrides`. Paths must be unique. |
+| `tableOverrides`         | `object`            | Applied to every table.                                                                           |
+| `tableRowOverrides`      | `object`            | Applied to every table row.                                                                       |
+| `tableCellOverrides`     | `object`            | Applied to every table cell.                                                                      |
+| `paragraphOverrides`     | `object`            | Applied to every paragraph.                                                                       |
+| `textRunOverrides`       | `object`            | Applied to every text run.                                                                        |
+| `imageOverrides`         | `object`            | Applied to every image.                                                                           |
+| `headerFooterOverrides`  | `object`            | Overrides for header and footer content.                                                          |
+| `footnotes`, `endnotes`  | `object`            | Note content as Tiptap JSON, keyed by note id.                                                    |
+| `comments`               | `object`            | Comment threads, as `{ "threads": [...] }`.                                                       |
+| `customNodeDsl`          | `object`            | JSON rules for custom nodes. See [render custom nodes](/conversion/v3/export/docx/custom-nodes).  |
+| `embedFonts`             | `boolean`           | Embeds the fonts the document uses. Uploaded fonts are embedded either way.                       |
+| `onImageError`           | `"skip" \| "throw"` | What to do with an image that can't be used. `"skip"` leaves it out. `"throw"` fails the export.  |
+| `assets`                 | `object[]`          | One entry for each uploaded file. Needs a multipart request.                                      |
+
+The override fields are plain objects. They take the same options as the matching [editor extension options](/conversion/v3/export/docx/api#document-options).
+
+### Removed options
+
+These fields existed in the 0.x export. They fail with `400 REMOVED_EXPORT_OPTION`, and `path` names the field.
+
+- `headers` and `footers`. Headers and footers come from `pageSetup`.
+- `exportType` and `doc`. The response is always the file, and `document` holds the content.
+- The other options in [removed 0.x options](/conversion/v3/export/docx/api#removed-0x-options), including the 0.x custom node option, which `customNodeDsl` replaces.
+
+See [migrate export from 0.x](/conversion/v3/getting-started/migrate-export-from-0x).
+
+## Assets
+
+`assets` lists the files in a multipart request. A JSON request with a non-empty `assets` fails.
+
+| Kind  | Entry                                                       | Accepted files             |
+| ----- | ----------------------------------------------------------- | -------------------------- |
+| Font  | `{ "id", "kind": "font", "part", "name", "characterSet"? }` | TTF, OTF or WOFF2          |
+| Image | `{ "id", "kind": "image", "part", "src" }`                  | PNG, JPEG, GIF, BMP or SVG |
+
+- `id` and `part` must be unique across entries.
+- A font `name` must match the family your document uses.
+- An image entry replaces the download of its `src`. Use the same value as the `src` in your document.
+- Every file part needs an entry, and every entry needs its file. Send each part once.
+- Convert checks the file content, not its name or type.
+
+## Limitations
+
+One export uploads at most 64 files, fonts and images together. An uploaded image can be at most 20 MB and a font at most 25 MB. The `options` part can be at most 10 MB, and the whole request body at most 100 MB. On-premises, your administrator can change the body and image limits. The other limits are fixed.
+
+| Limit                     | Value                                      |
+| ------------------------- | ------------------------------------------ |
+| Request body              | 100 MB.                                    |
+| `options` part            | 10 MB.                                     |
+| Entries in `assets`       | 64.                                        |
+| One uploaded font         | 25 MB.                                     |
+| One uploaded image        | 20 MB.                                     |
+| One `data:` image in JSON | About 5 MB. Upload larger images as parts. |
+
+## Response
+
+A successful export returns `200` with the file as the body.
+
+| Header                        | Value                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `Content-Type`                | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
+| `Content-Disposition`         | `attachment; filename=export-<timestamp>.docx`                            |
+| `X-Export-Warnings`           | Warnings for content the export left out. Missing when there are none.    |
+| `X-Export-Warnings-Truncated` | `true` when not every warning fit in the header.                          |
+
+Decode the warnings as shown in the [overview](/conversion/v3/rest-api/overview#export-warnings-headers). Two warning codes come from the endpoint itself, `list-paragraph-path-missing` and `numbering-format-invalid`. The rest are in the [Export DOCX API](/conversion/v3/export/docx/api#warnings-and-errors).
+
+## Errors
+
+Failures use the shapes in the [overview](/conversion/v3/rest-api/overview#errors). These come from the export itself.
+
+| Status | `code`                       | When                                                                                        |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------- |
+| 400    | `INVALID_EXPORT_OPTIONS`     | The body can't be read, a field is unknown or invalid, or an upload breaks a rule or limit. |
+| 400    | `REMOVED_EXPORT_OPTION`      | The body has a removed field.                                                               |
+| 400    | `DOCX_DSL_*`                 | A custom node rule fails validation.                                                        |
+| 422    | `DOCX_DSL_*`                 | A custom node rule fails while it renders a node.                                           |
+| 422    | `FAILED_TO_EXPORT_DOCX_FILE` | The export failed, or `onImageError` is `"throw"` and an image can't be used.               |
+
+`error` says which rule failed, and `path` names the field when one applies. Authentication, size and rate limit errors are in the [overview](/conversion/v3/rest-api/overview#errors).

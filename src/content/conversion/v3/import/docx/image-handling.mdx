@@ -1,0 +1,129 @@
+---
+title: Image handling
+meta:
+  title: Image handling | Tiptap Conversion
+  description: Set up the upload endpoint that receives the images of an imported .docx file, and see what the request and the response look like.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+A `.docx` file holds its images inside the file. Convert can't give you a URL for them, so it uploads each image to an endpoint on your server and puts the URL you return into the `image` node.
+
+<Callout title="You need your own upload endpoint" variant="info">
+  Tiptap doesn't store images for you. Without `imageUploadConfig`, import skips every image.
+</Callout>
+
+For the editor setup and what an image keeps, see [images](/conversion/v3/content-reference/structures-and-media/images).
+
+## Set the endpoint
+
+Pass `imageUploadConfig` to `ImportDocx.configure`.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  imageUploadConfig: {
+    url: 'https://example.com/upload',
+    headers: { Authorization: 'Bearer UPLOAD_TOKEN' },
+    method: 'PUT',
+    queryParams: { bucket: 'my-bucket' },
+  },
+})
+```
+
+| Option        | Type                     | What it does                                                      |
+| ------------- | ------------------------ | ----------------------------------------------------------------- |
+| `url`         | `string`                 | Required. The `http` or `https` address that receives each image. |
+| `headers`     | `Record<string, string>` | Headers Convert adds to every upload. A plain object of strings.  |
+| `method`      | `string`                 | The HTTP method of the upload. Defaults to `POST`.                |
+| `queryParams` | `Record<string, string>` | Query parameters Convert adds to `url`.                           |
+
+An invalid `url` or `headers` value fails the import with an `ImageUploadConfigValidationError` before it sends any request.
+
+## Handle the upload request
+
+Convert sends one request for each image.
+
+| Part           | Value                                                                  |
+| -------------- | ---------------------------------------------------------------------- |
+| Method         | `POST`, or the `method` you set                                        |
+| Body           | The raw image bytes. It isn't `multipart/form-data`, and has no field. |
+| `Content-Type` | The type of the image, such as `image/png`                             |
+| `File-Name`    | The name of the image, such as `image1.png`                            |
+
+Your `headers` and `queryParams` come with it. Convert sets `Content-Type` and `File-Name` itself, so you can't replace them.
+
+Convert sets `Content-Type` from the file extension for `png`, `jpg`, `jpeg`, `gif`, `bmp`, `tiff`, `tif`, `emf`, `wmf`, `svg` and `webp`. It sends `application/octet-stream` for anything else. Decide on your side which types you keep.
+
+`File-Name` comes from inside the `.docx` file. Word numbers images `image1`, `image2` and so on, and starts at 1 in every file. Add something unique to your storage key, or two files will overwrite each other's images.
+
+By default, Convert uploads up to three images at a time and waits 10 seconds for each response. A slower response counts as a failed upload. It doesn't retry.
+
+The endpoint must be reachable from the internet. Convert refuses addresses that aren't public, such as `localhost`.
+
+## Return the URL
+
+Respond with a `2xx` status and a JSON body that has a `url` string.
+
+```json
+{ "url": "https://example.com/images/photo.png" }
+```
+
+The `url` must be an absolute `http` or `https` address with a host. Convert uses it as you return it, without re-encoding, so a signed URL stays valid. It trims whitespace around the value.
+
+This handler reads the request and returns the URL. `saveImage` stands for your own storage code.
+
+```ts
+export async function handleUpload(request: Request): Promise<Response> {
+  const fileName = request.headers.get('File-Name')
+  const contentType = request.headers.get('Content-Type')
+  if (!fileName || !contentType) return Response.json({ error: 'Missing headers' }, { status: 400 })
+
+  const image = await request.blob()
+  const url = await saveImage({ key: `${crypto.randomUUID()}-${fileName}`, image, contentType })
+
+  return Response.json({ url })
+}
+```
+
+Keep the images available. The editor content stores the URL, and anyone who opens or exports the document loads it again.
+
+## When an image is skipped
+
+Convert skips an image, and the rest of the document imports normally, in these cases.
+
+- You didn't set `imageUploadConfig`.
+- The endpoint returned a status that isn't `2xx`, took too long or couldn't be reached.
+- The response wasn't JSON, or `url` was missing or unusable.
+
+For every skipped image, `onWarning` receives a `server-warning` that says the image was skipped. The cause is in the `logs.error` field of the `onImport` context. It names the file. When your endpoint returned an unusable `url`, it also has a `reason` field.
+
+| Reason in `logs.error`                              | Typical cause                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| ``the response did not contain a `url` field``      | The JSON has no `url` key, or `url` is `null`.                |
+| ``the `url` field was not a string``                | `url` holds a number or an object.                            |
+| ``the `url` field was empty``                       | `url` is `""` or only whitespace.                             |
+| `the URL contains a space or a control character`   | An unencoded space or line break. Percent-encode it.          |
+| `the URL is relative`                               | A path such as `/uploads/image1.png`, or `//host/image1.png`. |
+| `the URL is not a well-formed absolute http(s) URL` | A missing slash, as in `https:/host/image1.png`, or no host.  |
+| `only http and https URLs can be used`              | A scheme such as `s3://` or `data:`.                          |
+
+The log cuts the URL before its query string, so it never holds the token of a signed URL.
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.logs.error)
+  },
+})
+```
+
+## Limitations
+
+- Convert doesn't resolve relative URLs. It has no page to resolve them against.
+- A failed upload is never retried.
+- Import skips images behind the text. See [images](/conversion/v3/content-reference/structures-and-media/images).

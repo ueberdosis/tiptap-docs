@@ -1,0 +1,128 @@
+---
+title: Warnings and errors
+meta:
+  title: Warnings and errors | Tiptap Conversion
+  description: Read the warnings an import reports for content it left out, and handle the errors that stop an import.
+  category: Conversion
+---
+
+An import reports two kinds of problems. A warning means the import left something out and went on. An error means it stopped.
+
+## Warnings
+
+`onWarning` receives every warning. Set it on `ImportDocx.configure` or on one `importDocx` call. The call wins.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+A warning never stops the import. Without `onWarning`, each warning goes to the console as `[import-docx] <message>`. An error thrown inside `onWarning` is ignored.
+
+A warning has these fields.
+
+| Field      | Type      | What it holds                                                    |
+| ---------- | --------- | ---------------------------------------------------------------- |
+| `code`     | `string`  | `'unsupported'` or `'server-warning'`.                           |
+| `message`  | `string`  | A summary that is safe to log.                                   |
+| `nodeType` | `string`  | The node type the import left out. Set on `unsupported`.         |
+| `markType` | `string`  | The mark type the import left out. Set on `unsupported`.         |
+| `noteId`   | `string`  | The Word note id, for a note or a reference the import left out. |
+| `detail`   | `unknown` | The log entry from Convert. Set on `server-warning`.             |
+
+### Unsupported content
+
+An `unsupported` warning means the schema has no extension for a node or mark in the file, or a note and its reference don't match.
+
+The import rewrites the content to fit the schema.
+
+- A node with content becomes a paragraph. Its children stay.
+- The import drops a node without content.
+- The import drops a mark and keeps the text it was on.
+
+You get one warning for each type, not for each occurrence. Add the extension for the type to keep it. The [content reference](/conversion/v3/content-reference/overview) names the extension for each kind of content.
+
+### Server warnings
+
+A `server-warning` is something Convert logged while it read the file, such as an image that it skipped. `detail` holds the log entry, which has its own `message`. The `onImport` context has the same entries in `logs.warn`, and the errors in `logs.error`.
+
+See [image handling](/conversion/v3/import/docx/image-handling#when-an-image-is-skipped) for the image reasons.
+
+## Errors
+
+An error stops the import. It goes to the first of these that you set.
+
+1. `onError`, from the command or from `ImportDocx.configure`. The command wins.
+2. `onImport`, as `{ content: null, error }`, when the error comes before the document is handed over.
+3. Without either, the import rethrows the error as an unhandled rejection.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError: (error) => console.error(error),
+})
+```
+
+An error thrown inside `onImport`, including by `setEditorContent`, goes to `onError`. Without `onError`, it is an unhandled rejection.
+
+### What can fail
+
+| Error                              | When                                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Error`                            | The `token` or the `file` is missing. This fails before any request.                                      |
+| `ImageUploadConfigValidationError` | `imageUploadConfig.url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings. |
+| `ImportDocxRequestError`           | Convert refused the import, or the request never reached it.                                              |
+| `ImportDocxSupersededError`        | A newer import started before this one finished.                                                          |
+| `Error`                            | The editor refused the document, or Page Layout isn't ready.                                              |
+
+### Request errors
+
+`ImportDocxRequestError` has a `code` and, when Convert responded, a `status`.
+
+```ts
+import { ImportDocxRequestError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError(error) {
+    if (error instanceof ImportDocxRequestError && error.status === 401) {
+      // Ask for a new token.
+      return
+    }
+    console.error(error)
+  },
+})
+```
+
+The `code` is `NETWORK_ERROR` when the request never got a response, and `HTTP_ERROR` when the response had no code. Otherwise it's the code from Convert.
+
+| Code                                    | Status | When                                                                              |
+| --------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `INVALID_DOCX_FILE`                     | 422    | The file is corrupt, or isn't a `.docx` file.                                     |
+| `DOCX_TOO_LARGE`                        | 422    | The file unpacks to more than Convert accepts.                                    |
+| `FAILED_TO_PARSE_DOCX_FILE`             | 422    | Convert couldn't read the file.                                                   |
+| `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON` | 500    | Convert read the file but couldn't convert it.                                    |
+| `REQUEST_BODY_TOO_LARGE`                | 413    | The request is larger than Convert accepts.                                       |
+| `RATE_LIMITED`                          | 429    | Too many requests. Retry after the number of seconds in the `Retry-After` header. |
+| `FAILED_TO_GET_FILE_ARRAY_BUFFER`       | 422    | Convert couldn't read the uploaded file.                                          |
+| `INVALID_IMAGE_UPLOAD_CONFIG`           | 400    | The `imageUploadConfig` is not valid.                                             |
+
+Authentication failures carry their own code and status, such as 401, 403, 429 or 503. A validation error without a code becomes `HTTP_ERROR` with the status. `error.message` holds the reason from Convert.
+
+### Superseded imports
+
+The newest import wins. When you start another import before the first response arrives, the first one writes nothing. It reports an `ImportDocxSupersededError`. Calling `setEditorContent` from an older import throws it too.
+
+```ts
+import { ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError(error) {
+    if (error instanceof ImportDocxSupersededError) return
+    console.error(error)
+  },
+})
+```

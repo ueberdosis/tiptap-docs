@@ -1,0 +1,115 @@
+---
+title: Page colors
+meta:
+  title: Page colors | Tiptap Pages
+  description: Set the paper, text and accent colors of a document or one section, and read them in your own CSS.
+  category: Pages
+---
+
+Page Layout draws a document in three colors: the paper, the text that names no color of its own, and an accent. There are three on purpose. Anything finer belongs in marks and styles.
+
+Colors never move a page boundary. A page is the same size in any color, so changing colors changes nothing about where the text breaks.
+
+## Give the document colors
+
+Colors are part of a [section](/pages/v2/core-concepts/sections)'s setup, as `theme`. Section `0` is the document:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+editor.commands.setSectionSetup(0, {
+  ...engine.getSections()[0].setup,
+  theme: { page: '#fdf6e3', text: '#33302a', accent: '#b5341c' },
+})
+```
+
+| Field    | What it colors                                                     |
+| -------- | ------------------------------------------------------------------ |
+| `page`   | The sheet itself.                                                  |
+| `text`   | Text that names no color of its own.                               |
+| `accent` | What a template tints. Nothing uses it until your stylesheet does. |
+
+The document stores the colors. They save with it, they reach everyone editing it, and an undo takes them back like any other edit. See [collaboration](/pages/v2/guides/collaboration#what-is-shared).
+
+`DEFAULT_PAGE_THEME` is white paper and dark text. Its accent is the same as the text color. A document nobody gave colors looks the way it would without them.
+
+Colors are `#rrggbb`. Page Layout reads a three-digit `#rgb` as its six-digit form and ignores anything else instead of drawing it, so a document from another source can't put an arbitrary string into the style of a page. `normalizePageColor(value)` returns the color Page Layout will use, or `null`.
+
+### A default for this editor only
+
+A theme in the setup you pass to `PageLayout` is how this editor shows a document that names no colors:
+
+```js
+PageLayout.configure({
+  setup: pageSetup('A4', { theme: { page: '#fdf6e3' } }),
+})
+```
+
+Page Layout doesn't write it into the document. Another editor that opens the same document shows it in its own default, and an export doesn't see it.
+
+This default applies only to a document with no setup of its own. Once `setSectionSetup(0, ...)` has written one, such as a format, margins or colors, the editor shows the document in its own colors. A color it doesn't name comes from `DEFAULT_PAGE_THEME`, not from this editor. White paper a user chose stays white in an editor configured with cream.
+
+## One section in its own colors
+
+Every later section follows the document's colors until it names its own:
+
+```js
+const index = engine.getActiveSectionIndex()
+const section = engine.getSections()[index].setup
+
+editor.commands.setSectionSetup(index, {
+  ...section,
+  theme: { ...section.theme, accent: '#1f8a52' },
+})
+```
+
+This works per color. Page Layout doesn't store a color that a section shares with the document in the section, so a later change to the document's color reaches it. A color the section names stays its own. The section in this example still follows the document's paper and text. Pass the document's theme again and the section follows all three colors.
+
+### Find the sections with their own colors
+
+`setup.theme` is always complete. A section that follows the document reports the document's colors. To find out whether it has its own, compare it with section `0`:
+
+```js
+import { pageThemeEquals } from '@tiptap-pro/extension-page-layout'
+
+const [first, ...rest] = engine.getSections()
+const own = rest.filter((section) => !pageThemeEquals(section.setup.theme, first.setup.theme))
+```
+
+Page Layout stores a section that names exactly the document's colors as following them, so the two can't disagree.
+
+## In a .docx file
+
+A .docx file has one page color for the whole document, which is the `page` color of section `0`. It holds no text or accent color, and a section's own colors have no counterpart there. An export writes the document's page color and loses the section's colors. If your interface lets a user color one section, tell them the color is lost in a .docx export.
+
+## Draw with the colors
+
+Each sheet carries the colors of its section as custom properties:
+
+| Property               | What it holds                                                 |
+| ---------------------- | ------------------------------------------------------------- |
+| `--tt-page-background` | The paper. Page Layout's stylesheet paints the sheet with it. |
+| `--tt-page-text`       | The text color. The stylesheet sets it on the sheet.          |
+| `--tt-page-accent`     | The accent, for your own rules.                               |
+
+```css
+[data-tt-page] h1 {
+  color: var(--tt-page-accent);
+}
+```
+
+The properties are set per sheet, so a rule like this one follows the section. A heading on a page of a green section is green. The one after the next section break isn't. A document's colors win over `--tt-page-paper`, the default paper you set in CSS. See [styling](/pages/v2/core-concepts/styling) for the other properties a page publishes.
+
+### Without pages, and on paper
+
+A pageless editor has no sheets, so it doesn't draw the colors and you can't change them there. `setSectionSetup` returns `false`, also under `can()`.
+
+Printing from the browser prints the paper color only when _Background graphics_ is on in the print dialog. Your stylesheet can ask for it:
+
+```css
+@media print {
+  [data-tt-page] {
+    print-color-adjust: exact;
+  }
+}
+```

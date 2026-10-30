@@ -1,0 +1,253 @@
+---
+title: Bookmarks
+meta:
+  title: Bookmarks | Tiptap Pages
+  description: Name a run of text or a point in a Tiptap editor, link to it with #name, and go to it, with or without Page Layout.
+  category: Pages
+---
+
+A bookmark is a name on a run of text, or on a point between two characters. You go to it, link to it with `#name` and refer to it. It behaves as a bookmark does in Word.
+
+`@tiptap-pro/extension-bookmark` works in any editor, with or without pages. It has no dependency on Page Layout or on the cross-reference package.
+
+## Install
+
+```bash
+npm install @tiptap-pro/extension-bookmark
+```
+
+The package comes from Tiptap's private registry. See [set up the registry](/pages/v2/getting-started/install#set-up-the-registry) if you haven't yet.
+
+## Add it to an editor
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Bookmarks } from '@tiptap-pro/extension-bookmark'
+
+const editor = new Editor({
+  extensions: [StarterKit, Bookmarks],
+})
+
+editor.commands.addBookmark({ name: 'Payment_terms' })
+editor.commands.goToBookmark(id)
+```
+
+`Bookmarks` brings two types. The `bookmark` mark sits on text. The `bookmarkPoint` node is an empty inline node for a bookmark on no text.
+
+A bookmark is invisible unless you [show bookmarks](#show-bookmarks). It adds nothing to the text, so `editor.getText()` and a copy as plain text are the same with or without one.
+
+Every command is on the [commands](/pages/v2/extensions/bookmarks/commands) page.
+
+## What a bookmark is
+
+Each bookmark has two attributes:
+
+- `id` is what a reference or a link keeps. It never changes, not when the bookmark is renamed or moved.
+- `name` is what the user sees.
+
+A bookmark on text can run across several paragraphs. Every run of text with the same `id` belongs to one bookmark, from the first position any of them covers to the last. Bookmarks can overlap and nest. Typing at the end of a bookmark doesn't widen it.
+
+In HTML, a bookmark is a `span` around its text:
+
+```html
+<span class="tiptap-bookmark" data-tt-bookmark="id" data-tt-bookmark-name="name">text</span>
+```
+
+One on no text is an empty `span` with the class `tiptap-bookmark-point` and the attributes `data-tt-bookmark-point` and `data-tt-bookmark-name`.
+
+## Names
+
+A name is one Word accepts: a letter first, then letters, digits and `_`, at most 40 characters. Names ignore case, so `Terms` and `terms` are the same bookmark.
+
+A name that starts with `_` is hidden. Word names the bookmarks it makes for itself this way, such as `_Ref...` behind a cross-reference and `_Toc...` behind a table of contents. The extension keeps hidden bookmarks, and `bookmarksIn` leaves them out unless you ask for them. Users can't add one under such a name. Code can, with `hidden: true`.
+
+```js
+import { isValidBookmarkName, bookmarkNameFromText } from '@tiptap-pro/extension-bookmark'
+
+isValidBookmarkName('4th clause') // false
+bookmarkNameFromText('the agreed price') // 'the_agreed_price'
+bookmarkNameFromText('Price', ['price']) // 'Price_2'
+```
+
+Without a `name`, `addBookmark` names the bookmark after the selected words this way.
+
+## Add, move, rename and remove
+
+```js
+editor.commands.addBookmark({ name: 'Price' }) // on the selection
+editor.commands.renameBookmark('Cost') // the bookmark around the cursor
+editor.commands.removeBookmark() // the text stays
+```
+
+- With text selected, the bookmark is on that text. With nothing selected, it is a point at the cursor.
+- Adding under a name the document already has moves that bookmark to the selection, as Word does. Its `id` stays, so every reference to it follows.
+- Renaming keeps the `id` too. Renaming to a name another bookmark has fails.
+- Every command except `toggleBookmarkVisibility` returns `false` where it would do nothing, which is what `can()` reads. That covers an invalid name, a selection that can't carry a bookmark and no bookmark around the cursor. `toggleBookmarkVisibility` always returns `true`.
+
+## Go to a bookmark
+
+```js
+editor.commands.goToBookmark(id)
+```
+
+This selects the bookmark and scrolls to it. If your integration reveals a position its own way, pass `reveal`. `goToBookmark` and a followed link then call it instead:
+
+```js
+Bookmarks.configure({
+  reveal: (bookmark) => myScrollTo(bookmark.from),
+})
+```
+
+`reveal` gets the bookmark as `bookmarksIn` reads it and returns whether it went there.
+
+## Link to a bookmark
+
+A click on a link with the `href` `#name` goes to the bookmark of that name. That is how a link inside a document points at a place in it. The extension leaves a link to a name no bookmark has to whatever else handles links, Tiptap's Link extension included.
+
+```js
+import { bookmarkHref } from '@tiptap-pro/extension-bookmark'
+
+editor
+  .chain()
+  .setLink({ href: bookmarkHref('Payment_terms') })
+  .run()
+```
+
+`Bookmarks.configure({ followLinks: false })` leaves every link alone.
+
+## Show bookmarks
+
+This is Word's "Show bookmarks". The text of every bookmark gets a dashed underline, across paragraphs and pages. A thin bar marks a bookmark on no text. Hidden bookmarks stay hidden.
+
+```js
+Bookmarks.configure({ showBookmarks: true })
+editor.commands.toggleBookmarkVisibility() // on, off
+editor.commands.toggleBookmarkVisibility(false) // off
+```
+
+Neither the underline nor the bar takes room or covers a character, so no line rewraps when they appear. Showing bookmarks writes nothing to the document.
+
+The package also exports its stylesheet as a function, for a page with no build step for CSS:
+
+```js
+import { mountBookmarkStyles, bookmarkStyleRules } from '@tiptap-pro/extension-bookmark'
+
+mountBookmarkStyles(document) // once, a second call does nothing
+```
+
+Under a Content Security Policy, pass the nonce you give the editor as `injectNonce`: `mountBookmarkStyles(document, { nonce })`. Where the policy allows no `style` element, load `bookmarkStyleRules()` from a file.
+
+The underlined text has the class `.tiptap-bookmark-shown` and the bookmark's name as its `title`. The bar has the class `.tiptap-bookmark-point-marker`. Two custom properties change them:
+
+| Property              | Default                                        |
+| --------------------- | ---------------------------------------------- |
+| `--tt-bookmark-color` | `#8a8a8a`, for the line and the bar            |
+| `--tt-bookmark-line`  | `dashed`, or any `text-decoration-style` value |
+
+## Copy and paste
+
+A name is one bookmark. Pasting text whose bookmark the document already has pastes the text without it and leaves the bookmark where it was. That holds for the same `id` and for another bookmark of that name. Pasting what you cut moves the bookmark, and so does dragging text to another place.
+
+## Read the bookmarks
+
+```js
+import {
+  bookmarksIn,
+  bookmarkById,
+  bookmarkByName,
+  bookmarkAround,
+} from '@tiptap-pro/extension-bookmark'
+
+bookmarksIn(editor.state.doc) // in the order they begin
+bookmarksIn(editor.state.doc, { sort: 'name' }) // as Word's dialog sorts them
+bookmarksIn(editor.state.doc, { hidden: true }) // Word's own as well
+bookmarkByName(editor.state.doc, 'price') // ignores case
+bookmarkAround(editor.state.doc, from, to) // the smallest one around a range
+```
+
+Each bookmark is `{ id, name, hidden, from, to, point }`. `from` and `to` are where it begins and ends, the same position for a bookmark on no text. `bookmarksInBlock(block, blockPos)` reads the bookmarks that begin in one top-level block, at their positions in the document.
+
+Every read function takes `ignore`, a function of a node. The read function skips a node it returns `true` for, with everything in it. It reads inside a node it returns `'descend'` for, which suits a node that holds the document's own content without being part of it. If your editor draws copies of content that stands elsewhere, pass `ignore` once to the extension and every command uses it:
+
+```js
+Bookmarks.configure({ ignore: (node) => node.attrs.isCopy === true })
+```
+
+## Refer to a bookmark
+
+The cross-reference package reads bookmarks through a [source](/pages/v2/extensions/cross-references/sources#inside-the-document). Neither package depends on the other.
+
+## Word files
+
+A .docx file holds a bookmark as a name between a `w:bookmarkStart` and a `w:bookmarkEnd`. The export and import don't carry this package's bookmarks yet. See [limitations](#limitations).
+
+Two functions in this package work on the name-and-range shape, for code you write. `bookmarkRangesIn` lists every bookmark that way, hidden ones included. `addImportedBookmarksTransaction` puts ranges you read from a file onto the document:
+
+```js
+import { bookmarkRangesIn, addImportedBookmarksTransaction } from '@tiptap-pro/extension-bookmark'
+
+const ranges = bookmarkRangesIn(editor.state.doc) // [{ name, from, to }]
+
+const tr = addImportedBookmarksTransaction(editor.state, rangesFromTheFile)
+if (tr) editor.view.dispatch(tr)
+```
+
+An import through `addImportedBookmarksTransaction` keeps Word's hidden names. It skips these:
+
+- A name the document already has.
+- A name Word wouldn't accept.
+- A range with no text that can carry a bookmark.
+- The second of two ranges under one name.
+
+An empty range becomes a bookmark on no text.
+
+Text copied in Word and pasted keeps its bookmarks under their names, hidden ones included. Each lands as a bookmark on no text where it begins, because the clipboard doesn't say where a bookmark ends. The paste drops a name the document already has, as with any paste.
+
+## On pages
+
+Page Layout draws pages from copies of the source document's content. Pass its `ignoreLayoutArtifacts` as `ignore`:
+
+```js
+import StarterKit from '@tiptap/starter-kit'
+import { Bookmarks } from '@tiptap-pro/extension-bookmark'
+import {
+  createPageLayoutEditor,
+  ignoreLayoutArtifacts,
+  PageLayout,
+  pageSetup,
+} from '@tiptap-pro/extension-page-layout'
+
+createPageLayoutEditor({
+  element,
+  content,
+  extensions: [
+    StarterKit,
+    Bookmarks.configure({ ignore: ignoreLayoutArtifacts }),
+    PageLayout.configure({ setup: pageSetup('A4') }),
+  ],
+})
+```
+
+`ignoreLayoutArtifacts` is described in [extensions on pages](/pages/v2/extensions/overview#packages-that-work-without-pages).
+
+`addBookmark`, `renameBookmark`, `removeBookmark` and `goToBookmark` write the source document, not the pages, and `can()` checks the source document. A bookmark has the same id on both.
+
+`goToBookmark` and a followed link to `#name` draw the page the bookmark is on if it isn't drawn yet. They select what it covers and scroll to it. From a button, focus the editor first, because it scrolls to the selection only while it has focus:
+
+```js
+editor.view.focus()
+editor.commands.goToBookmark(id)
+```
+
+Shown bookmarks change no measurement, so a page breaks in the same place with them shown.
+
+## Limitations
+
+Bookmarks from this package don't make the round trip through a .docx file yet:
+
+- The export drops the `bookmark` mark and the `bookmarkPoint` node. It writes a bookmark only for an inline node named `bookmark` with an `id` attribute, and this package doesn't use that node.
+- The import turns a bookmark in the file into a zero-width `bookmark` node. It loses the range the bookmark covered, and the node isn't this package's `bookmark` mark.
+- The export turns a link whose `href` is `#name` into an internal link.
+
+`@tiptap-pro/extension-export-docx` and `@tiptap-pro/extension-import-docx` don't change bookmark nodes.

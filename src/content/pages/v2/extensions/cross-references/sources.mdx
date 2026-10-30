@@ -1,0 +1,135 @@
+---
+title: Cross-reference sources
+meta:
+  title: Cross-reference sources | Tiptap Pages
+  description: Point a cross-reference at more than a node type, such as a bookmark, a statute or a clause in another document.
+  category: Pages
+---
+
+A reference can point at more than a node type. It can name a bookmark around a few words, a place a plugin works out, a statute or a clause in another document. Each of these comes from a source. You register a source by name, next to the node types:
+
+```js
+CrossReferences.configure({
+  targets: { heading: {} },
+  sources: {
+    bookmark: {
+      inBlock: (block, blockPos) => bookmarksIn(block, blockPos),
+      displays: ['title', 'page', 'aboveBelow'],
+    },
+    statute: {
+      targets: () =>
+        statutes.map((s) => ({ id: s.number, type: 'Statute', title: s.name, data: s })),
+      resolve: (id) => lookUpStatute(id),
+    },
+  },
+})
+```
+
+You list, insert, read, follow and export a source's targets as you do a heading's. Every display, `update: 'manual'`, several targets in one reference, the picker data from `crossReferenceTypesIn` and `refreshCrossReferences` work the same for them.
+
+## What a source returns
+
+Each target is `{ id, type, title, label?, data?, withheld? }`:
+
+- `id` is unique within the source.
+- `type` is the reference type a picker lists it under, such as `Statute`.
+- `title` is what `show: 'title'` reads.
+- `label` is `{ number, fullNumber, counts? }`, as for a node type, or `null`.
+- `data` is anything your own displays read as `target.data`. The package doesn't look at it.
+- `withheld` says whether this target is [withheld](/pages/v2/extensions/cross-references#withheld-targets).
+
+## Inside the document
+
+`inBlock(block, blockPos)` returns the targets inside one top-level block. Each target has the `pos` it starts at in the document. They appear in document order among the node targets.
+
+The package only calls `inBlock` again for the block that changed, so the result may depend on the block alone and not on anything around it. A target that two blocks both return is one target, at the first of them. A bookmark across two paragraphs is an example.
+
+Here are the bookmarks of [`@tiptap-pro/extension-bookmark`](/pages/v2/extensions/bookmarks), read out of a block:
+
+```js
+import { bookmarksInBlock } from '@tiptap-pro/extension-bookmark'
+
+function bookmarksIn(block, blockPos) {
+  return bookmarksInBlock(block, blockPos).map((bookmark) => ({
+    id: bookmark.id,
+    type: 'Bookmark',
+    title: bookmark.name,
+    pos: bookmark.from,
+  }))
+}
+```
+
+Such a target has a position, so `page`, `aboveBelow` and a number relative to the clause the reference is in work as for a heading. It has no node. A display reading `target.node` gets `null`, and `pageOf` gets `{ pos, doc, node: null }`.
+
+## Outside the document
+
+`targets()` lists them, in the order a picker shows them, after the document's own targets. The editor calls it once, and again on `refreshCrossReferences()` and whenever it reads every target afresh. Return data you already hold. Fetch it before the editor asks, not inside `targets()`.
+
+`resolve(id)` handles an id `targets()` doesn't list, such as one pasted from another document or typed into a form. It returns `{ type, title, label?, data?, withheld? }`, or `null`. A reference to an id nothing resolves is unresolved. It reads `?` and carries `data-tt-cross-reference-unresolved="target"`.
+
+A target outside the document has no position and no page:
+
+- `page` and `aboveBelow` are unresolved, with `data-tt-cross-reference-unresolved="page"`.
+- `relativeNumber` reads the full number.
+- `aboveBelow: true` on a reference adds nothing.
+
+A display of your own reads what the source passed along:
+
+```js
+CrossReferences.configure({
+  displays: {
+    paragraph: { title: 'Paragraph', text: ({ target }) => target.data?.paragraph ?? null },
+  },
+  sources: {
+    statute: { targets, displays: ['paragraph', 'title'] },
+  },
+})
+```
+
+## Ids
+
+A reference stores a source's target as `source:id`, such as `statute:433`, in the same `targetIds` a heading's id goes in. A node target keeps its id as it is.
+
+`sourceTargetId(source, id)` writes the stored form. `parseTargetId(stored, sources)` reads it back as `{ source, id }`. A prefix that isn't the name of a registered source is part of a node target's id, so a heading with the id `a:b` stays that heading's.
+
+```js
+editor.commands.insertCrossReference({ target: 'statute:433', show: 'title' })
+```
+
+A source owns its ids. The package never gives a source's target an id and never changes one. That holds even where two targets of a source share it, and keeping them apart is the source's job. Two sources may use the same id, since the prefix keeps them apart.
+
+## Follow a reference
+
+When the user follows a reference to a source's target, the package calls that source's `reveal(click)` first. Where it returns `false`, it calls the editor's `reveal`. The click carries `{ targetId, source, id, pos, event }`. That is the stored id, the source's name, the id within it, the reference's position and the mouse event. A node target's click has `source: null` and an `id` equal to `targetId`.
+
+## Word fields
+
+A target inside the document gets a bookmark on export, under `bookmarkOf` of its stored id, like a heading. For a bookmark of the bookmark package, pass a `bookmarkOf` that returns the bookmark's own name. The `REF` field then names the bookmark the export writes:
+
+```js
+import { bookmarkById } from '@tiptap-pro/extension-bookmark'
+import {
+  bookmarkNameFor,
+  parseTargetId,
+  crossReferenceToFields,
+} from '@tiptap-pro/extension-cross-references'
+
+const bookmarkOf = (targetId) => {
+  const { source, id } = parseTargetId(targetId, sources)
+  return (source === 'bookmark' && bookmarkById(doc, id)?.name) || bookmarkNameFor(targetId)
+}
+
+crossReferenceToFields(reference, text, { bookmarkOf, doc, reading })
+```
+
+For a target outside the document, `field(target)` on the source returns `{ instruction }`, such as a `HYPERLINK` to where it is kept, or `null`. Without `field`, or where it returns `null`, the reference becomes its text alone. See [Word fields](/pages/v2/extensions/cross-references/docx#export).
+
+## When the data changes
+
+The editor sees a change to the document and nothing else. When what `targets()`, `resolve`, a `label` or `withheld` would return changes, call:
+
+```js
+editor.commands.refreshCrossReferences()
+```
+
+The editor reads every reference again. It writes nothing to the document.

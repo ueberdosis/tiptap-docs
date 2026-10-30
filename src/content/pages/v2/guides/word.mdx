@@ -1,0 +1,164 @@
+---
+title: Word documents
+meta:
+  title: Word documents | Tiptap Pages
+  description: Import a .docx into Page Layout, export one, and read or write the page setup of a .docx file in your own converter.
+  category: Pages
+---
+
+A .docx file carries its page setup with it: the paper of each section, its margins and columns, how pages and notes are numbered, which table rows repeat, and which rows and lists stay on one page. Move a document between Word and Page Layout with Convert, or with the functions below in a converter of your own.
+
+## Import and export with Convert
+
+Convert's import and export extensions know Page Layout. Use them to get a .docx file into or out of the editor:
+
+- [Import with Page Layout](/conversion/v3/import/docx/page-layout) replaces the source document with the imported file. Footnotes and endnotes go in with it. You place sections, headers and footers yourself. See [what you place yourself](/conversion/v3/import/docx/page-layout#what-you-place-yourself).
+- [Export with the editor extension](/conversion/v3/export/docx/editor-extension) sends the document and the page setup. Convert builds the page size, margins, headers and footers from them.
+
+See [limitations](#limitations) for what doesn't survive the round trip.
+
+## Read and write the page setup yourself
+
+The functions below map each page setting to its name in the file. They take and return plain values, not XML, so you call them from the .docx parser and writer your converter already uses.
+
+Lengths in a .docx file are in twips, twentieths of a point. The functions convert them and return everything in the units the rest of Page Layout takes.
+
+### Sections
+
+Word stores a section's setup as `w:sectPr` at the end of the section, in the properties of its last paragraph. The last section's setup is the final child of `w:body`. In Page Layout, a section break stands in front of its section.
+
+`sectionBreaksFromOoxml` takes the `w:sectPr` elements in file order. It returns the section break to put in front of each section, the first one at the very start of the document:
+
+```js
+import { sectionBreaksFromOoxml } from '@tiptap-pro/extension-page-layout'
+
+// One entry per section, read from the file in order.
+const breaks = sectionBreaksFromOoxml([
+  {
+    pgSz: { w: 11906, h: 16838 },
+    pgMar: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+  },
+  {
+    type: 'nextPage',
+    pgSz: { w: 16838, h: 11906, orient: 'landscape' },
+    pgMar: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+    cols: { num: 2, space: 720, sep: true },
+  },
+])
+
+const content = [breaks[0], ...firstSectionBlocks, breaks[1], ...secondSectionBlocks]
+```
+
+Always keep the first break. Without it, each editor shows the document in the page setup it is configured with, so the same file can open on different paper in two places. See [the document's own page setup](/pages/v2/core-concepts/sections#the-documents-own-page-setup).
+
+To go the other way, call `toOoxmlSections(doc, setup)` with the source document. It returns every section with its `w:sectPr` as `properties`, plus `startBlockIndex` and `endBlockIndex` for the range of top-level blocks it covers. Put the properties on the last paragraph of the range, and the last section's into `w:body`. `setup` is the fallback for a document that names no page setup. Pass the setup your editor is configured with. The function resolves colors and everything a section inherits, so each `w:sectPr` is complete on its own.
+
+```js
+import { toOoxmlSections } from '@tiptap-pro/extension-page-layout'
+
+const doc = editor.storage.pageLayout.engine.getSourceDocument()
+
+for (const section of toOoxmlSections(doc, setup)) {
+  writeSectionProperties(section.properties, section.endBlockIndex - 1)
+}
+```
+
+For one section at a time, use `toOoxmlSectionProperties(setup, kind)` and `fromOoxmlSectionProperties(properties)`. The second returns `{ setup, kind }`.
+
+| `w:sectPr`     | Setup                                                                                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `w:type`       | `kind`. `continuous` starts the section on the same sheet. `nextPage` starts it on a new one. `evenPage`, `oddPage` and `nextColumn` read as `nextPage`.          |
+| `w:pgSz`       | `format` and `orientation`. Word writes the turned sheet, so a landscape page has `w` above `h`. A size within a pixel of a built-in format reads as that format. |
+| `w:pgMar`      | `margins`. A negative top or bottom, Word's "at least", reads as its size.                                                                                        |
+| `w:cols`       | `columns`. `num` is `count`, `sep` is `rule`, and `space` or the `w:col` list are `gaps` and `widths`.                                                            |
+| `w:pgNumType`  | `pageNumbering`: `fmt`, `start`, and `chapStyle` with `chapSep` for a chapter number.                                                                             |
+| `w:footnotePr` | `notePlacement` from `pos`, and the footnote numbering from `numFmt`, `numStart` and `numRestart`.                                                                |
+| `w:endnotePr`  | The endnote numbering.                                                                                                                                            |
+
+See [page format](/pages/v2/core-concepts/page-format#built-in-formats) for the built-in formats.
+
+For number formats, use `toOoxmlNumberFormat` and `fromOoxmlNumberFormat`. See [number formats](/pages/v2/extensions/number-formats#word-files). A `custom` format such as `001, 002, 003, ...` reads as decimal unless you pass a second argument that stores the definition and returns its name:
+
+```js
+fromOoxmlSectionProperties(properties, (definition) => {
+  editor.commands.setNumberFormat('imported-1', definition)
+  return 'imported-1'
+})
+```
+
+The document's `w:background` is the `page` color of the first section's theme. Headers and footers, `w:titlePg` among them, are content of the section break. Write them like any other content.
+
+### Table rows
+
+Both table options are on the row in a .docx, in `w:trPr`:
+
+- `w:cantSplit` is a row that moves to the next page whole, which is `breakAcrossPages: false`.
+- `w:tblHeader` is a row that repeats at the top of each page.
+
+`toOoxmlRowProperties(table)` returns `{ tblHeader, cantSplit }` for every row, in order. `tblHeader` is set on the leading rows of header cells while the table repeats its header.
+
+`fromOoxmlRowProperties(rows)` returns the attributes for the table and for each row. A row it marks `headerCells: true` has to be made of `tableHeader` cells, because the rows that repeat are the leading rows of header cells:
+
+```js
+import { fromOoxmlRowProperties } from '@tiptap-pro/extension-page-layout'
+
+const read = fromOoxmlRowProperties(
+  rows.map((row) => ({
+    tblHeader: row.hasTblHeader,
+    cantSplit: row.hasCantSplit,
+  })),
+)
+
+const table = {
+  type: 'table',
+  attrs: read.table,
+  content: rows.map((row, index) => ({
+    type: 'tableRow',
+    attrs: read.rows[index].attrs,
+    content: row.cells.map((cell) => ({
+      type: read.rows[index].headerCells ? 'tableHeader' : 'tableCell',
+      content: cell.content,
+    })),
+  })),
+}
+```
+
+Only the rows marked at the very top of the table repeat. A row marked further down doesn't, in Word or in Page Layout.
+
+### Lists
+
+A .docx has no list element. A list is a run of paragraphs with the same numbering. So Page Layout writes the two list options paragraph by paragraph, as Word's Keep with next (`w:keepNext`) and Keep lines together (`w:keepLines`).
+
+`toOoxmlListParagraphs(list)` returns `{ keepNext, keepLines }` for every paragraph of the list in document order, nested lists included:
+
+- A list kept together (`keepTogether: true`) keeps every paragraph with the next one, except the last.
+- An item that may not be split, which is the default, keeps its own paragraphs with each other and their lines together.
+
+`fromOoxmlListParagraphs(paragraphs)` reads the attributes of the list back. A run where every paragraph but the last keeps with the next is a list kept together. Whether an item may be split keeps its default, because Word has no setting for it.
+
+### Column layouts
+
+The export doesn't write a [column layout](/pages/v2/extensions/columns) to a .docx yet, and drops it with its content. Section columns are written as Word columns, see [section columns](/pages/v2/core-concepts/section-columns).
+
+## Paste from Word
+
+Text copied in Word and pasted into the editor keeps its page settings. Nothing needs configuring. `PageLayout` reads them whenever the clipboard holds Word's HTML.
+
+| Copied in Word                                         | Pasted as                                                 |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| A page break                                           | A [page break](/pages/v2/core-concepts/breaks).           |
+| A column break                                         | A column break.                                           |
+| A section break, Next Page or Continuous               | A section break of that kind.                             |
+| A table row with Allow row to break across pages off   | A row with `breakAcrossPages: false`.                     |
+| Rows marked Repeat as header row at the top of a table | Header cells, and the table with `repeatHeaderRow: true`. |
+
+A pasted section break starts its section with the page setup in force where you paste it. Page Layout doesn't take the section's paper, margins or columns from Word. A paste adds text to a document and doesn't change the paper it is printed on. A paste that gives the document its second section also writes the first section's page setup, as [inserting a section break](/pages/v2/core-concepts/sections#the-documents-own-page-setup) does.
+
+The footnotes extension reads footnotes and endnotes pasted from Word. See [paste from Word](/pages/v2/extensions/footnotes#paste-from-word). The bookmarks extension reads pasted bookmarks. See [bookmarks in a .docx](/pages/v2/extensions/bookmarks#word-files).
+
+## Limitations
+
+- A page break in a .docx file can make the import fail with Page Layout. It imports as a block `pageBreak` node, and Page Layout's page break sits inside a paragraph. See [page breaks](/conversion/v3/content-reference/page-layout/page-breaks).
+- A section with several columns imports as a `columns` node that holds one `column` node. Page Layout's column layout can't hold that shape. See [page structure](/conversion/v3/content-reference/page-layout/page-structure#section-columns).
+- The export drops `columnLayout` and `column` nodes with their content, and `crossReference`. It also drops the Bookmarks mark and the `bookmarkPoint` node. A [custom node rule](/conversion/v3/export/docx/custom-nodes) can write the nodes. See [bookmark limitations](/pages/v2/extensions/bookmarks#limitations).
+- A pasted section break doesn't bring the paper, margins or columns of its section in Word.

@@ -1,0 +1,285 @@
+---
+title: Themes
+meta:
+  title: Themes | Tiptap Pages
+  description: Give styles two fonts and twelve colors to refer to, add named colors, and draw a document in dark mode.
+  category: Pages
+---
+
+A theme is two fonts and twelve colors, as in Word's Design tab. It can also hold any number of [named colors](#named-colors). A style can refer to one of them instead of naming a value. Changing the theme changes every style that refers to it.
+
+```js
+editor.commands.setStyleDefinition({
+  id: 'heading-1',
+  name: 'Heading 1',
+  kind: 'paragraph',
+  props: { fontFamily: 'theme:major', color: 'theme:accent1', fontSize: 28 },
+})
+
+editor.commands.setDocumentTheme({
+  name: 'Ocean',
+  fonts: { major: 'Georgia, serif' },
+  colors: { accent1: '#0f766e' },
+})
+```
+
+## Refer to the theme
+
+A style value of the form `theme:<name>` refers to the theme, wherever a font or a color goes. That is in `props`, in a table style's `tableConditions` and in what one paragraph overrides.
+
+| Value                                                        | What it is                                                                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `theme:major`, `theme:minor`                                 | The font for headings and the font for body text.                                                                  |
+| `theme:dark1`, `theme:light1`, `theme:dark2`, `theme:light2` | Text and background colors, in two strengths. `text1`, `background1`, `text2` and `background2` are the same four. |
+| `theme:accent1` to `theme:accent6`                           | The six accent colors.                                                                                             |
+| `theme:hyperlink`, `theme:followedHyperlink`                 | The colors of a link and of one that was followed.                                                                 |
+
+The names are the ones a .docx file uses, `w:themeColor` and the major and minor font of its theme. The extension leaves out a value with a name no theme has, as it does any value it can't write.
+
+A reference has to be the whole value. `borderLeft: '4px solid theme:accent1'` isn't one. Write the color on its own property:
+
+```js
+props: { borderLeft: '4px solid', borderLeftColor: 'theme:accent1' }
+```
+
+### Tints and shades
+
+A theme color can be lighter or darker by a share. That is every row of Word's color picker below the first. `theme:accent1/+40` is "Lighter 40%", and `theme:accent1/-25` is "Darker 25%". The share is a whole number from 1 to 99. A font has none.
+
+```js
+tableConditions: {
+  firstRow: { backgroundColor: 'theme:accent1', color: 'theme:light1' },
+  oddRows: { backgroundColor: 'theme:accent1/+80' },
+}
+```
+
+The color keeps its hue and saturation and changes its lightness, as Word does. "Lighter 40%" is 60% of the lightness plus 40. "Darker 25%" is 75% of it. A tint follows the theme, so changing `accent1` changes `theme:accent1/+80` with it. Tints need CSS relative colors. See [limitations](#limitations).
+
+`themeColorValue(name, { lighter, darker })` writes such a value:
+
+```js
+import { themeColorValue } from '@tiptap-pro/extension-document-styles'
+
+themeColorValue('accent1', { lighter: 40 }) // 'theme:accent1/+40'
+themeColorValue('accent1', { darker: 25 }) // 'theme:accent1/-25'
+```
+
+## Which theme a document is drawn in
+
+```js
+DocumentStyles.configure({
+  types: ['paragraph', 'heading'],
+  theme: { name: 'House', fonts: { major: 'Inter, sans-serif' }, colors: { accent1: '#536dfe' } },
+})
+```
+
+Four layers apply, font by font and color by color. The first layer that sets a value wins:
+
+1. The document's own theme, which `setDocumentTheme` stores.
+2. The theme of a [library](/pages/v2/extensions/document-styles/libraries#a-librarys-theme), the first library's over the others'.
+3. The `theme` option, which is your integration's.
+4. Word's "Office" theme, `OFFICE_THEME`, for whatever none of them sets.
+
+With `precedence: 'libraries'`, the libraries' themes and the option win over the document's own, as a library's style does.
+
+```js
+const theme = editor.storage.documentStyles.themeOf(editor.state.doc)
+
+theme.name // 'Ocean'
+theme.colors.accent1 // '#0f766e'
+theme.fonts.minor // 'Aptos, Calibri, Arial, sans-serif', from Office
+```
+
+`themeOf` returns every font and color. `resolveTheme(doc, theme, precedence, libraries)` does the same without an editor. `documentThemeOf(doc)` returns only what the document stores, or `null`.
+
+## setDocumentTheme(theme)
+
+```js
+editor.commands.setDocumentTheme({ colors: { accent1: '#aa0000' } })
+editor.commands.setDocumentTheme(null)
+```
+
+This stores a theme in the document in place of the one it had, and keeps the document's [named colors](#setnamedcolorkey-color). The theme sits in the same hidden node as the definitions. It saves with the document, undoes with the history and reaches collaborators through Tiptap Collaboration.
+
+`null` takes it off, and the document uses the configured theme again. The command returns `false` where the document already has that theme, and for something that isn't a theme.
+
+`setDocumentThemeTransaction(tr, theme)` writes the same into a transaction of your own.
+
+You can put a color the document uses into one of the theme's twelve places. This is Word's way to tie a color to the theme. Set the place to it and refer to the place wherever it is used. The places are fixed and have no names of your own. Everything that used that place before uses the new color too. For a color under a name of its own, see [named colors](#named-colors).
+
+```js
+import { COLOR_PROPS, documentThemeOf } from '@tiptap-pro/extension-document-styles'
+
+const own = documentThemeOf(editor.state.doc) ?? {}
+editor
+  .chain()
+  .setDocumentTheme({ ...own, colors: { ...own.colors, accent3: '#0f766e' } })
+  .replaceStyleValue(COLOR_PROPS, '#0f766e', 'theme:accent3')
+  .run()
+```
+
+## Named colors
+
+A theme can name colors beyond its twelve places, as many as it needs, such as "Brand Red" or "Signal Green". A style or an override refers to one as `named:<key>`. Changing the color changes everything that refers to it, as with a theme color.
+
+```js
+import { COLOR_PROPS, namedColorValue } from '@tiptap-pro/extension-document-styles'
+
+editor.commands.setNamedColor('brandRed', { name: 'Brand Red', color: '#c00000' })
+
+editor.commands.setStyleDefinition({
+  id: 'alert',
+  name: 'Alert',
+  kind: 'character',
+  props: { color: 'named:brandRed' },
+})
+
+// Every #c00000 the document uses, as a reference to it
+editor.commands.replaceStyleValue(COLOR_PROPS, '#c00000', namedColorValue('brandRed'))
+```
+
+Named colors are the `named` field of a theme, so every [layer](#which-theme-a-document-is-drawn-in) can have them: the document's own theme, a library's and the `theme` option. The layers combine key by key. A library brings the organization's colors to every document. A document adds its own, or draws one of them its own way.
+
+```js
+const house = styleLibrary(houseStyles, {
+  theme: { named: { brandRed: { name: 'Brand Red', color: '#c00000' } } },
+})
+```
+
+| `NamedColor` field | What it holds                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `name`             | What a picker shows, such as `Brand Red`.                                                                   |
+| `color`            | The color, such as `#c00000`.                                                                               |
+| `dark`             | What it becomes in a [dark color scheme](#dark-mode). The extension derives it from `color` where left out. |
+
+A key is letters, digits and hyphens, starting with a letter, such as `brandRed` or `brand-red-2`. `named:brandRed/+40` and `named:brandRed/-25` are a tint and a shade, as with a theme color. `namedColorValue(key, { lighter, darker })` writes them, and `namedColorReferenceOf(value)` reads one. The editor draws a reference to a key no layer has as no color.
+
+### setNamedColor(key, color)
+
+```js
+editor.commands.setNamedColor('brandRed', { name: 'Brand Red', color: '#c00000', dark: '#ff8080' })
+```
+
+This stores a named color in the document's own theme, in place of the one it had under that key. The rest of the theme stays as it is. The command returns `false` for a key that can't be one, for something that isn't a named color, and where the document already has that color under the key.
+
+The document's named colors stay when another theme is stored, and when `setDocumentTheme(null)` takes the theme off. A theme that names colors of its own lays them over the document's key by key and takes none away. Something may refer to any of them, so `removeNamedColor` is the way to take one off.
+
+### removeNamedColor(key)
+
+```js
+editor.commands.removeNamedColor('brandRed')
+```
+
+This takes a named color off the document's own theme. Two cases follow:
+
+- A library or the `theme` option names the same key. Everything that referred to it uses that color from then on.
+- None does. The command writes every reference in the document's own styles and overrides as the color it was drawn in, tints and shades included, so nothing changes for the user.
+
+The command returns `false` where the document's own theme has no color under the key.
+
+`editor.storage.documentStyles.themeOf(doc).named` returns the named colors of every layer. `namedColorsOf(doc)` returns only the document's own. `themeValueOf(theme, 'named:brandRed')` returns the color one resolves to. `setNamedColorTransaction(tr, key, color)` writes one into a transaction of your own, and `null` takes it off without touching the references.
+
+## Standard colors
+
+`WORD_STANDARD_COLORS` is the row Word's color picker shows under the theme colors: Dark Red, Red, Orange, Yellow, Light Green, Green, Light Blue, Blue, Dark Blue and Purple. Each is a `{ name, value }` with a fixed hex value.
+
+They don't change with the theme, and Word offers no tints or shades of them. A picker that writes one writes the hex.
+
+## How it is drawn
+
+The stylesheet sets the theme once on the editor's element, as custom properties. Each reference becomes one of them:
+
+```css
+.tiptap[data-tt-document-styles='s1'] {
+  --tt-document-styles-theme-font-major: Georgia, serif;
+  --tt-document-styles-theme-accent1: #0f766e;
+}
+.tiptap[data-tt-document-styles='s1'] [data-tt-style-id='heading-1'] {
+  font-family: var(--tt-document-styles-theme-font-major);
+  color: var(--tt-document-styles-theme-accent1);
+}
+```
+
+`themeVariableOf(reference)` names the property of a reference that `themeReferenceOf(value)` reads. `themeDeclarations(theme)` writes them all, for a stylesheet of your own.
+
+The document's HTML keeps the reference, so an override appears inline as `color: var(--tt-document-styles-theme-accent1)`. It follows the theme only where that stylesheet is loaded.
+
+Where a value has to stand on its own, as in an export, `themeValueOf(theme, value)` returns what the theme says, and any other value as it is:
+
+```js
+themeValueOf(theme, 'theme:accent1') // '#0f766e'
+themeValueOf(theme, 'theme:accent1/+40') // '#36e5d8'
+themeValueOf(theme, '#ff0000') // '#ff0000'
+```
+
+For a tint or shade of a theme color that isn't a hex color, it returns the CSS that computes it.
+
+## Dark mode
+
+With `colorScheme`, every color gets a dark counterpart. The browser picks one by the `color-scheme` of the editor's element:
+
+```js
+DocumentStyles.configure({
+  colorScheme: 'auto-dark', // follows the user's system
+  // colorScheme: { darkSelector: '.dark' }, // dark where .dark is on the editor or around it
+})
+```
+
+| `colorScheme`      | What it does                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| `'light'`          | The default. Every color appears as it is set.                                           |
+| `'auto-dark'`      | The editor's element gets `color-scheme: light dark`, so it is dark when the system is.  |
+| `{ darkSelector }` | Light, and dark where the selector matches the editor's element or an element around it. |
+
+Printing, and a PDF made in a browser, is light whatever the screen shows, since paper is white. `printColorScheme: 'screen'` prints the scheme the screen has at the time:
+
+```js
+DocumentStyles.configure({
+  colorScheme: 'auto-dark',
+  printColorScheme: 'screen', // the default is 'light'
+})
+```
+
+A theme says what its colors become in the dark with `dark`, color by color:
+
+```js
+editor.commands.setDocumentTheme({
+  name: 'Ocean',
+  colors: { accent1: '#0f766e', light2: '#e6f4f1' },
+  dark: { accent1: '#5eead4', light2: '#12302c' },
+})
+```
+
+The extension derives a color the theme leaves out, and every color a style or an override sets itself. Its OKLCH lightness is inverted, and its hue and chroma stay. An accent still reads as the same accent, and black text becomes light text. The curve is shifted so that a color of middle lightness becomes lighter rather than staying where it was:
+
+```css
+oklch(from #156082 calc(0.95 - 0.75 * l) c h)
+```
+
+`darkColorCss(color)` writes that for a color of your own.
+
+A tint or shade works the other way round in the dark, since "lighter" means toward the background. `theme:accent1/+80`, a pale accent behind a heading, becomes a deep one rather than a glaring one.
+
+Each theme color then gets three custom properties:
+
+```css
+.tiptap[data-tt-document-styles='s1'] {
+  --tt-document-styles-theme-accent1-light: #0f766e;
+  --tt-document-styles-theme-accent1-dark: #5eead4;
+  --tt-document-styles-theme-accent1: light-dark(
+    var(--tt-document-styles-theme-accent1-light),
+    var(--tt-document-styles-theme-accent1-dark)
+  );
+}
+```
+
+Three things stay as they are:
+
+- A named CSS color such as `red`, and a keyword such as `transparent` or `currentColor`. Write a hex value or a color function to have it derived.
+- The background of the editor. It is yours. `light-dark()` in your own CSS reads the same `color-scheme`, so `background: light-dark(white, #16181d)` on `.tiptap` follows along.
+- The document. Its JSON and `data-tt-style-overrides` keep each color as it was set. Only the inline CSS of an override carries `light-dark()`.
+
+## Limitations
+
+- Tints and shades need a browser that supports CSS relative colors.
+- Dark mode needs a browser that supports `light-dark()` and relative colors.

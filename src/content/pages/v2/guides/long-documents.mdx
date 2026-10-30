@@ -1,0 +1,88 @@
+---
+title: Long documents
+meta:
+  title: Long documents | Tiptap Pages
+  description: Keep a book-length document fast with virtualization, and open it on the pages it was closed on with a layout hint.
+  category: Pages
+---
+
+A book-length document has hundreds of sheets. A browser that holds the text of all of them at once scrolls and types slowly, Safari most of all. So Page Layout fills only the sheets near the user's view. That is the default, and you can switch it off:
+
+```js
+PageLayout.configure({
+  setup: pageSetup('A4'),
+  virtualization: false, // every sheet drawn, all the time
+})
+```
+
+Switch it off when something outside the editor has to find the text of every sheet in the DOM at once. See [what only sees the drawn sheets](#what-only-sees-the-drawn-sheets).
+
+## What stays the same
+
+Every sheet is still there. The scrollbar is as long as the document and each sheet stands where it always stood. Page numbers, the page map and `pageAt` cover the whole document.
+
+The document doesn't change at all. What you save, share or export is the same with the option on and off.
+
+## Which sheets are drawn
+
+- The sheets in view.
+- A few ahead of the scroll, more the faster the user scrolls, and one behind.
+- The sheets that the cursor and the selection start and end on, wherever they are.
+- The sheet whose header or footer is being edited.
+
+The other sheets are paper of the right size and carry `data-tt-page-placeholder`. Page Layout fills a few of them per frame as the user reaches them. A fast scroll can show an empty sheet for a moment, but never a gap. A click on an empty sheet fills it and puts the cursor where the click was.
+
+Select all, move the cursor to the end, or set the selection from your own command, and Page Layout draws the sheets the selection lands on before it shows it. A sheet inside the selection that is still paper is filled with the selection color and carries `data-tt-page-selected`. The color is `--tt-page-selection-fill`, and `Highlight` unless you set it.
+
+A component that tracks its own viewport can report it with `engine.setVisiblePageRange(first, last)`. Those sheets are drawn at once, whatever else is in view.
+
+```js
+editor.storage.pageLayout.engine.setVisiblePageRange(40, 44)
+```
+
+Both arguments are page indexes, counting from zero.
+
+## Typing and pasting
+
+Typing keeps its pace however long the document is. While the user types, Page Layout lays out only the sheets around the cursor again. When they pause, Page Layout paginates the rest of the document and goes on measuring the sheets far from the cursor in the background. Nothing on screen changes while that runs.
+
+The same holds in a header or footer. A line typed into the running head of a book costs what a line in the text costs. The sheets that aren't on screen take the new head when they are scrolled to.
+
+Pasting a long text puts the cursor at the end of what was pasted and scrolls there, as Word does. Page Layout places the pages behind the cursor from estimates at first and measures them over the following seconds. A sheet far from the cursor may move by a line or two while that happens, and the page count in the page map settles with it. Typing and scrolling aren't held up.
+
+## Open on the same pages
+
+As after a long paste, the pages open on estimates and settle over a few seconds. Give Page Layout somewhere to keep what it measured, and the document opens on the pages it was closed on:
+
+```js
+PageLayout.configure({
+  setup: pageSetup('A4'),
+  layoutHint: {
+    load: async (key) => {
+      const stored = localStorage.getItem(key)
+      return stored === null ? null : JSON.parse(stored)
+    },
+    save: (key, hint) => localStorage.setItem(key, JSON.stringify(hint)),
+  },
+})
+```
+
+`load(key)` runs once when the document opens. It runs once more if the editor opened on an empty document and the content arrived afterwards, as with the first sync of a collaboration provider or a `setContent` after a fetch. That second call uses the key of the document that arrived.
+
+`save(key, hint)` runs once the document is measured and has been still for a second, and again after every later edit that settles.
+
+The key names the document, the paper and the font. A hint is used only for the document it was saved from, on the same paper, in a browser that sets text the same way. Anything else is ignored and the document opens on estimates as before.
+
+A hint is a starting point and nothing more. Page Layout still measures every block, and corrects a wrong hint the way it corrects an estimate. The hint is never written into the document, and the same document opens the same with or without one.
+
+`save` may drop a hint and `load` may return `null`. A hint holds an entry for every block, so for a long document it is large. The `layoutHint` option is in the [options reference](/pages/v2/api/options#layouthint).
+
+`engine.getLayoutHint()` returns the current hint, or `null` while the document is still being measured. Use it when you keep hints in your own way.
+
+## Printing
+
+`window.print()` draws every sheet from `beforeprint` to `afterprint`, so the printout is the whole document. See [printing and PDF](/pages/v2/guides/printing-and-pdf).
+
+## What only sees the drawn sheets
+
+The browser's find, Cmd+F or Ctrl+F, and a screen reader read the DOM, so they reach the text of the drawn sheets only. Your own search over the source document or its JSON isn't affected.

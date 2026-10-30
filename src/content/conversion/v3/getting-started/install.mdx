@@ -1,0 +1,148 @@
+---
+title: Install Conversion
+tags:
+  - type: beta
+meta:
+  title: Install Conversion | Tiptap Conversion
+  description: Install the DOCX import and export extensions and connect them to the Convert service with a token, an app id, a region or your own endpoint.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+The DOCX import and export extensions are Pro packages. Install them from Tiptap's private registry, then give them a token for the Convert service.
+
+## Set up the registry
+
+Point your project at Tiptap's registry once. Keep the token in an environment variable and never commit it. On CI, set `TIPTAP_PRO_TOKEN` in the environment.
+
+```ini
+; .npmrc
+@tiptap-pro:registry=https://registry.tiptap.dev/
+//registry.tiptap.dev/:_authToken=${TIPTAP_PRO_TOKEN}
+```
+
+See [Pro extensions](/guides/pro-extensions) to get your token.
+
+## Install the packages
+
+Install the package for each direction you need.
+
+```bash
+npm install @tiptap-pro/extension-export-docx @tiptap-pro/extension-import-docx
+```
+
+Both packages need `@tiptap/core` and `@tiptap/pm` at `^3.0.7` or later. Export runs where `fetch`, `Blob` and `FormData` exist, such as a modern browser.
+
+## Connect to Convert
+
+You have two credentials. The registry token installs the package. The Convert token lets the extension call the Convert service, and a call without it fails. Keep the Convert token out of source control.
+
+Both extensions take the same four settings.
+
+| Option     | Type           | What it does                                                                                      |
+| ---------- | -------------- | ------------------------------------------------------------------------------------------------- |
+| `token`    | `string`       | Required. A JWT for the Convert service. It needs `Convert:Export:Docx` or `Convert:Import:Docx`. |
+| `appId`    | `string`       | Your Tiptap app id. The extension sends it in the `X-App-Id` header.                              |
+| `region`   | `'eu' \| 'us'` | The Tiptap Cloud region when you don't set `endpoint`. Defaults to `'eu'`.                        |
+| `endpoint` | `string`       | The base URL of your own Convert server. It wins over `region`.                                   |
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ExportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  appId: 'APP_ID',
+  region: 'us',
+  onCompleteExport: (result) => save(result),
+})
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  appId: 'APP_ID',
+  region: 'us',
+})
+```
+
+Replace `CONVERT_TOKEN` with your Convert token and `APP_ID` with your app id. Leave `appId` out if you don't have one.
+
+## Which URL each extension calls
+
+Import and export call different versions of the Convert API. The settings above work for both.
+
+| Region | Export calls                                       | Import calls                                       |
+| ------ | -------------------------------------------------- | -------------------------------------------------- |
+| `eu`   | `https://api.tiptap.dev/v3/convert/export/docx`    | `https://api.tiptap.dev/v2/convert/import/docx`    |
+| `us`   | `https://api-us.tiptap.dev/v3/convert/export/docx` | `https://api-us.tiptap.dev/v2/convert/import/docx` |
+
+With an `endpoint`, both extensions add their own path to it:
+
+- Import calls `<endpoint>/import/docx`. It uses the endpoint as you wrote it and drops trailing slashes.
+- Export changes an endpoint that ends in `/v2` or `/v3` to `/v3`.
+- Export changes an endpoint that ends in `/v2/convert` or `/v3/convert` to `/v3/convert`.
+- Export then calls `<endpoint>/export/docx`. A query string stays in place.
+- Export uses any other endpoint as it is and warns once per endpoint in the console.
+
+So a single `endpoint` of `https://convert.example.com/v2` works for both extensions.
+
+<Callout title="Browser code exposes the token" variant="warning">
+  A token in browser code is visible to everyone who opens the page. Give the browser a token scoped
+  to the Convert actions the editor needs.
+</Callout>
+
+## Build a first editor
+
+This editor exports to a `.docx` file and imports one from a file input.
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const connection = { token: 'CONVERT_TOKEN', appId: 'APP_ID' }
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ExportDocx.configure({
+      ...connection,
+      onCompleteExport(result) {
+        if (!(result instanceof Blob)) return
+        const url = URL.createObjectURL(result)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = 'report.docx'
+        link.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      },
+      onError: (error) => console.error(error),
+    }),
+    ImportDocx.configure({
+      ...connection,
+      onError: (error) => console.error(error),
+    }),
+  ],
+  content: '<h1>My report</h1><p>Hello from Tiptap.</p>',
+})
+
+document.querySelector('#export')?.addEventListener('click', () => {
+  editor.commands.exportDocx()
+})
+
+document.querySelector('#import')?.addEventListener('change', (event) => {
+  if (!(event.target instanceof HTMLInputElement)) return
+  const file = event.target.files?.[0]
+  if (file) editor.commands.importDocx({ file })
+})
+```
+
+Both commands return `true` right away. The result arrives later. Export hands the file to `onCompleteExport`. Import writes the document into the editor, or into `onImport` when you pass it. A missing token, a refused request or a network failure reaches `onError`. The export options are in the [Export DOCX API](/conversion/v3/export/docx/api). The import options are in the [Import DOCX API](/conversion/v3/import/docx/api).
+
+## Next steps
+
+- [Migrate export from 0.x](/conversion/v3/getting-started/migrate-export-from-0x)
+- [Migrate import from 0.x](/conversion/v3/getting-started/migrate-import-from-0x)
+- [Call the REST API](/conversion/v3/rest-api/overview)
