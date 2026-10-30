@@ -73,6 +73,11 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Pages',
         },
         {
+          href: '/page-layout/getting-started/overview',
+          title: 'Page Layout',
+          releaseTag: 'alpha',
+        },
+        {
           href: '/collaboration/documents/snapshot',
           title: 'Snapshots',
         },

@@ -1,0 +1,146 @@
+---
+title: 'Sections'
+intro: 'A section is a run of blocks with its own page setup: paper, orientation, margins, columns, page colors, page numbering, headers and footers, and footnote settings. A document is one section until the paper has to change partway through, as for a landscape table in an upright report.'
+headerDemo:
+  path: '/Extensions/PageLayoutSections'
+  isPro: true
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Sections | Tiptap Page Layout Docs'
+  description: 'A section is a run of blocks with its own page setup. Read, change and replace sections, and write them without an editor.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/sections/README.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## Quick start
+
+To turn the text after the cursor landscape, insert a section break, then change the setup of the section it starts. `editor` is an editor from `createPageLayoutEditor`, as in [Page format](/page-layout/features/page-format#quick-start):
+
+```js
+editor.commands.insertSectionBreak()
+
+const engine = editor.storage.pageLayout.engine
+const [, second] = engine.getSections() // the section the break starts
+
+editor.commands.setSectionSetup(1, { ...second.setup, orientation: 'landscape' })
+```
+
+A landscape table takes a break before it and one after it:
+
+```text
+Section 0  A4 portrait     The text before the table
+Section 1  A4 landscape    The wide table
+Section 2  A4 portrait     Everything after it
+```
+
+## Section breaks
+
+Each section after the first begins at a section break, a node between two blocks that travels with the text.
+
+A break divides the paragraph or list it lands in, and the two lists carry on counting. At the start of a list item, it divides the list between items. At the very start or end of a block, it divides nothing.
+
+The section copies the setup of the one it was cut out of, so its paper stays the same until you change it. Each break has a `kind`, which says where the section starts:
+
+- **`'nextPage'`**, the default, starts the section on a new page, even when its paper does not change.
+- **`'continuous'`** starts it below the section before, on the same page. Its columns and colors are its own, but its paper size, orientation and margins are always those of the section before. Use `'nextPage'` for other paper.
+
+Section `0` always starts on a new page.
+
+## Changing one section
+
+To change one section, spread its setup into [setSectionSetup()](/page-layout/features/page-format#setsectionsetup), because a fresh setup resets its colors, columns and notes.
+
+To give a few paragraphs columns, select them and call `setSectionColumns()`, which adds the breaks around them, see [Section columns](/page-layout/features/section-columns).
+
+## The document's own format
+
+To make a document open on the same paper in every editor, call `setSectionSetup(0, engine.getSetup())`. Until then, each editor shows it in the setup its `PageLayout` is configured with, so two editors with different setups show it on different paper.
+
+The call stores the setup in a section break in front of the first block.
+
+Inserting a section break, setting any section's setup or columns, and `setPageSections()` write that break too, with the setup shown at that moment. Nothing moves on screen.
+
+In a document that stores no format yet, `insertSectionBreak()` writes two breaks: the one at the cursor and the one in front of the first block. One undo removes both.
+
+A document built without an editor, from a converter or a template, needs that break when it has more than one section. [On a server](/page-layout/guides/on-a-server) writes it with `setSectionSetupTransaction()`, and [Word documents](/page-layout/guides/word#sections) with `sectionBreaksFromOoxml()`.
+
+## Reading the sections at runtime
+
+The engine at `editor.storage.pageLayout.engine` reads the sections, current after every change:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.getSetup() // the setup of the first section
+engine.getSections() // every section: startBlockIndex, setup and kind
+engine.getActiveSectionIndex() // the section of the cursor, or of the open header
+engine.getPageCount() // the number of pages
+```
+
+`getSetup()` also follows another user's change of format in a [collaborative](/page-layout/guides/collaboration) document.
+
+`startBlockIndex` counts every top-level block, section breaks included, and a section reports the index of its break. In a paragraph, a break and a paragraph, the second section starts at `1`. `setPageSections()` counts the same way, so it takes back what `getSections()` returns.
+
+While [pageless](/page-layout/features/page-format#pageless), where the document is one continuous column without pages, `getSections()` is empty, `getSetup()` is `null`, `getPageCount()` is `1` and `getActiveSectionIndex()` is `0`.
+
+## Commands
+
+Each section command returns `false` with `sectionBreak: false`, which turns sections and section breaks off, see [Switching them off](/page-layout/features/breaks#switching-them-off).
+
+### insertSectionBreak()
+
+`insertSectionBreak()` starts a section at the cursor:
+
+```js
+editor.commands.insertSectionBreak() // 'nextPage'
+editor.commands.insertSectionBreak('continuous') // below, on the same page
+```
+
+Takes the `kind` of break, `'nextPage'` (default) or `'continuous'`, see [Section breaks](/page-layout/features/sections#section-breaks).
+
+Returns `false` where a section already starts at the cursor, and while pageless in a document that stores no format.
+
+### setPageSections()
+
+`setPageSections()` replaces every section in one step, which one undo reverses:
+
+```js
+import { pageSetup } from '@tiptap-pro/extension-page-layout'
+
+editor.commands.setPageSections([
+  { startBlockIndex: 0, setup: pageSetup('A4') },
+  { startBlockIndex: 12, setup: pageSetup('A4', { orientation: 'landscape' }) },
+  { startBlockIndex: 18, setup: pageSetup('A4'), kind: 'continuous' },
+])
+```
+
+Takes a list of `PageSection` entries:
+
+| Field             | Type                           | Default                                      |
+| ----------------- | ------------------------------ | -------------------------------------------- |
+| `startBlockIndex` | `number`                       | Required                                     |
+| `setup`           | `PageSetup`                    | Required                                     |
+| `kind`            | `'nextPage'` or `'continuous'` | The existing break's kind, else `'nextPage'` |
+
+`startBlockIndex` is counted like `getSections()`, and the index of a break means the block after it. An entry for block `0` alone removes every other break. Of two entries for one block, the later wins.
+
+The cursor keeps its place in the text, and a break that stays in front of its block keeps its headers and footers.
+
+The `sections` option of `PageLayout` takes the same list and writes it when the editor is created, unless `setup` is `null`.
+
+Returns `false`, under `can()` too, while pageless.
+
+### removeSection()
+
+`removeSection()` removes a section's break, so its content joins the section before:
+
+```js
+editor.commands.removeSection(2)
+```
+
+Takes the index of the section in `getSections()`. A paragraph the break divided stays divided.
+
+Returns `false` for section `0`, the document's own format, for an index with no section, and while pageless.

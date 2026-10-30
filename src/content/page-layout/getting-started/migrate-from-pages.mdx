@@ -1,0 +1,259 @@
+---
+title: 'Migrate from Pages'
+intro: 'This guide moves an editor from the <code>Pages</code> extension of <code>@tiptap-pro/extension-pages</code> to Page Layout, and converts documents saved with <code>Pages</code>. <code>Pages</code> is an extension in an editor built with <code>new Editor</code>. Page Layout builds the editor itself, and the document you save holds no pages.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Migrate from Pages | Tiptap Page Layout Docs'
+  description: 'Move an editor from the Pages extension to Page Layout. Each change shows the code for Pages and its replacement, and what happens to saved documents.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/getting-started/migrate-from-pages.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## What changes, in one table
+
+Each `Pages` name links to the section on its replacement. `engine` is `editor.storage.pageLayout.engine`, the object that lays out the pages:
+
+| `Pages`                                                                                                                          | Page Layout                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [`new Editor` with `Pages`, or `PageKit`](/page-layout/getting-started/migrate-from-pages#swapping-the-packages)                 | `createPageLayoutEditor` with `PageLayout`                  |
+| [`pageFormat`, `setPageFormat()`](/page-layout/getting-started/migrate-from-pages#page-format)                                   | `setup: pageSetup()`, `setPageSetup()`, `setSectionSetup()` |
+| [`pageGap`, `pageGapBackground`](/page-layout/getting-started/migrate-from-pages#page-format)                                    | CSS                                                         |
+| [`header`, `footer`, `headerFirstPage`, `setFooter()`](/page-layout/getting-started/migrate-from-pages#header-and-footer)        | Headers and footers in the document                         |
+| [`differentFirstPage`, `headerTopMargin`](/page-layout/getting-started/migrate-from-pages#header-and-footer)                     | `setFurnitureFlags()`, `setFurnitureOffsets()`              |
+| [`{page}` and `{total}` tokens](/page-layout/getting-started/migrate-from-pages#header-and-footer)                               | `insertPageNumber()`                                        |
+| [`PageBreak` of `@tiptap-pro/extension-pagebreak`](/page-layout/getting-started/migrate-from-pages#page-breaks)                  | Built in, `insertPageBreak()`                               |
+| [`footnotes`, `endnotes`, `insertEndnote()`](/page-layout/getting-started/migrate-from-pages#footnotes-and-endnotes)             | `@tiptap-pro/extension-footnotes`                           |
+| [`zoom`, `setZoom()`](/page-layout/getting-started/migrate-from-pages#zoom)                                                      | `engine.setZoom()`                                          |
+| [`TableKit` of `@tiptap-pro/extension-pages-tablekit`](/page-layout/getting-started/migrate-from-pages#tables)                   | `TableKit` of `@tiptap/extension-table`                     |
+| [`Collaboration`, `headerFooterExtensions`](/page-layout/getting-started/migrate-from-pages#collaboration)                       | `source: createSourceCollaboration()`                       |
+| [Overlay options, `onPageFormatChange`, `onZoomChange`](/page-layout/getting-started/migrate-from-pages#what-has-no-replacement) | Nothing                                                     |
+
+The .docx import and export packages have migration guides of their own, and [Word documents](/page-layout/guides/word) lists Page Layout's names for .docx content.
+
+## Swapping the packages
+
+A `Pages` editor uses `Pages.configure({ pageFormat: 'A4' })`, with `TableKit` and `PageBreak` from their own packages. To swap it:
+
+1. Uninstall `@tiptap-pro/extension-pages`, `@tiptap-pro/extension-pagebreak`, `@tiptap-pro/extension-pages-tablekit` and `@tiptap-pro/extension-pages-pagekit`.
+2. Install `@tiptap-pro/extension-page-layout` and its peer dependencies from [Install Page Layout](/page-layout/getting-started/install), and `@tiptap/extension-table` for tables.
+3. Build the editor with `createPageLayoutEditor` instead of `new Editor`, as [Building the editor](/page-layout/getting-started/install/existing-editor#building-the-editor) explains. In React, use [`usePageLayoutEditor`](/page-layout/getting-started/install/react#a-first-editor).
+
+```js
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import { TableKit } from '@tiptap/extension-table'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [StarterKit, TableKit, PageLayout.configure({ setup: pageSetup('A4') })],
+})
+```
+
+`PageLayout` has page breaks built in, which covers what `PageKit` bundled, and tables come from the open source table extension. Save what `getJSON()` returns, and read positions through the engine, not `editor.state`, as [Saving the document](/page-layout/getting-started/install/existing-editor#saving-the-document) shows.
+
+## Page format
+
+`Pages` took a format name or an object, and `setPageFormat()` changed it. In Page Layout, `pageSetup()` builds the paper with its orientation and margins, and `pageFormat({ id, width, height })` defines a size of your own in CSS pixels, 96 to the inch.
+
+`Pages` gave its formats margins, such as 2.5 cm at the top and bottom and 2 cm at the sides for `A4`. Page Layout's formats have none, so a setup falls back to 1 inch on every side. To keep the old margins, pass them with `cmToPixels`:
+
+```js
+import { cmToPixels, PageLayout, pageFormat, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const a4 = pageSetup('A4', {
+  margins: {
+    top: cmToPixels(2.5),
+    right: cmToPixels(2),
+    bottom: cmToPixels(2.5),
+    left: cmToPixels(2),
+  },
+})
+PageLayout.configure({ setup: a4 })
+
+const wide = pageFormat({ id: 'wide', width: 1056, height: 816 })
+editor.commands.setPageSetup(pageSetup(wide))
+```
+
+`setPageSetup()` sets the paper for this editor and is not saved. `setSectionSetup()` saves the paper in the document, and while a document holds paper of its own, `setPageSetup()` returns `false`. See [Page format](/page-layout/features/page-format).
+
+Instead of `pageGap`, set the CSS custom property `--tt-page-sheet-gap`, the space between sheets, the elements the pages are drawn on. Instead of `pageGapBackground`, set the `background` of the element you pass as `element`.
+
+## Header and footer
+
+`Pages` took header and footer content as options or from a command such as `setFooter()`. In Page Layout, headers and footers are content in the document, one set per section, a run of blocks with a page setup of its own.
+
+The user double-clicks a header or footer to edit it, and your code opens one with `openFurniture()`.
+
+A page number is a field, a node that shows the number of the page it is on, in place of a `{page}` token.
+
+This example writes "Page 2 of 5" into the footer of the cursor's page. `reveal: true` scrolls that footer into view, and `'pages'` stands for the page count:
+
+```js
+editor.commands.openFurniture({ zone: 'footer', reveal: true })
+editor
+  .chain()
+  .insertContent('Page ')
+  .insertPageNumber('page')
+  .insertContent(' of ')
+  .insertPageNumber('pages')
+  .run()
+editor.commands.closeFurniture()
+```
+
+A different first page, different odd and even pages, and the distance from the edge of the sheet in pixels are settings of a section. The first argument is its index, `0` for the first section:
+
+```js
+editor.commands.setFurnitureFlags(0, { differentFirstPage: true, differentOddEven: false })
+editor.commands.setFurnitureOffsets(0, { header: 48, footer: 48 })
+```
+
+See [Header and footer](/page-layout/features/header-and-footer).
+
+## Page breaks
+
+`Pages` had a block `pageBreak` node from `@tiptap-pro/extension-pagebreak`. Page Layout's command has the same name, `insertPageBreak()`, but its page break is inline: it sits inside a paragraph, even between two words. `Mod-Enter` inserts one. Column and section breaks are new:
+
+```js
+editor.commands.insertPageBreak()
+editor.commands.insertColumnBreak()
+editor.commands.insertSectionBreak('nextPage')
+```
+
+See [Breaks](/page-layout/features/breaks).
+
+## Footnotes and endnotes
+
+With `Pages`, notes were the options `footnotes: { enabled: true }` and `endnotes: { enabled: true }`, with `insertFootnote()` and `insertEndnote()`. In Page Layout, notes come from `@tiptap-pro/extension-footnotes`, and a note's `placement`, `'footnote'` or `'endnote'`, says which it is.
+
+Add `Footnotes` to the extensions, and mount its styles, or no note numbers are drawn:
+
+```js
+import { Footnotes, mountFootnoteStyles } from '@tiptap-pro/extension-footnotes'
+
+mountFootnoteStyles(document)
+
+// Add Footnotes to the extensions of createPageLayoutEditor
+
+editor.commands.insertFootnote()
+editor.commands.insertFootnote({ placement: 'endnote' })
+```
+
+On pages, `insertFootnote()` inserts a footnote, and `insertFootnote({ placement: 'endnote' })` an endnote.
+
+Each section sets its note numbering in the `noteNumbering` of its page setup, and footnotes can restart on every page. `footnotes.enabled`, `footnotes.initialContent` and `setFootnotes()` are gone, because a note's text is part of the document. See [Footnotes in Page Layout](/page-layout/extension-behavior/footnotes).
+
+## Zoom
+
+`Pages` had a `zoom` option and a `setZoom()` command. Page Layout has an engine method and no option, because zoom changes nothing in the document, so call it once the editor is built:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.setZoom(0.75)
+engine.setZoom('fit')
+```
+
+`'fit'` keeps the pages fitted to the width as the window changes, and `engine.getZoom()` and `engine.getScale()` read the zoom back. See [Zoom](/page-layout/features/zoom).
+
+## Tables
+
+`Pages` needed its own table kit, with `TableKit.configure({ experimentalRowFragmentation: true })`. Page Layout uses `@tiptap/extension-table` as it is, and its commands keep working. A table row breaks across pages by default. These commands replace the experiment:
+
+```js
+editor.commands.setRowBreakAcrossPages(false)
+editor.commands.setRepeatHeaderRow(true)
+```
+
+See [Tables in Page Layout](/page-layout/extension-behavior/tables).
+
+## Collaboration
+
+`Pages` used the `Collaboration` extension, with a field for each header and footer through `headerFooterExtensions`. Page Layout throws for a collaboration extension and takes the shared document through the `source` option. Here, `ydoc` is your Y.js document, `provider` your collaboration provider, and `color` a six-digit hex color:
+
+```js
+import { PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import { createSourceCollaboration } from '@tiptap-pro/extension-page-layout/collaboration'
+
+const collaboration = createSourceCollaboration({
+  document: ydoc,
+  awareness: provider.awareness,
+  user: { name: 'Ada', color: '#e11d48' },
+})
+
+PageLayout.configure({ setup: pageSetup('A4'), source: collaboration })
+```
+
+Headers, footers and notes are part of the shared content, in one field, `default` unless the `field` option names another.
+
+Content that `Pages` kept in other fields is not read, so write headers and footers into the document as [Header and footer](/page-layout/getting-started/migrate-from-pages#header-and-footer) shows. There is no helper for the notes. See [Collaboration](/page-layout/guides/collaboration).
+
+## Saved documents
+
+An old `Pages` document does not load as it is: with an endnote in it, building the editor throws `Unknown node type: endnoteReference`.
+
+`Pages` kept headers, footers and the text of every note in `editor.storage.pages`, which your app saved beside the document. To convert a saved document, rewrite what `Pages` wrote into what Page Layout expects:
+
+| `Pages` wrote                                    | Page Layout expects                                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| A block `pageBreak`                              | An inline `pageBreak` inside a paragraph                                                     |
+| `footnoteReference` with `noteId`                | `footnoteReference` with `footnoteId`. It reads no `noteId`.                                 |
+| `endnoteReference` with `noteId`                 | A `footnoteReference` whose note has `placement: 'endnote'`. There is no `endnoteReference`. |
+| The text of each note, in `editor.storage.pages` | A `footnote` node in a `footnoteCollection`                                                  |
+| Headers and footers, in `editor.storage.pages`   | Inside the section break of their section.                                                   |
+
+Put the notes into one `footnoteCollection` per placement at the end of the document, footnotes first. A section that starts its note numbering again gets collections of its own, at its end. A paragraph with a footnote becomes:
+
+```json
+[
+  {
+    "type": "paragraph",
+    "content": [
+      { "type": "text", "text": "Sales grew." },
+      { "type": "footnoteReference", "attrs": { "footnoteId": "n1" } }
+    ]
+  },
+  {
+    "type": "footnoteCollection",
+    "attrs": { "placement": "footnote" },
+    "content": [
+      {
+        "type": "footnote",
+        "attrs": { "footnoteId": "n1", "placement": "footnote" },
+        "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Audited." }] }]
+      }
+    ]
+  }
+]
+```
+
+[Footnotes and endnotes](/editor/extensions/functionality/footnotes) lists these nodes and their attributes. Write headers and footers after loading, with `openFurniture()` on a page of their section, as in [Header and footer](/page-layout/getting-started/migrate-from-pages#header-and-footer).
+
+There is no conversion helper, so test every kind of saved document before you ship. Tables keep the standard table nodes: check a few for their column widths and cell attributes.
+
+## What has no replacement
+
+These options of `Pages` have no counterpart:
+
+| `Pages`                                                                                                                                                                           | Instead                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Overlay editors and their options: `accentColor`, `headerAccentColor`, `footerAccentColor`, `toolbarGradient`, `overlayLabels`, `renderOverlayActions`, `onDblClick*PreventClose` | Headers and footers are edited in place.                                                                                   |
+| `placeholders`                                                                                                                                                                    | A page number is a field, as [Header and footer](/page-layout/getting-started/migrate-from-pages#header-and-footer) shows. |
+| `headerFooterExtensions`, `headerFooterParseOptions`                                                                                                                              | A header uses the editor's extensions.                                                                                     |
+| `editableHeader`, `editableFooter`                                                                                                                                                | No option locks a header.                                                                                                  |
+| `onPageFormatChange`, `onZoomChange`                                                                                                                                              | Read the setup and the zoom from the engine.                                                                               |
+
+`furnitureClicks: false` does not lock a header either. It turns off the clicks and the Escape key that open, move between and close headers and footers, but `openFurniture()` and `closeFurniture()` still work.
+
+## Limitations
+
+Coming from `Pages`, you may notice these [limitations](/page-layout/reference/limitations) first:
+
+- no [widow and orphan control](/page-layout/reference/limitations#keeping-lines-together),
+- no [keep-with-next rule](/page-layout/reference/limitations#keeping-headings-with-the-next-block) for headings by default,
+- [no columns](/page-layout/reference/limitations#footnotes-in-columns) in the footnote area,
+- no [mark of its own](/page-layout/reference/limitations#a-symbol-for-one-note) for a single note,
+- Safari [prints every sheet on the first page's paper](/page-layout/reference/limitations#printing-from-safari).

@@ -1,0 +1,215 @@
+---
+title: 'On a server'
+intro: 'A document saved from a Page Layout editor is ordinary Tiptap JSON, so a server loads, reads, changes and stores it with no browser and no pages. Only the page something is on needs text measured by your own code, see <a href="/page-layout/guides/on-a-server#pages-on-a-server">Pages on a server</a>.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'On a server | Tiptap Page Layout Docs'
+  description: "Read and change a Page Layout document without a browser, and learn what a server can and can't know about pages."
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/on-a-server/README.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+For .docx, see [Word documents](/page-layout/guides/word), and for a PDF, [A PDF from a server](/page-layout/features/printing#a-pdf-from-a-server).
+
+## The extensions
+
+A server uses the client's list of extensions: through `createSourceExtensions` for a Tiptap `Editor` or Hocuspocus, or `createSourceSchema` for a schema without an editor. Both add `PageLayout` if the list lacks it, with its section breaks, page breaks, headers and footers, so a document that holds them loads.
+
+Here `extensions.js` exports the client's list, and `json` is a stored document:
+
+```js
+import { createSourceSchema } from '@tiptap-pro/extension-page-layout'
+import { extensions } from './extensions.js'
+
+const schema = createSourceSchema(extensions)
+const doc = schema.nodeFromJSON(json)
+```
+
+Keep the list in one module that client and server both import. A server that knows fewer node types than the client fails on the first document that has one.
+
+## Reading the format
+
+`documentPageSetup(doc)` and `sectionsDeclaredBy(doc)` read the format. A section is a run of blocks with a page setup of its own:
+
+```js
+import { documentPageSetup, sectionsDeclaredBy } from '@tiptap-pro/extension-page-layout'
+
+const setup = documentPageSetup(doc) // the paper of the first section, or null
+const sections = sectionsDeclaredBy(doc) // every section, or null
+```
+
+Both return `null` for a document that stores no format of its own. Each editor shows such a document in the setup it configures `PageLayout` with.
+
+## Changing a document
+
+Change the text as without Page Layout, through a Tiptap `Editor` with no element or by editing the JSON. Here `extensions` and `json` are those of [The extensions](/page-layout/guides/on-a-server#the-extensions):
+
+```js
+import { Editor } from '@tiptap/core'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+
+const editor = new Editor({
+  element: null,
+  extensions: createSourceExtensions(extensions),
+  content: json,
+})
+
+editor.commands.insertContentAt(editor.state.doc.content.size, {
+  type: 'paragraph',
+  content: [{ type: 'text', text: 'Appendix' }],
+})
+
+const changed = editor.getJSON()
+```
+
+### The page options
+
+The commands of `PageLayout` return `false` in an editor that `createPageLayoutEditor` did not build, like this one. Each has a function that writes the same change into a transaction. This adds a landscape A4 section after the first block:
+
+```js
+import { EditorState } from '@tiptap/pm/state'
+import { insertSectionBreakTransaction, pageSetup } from '@tiptap-pro/extension-page-layout'
+
+const state = EditorState.create({ doc, schema })
+const tr = insertSectionBreakTransaction({
+  tr: state.tr,
+  documentSetup: pageSetup('A4'), // see The document setup
+  position: doc.child(0).nodeSize, // behind the first block
+  setup: pageSetup('A4', { orientation: 'landscape' }),
+})
+
+const changed = state.apply(tr).doc.toJSON()
+```
+
+Where a command acts at the cursor, its function takes a position:
+
+- **An attribute.** The position of the node: a `tableRow`, a `table`, a list or a `columnLayout`, as the function's argument names.
+- **A section break.** Any position, and one inside a block divides it. `setup` defaults to the format in force there, and `kind` to `'nextPage'`.
+- **A page break.** A position where an inline node may stand, so not in a code block. Two in a row make a blank page.
+
+Each command maps to a function:
+
+| Command                                 | Function                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| `insertSectionBreak(kind)`              | `insertSectionBreakTransaction({ tr, documentSetup, position, setup?, kind? })` |
+| `setSectionSetup(index, setup)`         | `setSectionSetupTransaction({ tr, documentSetup, sectionIndex, setup })`        |
+| `removeSection(index)`                  | `removeSectionTransaction({ tr, documentSetup, sectionIndex })`                 |
+| `insertPageBreak()`                     | `insertPageBreakTransaction(tr, tr.doc, position, schema)`                      |
+| `setRowBreakAcrossPages(allowed)`       | `setRowBreakAcrossPagesTransaction(tr, tr.doc, rowPosition, allowed)`           |
+| `setRepeatHeaderRow(repeated)`          | `setRepeatHeaderRowTransaction(tr, tr.doc, tablePosition, repeated)`            |
+| `setListKeepTogether(kept)`             | `setListKeepTogetherTransaction(tr, tr.doc, listPosition, kept)`                |
+| `setListBreakItems(allowed)`            | `setListBreakItemsTransaction(tr, tr.doc, listPosition, allowed)`               |
+| `setColumnLayoutKeepTogether(together)` | `setColumnLayoutKeepTogetherTransaction(tr, tr.doc, layoutPosition, together)`  |
+
+Each function returns the transaction it was given, so several can be applied in one step. A change that cannot be made leaves it unchanged, and `tr.docChanged` tells you. Examples are removing the first section or one that does not exist, or a position without the right node.
+
+On a document with no format, `setSectionSetupTransaction` for section 0 writes a section break in front of the first block.
+
+### The document setup
+
+`documentSetup` is the setup the editors configure `PageLayout` with, so a section written on a server comes out the same in each editor.
+
+When a document gets its second section, the function also writes the first section's format into it. A section break written by hand skips that, so the first section is Letter in one editor and A4 in another.
+
+### Headers and footers
+
+Headers and footers have no transaction function. Each is a `pageFurniture` node (`PAGE_FURNITURE_NODE_NAME`) of blocks, inside its section's section break. `zone` is `'header'` or `'footer'`, and `slot` is `'default'`, `'first'` or `'even'`, as `FURNITURE_ZONES` and `FURNITURE_SLOTS` list:
+
+```json
+{
+  "type": "pageFurniture",
+  "attrs": { "zone": "footer", "slot": "default" },
+  "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Draft" }] }]
+}
+```
+
+### Checking a document before it is stored
+
+Check a document from a client like any input before you store it. `isPureSourceDocument(doc, schema)` says whether it holds no pages and no part of a block that a page cut off. `schema` comes from `createSourceSchema(extensions)` or `engine.sourceSchema`:
+
+```js
+import { isPureSourceDocument } from '@tiptap-pro/extension-page-layout'
+
+if (!isPureSourceDocument(doc, schema)) {
+  throw new Error('Not a document')
+}
+```
+
+`toSourceJSON(doc, schema)` returns the JSON to store, without attributes only the pages use, and throws for a document that is not pure.
+
+## The shared document
+
+With collaboration, a server changes the document in the Y.Doc on the Hocuspocus server, as for any Tiptap document. Pass the extensions through `createSourceExtensions` wherever Hocuspocus takes a list. The content is in the field `'default'`, which `createSourceCollaboration` binds unless given another:
+
+```js
+import { TiptapTransformer } from '@hocuspocus/transformer'
+import { createSourceExtensions } from '@tiptap-pro/extension-page-layout'
+import { extensions } from './extensions.js'
+
+const transformer = TiptapTransformer.extensions(createSourceExtensions(extensions))
+const json = transformer.fromYdoc(ydoc, 'default') // ydoc: the Y.Doc Hocuspocus holds
+```
+
+Each editor lays out the pages again from what arrives, so a change made on the server is drawn like a colleague's.
+
+## Pages on a server
+
+Which page a passage is on depends on how its text wraps. `paginate` lays out the pages from measurements you bring, for a print range, a table of contents with page numbers or the page a comment is on.
+
+Page Layout cannot measure text without a browser, so `measureHeight` is your own function that returns how tall a block is at a width:
+
+```js
+import { createSourceSchema, paginate } from '@tiptap-pro/extension-page-layout'
+import { extensions } from './extensions.js'
+
+const sourceDoc = createSourceSchema(extensions).nodeFromJSON(json)
+
+const { pages, setup, sections } = paginate({
+  sourceDoc,
+  extensions,
+  measure: {
+    blockHeight: (block, blockIndex, contentWidth) => measureHeight(block, contentWidth),
+  },
+})
+```
+
+`pages` is the [page map](/page-layout/getting-started/document-and-pages/reading#the-page-map) an editor holds, in document positions. It holds for one layout, so paginate again after a change. `paginate` takes these options:
+
+| Option            | Type              | Default              | Description                                                                                                      |
+| ----------------- | ----------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `sourceDoc`       | `Node`            | Required             | The document.                                                                                                    |
+| `extensions`      | `Extensions`      | Required             | The client's list.                                                                                               |
+| `measure`         | `PageMeasurement` | Required             | The [measurements](/page-layout/guides/on-a-server#measurements).                                                |
+| `setup`           | `PageLayoutSetup` | `DEFAULT_PAGE_SETUP` | The paper of a document that stores none. `null` means no pages, whatever the document stores, and no measuring. |
+| `chapterNumberOf` | `ChapterNumberOf` | None                 | As the [option](/page-layout/reference/options) of `PageLayout`.                                                 |
+| `blockBreaksOf`   | `BlockBreaksOf`   | None                 | As the [option](/page-layout/reference/options) of `PageLayout`.                                                 |
+
+It returns a `PaginatedDocument`:
+
+| Field        | Type                     | Description                                                                          |
+| ------------ | ------------------------ | ------------------------------------------------------------------------------------ |
+| `pages`      | `readonly MappedPage[]`  | The page map.                                                                        |
+| `projection` | `Projection`             | The pages and their position mapping, to render with `createViewSchema(extensions)`. |
+| `setup`      | `PageLayoutSetup`        | The setup the pages were laid out with, the document's own where it has one.         |
+| `sections`   | `readonly PageSection[]` | The document's sections.                                                             |
+
+## Measurements
+
+`blockHeight` is the only measurement `paginate` needs, and each one you leave out is something the pages do not know. `paginate` asks for each block at its section's text width. For the same pages as a client, measure the way the client does:
+
+| Measurement                                            | Required | Description                                                                                                                                       |
+| ------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `measure.blockHeight(block, blockIndex, contentWidth)` | Yes      | How tall a top-level block is. Alone, it fills pages with whole blocks, and a block taller than a page overflows.                                 |
+| `measure.blockLines(block, blockIndex, contentWidth)`  | No       | Where a block may be cut, or `null` to keep it whole. Without it, no paragraph or table row is cut.                                               |
+| `measure.blockMargins(block, blockIndex)`              | No       | The room above and below a block, as `BlockMargins`, `{ top, bottom }`.                                                                           |
+| `measure.bandHeight(region, contentWidth)`             | No       | How tall the content of a header or footer is. `region` is its node. Without it, each is assumed to fit inside its margin.                        |
+| `measure.notes`                                        | No       | How much of a footnote fits in a room, and the height of the empty note area. Without it, a footnote is laid out where it is kept, as an endnote. |
+
+`blockHeight` includes the room below a block, not above it, because two margins between blocks collapse to the larger one. So a stylesheet with its spacing above each block needs `blockMargins`, or the pages come out too full.
+
+`blockLines` returns `{ totalHeight, breaks }`, with one break `{ offset, heightBefore }` per line after the first: where the line starts in the block, and the block's height above it.
+
+`notes` is `{ fits, frameHeight }`. `fits(note, fromOffset, room)` gets the note, the offset to start from, `0` at first, and the height left. It returns `{ toOffset, height }`: where the part that fits ends, `null` when the note ends in it, and its height.

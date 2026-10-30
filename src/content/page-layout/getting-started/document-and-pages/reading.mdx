@@ -1,0 +1,218 @@
+---
+title: 'Reading the pages'
+intro: 'The engine at <code>editor.storage.pageLayout.engine</code>, the object that lays out the pages, says which page the cursor is on, what each page holds and where a position is on the screen. It works with positions in the document you save, not in the pages, see <a href="/page-layout/getting-started/document-and-pages">The document and the pages</a>.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Reading the pages | Tiptap Page Layout Docs'
+  description: 'Read positions, the page and section at the cursor, and which page a position is on, and go to a position.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/positions-and-events/reading.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## Where the cursor is
+
+`engine.getActivePageIndex()` is the page the cursor is on, counting from 0, and `engine.getPageCount()` is the number of pages. Read them in the `onChange` option of `createPageLayoutEditor`. Page Layout calls it once the pages are drawn after every change, and also when only the cursor moves:
+
+```js
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+const status = document.querySelector('#status')
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4') })],
+  onChange: (editor) => {
+    const engine = editor.storage.pageLayout.engine
+    status.textContent = `Page ${engine.getActivePageIndex() + 1} of ${engine.getPageCount()}`
+  },
+})
+```
+
+A toolbar can read more about the cursor. A section is a run of blocks with a page setup of its own:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.getActiveSectionIndex() // the section of the cursor
+engine.getActiveBlockIndex() // the document's top-level block the cursor is in
+engine.getFurnitureTarget() // { zone, slot, sectionIndex, pageIndex } of the open header or footer, or null
+engine.getTableContext() // { tablePosition, table, rowPosition, row, breakAcrossPages, repeatHeaderRow }, or null
+```
+
+`zone` is `'header'` or `'footer'`, and `slot` is `'default'`, `'first'` or `'even'`, see [Header and footer](/page-layout/features/header-and-footer). While one is open, the cursor's page and section are those you opened it on. `breakAcrossPages` and `repeatHeaderRow` are the row's page settings.
+
+An edit changes the page numbers after it, so read them again after each change instead of keeping them. In [Pageless](/page-layout/features/page-format#pageless) mode, where the document is one column without pages, `getActivePageIndex()` returns `0` and `getPageCount()` returns `1`.
+
+## The page a position is on
+
+`pageAt(map, position)` returns the entry of [the page map](/page-layout/getting-started/document-and-pages/reading#the-page-map) for the page a document position is on. Read it as a status bar does, in `onChange`:
+
+```js
+import { pageAt } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+const page = pageAt(engine.getPageMap(), engine.getSourceState().selection.from)
+
+page?.pageNumber // the number printed on the cursor's page
+```
+
+A position where a page boundary cuts a block belongs to the page above. `pageAt` returns `null` for a position on no page, such as the text of a footnote, and for every position in Pageless mode.
+
+## The page map
+
+`engine.getPageMap()` returns one entry per page, in page order, and each entry says which part of the document is on that page. The map is empty in Pageless mode. On a server, `paginate` returns the same map, see [Pages on a server](/page-layout/guides/on-a-server#pages-on-a-server).
+
+## What an entry says
+
+Each entry of the page map has these fields. A sheet is the element a page is drawn on:
+
+| Field               | Type                   | Description                                                                                 |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
+| `pageNumber`        | `number`               | The number printed on the page: its position from one, until a section restarts the count.  |
+| `pageLabel`         | `string`               | That number in its section's format, such as `'iv'`, `'C'` or `'12'`.                       |
+| `pageIndex`         | `number`               | The position of the sheet from zero. Sheets can share a `pageNumber`, never a `pageIndex`.  |
+| `sectionPageNumber` | `number`               | Which page of its section this is, from one.                                                |
+| `sectionPageCount`  | `number`               | How many pages begin in that section.                                                       |
+| `from`              | `number`               | The first document position the sheet touches.                                              |
+| `to`                | `number`               | The last document position the sheet touches.                                               |
+| `ranges`            | `readonly PageRange[]` | What the sheet shows, as `{ from, to }` stretches in document order, none touching another. |
+| `blockIndices`      | `readonly number[]`    | The document's top-level blocks on the page, whole or in part.                              |
+| `sectionIndex`      | `number`               | The section the page begins in.                                                             |
+| `sectionIndices`    | `readonly number[]`    | Every section with content on the page.                                                     |
+| `box`               | `PageBox`              | The paper: `size`, `margins`, `contentSize` and `columns`.                                  |
+| `startsInsideBlock` | `boolean`              | Whether the page begins in the middle of a block.                                           |
+| `endsInsideBlock`   | `boolean`              | Whether the page ends in the middle of a block.                                             |
+
+Read `ranges`, not `from` and `to`, for anything that takes content out of the document, such as a slice, an export or a comparison. Each range works with `doc.slice(from, to)`.
+
+The two differ where a page boundary cuts a table row. Page Layout cuts every cell at the same height, so the page above holds the top part of each cell and the page below holds the rest. Neither page then holds everything between its `from` and `to`.
+
+Where `startsInsideBlock` and `endsInsideBlock` are both `false`, the page holds whole blocks and can be exported on its own.
+
+## The pages of a section
+
+`pagesOfSection(map, sectionIndex)` returns the pages a section reaches:
+
+```js
+import { pagesOfSection } from '@tiptap-pro/extension-page-layout'
+
+const pages = pagesOfSection(editor.storage.pageLayout.engine.getPageMap(), 1)
+```
+
+A sheet that a continuous break shares between two sections counts for both. For a section on no page, and in Pageless mode, it returns an empty array.
+
+## From the screen to the document and back
+
+Use these engine methods instead of the editor view's `posAtCoords`, `posAtDOM`, `nodeDOM` and `coordsAtPos`, because they work with positions in the document.
+
+When a page boundary runs through a paragraph, a table, a row or a cell, Page Layout draws that node once on each page, and each drawing is a piece.
+
+A cut row has every cell on both pages, and a cell whose text ended before the boundary is drawn empty on the second page.
+
+| Method                                         | Returns                                                                                         | `null` for                                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `engine.sourcePositionAtCoords({ left, top })` | `{ pos, inside }`, as `posAtCoords` does. `inside` is the node the point is in, or `-1`.        | A header or footer, the paper between pages, or a point outside the editor.      |
+| `engine.sourcePositionOfDOM(node, offset)`     | The position in the document, as `posAtDOM` does.                                               | A header or footer, an element the editor did not render, or outside the editor. |
+| `engine.domOfSourceNode(pos)`                  | The element, as `nodeDOM` does, and for a cut node its first drawn piece.                       | A position no node starts at, or a node with no drawn element.                   |
+| `engine.coordsAtSourcePosition(pos, side?)`    | `{ left, right, top, bottom }`, as `coordsAtPos` does.                                          | A position outside the document, or on a page that is not drawn.                 |
+| `engine.domsOfSourceNode(pos)`                 | Every piece, the first one first.                                                               | Never `null`, an empty array instead.                                            |
+| `engine.sourceNodeOfView(viewPos)`             | `{ pos, node, piece }` for `viewPos`, a position in the pages, such as a NodeView's `getPos()`. | A page, a header or footer, or anything else that is no document node.           |
+
+To highlight a node on the pages it is on, loop over its pieces:
+
+```js
+for (const piece of editor.storage.pageLayout.engine.domsOfSourceNode(pos)) {
+  piece.classList.add('is-highlighted')
+}
+```
+
+Pages scrolled far out of view are not drawn, so `domsOfSourceNode` leaves out their pieces, and [`revealSourcePosition()`](/page-layout/getting-started/document-and-pages/reading#going-to-a-position) draws a page and scrolls to it. While the pages are drawn again after an edit, all these methods return `null`, or an empty array.
+
+`side` works as in `coordsAtPos`. At a page boundary through a block, `-1`, the default, is the end of the page above, and `1` the top of the page below. `piece` is `{ index, count }`: which piece is drawn there, from 0, and how many there are.
+
+## From a decoration
+
+A plugin or a decoration (styling drawn over the text without changing it) that works on `editor.state.doc` gets page numbers from `pageNumberAt(doc, pos)` and `pageLabelAt(doc, pos)`. Cross-references print "see page 7" this way:
+
+```js
+import { pageLabelAt, pageNumberAt } from '@tiptap-pro/extension-page-layout'
+
+pageNumberAt(editor.state.doc, pos) // 7, or null where the editor has no pages
+pageLabelAt(editor.state.doc, pos) // 'vii' in a section numbered in roman numerals
+```
+
+Both answer from the document they are given, so inside a plugin's `apply` that is the document the transaction produced. Both also take `engine.getSourceDocument()`, which a command of another extension runs on.
+
+They return `null` when that document changed after the pages were last laid out, and for a position outside the document.
+
+Both return the number printed on the page, not its `pageIndex`. Print `pageLabelAt` where the number should read as the page writes it.
+
+## Going to a position
+
+To jump to a heading or a search result, use `revealSourcePosition(pos)` instead of `setTextSelection(pos)` plus `scrollIntoView()`, because it also draws the page if it was not drawn.
+
+Some positions take no caret, such as in front of a heading or at the start of a footnote. There the caret goes to the nearest place after it that takes one. The command focuses the editor, so the caret is visible, and adds no undo step.
+
+### revealSourcePosition()
+
+`revealSourcePosition()` puts the caret at a document position, or selects a range, and scrolls it into view:
+
+```js
+if (editor.can().revealSourcePosition(pos)) {
+  editor.commands.revealSourcePosition(pos)
+}
+
+editor.commands.revealSourcePosition(from, to) // selects the text between the two
+```
+
+It takes these arguments:
+
+| Argument | Type     | Default  | Description                                                               |
+| -------- | -------- | -------- | ------------------------------------------------------------------------- |
+| `pos`    | `number` | Required | A position in `engine.getSourceState().doc`, the document `pageAt` takes. |
+| `to`     | `number` | `pos`    | The end of the range to select.                                           |
+
+Returns `false`, and `can()` too, for a position outside the document, a range that ends in front of where it starts, or a value that is not a whole number.
+
+## Going to a page
+
+To jump to a page, use `revealPage(pageIndex)` rather than `revealSourcePosition(page.from)`. A page that begins inside a paragraph begins where the page above ends, so a caret at `page.from` is drawn at the foot of the page above.
+
+On a page with no text, such as an image or a rule, that content is selected. A blank page between two page breaks takes the caret in front of the second break. `revealPage` closes a header or footer being edited and focuses the editor.
+
+### revealPage()
+
+`revealPage()` puts the caret at the start of the first text on a page and scrolls it into view, for a "go to page" box or a list of thumbnails:
+
+```js
+if (editor.can().revealPage(pageIndex)) {
+  editor.commands.revealPage(pageIndex)
+}
+```
+
+`pageIndex` (`number`) counts from zero, as `pageIndex` in the page map does.
+
+Returns `false`, and `can()` too, for a page the document does not have, an index that is not a whole number, and every page in Pageless mode.
+
+## Positions
+
+Positions in `editor.state`, `editor.$pos()` and `editor.view.coordsAtPos()` are positions in the pages, which drift further from the document's with every page. So a comment anchor, a search result or a table of contents keeps a document position and reads through the engine:
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+// Before
+const { from, to } = editor.state.selection
+const heading = editor.state.doc.nodeAt(pos)
+
+// After
+const { from, to } = engine.getSourceState().selection
+const heading = engine.getSourceDocument().nodeAt(pos)
+```
+
+Commands that act at the cursor are unaffected: `toggleBold()`, `insertContent()`, `setLink()`, `toggleBulletList()` and the rest of a toolbar.

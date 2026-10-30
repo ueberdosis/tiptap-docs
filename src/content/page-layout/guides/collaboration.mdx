@@ -1,0 +1,134 @@
+---
+title: 'Collaboration'
+intro: 'With Tiptap Collaboration or a Hocuspocus server, several people can edit one Page Layout document at once. The content travels, but each screen works out its own pages and never sends them.'
+headerDemo:
+  path: '/Extensions/PageLayoutCollaboration'
+  isPro: true
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Collaboration | Tiptap Page Layout Docs'
+  description: 'Bind a shared document to Page Layout with createSourceCollaboration, show remote cursors and know what is shared.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/collaboration/README.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+So two people may see the same text on a different number of pages, with other paper or a missing font, and neither is wrong.
+
+## Setting it up
+
+Set up the document server and its provider as for any Tiptap editor with Collaboration. The server is Hocuspocus or Tiptap Collaboration, and the provider connects the shared document to it.
+
+Page Layout changes where the shared document goes. Pass it to the `source` option of `PageLayout`, through `createSourceCollaboration()`, and leave the Collaboration extension out. `createPageLayoutEditor` throws for that extension, see [createPageLayoutEditor throws for the Collaboration extension](/page-layout/guides/collaboration#createpagelayouteditor-throws-for-the-collaboration-extension).
+
+`createSourceCollaboration()` needs `yjs` and `y-prosemirror`. Install them first:
+
+```bash
+npm install yjs y-prosemirror
+```
+
+Only the `@tiptap-pro/extension-page-layout/collaboration` entry loads these optional peer dependencies, so an editor without collaboration installs neither.
+
+In this example, `yDoc` is the shared document and `provider` is any provider that connects it:
+
+```js
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import { createSourceCollaboration } from '@tiptap-pro/extension-page-layout/collaboration'
+import StarterKit from '@tiptap/starter-kit'
+
+const collaboration = createSourceCollaboration({
+  document: yDoc,
+  awareness: provider.awareness,
+  user: { name: 'Ada', color: '#e11d48' },
+})
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4'), source: collaboration })],
+})
+```
+
+`createSourceCollaboration()` takes these fields:
+
+| Field       | Type                    | Default     | Description                                                                                                                          |
+| ----------- | ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `document`  | `Y.Doc`                 | Required    | The shared document your provider connects.                                                                                          |
+| `field`     | `string`                | `'default'` | The XML fragment with the content, as Tiptap Collaboration and Tiptap Cloud name it.                                                 |
+| `awareness` | `AwarenessLike \| null` | None        | The provider's presence channel, `provider.awareness` in Hocuspocus and Tiptap Cloud. Without it, content syncs but no cursors show. |
+| `user`      | `RemoteCaretUser`       | None        | The `name` and `color`, a six-digit hex, shown beside your caret.                                                                    |
+
+Pass an empty paragraph as `content`, because the content arrives from the shared document once the editor connects. Seed a new document once, from one client or [on the server](/page-layout/guides/on-a-server#the-shared-document). Two clients that seed the same JSON make two copies of the text.
+
+To change your caret's name or color later, call `collaboration.carets?.setUser({ name, color })`, which exists only when you passed `awareness`.
+
+## What is shared and what is not
+
+The shared document holds the content: text and every node, inserted page, column and section breaks, headers, footers and note text. Paper, margins and columns are shared once the document holds them, in its [section breaks](/page-layout/features/sections).
+
+Each client works out the rest: the page count, where pages end, the measurements, where a note is drawn and on which page a header shows.
+
+Zoom, the number of sheets side by side and pageless mode, where the document is one continuous column without pages, are local too. So is `PageLayout.configure({ setup })`, the format for a document that stores none. To share a format, write it to the document with `setSectionSetup()`.
+
+`isPureSourceDocument()` checks that no page layout reached the shared document, see [Checking a document before it is stored](/page-layout/guides/on-a-server#checking-a-document-before-it-is-stored).
+
+## Undo and redo
+
+Under collaboration, `editor.commands.undo()` and `editor.commands.redo()` act on the history of the shared document. Each client undoes only its own edits. Cmd/Ctrl+Z undoes, and Shift+Cmd/Ctrl+Z and Cmd/Ctrl+Y redo, with nothing to bind. `editor.can().undo()` says whether there is something to undo.
+
+Do not add a second history, such as an undo extension, a history plugin or another undo manager, because they compete.
+
+## Remote cursors
+
+With `awareness`, Page Layout draws each colleague's caret and selection in your pages, with no CSS of yours.
+
+The caret is a line in their color with their name above it, or below it on the first line of a page. Their selected text is tinted in their color, on each page a selection covers.
+
+A colleague without a valid name is labeled `User <clientId>`, and a missing or non-hex color becomes `#ffa500`. The carets use the awareness format of Tiptap's CollaborationCaret extension, so Page Layout and plain Tiptap editors in one document see each other's carets.
+
+## Styling remote cursors
+
+These selectors and properties style a colleague's caret:
+
+- `[data-tt-remote-caret]` is the caret.
+- `[data-tt-remote-caret-label]` is the label, whose text is the colleague's name.
+- `[data-tt-remote-caret-label-below]` is a label hanging below the line. It places a label you style yourself too.
+- `[data-tt-remote-selection]` is the colleague's selected text.
+- `--tt-remote-caret-color` is the colleague's color on the caret and selection, inherited by the label, with `currentColor` as fallback.
+- `--tt-remote-caret-width` is the width of the caret line, `2px` by default.
+- `--tt-remote-caret-label-color`, `--tt-remote-caret-label-size` and `--tt-remote-caret-label-radius` are the label's text color, font size and corners, `white`, `10px` and `3px` by default.
+- `--tt-remote-selection-opacity` is how much of the colleague's color a selection shows, `28%` by default.
+
+To widen the caret, set `--tt-remote-caret-width`, not a `border-width`, which would push the words aside and lay out the pages again whenever a colleague moves. This example sets every property to its default, except a wider caret:
+
+```css
+.my-editor {
+  --tt-remote-caret-width: 3px;
+  --tt-remote-caret-label-color: white;
+  --tt-remote-caret-label-size: 10px;
+  --tt-remote-caret-label-radius: 3px;
+  --tt-remote-selection-opacity: 28%;
+}
+```
+
+The caret takes no room, and the name stays out of the text flow, even with `sheetAppearance: 'none'`.
+
+## createPageLayoutEditor throws for the Collaboration extension
+
+`createPageLayoutEditor` throws for an extension named `collaboration`, `collaborationCaret` or `collaborationCursor`, such as `@tiptap/extension-collaboration`:
+
+```text
+createPageLayoutEditor does not take collaboration: it would share the pages along with the content. Leave it out of the extensions and pass PageLayout.configure({ source: createSourceCollaboration({ document, awareness }) }), with createSourceCollaboration from '@tiptap-pro/extension-page-layout/collaboration'.
+```
+
+The editor's own content is the pages, so binding it would share one client's pages. Remove the extension and follow [Setting it up](/page-layout/guides/collaboration#setting-it-up). StarterKit can stay, because Page Layout removes its history (`undoRedo`) itself.
+
+## Upgrading from an earlier version
+
+Earlier versions exported `createSourceCollaboration` and its type `SourceCollaborationInput` from the main entry. Import them from `@tiptap-pro/extension-page-layout/collaboration`, as in [Setting it up](/page-layout/guides/collaboration#setting-it-up). Nothing else changed.
+
+## Limitations
+
+A colleague's caret is not scrolled into view. Two colleagues at one position are drawn on top of each other. A caret exactly at the start of a line that continues on the next page is drawn at the end of the line before.

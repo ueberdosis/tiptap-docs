@@ -1,0 +1,258 @@
+---
+title: 'Word documents'
+intro: "A .docx file keeps its page options in Page Layout. They are each section's paper, margins and columns, the numbering of pages and notes, which table rows repeat on each page, and which rows and lists stay on one page."
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Word documents | Tiptap Page Layout Docs'
+  description: 'Import a .docx into Page Layout, export one, and read or write the page setup of a .docx file in your own converter.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/word/README.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+Tiptap Convert imports and exports .docx files, and pasting needs no code. The rest of this page is for a converter of your own.
+
+## Import and export with Convert
+
+Tiptap Convert's export extension knows Page Layout, and its import brings the text of a file. To export, add `ExportDocx` from `@tiptap-pro/extension-export-docx` and run `editor.commands.exportDocx()`. Convert builds the file in Tiptap Cloud, so `token` is your Convert token. `download` is your function that saves the file:
+
+```js
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
+  extensions: [
+    StarterKit,
+    ExportDocx.configure({ token, onCompleteExport: download }),
+    PageLayout.configure({ setup: pageSetup('A4') }),
+  ],
+})
+
+editor.commands.exportDocx()
+```
+
+The export sends the document you save, not the pages, with its headers, footers, footnotes, endnotes and page setup. Without a `token` it fails with "The [exportDocx] command needs a [token] for the Tiptap convert API. The DOCX is built in the Tiptap Cloud."
+
+## Importing a .docx
+
+To import, add `ImportDocx` from `@tiptap-pro/extension-import-docx` with your `token`, and run its `importDocx` command with the file. Here, `file` is a `File`, such as from an `<input type="file">`:
+
+```js
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+import { createPageLayoutEditor, PageLayout } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = createPageLayoutEditor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, PageLayout, ImportDocx.configure({ token })],
+})
+
+editor.commands.importDocx({ file })
+```
+
+The import replaces the content in one step, and one undo takes it back. So far Page Layout takes only the text of the file:
+
+- The document keeps its paper, margins, headers and footers, because replacing the content keeps the [section break](/page-layout/features/sections) that holds them.
+- The paper, orientation and margins of the file, its headers and footers, and its footnotes and endnotes are not applied. They reach only your `onImport` callback, see [Import handling](https://tiptap.dev/docs/conversion/import/docx/editor-extension#import-handling).
+- The page color and the gutter of the file are not read.
+
+`ImportDocx` has a hook through which an extension writes the import itself. Page Layout does not use it yet.
+
+## Pasting from Word
+
+Text pasted from Word keeps its page options, with nothing to configure:
+
+- a page break stays a page break, and a column break a column break,
+- a Next Page or Continuous section break stays a section break of that kind,
+- a row with "Allow row to break across pages" off gets `breakAcrossPages: false`,
+- top rows marked "Repeat as header row" become header cells, and the table gets `repeatHeaderRow: true`.
+
+A pasted section break starts its section in the format in force where you paste, not in its Word paper, margins and columns. A paste that makes the document's second section also writes the first section's format into it. Footnotes, endnotes and bookmarks are read by their own packages.
+
+Word fields paste as the text Word last showed: a page number is `1` and stays `1`, and a cross-reference to a heading is plain text.
+
+## Sections
+
+A section is a run of blocks with its own page setup, see [Sections](/page-layout/features/sections). A .docx stores a section's setup in a `w:sectPr` at the end of the section, in its last paragraph's properties.
+
+The last section's `w:sectPr` is the last child of `w:body`. Page Layout puts a section break in front of its section instead.
+
+The [functions](/page-layout/guides/word#functions) convert between the two. They take and return plain values, not XML, so your converter keeps its own code that reads and writes XML. They turn twips, twentieths of a point, into CSS pixels, 15 twips to the pixel.
+
+### Reading sections
+
+`sectionBreaksFromOoxml()` takes the `w:sectPr` of each section as an object, in file order. It returns the section break to put in front of each section, the first at the very start of the document.
+
+The example reads an A4 section, then a landscape one with two columns. `firstSectionBlocks` and `secondSectionBlocks` stand for the blocks your converter read:
+
+```js
+import { sectionBreaksFromOoxml } from '@tiptap-pro/extension-page-layout'
+
+const breaks = sectionBreaksFromOoxml([
+  {
+    pgSz: { w: 11906, h: 16838 },
+    pgMar: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+  },
+  {
+    type: 'nextPage',
+    pgSz: { w: 16838, h: 11906, orient: 'landscape' },
+    pgMar: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+    cols: { num: 2, space: 720, sep: true },
+  },
+])
+
+const content = [breaks[0], ...firstSectionBlocks, breaks[1], ...secondSectionBlocks]
+```
+
+Put the first break in too. Without it, the first section has no paper of its own and shows in the paper of whichever editor opens it.
+
+### Writing sections
+
+`toOoxmlSections(doc, setup)` returns each section with its `w:sectPr`. Pass it `engine.getSourceDocument()`, the document you save, because `editor.state.doc` holds the pages. `setup` is the format of a first section without a section break. `writeSectionProperties` stands for your converter's function:
+
+```js
+import { pageSetup, toOoxmlSections } from '@tiptap-pro/extension-page-layout'
+
+const doc = editor.storage.pageLayout.engine.getSourceDocument()
+
+for (const section of toOoxmlSections(doc, pageSetup('A4'))) {
+  writeSectionProperties(section.properties, section.endBlockIndex - 1)
+}
+```
+
+Each entry has `properties`, an `OoxmlSectionProperties`, and two top-level block indexes. `startBlockIndex` is the section's first block, its section break included, and `endBlockIndex` is one past its last block.
+
+Write the properties on the last paragraph of the range, and the last section's into `w:body`. Each `w:sectPr` is complete, with inherited values resolved.
+
+### What a section property becomes
+
+The functions apply these rules, so you need them only to check what a file turns into. Each part of a `w:sectPr` becomes a field of the page setup that [What a setup holds](/page-layout/features/page-format#what-a-setup-holds) describes, and a part left out is Word's default:
+
+- `w:type` is `kind`. `continuous` starts on the same sheet, and `nextPage`, `evenPage`, `oddPage` and `nextColumn` start a new sheet.
+- `w:pgSz` is `format` and `orientation`. A size within a pixel of a built-in format, such as A4, is that format, and a landscape page has `w` larger than `h`.
+- `w:pgMar` is `margins`. Word's "at least" margin, a negative top or bottom, is a margin of that size. Its `header` and `footer` are how far the header and footer sit from the edge.
+- `w:cols` is `columns`. `num` is `count`, `sep` is `rule`, and `space` or the `w:col` list give `gaps` and `widths`.
+- `w:pgNumType` is `pageNumbering`. `fmt` is the format, `start` the first number, and `chapStyle` with `chapSep` adds a chapter number.
+- `w:footnotePr` is `notePlacement`, from `pos`, and the footnote numbering, from `numFmt`, `numStart` and `numRestart`. `w:endnotePr` numbers the endnotes the same way.
+
+Headers and footers, `w:titlePg` included, are content of the section break: write them as other content, see [Headers and footers](/page-layout/guides/on-a-server#headers-and-footers).
+
+## Page color
+
+The page color is `w:background` of the whole document, since a `w:sectPr` has no color. In Page Layout it is the `page` color of the first section's [theme](/page-layout/features/page-colors). Pass the element to `sectionBreaksFromOoxml`, and the first break carries it:
+
+```js
+import { sectionBreaksFromOoxml } from '@tiptap-pro/extension-page-layout'
+
+// Leave out background when the file has no w:background
+const breaks = sectionBreaksFromOoxml(sections, { background: { color: 'FDF6E3' } })
+```
+
+On the way out, `toOoxmlBackground(theme)` returns `{ color }`, six digits without `#`, or `null` when the document has no page color. Then write no `w:background`. That is Word's "No Color", which is not white: an explicit white stays white.
+
+```js
+import { toOoxmlBackground } from '@tiptap-pro/extension-page-layout'
+
+const background = toOoxmlBackground(engine.getSections()[0].setup.theme)
+
+if (background !== null) {
+  writeBackground(background.color)
+}
+```
+
+Here, `writeBackground` stands for your converter's code. `fromOoxmlBackground(background)` reads one element on its own and returns `#rrggbb` or `null`, and `auto` reads as `null`. A section with a color of its own has no place in the file.
+
+## Number formats
+
+The section functions convert page and note number formats for you. To convert one yourself, use the functions of `@tiptap-pro/extension-number-formats`. `fromOoxmlNumberFormat` returns `null` for a value with no counterpart, such as `bullet`:
+
+```js
+import { fromOoxmlNumberFormat, toOoxmlNumberFormat } from '@tiptap-pro/extension-number-formats'
+
+toOoxmlNumberFormat('lowerAlpha') // { val: 'lowerLetter' }
+fromOoxmlNumberFormat('lowerLetter') // { format: 'lowerAlpha' }
+```
+
+Word also has custom formats, such as `001, 002, 003, ...`. Page Layout has no name for one, so a section function reads it as the default for that kind of number: decimal for pages and footnotes, lower Roman for endnotes.
+
+To keep a custom format, pass a function as second argument to `fromOoxmlSectionProperties()`, or as `nameDefinition` in the options of `sectionBreaksFromOoxml()`. It gets the definition, an object that describes the format, stores it under a name you choose, and returns the name.
+
+Here, the Number formats command `setNumberFormat()` stores it, and `properties` is one `w:sectPr` your converter read:
+
+```js
+import { fromOoxmlSectionProperties } from '@tiptap-pro/extension-page-layout'
+
+let count = 0
+
+const { setup, kind } = fromOoxmlSectionProperties(properties, (definition) => {
+  count += 1
+  editor.commands.setNumberFormat(`imported-${count}`, definition)
+  return `imported-${count}`
+})
+```
+
+## Table rows
+
+A .docx keeps both page options of a table on its rows, in `w:trPr`. `w:cantSplit` moves a row to the next page whole, which is `breakAcrossPages: false` on the row.
+
+`w:tblHeader` repeats a row at the top of each page, which is `repeatHeaderRow: true` on the table, see [Tables in Page Layout](/page-layout/extension-behavior/tables).
+
+Only the top rows of a table repeat, so `fromOoxmlRowProperties()` ignores a `tblHeader` further down, as Word does. `toOoxmlRowProperties(table)` returns the `{ tblHeader, cantSplit }` of every row, with `tblHeader` on the leading rows of header cells while the table repeats its header.
+
+A row that `fromOoxmlRowProperties()` marks `headerCells: true` must be built of `tableHeader` cells, or there is nothing to repeat. Here, `rows` stands for the rows your converter read, each with its `tblHeader`, `cantSplit` and `cells`:
+
+```js
+import { fromOoxmlRowProperties } from '@tiptap-pro/extension-page-layout'
+
+const read = fromOoxmlRowProperties(rows)
+
+const table = {
+  type: 'table',
+  attrs: read.table,
+  content: rows.map((row, index) => ({
+    type: 'tableRow',
+    attrs: read.rows[index].attrs,
+    content: row.cells.map((cell) => ({
+      type: read.rows[index].headerCells ? 'tableHeader' : 'tableCell',
+      content: cell.content,
+    })),
+  })),
+}
+```
+
+## Lists
+
+A .docx has no list element: a list is a run of paragraphs with the same numbering. So the options of a list are written per paragraph, as Word's Keep with next (`w:keepNext`) and Keep lines together (`w:keepLines`).
+
+`toOoxmlListParagraphs(list)` returns the `{ keepNext, keepLines }` of each paragraph in document order, nested lists included:
+
+- **`keepTogether: true`.** Every paragraph but the last keeps with the next, and each keeps its lines together.
+- **`breakItemsAcrossPages: false`, the default.** Each paragraph keeps its lines together, but not with the next paragraph of its item.
+
+`fromOoxmlListParagraphs(paragraphs)` takes those flags, and reads a list as kept together when all its paragraphs but the last have `keepNext`. `breakItemsAcrossPages` stays `false`, because Word has no setting for it. See [Lists in Page Layout](/page-layout/extension-behavior/lists).
+
+## Column layouts
+
+A column layout of `@tiptap-pro/extension-columns` is written as a borderless table of one row with a cell per column. Its `keepTogether` is that row's `w:cantSplit`.
+
+In a converter of your own, `toOoxmlColumnLayoutRow(layout)` returns `{ cantSplit }` for a `columnLayout` node, and `fromOoxmlColumnLayoutRow(row)` returns its `keepTogether` attribute from the row's properties. Both come from `@tiptap-pro/extension-page-layout`:
+
+```js
+import { fromOoxmlColumnLayoutRow, toOoxmlColumnLayoutRow } from '@tiptap-pro/extension-page-layout'
+
+toOoxmlColumnLayoutRow(layout) // { cantSplit: true } for a layout kept on one page
+fromOoxmlColumnLayoutRow({ cantSplit: true }) // { keepTogether: true }
+```
+
+In this example, `layout` is a `columnLayout` node of the document. See also [In a .docx](/page-layout/extension-behavior/columns#in-a-docx).
+
+## Functions
+
+The functions of this page are exported from `@tiptap-pro/extension-page-layout`. A `doc`, `table`, `list` or `layout` argument is a node, of the type `Node` from `@tiptap/pm/model`. For one section at a time, `fromOoxmlSectionProperties(properties, nameDefinition?)` returns its `{ setup, kind }`, and `toOoxmlSectionProperties(setup, kind?)` its `w:sectPr`, with `kind` `'nextPage'` by default.
+
+Their types are exported too: `OoxmlSectionProperties`, `OoxmlNoteProperties`, `OoxmlSection`, `NameNumberFormatDefinition`, `OoxmlRowProperties`, `TablePaginationFromOoxml` and `OoxmlParagraphKeeps`.

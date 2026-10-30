@@ -1,0 +1,110 @@
+---
+title: 'Add Page Layout to your editor'
+intro: 'This guide moves your existing Tiptap editor onto pages. Your extensions, toolbar commands, events such as <code>onUpdate</code>, undo, saving with <code>getJSON()</code> and loading with <code>setContent()</code> carry over unchanged.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Add Page Layout to your editor | Tiptap Page Layout Docs'
+  description: 'Move a Tiptap editor you already have onto pages: building it, saving, undo and redo, extensions, collaboration and styling.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/getting-started/install/existing-editor.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+What changes is how you build the editor, and code that keeps a position, a number that points into the document, such as a comment anchor. [Install Page Layout](/page-layout/getting-started/install) first.
+
+## In short
+
+Page Layout keeps the document you save apart from the pages it draws, which `editor.state` holds. To move your editor:
+
+1. Build it with `createPageLayoutEditor` instead of `new Editor`, or in React with [`usePageLayoutEditor`](/page-layout/getting-started/install/react#a-first-editor) instead of `useEditor`.
+2. Read and write positions on the document's state, `editor.storage.pageLayout.engine.getSourceState()`, not on `editor.state`. The engine is the object that lays out the pages, as [The document and the pages](/page-layout/getting-started/document-and-pages) explains.
+
+## Building the editor
+
+Pages cannot be added to an existing editor, so build it with `createPageLayoutEditor`, with `PageLayout` to set the paper. `element` and `content` are those you passed to `new Editor`, and `save` is your function that stores the document:
+
+```js
+import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import StarterKit from '@tiptap/starter-kit'
+
+const editor = createPageLayoutEditor({
+  element,
+  content,
+  extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4') })],
+  onUpdate: ({ editor }) => save(editor.getJSON()),
+})
+```
+
+`createPageLayoutEditor` takes the options of `new Editor`, with the differences in [Options of the editor](/page-layout/getting-started/install#options-of-the-editor). It does not accept `editorProps`, because Page Layout handles the editor's transactions itself. For the scroll margin, use `PageLayout`'s `scrollMargin`, 48 px at top and bottom by default.
+
+`PageLayout` in an editor built with `new Editor` draws no pages, and its commands return `false`. If that editor has an element, the console warns that `PageLayout is in an Editor that createPageLayoutEditor did not build`.
+
+## Saving the document
+
+Save what `editor.getJSON()` or `editor.getHTML()` returns, as before. `getJSON()`, `getHTML()`, `getText()` and `isEmpty` answer for the document, so their result holds no pages, no half of a paragraph cut at a page end and no automatic page break.
+
+`getText()` also leaves out headers and footers, which the document stores with its sections. It takes `blockSeparator`, `'\n\n'` by default, and `textSerializers`.
+
+Do not save `editor.state.doc`, because it holds the pages. Read the document node with `editor.storage.pageLayout.engine.getSourceDocument()`, or make `editor.state` hold it, as [editor.state as the document](/page-layout/getting-started/document-and-pages/writing#editorstate-as-the-document) shows.
+
+`setContent()` and `clearContent()` replace the document and lay out the pages again. `setContent(content, { emitUpdate: false })` emits no `update`.
+
+The document keeps its page format, headers and footers when you replace its content, because they are stored in a [section break](/page-layout/features/sections) in front of the first block. Content that starts with a section break of its own brings its own format instead. Selecting everything and typing over it keeps the format too.
+
+To open a .docx, use [`importDocx`](/page-layout/guides/word#importing-a-docx). It brings the text of the file, and the document keeps its format.
+
+## Undo and redo
+
+Undo and redo are Page Layout's own commands, so a toolbar wired to them works. They take back the user's edits, never the page layout that followed. Page Layout removes StarterKit's history for you, so only one history runs. In a shared document, see [Collaboration](/page-layout/guides/collaboration#undo-and-redo).
+
+### undo()
+
+`undo()` takes back the last edit to the document:
+
+```js
+editor.commands.undo()
+```
+
+Takes no arguments. Returns `false`, under `can()` too, when there is nothing to undo.
+
+### redo()
+
+`redo()` applies the last undone edit again:
+
+```js
+editor.commands.redo()
+```
+
+Takes no arguments. Returns `false`, under `can()` too, when there is nothing to redo.
+
+## Extensions
+
+Extensions that add nodes, marks, commands at the cursor, input rules or keyboard shortcuts work unchanged, and their commands take positions in the document. Code that writes at a position it found itself follows [Writing at a position](/page-layout/getting-started/document-and-pages/writing#writing-at-a-position).
+
+An extension that reads `editor.state.doc` sees the pages. There, a paragraph cut at a page end is two nodes, and the header or footer being edited is a node too. To leave those out, configure it with `ignore: ignoreLayoutArtifacts`. See [Extension behavior](/page-layout/extension-behavior).
+
+A node type of your own moves to the next page whole when it does not fit. A [layout rule](/page-layout/extension-behavior/your-own-extension) can let a page end inside it, and each page then draws its part with your `NodeView` or `renderHTML`.
+
+The table extension works as configured, except its `View` option, because Page Layout draws a table with `renderHTML`. Column resizing works if `resizable` is on.
+
+## Collaboration
+
+Instead of `@tiptap/extension-collaboration`, pass the shared document to the `source` option of `PageLayout`. Here, `yDoc` is your Y.js document and `provider` your collaboration provider:
+
+```js
+import { PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+import { createSourceCollaboration } from '@tiptap-pro/extension-page-layout/collaboration'
+
+const pageLayout = PageLayout.configure({
+  setup: pageSetup('A4'),
+  source: createSourceCollaboration({ document: yDoc, awareness: provider.awareness }),
+})
+```
+
+When the extensions hold `collaboration`, `collaborationCaret` or `collaborationCursor`, `createPageLayoutEditor` [throws](/page-layout/guides/collaboration#createpagelayouteditor-throws-for-the-collaboration-extension) before anything is shown or shared.
+
+## Styling
+
+Selectors that start at `.tiptap` still reach the content. It sits on sheets, the elements the pages are drawn on, whose width and margins come from the page format. See [Styling the pages](/page-layout/guides/styling).

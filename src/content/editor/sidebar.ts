@@ -438,6 +438,102 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/uniqueid',
               title: 'Unique ID',
             },
+            // Its place is Cursor and selection in the feature catalog of the docs restructure
+            {
+              title: 'Whole blocks',
+              href: '/editor/extensions/functionality/whole-blocks',
+              releaseTag: 'alpha',
+            },
+          ],
+        },
+        // The packages that come with Page Layout and work without it. Number formats has a page
+        // (/editor/extensions/functionality/number-formats) but no entry until its place is decided.
+        {
+          title: 'Document structure',
+          href: '',
+          children: [
+            {
+              title: 'Bookmarks',
+              href: '/editor/extensions/functionality/bookmark',
+              releaseTag: 'alpha',
+            },
+            {
+              title: 'Columns',
+              href: '/editor/extensions/functionality/columns',
+              releaseTag: 'alpha',
+            },
+            {
+              title: 'Cross-references',
+              href: '/editor/extensions/functionality/cross-references',
+              releaseTag: 'alpha',
+              children: [
+                {
+                  title: 'Sources',
+                  href: '/editor/extensions/functionality/cross-references/sources',
+                },
+                {
+                  title: 'What a reference shows',
+                  href: '/editor/extensions/functionality/cross-references/displays',
+                },
+                {
+                  title: 'Several targets',
+                  href: '/editor/extensions/functionality/cross-references/joins',
+                },
+                {
+                  title: 'Word fields',
+                  href: '/editor/extensions/functionality/cross-references/docx',
+                },
+              ],
+            },
+            {
+              title: 'Document styles',
+              href: '/editor/extensions/functionality/document-styles',
+              releaseTag: 'alpha',
+              children: [
+                {
+                  title: 'Definitions',
+                  href: '/editor/extensions/functionality/document-styles/definitions',
+                },
+                {
+                  title: 'Applying styles',
+                  href: '/editor/extensions/functionality/document-styles/applying',
+                },
+                {
+                  title: 'Colors and fonts',
+                  href: '/editor/extensions/functionality/document-styles/values',
+                },
+                {
+                  title: 'Themes',
+                  href: '/editor/extensions/functionality/document-styles/themes',
+                },
+                {
+                  title: 'Table styles',
+                  href: '/editor/extensions/functionality/document-styles/tables',
+                },
+                {
+                  title: 'Libraries',
+                  href: '/editor/extensions/functionality/document-styles/libraries',
+                },
+                {
+                  title: 'Cleaning up',
+                  href: '/editor/extensions/functionality/document-styles/cleanup',
+                },
+                {
+                  title: 'At a glance',
+                  href: '/editor/extensions/functionality/document-styles/api',
+                },
+              ],
+            },
+            {
+              title: 'Footnotes',
+              href: '/editor/extensions/functionality/footnotes',
+              releaseTag: 'alpha',
+            },
+            {
+              title: 'Outline numbering',
+              href: '/editor/extensions/functionality/outline-numbering',
+              releaseTag: 'alpha',
+            },
           ],
         },
         {

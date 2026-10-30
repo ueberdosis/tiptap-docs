@@ -1,0 +1,235 @@
+---
+title: 'Layout rules'
+intro: 'A layout rule tells Page Layout where a page may end inside a node type of yours and what stays together. <a href="/page-layout/extension-behavior/your-own-extension">Your own extension</a> shows how to register one.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Layout rules | Tiptap Page Layout Docs'
+  description: 'Tell Page Layout where a page may end inside a node type of yours, and what stays together on one page.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/custom-nodes/layout-rules.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+A cut is where a page ends inside a node, and the part of a cut node on the next page is its continuation.
+
+## How deep a page may cut
+
+`splitDepth` says where inside a node a page may end. This `note` may be cut between lines of text, and this `checklist` only between its items. The other examples on this page leave out the same import:
+
+```js
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('note', { splitDepth: 'intoText' })
+defineNodeLayout('checklist', { splitDepth: 'betweenChildren' })
+```
+
+`splitDepth` takes these values:
+
+- **`'none'`**, the default: not cut, as a horizontal rule, unless the node has [children side by side](/page-layout/extension-behavior/your-own-extension/layout-rules#children-side-by-side).
+- **`'betweenChildren'`**: between two children, not inside one, as a list.
+- **`'intoText'`**: between two lines of text, as a paragraph. A node that holds blocks, such as the demo's callout, is cut between or inside its children, whichever fills the page more.
+
+A cut reaches into a child only where the child's own rule allows it. So a node without a rule that wraps other blocks keeps the cut out of its children.
+
+A child of a `'betweenChildren'` node may be taller than a page. It is then cut inside if its rule allows it, and clipped on a page of its own if not.
+
+A continuation can start with a child your `content` expression does not allow first, such as a list item that goes on with its sub-list. `viewContent` allows it, as `listItem` does with `'block+'`. It replaces `content` only on the pages, the copy of the document the editor shows.
+
+## Keeping a node whole
+
+`keepTogether: true` moves a node to the next page whole, such as this card:
+
+```js
+defineNodeLayout('card', {
+  splitDepth: 'betweenChildren',
+  keepTogether: true,
+})
+```
+
+Page Layout cuts it only where moving would not help: at the top of an empty page, or of an empty column in a [section with columns](/page-layout/features/section-columns).
+
+`splitDepth` says how deep a cut may go, and `keepTogether` whether to cut at all. So `keepTogether` is a preference, like Word's _Keep lines together_: a card taller than a page does not vanish or overflow, but breaks between its children.
+
+`keepTogether` applies to top-level blocks only, so no rule keeps a node inside a list or a quote together. For one block instead of a type, see [Deciding per block](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#deciding-per-block).
+
+## Keeping a block with the next
+
+`keepWithNext: true` keeps a block on the page of the first line of the next block, so a heading or caption does not stand alone at the foot of a page. Word calls this _Keep with next_:
+
+```js
+defineNodeLayout('figureCaption', { keepWithNext: true })
+```
+
+When the caption and that line do not fit in what is left of the page, the page ends in front of the caption.
+
+Several `keepWithNext` blocks in a row move as one, and a next block that may not be cut has to fit whole. The block stays where it is:
+
+- at the top of a page,
+- when the blocks and the next line would not fit on a page of their own either,
+- in front of a page break, or of a [section](/page-layout/features/sections) that starts on a new page.
+
+`keepWithNext` applies to top-level blocks only. To decide it per block, use [`blockBreaksOf`](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#deciding-per-block).
+
+## Children side by side
+
+`parallelChildren: true` is for a node whose children sit next to each other, such as a strip of three panels. A page can then end across the panels at one height, as through a table row. Without it, such a node only moves whole:
+
+```js
+defineNodeLayout('panelStrip', {
+  splitDepth: 'none',
+  parallelChildren: true,
+  parallelCutRank: 'equal',
+  parallelCutNode: true,
+})
+
+defineNodeLayout('panel', {
+  parallelCutNode: true,
+  viewContent: 'block*',
+})
+```
+
+The other fields:
+
+- **`splitDepth: 'none'`**: a page never ends between two panels, only across them.
+- **`parallelCutNode: true`**: on every type the cut divides, here the strip and `panel`.
+- **`viewContent: 'block*'`**: a cut keeps every panel on both pages, so they stay in line, and a short panel may be empty after it. Use it where your schema says `block+`.
+- **`parallelCutRank: 'equal'`**: Page Layout cuts the strip when that fills more of the page than moving it. `'lastResort'` cuts it only when moving would not help. A function, such as `strip => (strip.attrs.keepWhole ? 'lastResort' : 'equal')`, decides per strip, as a table row's _Allow row to break across pages_ does.
+
+## Content that spans several children
+
+`childSpans` is for a node whose cells merge across its rows, as a table's do, and other nodes do not need it. It keeps a page from cutting through the content of a merged cell that spans several children, such as three table rows.
+
+Page Layout ends a page between those rows, or inside a later one, only where the merged cell's content has already ended higher up. A merged cell with no content does not stop a cut.
+
+The table rule sets `childSpans` for merged cells. A type of yours that merges like a table needs it, such as an `agenda` whose rows hold slots, where a slot with a `rowspan` runs down through several rows:
+
+```js
+defineNodeLayout('agenda', {
+  splitDepth: 'betweenChildren',
+  childSpans: (agenda) => {
+    const spans = []
+    agenda.forEach((row, rowOffset, rowIndex) => {
+      row.forEach((slot, slotOffset) => {
+        if (slot.attrs.rowspan > 1) {
+          spans.push({
+            contentOffset: rowOffset + 1 + slotOffset,
+            fromChild: rowIndex,
+            toChild: Math.min(agenda.childCount, rowIndex + slot.attrs.rowspan),
+          })
+        }
+      })
+    })
+    return spans
+  },
+})
+```
+
+`childSpans` is an array, or a function of the node that returns one. Each entry names one spanning container, here a slot:
+
+- **`contentOffset`**: where the container starts inside your node, counting one for each node's start and end and one per character. `forEach` passes `rowOffset`, where the row starts, and `slotOffset`, where the slot starts in the row. `1` steps over the row's start. So the first slot of the second row, after a first row whose `nodeSize` is 20, starts at `20 + 1 + 0 = 21`.
+- **`fromChild`**: the index of the first child it runs through, from zero.
+- **`toChild`**: the index after the last one.
+
+The container must hold content of its own, such as a slot's paragraphs. A leaf node that draws its content from its attributes cannot be one.
+
+## Repeating something on every continuation
+
+`repeatedLead` is how many first children every continuation repeats, as a table repeats its header row:
+
+```js
+defineNodeLayout('dataBlock', {
+  splitDepth: 'betweenChildren',
+  repeatedLead: (node) => (node.attrs.repeatHeading ? 1 : 0),
+})
+```
+
+Each continuation's page has that much less room for content. Page Layout draws the repeated children as your schema renders them. They are drawn, not stored: the caret cannot enter them, and editing the original child changes every copy.
+
+`renderRepeatedLead` draws a copy your own way. It is called once per repeated child with `{ child, index, node }`: the child, its index among the repeated children from `0`, and the first part of your cut node:
+
+```js
+defineNodeLayout('dataBlock', {
+  splitDepth: 'betweenChildren',
+  repeatedLead: 1,
+  renderRepeatedLead: ({ child }) => {
+    const heading = document.createElement('p')
+    heading.textContent = `${child.textContent} (continued)`
+    return heading
+  },
+})
+```
+
+Return an element, or `null` to draw nothing, and the room stays reserved either way. The element you return must be:
+
+- **A valid child of your node's content element,** such as a `tr` in a table body or an `li` in a list. The copy goes in front of the first child of the continuation.
+- **As tall as the child it stands for,** because the page reserved that height. A taller copy pushes the continuation past the bottom of the page, and a shorter one leaves a gap.
+
+Page Layout marks every copy with `data-tt-repeated-lead`, the class `tiptap-page-layout-repeated-lead`, `contenteditable="false"` and `aria-hidden="true"`. Keep the attribute on the element, because the measurement uses it to leave the copy out. A rule of yours for `[data-tt-repeated-lead]` makes the copy look different from the original.
+
+## Breaks of your own
+
+Page Layout's own breaks are on [Breaks](/page-layout/features/breaks). A break node of yours uses these fields:
+
+- **`startsPage: true`**: the page ends in front of the block. Top-level blocks only.
+- **`breakMarker: true`**: the block adds no height to the page it starts. Blocks only.
+- **`forcedCut: 'page'`**: an inline node ends the page where it sits.
+- **`forcedCut: 'region'`**: an inline node ends the column where it sits, in a [section with columns](/page-layout/features/section-columns). With one column, that is the page.
+
+This `chapterStart` starts a page and adds no height to it, and `myPageBreak` ends the page inside a paragraph:
+
+```js
+defineNodeLayout('chapterStart', { breakMarker: true, startsPage: true })
+defineNodeLayout('myPageBreak', { forcedCut: 'page' })
+```
+
+## Chapters
+
+`chapterLevel` makes a node begin a chapter, for page numbers that show it, such as `2-14` for page 14 of chapter 2. Tiptap's `heading` begins one at its `level`, and `null` begins none:
+
+```js
+defineNodeLayout('chapterTitle', {
+  chapterLevel: (node) => node.attrs.depth ?? 1,
+})
+```
+
+[Chapter numbers](/page-layout/features/page-numbers/chapter-numbers) explains how chapters are counted.
+
+## Blocks that restyle the others
+
+`remeasuresDocument: true` makes Page Layout measure every block again when this block is added, removed or changed. Use it for a block that changes how others look, such as style definitions, because otherwise only the changed block is measured again. [Document styles](/page-layout/extension-behavior/document-styles) sets it for its definitions block:
+
+```js
+defineNodeLayout('themeSettings', { breakMarker: true, remeasuresDocument: true })
+```
+
+This costs as much as a change of the page width, so keep it to blocks that change rarely. Top-level blocks are asked on every change, so a function should answer quickly.
+
+## Behaving like a built-in type
+
+The built-in rules are not exported, and `defineNodeLayout` takes no type to copy from. Use the same rule instead:
+
+| To behave like             | Rule                                                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Paragraph, code block      | `{ splitDepth: 'intoText' }`                                                                                                                       |
+| Blockquote                 | `{ splitDepth: 'betweenChildren' }`                                                                                                                |
+| List                       | The list `{ splitDepth: 'betweenChildren' }`, its item `{ splitDepth: 'betweenChildren', viewContent: 'block+' }`                                  |
+| Horizontal rule            | No rule                                                                                                                                            |
+| Column layout              | The layout `{ splitDepth: 'none', parallelChildren: true, parallelCutNode: true }`, each column `{ parallelCutNode: true, viewContent: 'block*' }` |
+| Table without merged cells | The table `{ splitDepth: 'betweenChildren' }`, each row as the column layout, each cell as a column                                                |
+
+Merged cells across pages, column widths on every part and completed edits work for `table` only. Repeating the first children on every part works for any type, through [`repeatedLead`](/page-layout/extension-behavior/your-own-extension/layout-rules#repeating-something-on-every-continuation). A node named like a built-in type, such as `table` or `bulletList`, gets its rule, whichever extension defines it.
+
+The functions that read a user's settings for the built-in rules are exported. Each reads an attribute by name, so it answers for your node too if it has that attribute. This `checklist` has a `keepTogether` attribute, as a list does:
+
+```js
+import { defineNodeLayout, keepsListTogether } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('checklist', {
+  splitDepth: 'betweenChildren',
+  keepTogether: keepsListTogether,
+})
+```
+
+`keepsListTogether` and `keepsTogether` read `keepTogether`, `breaksItemsAcrossPages` reads `breakItemsAcrossPages`, and `repeatsHeaderRow` reads `repeatHeaderRow`. Each is `true` when its attribute is `true`. `breaksAcrossPages` is `true` unless `breakAcrossPages` is `false`.

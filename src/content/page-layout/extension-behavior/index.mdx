@@ -1,0 +1,121 @@
+---
+title: 'Extension behavior'
+intro: 'Page Layout has a layout rule for each block node type of StarterKit and for the table of <code>@tiptap/extension-table</code>. The rule says where a page may end inside a block of that type. The nodes of Columns, Footnotes, Cross-references, Document styles, Number formats and Outline numbering have rules too.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Extension behavior | Tiptap Page Layout Docs'
+  description: 'How the standard content types and the Pro extensions Page Layout knows are paginated, what some of them take from the pages, and the rules some give them.'
+  category: Page Layout
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/other-extensions/README.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+Each of these extensions also works without pages. Some take something from the pages, such as "see page 7" in a cross-reference or footnotes numbered per page. Others give the pages rules, such as a style that keeps a heading with the next paragraph.
+
+[Tables](/page-layout/extension-behavior/tables), [Lists](/page-layout/extension-behavior/lists), [Footnotes](/page-layout/extension-behavior/footnotes), [Cross-references](/page-layout/extension-behavior/cross-references), [Document styles](/page-layout/extension-behavior/document-styles), [Outline numbering](/page-layout/extension-behavior/outline-numbering) and [Columns](/page-layout/extension-behavior/columns) have a page each. For a node type of your own, see [Your own extension](/page-layout/extension-behavior/your-own-extension).
+
+On these pages, the document is what the user writes and you save, without pages. `editor.state` holds the pages that Page Layout draws from it, see [The document and the pages](/page-layout/getting-started/document-and-pages).
+
+## What the standard types do
+
+When a block does not fit on the rest of a page, Page Layout cuts it where its type allows:
+
+| Type                                | Where a page may end                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `paragraph`, `heading`, `codeBlock` | Between two lines. A code block's rest stays a code block.              |
+| `blockquote`                        | Between two of its blocks, then between the lines of a paragraph in it. |
+| `horizontalRule`                    | Nowhere. It moves to the next page.                                     |
+| `hardBreak`                         | Right after it, because it ends a line.                                 |
+| `bulletList`, `orderedList`         | Between two items, or two paragraphs of one item.                       |
+| `table`                             | Between rows, and through a row where that is not enough.               |
+| `columnLayout`                      | At one height through all of its columns.                               |
+
+A node type without a rule moves to the next page whole. A cut block stays one node in the document, with the same attributes and marks in both parts, and is two nodes in `editor.state`.
+
+## Keep together is a preference
+
+A block set to keep together moves to the next page whole instead of being cut. Table rows, lists and column layouts have this setting, and a type of your own gets it from [Keeping a node whole](/page-layout/extension-behavior/your-own-extension/layout-rules#keeping-a-node-whole).
+
+A block that does not fit on a page of its own is cut anyway, so it does not run off the bottom of its page. The setting stays on the block. A manual page break inside it, see [Breaks](/page-layout/features/breaks), still ends the page there.
+
+To tell the user that a block was cut anyway, pass its start and end in the document to `isDividedInView`. It works for a table row, list, column layout or paragraph, as on [Lists](/page-layout/extension-behavior/lists):
+
+```js
+const divided = editor.storage.pageLayout.engine.isDividedInView(from, to)
+```
+
+`isDividedInView` is `true` when the range is drawn on two pages, in two columns of one page, or partly in a header, a footer or a page's footnote area. An empty range is never divided.
+
+## Packages that work without pages
+
+Cross-references, Outline numbering, Bookmarks and Whole blocks do not depend on Page Layout, so they read the pages in `editor.state`. Pass `ignoreLayoutArtifacts` as their `ignore` option to leave out the nodes the pages add, called layout artifacts: the rest of a cut block, and the header or footer being edited.
+
+Footnotes and Document styles need no such option, because Page Layout sets their options itself.
+
+`ignoreLayoutArtifacts(node)` is exported from `@tiptap-pro/extension-page-layout`. It returns:
+
+- `true` for a header or footer, and for the rest of a paragraph or other text block from the page before. These are left out with their content.
+- `'descend'` for the rest of a list, quote or other container. It is left out, but its children are read, because a list cut between two items has the next item inside that rest.
+- `false` for anything else.
+
+`isLayoutArtifact(node)`, also exported, is `true` wherever `ignoreLayoutArtifacts` is not `false`.
+
+## Bookmarks
+
+[Bookmarks](/editor/extensions/functionality/bookmark) names places to go to and link to. Configure it with `ignore: ignoreLayoutArtifacts`, so the rest of a cut block is not read as a bookmark of its own:
+
+```js
+import { Bookmarks } from '@tiptap-pro/extension-bookmark'
+import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
+
+Bookmarks.configure({ ignore: ignoreLayoutArtifacts })
+```
+
+Every bookmark command but `toggleBookmarkVisibility` writes the document, and `can()` answers from it. Ids are the same in the document and on the pages. A shown bookmark takes no room in a line, so pages end in the same places.
+
+`goToBookmark` and a followed link to `#name` select the bookmark and scroll to it. They draw its page first if it was too far out of view to be drawn, see [Long documents](/page-layout/guides/long-documents).
+
+From a button, focus the editor first, because it scrolls only while it has the focus. Here `id` is the bookmark's id:
+
+```js
+editor.view.focus()
+editor.commands.goToBookmark(id)
+```
+
+## Whole blocks
+
+[Whole blocks](/editor/extensions/functionality/whole-blocks) deletes, cuts and copies a block whose text is all selected as one block. Configure it with `ignore: ignoreLayoutArtifacts`, so a block that goes on over a page counts as one:
+
+```js
+import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
+import { WholeBlocks } from '@tiptap-pro/extension-whole-blocks'
+
+WholeBlocks.configure({ ignore: ignoreLayoutArtifacts })
+```
+
+A selection of only one page's part of a block, at the foot or the top of a page, is left to the default handling. The last item of a list cut between two items is whole, so it is deleted as one.
+
+## Number formats
+
+[Number formats](/editor/extensions/functionality/number-formats) stores a document's number formats and language in the document, on no page. Page numbers, footnotes and outline numbers read them without setup. `setNumberFormat` and `setNumberLanguage` write the document.
+
+For a change that is not the user's own, build a transaction on `engine.getSourceState().tr` and apply it with `engine.applySourceTransaction`:
+
+```js
+import { setNumberLanguageTransaction } from '@tiptap-pro/extension-number-formats'
+
+const engine = editor.storage.pageLayout.engine
+const transaction = setNumberLanguageTransaction(engine.getSourceState().tr, 'de')
+
+engine.applySourceTransaction(transaction, { addToHistory: true })
+```
+
+`setNumberLanguageTransaction` takes a language tag, or `null` for English. `addToHistory: true` makes the change undoable. `applySourceTransaction` is explained in [A transaction of your own](/page-layout/getting-started/document-and-pages/writing#a-transaction-of-your-own).
+
+## What is not supported
+
+Page Layout has no widow and orphan control: a paragraph is cut wherever the page runs out, even after its first line. A heading is not kept with the next paragraph by default, so it can be the last line on a page.
+
+Keep with next holds a block on the page of the next one. Turn it on for a node type with [`defineNodeLayout`](/page-layout/extension-behavior/your-own-extension/layout-rules#keeping-a-block-with-the-next), for one block with the `blockBreaksOf` option in [Options](/page-layout/reference/options), or for a style with [Document styles](/page-layout/extension-behavior/document-styles#line-and-page-breaks).
