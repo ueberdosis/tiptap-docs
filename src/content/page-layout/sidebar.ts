@@ -107,6 +107,10 @@ export const sidebarConfig: SidebarConfig = {
                   title: 'NodeLayout reference',
                   href: '/page-layout/extension-behavior/your-own-extension/node-layout-reference',
                 },
+                {
+                  title: 'React NodeViews',
+                  href: '/page-layout/extension-behavior/your-own-extension/react-nodeviews',
+                },
               ],
             },
           ],
@@ -116,7 +120,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '',
           children: [
             { title: 'Styling', href: '/page-layout/guides/styling' },
-            { title: 'React NodeViews', href: '/page-layout/guides/react-nodeviews' },
             { title: 'Collaboration', href: '/page-layout/guides/collaboration' },
             { title: 'Long documents', href: '/page-layout/guides/long-documents' },
             { title: 'On a server', href: '/page-layout/guides/on-a-server' },

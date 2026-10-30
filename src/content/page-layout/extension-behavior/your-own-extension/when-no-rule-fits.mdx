@@ -1,129 +1,102 @@
 ---
 title: 'When no rule fits'
-intro: 'Some things a layout rule per type cannot say: a setting per block, an edit that has to keep a whole Node consistent, commands and rendering. This page covers those, and what is not possible. Start at <a href="/page-layout/extension-behavior/your-own-extension">Your own extension</a>.'
+intro: 'A <a href="/page-layout/extension-behavior/your-own-extension/layout-rules">layout rule</a> describes a whole node type. This page covers what it cannot say, where your commands run, and what your NodeView must do on pages.'
 tags:
-  - type: pro
   - type: alpha
+  - type: restricted
 meta:
   title: 'When no rule fits | Tiptap Page Layout Docs'
-  description: 'Decisions per block, Nodes that must stay consistent, and commands and NodeViews on pages.'
+  description: 'Decide page breaks per block, keep nodes such as tables consistent across pages, and run commands of your own extension on pages.'
   category: Page Layout
 ---
 
 {/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/custom-nodes/when-no-rule-fits.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
 
+The document is what the user writes and you save, without pages.
+
+The pages are the copy of it that the editor shows and edits, each drawn on a sheet, an element of its own. So a node cut by the end of a page is one node in the document and two parts on the pages.
+
 ## Deciding per block
 
-What a layout rule says about a type, `blockBreaksOf` says about one block, for a page setting
-kept somewhere else, such as a paragraph style or an attribute of your own:
+`blockBreaksOf` is a `PageLayout` option that says for one block what a layout rule says for a type, such as for a paragraph where the user set a `keepWithNext` attribute:
 
 ```js
+import { PageLayout } from '@tiptap-pro/extension-page-layout'
+
 PageLayout.configure({
   blockBreaksOf: (block, doc) => (block.attrs.keepWithNext ? { keepWithNext: true } : null),
 })
 ```
 
-| Field             | Type      | Description                                                                                                                       |
-| ----------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `keepWithNext`    | `boolean` | As [Keeping a block with the next](/page-layout/extension-behavior/your-own-extension/layout-rules#keeping-a-block-with-the-next) |
-| `keepTogether`    | `boolean` | As `keepTogether` in a layout rule: Word's _Keep lines together_                                                                  |
-| `pageBreakBefore` | `boolean` | The page ends in front of the block                                                                                               |
+`block` is a top-level block and `doc` the document it is in. The answer takes the booleans [`keepWithNext`](/page-layout/extension-behavior/your-own-extension/layout-rules#keeping-a-block-with-the-next) and [`keepTogether`](/page-layout/extension-behavior/your-own-extension/layout-rules#keeping-a-node-whole), which work as in a rule, and `pageBreakBefore`, which ends the page in front of the block.
 
-- **Adds only.** `null`, or a field left out, adds nothing to what the type's rule says. Neither
-  can turn off what the rule turns on.
-- **Top level only.** It is asked for every top-level block on every layout.
-- **Answer quickly.** Answer from what the block holds rather than walk the document, and answer
-  the same for the same block in the same document.
-- **From a style.**
-  [Document styles](/page-layout/extension-behavior/document-styles#line-and-page-breaks) brings one
-  that reads the paragraph's style.
+`blockBreaksOf` only adds: `null` or a field left out adds nothing, and it cannot turn off what the type's rule turns on.
+
+Page Layout asks it for every top-level block on every layout, so it has to answer quickly, and the same for the same block. [Document styles](/page-layout/extension-behavior/document-styles#line-and-page-breaks) brings one, `styleBlockBreaks`, which reads the paragraph's style.
 
 ## Nodes that must stay consistent
 
-An edit made on the pages sees the part of a Node that is on one page. For a Node that has to be
-consistent as a whole, such as a table whose rows all have the same width, such an edit can be
-right for that part and wrong for the Node.
+A node is consistent when it is valid as a whole, such as a table whose rows all have the same number of columns.
 
-Say what consistent means, and an edit from the pages that would leave the Node inconsistent does
-nothing instead:
+An edit made on the pages sees only the part of a node on one page. So a column added to a table cut across two pages lands in the rows of one page only.
 
-```js
-import { TableMap } from '@tiptap/pm/tables'
-
-defineNodeLayout('table', {
-  isWellFormed: (node) => TableMap.get(node).problems === null,
-})
-```
-
-- **Already inconsistent.** A Node that is inconsistent already stays editable.
-- **Counted.** `editor.storage.pageLayout.engine.getDiagnostics()` counts a refused edit in
-  `refusedTransactions`, with `lastRefusedReason` set to `'inconsistent-in-the-document'`.
-- **Reported.** An edit no command made is reported on the console once.
-
-### Completing an edit
-
-Where you can tell what such an edit meant for the whole Node, say so, and that is written instead
-of refusing the edit. `completeEdit` receives the edit. It returns a Transaction on `state` that
-does to the whole Node what the edit did to its part, or `null` to refuse it.
-
-The usual answer is the command that made the edit, run again on the whole Node at the place the
-reader ran it. That is what it does in an editor without pages.
+`isWellFormed` tells Page Layout when a node of your type is consistent, so an edit from the pages that would make it inconsistent is refused and does nothing. This `timeline` is consistent when it has as many children as its `steps` attribute says:
 
 ```js
-import { insertStep, removeStep } from './timeline-commands'
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
 
 defineNodeLayout('timeline', {
   isWellFormed: (node) => node.childCount === node.attrs.steps,
+})
+```
+
+A node that is already inconsistent stays editable. `isWellFormed` is asked of every node an edit touched, before and after it, so it should answer quickly. Without it, a node always counts as consistent.
+
+`getDiagnostics()` on the engine, `editor.storage.pageLayout.engine`, counts refused edits in `refusedTransactions`, with `lastRefusedReason` set to `'inconsistent-in-the-document'`. [What happens to an edit made on the pages](/page-layout/getting-started/document-and-pages/writing#what-happens-to-an-edit-made-on-the-pages) describes the console warning.
+
+### Completing an edit
+
+`completeEdit` turns a refused edit into the edit the user meant for the whole node, so an "Add step" button works instead of doing nothing. It receives the edit and returns a transaction on the document, or `null` to refuse it.
+
+The usual answer finds the command that made the edit and runs it again on the whole node. Here, `insertStep` and `removeStep` are your own functions `(state, dispatch) => boolean`, which ProseMirror calls commands, and the timeline's buttons run them on `editor.state`:
+
+```js
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+import { insertStep, removeStep } from './timeline-commands'
+
+defineNodeLayout('timeline', {
   completeEdit: (edit) => {
-    const command = [insertStep, removeStep].find(edit.ranOnThePages)
+    const command = [insertStep, removeStep].find((command) => edit.ranOnThePages(command))
     return command ? edit.onTheDocument(command) : null
   },
 })
 ```
 
-The `NodeEdit` it receives:
+`edit.ranOnThePages(command)` is `true` if the command, run on the pages where the user ran it, makes exactly this edit. `edit.onTheDocument(command)` runs it on the document, where the node is whole, at the user's selection there. It returns the transaction, or `null` if the command declines.
 
-| Field           | Type                                        | Description                                                                                |
-| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `ranOnThePages` | `(command: Command) => boolean`             | `true` if the command, run where the reader ran it, makes exactly this edit                |
-| `onTheDocument` | `(command: Command) => Transaction \| null` | Runs the command on the document at the reader's selection there. `null` where it declines |
-| `state`         | `EditorState`                               | The editor state of the document before the edit. Build your own Transaction on it         |
-| `pos`           | `number`                                    | Where the Node starts in `state.doc`                                                       |
-| `before`        | `Node`                                      | The Node before the edit                                                                   |
-| `after`         | `Node`                                      | The Node as the edit left it: right for the part on one page, inconsistent as a whole      |
-| `transaction`   | `Transaction`                               | The edit itself, its steps applying to `state.doc`                                         |
+To build a transaction yourself, `edit` also has `state`, the document's `EditorState` before the edit, and `pos`, where the node starts in `state.doc`.
 
-- **Commands.** A command here has the form `(state, dispatch) => boolean`.
-- **Checked like the edit.** If the returned Transaction leaves the Node inconsistent, the edit is
-  refused all the same.
-- **Only when needed.** `completeEdit` is asked only for an edit that would be refused, and only
-  when `isWellFormed` is set.
-- **Counted.** `getDiagnostics()` counts a completed edit in `completedEdits`.
+`before` and `after` are the node before and after the edit, `after` right for one page and inconsistent as a whole. `transaction` is the edit, its steps applying to `state.doc`.
+
+`completeEdit` is asked only for an edit that would be refused. It is also asked only when the type has `isWellFormed`. A transaction that leaves the node inconsistent is refused all the same. `getDiagnostics()` counts completed edits in `completedEdits`.
 
 ### Tables
 
-The engine's rule for `table` completes edits with the table extension's commands:
-`addColumnBefore`, `addColumnAfter`, `deleteColumn`, `addRowBefore`, `addRowAfter`, `deleteRow`,
-`mergeCells`, `splitCell` and the three header toggles. A table menu that runs them on
-`editor.state` works unchanged.
+The table rule completes edits made with `addColumnBefore`, `addColumnAfter`, `deleteColumn`, `addRowBefore`, `addRowAfter`, `deleteRow`, `mergeCells`, `splitCell`, `toggleHeaderRow`, `toggleHeaderColumn` and `toggleHeaderCell`. So a table menu that runs them on `editor.state` works unchanged: a column added on one page goes into every row.
 
-- **A column added on one page** goes into every row.
-- **`splitCell`** on a cell that spans rows across the page boundary splits the whole cell.
-- **`addRowAfter`** from such a cell adds the row below the whole cell, not at the foot of the
-  page.
-- **Refused.** An edit that is not one of these commands on its own, such as a command followed by
-  steps of the component's own in the same Transaction, is refused.
-- **Also refused.** An edit two of the commands make alike on the page but differently on the
-  whole table.
+On a cell that spans rows across the end of a page, `splitCell` splits the whole cell, and `addRowAfter` adds the row after it.
 
-### A plugin that keeps the Node consistent
+It refuses a command plus other steps in one transaction, such as a component's own. It also refuses an edit that two commands make alike on the page but differently on the whole table, because it cannot tell which was meant.
 
-A plugin an extension registers runs on the pages the editor shows. An `appendTransaction` that
-repairs a Node sees and repairs only the part of it on one page. Give such a pass to the layout
-rule instead, and it runs on the document, where the Node is whole:
+### A plugin that keeps the node consistent
+
+A plugin your extension registers runs on the pages, so an `appendTransaction` that repairs a node repairs only the part on one page.
+
+Plugins from `sourcePlugins` in a layout rule run on the document, where the node is whole. Here, `numberStepsTransaction` is your own function that returns a transaction or `null`:
 
 ```js
 import { Plugin } from '@tiptap/pm/state'
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
 
 defineNodeLayout('timeline', {
   sourcePlugins: () => [
@@ -134,57 +107,54 @@ defineNodeLayout('timeline', {
 })
 ```
 
-- **New instances.** `sourcePlugins` is called once per editor whose schema has the type, so it
-  returns new plugin instances each time.
-- **One undo step.** What such a plugin appends goes into the same undo step as the change it
-  answers.
-- **Your own Extension.** An Extension of your own brings the same pass in `addDocumentPlugins`.
-- **Tables.** The engine's rule for `table` adds one: a row inserted by a command gets the column
-  widths of the rows around it, in every cell. Cells of a column without a width stay without one.
+`sourcePlugins` is called once for each editor whose schema has the type, so create the plugins inside the function. What such a plugin appends is undone in one step with the change it answers.
 
-## Commands of your own Extension
+In an extension you wrote, `addDocumentPlugins` does the same without a rule, called with `this` set to `{ name, options, storage, editor }`.
 
-Every command of an extension runs on the document, not on the pages.
+The table rule adds such a plugin. It gives a row a command inserts the column widths of the rows around it, and a column without a width stays without one.
 
-- **Reading and writing.** It reads the document and the reader's selection in it, and writes
-  through `tr` into the document.
-- **Undoable.** The change is undoable, with the caret it placed kept.
-- **`can()`** asks the document too.
-- **Chains.** A command calling another through `commands` or `chain()` keeps writing into the same
-  Transaction.
-- **Positions.** A position a command takes or reads off the selection is a position in
-  `editor.storage.pageLayout.engine.getSourceDocument()`.
+## Commands of your own extension
+
+Write the commands of your extension as in any Tiptap editor. They run on the document, not on the pages: they read the document and the user's selection there, and write through `tr` into the document.
+
+The change can be undone and keeps the caret the command placed. `can()` asks the document too, and a command that calls another through `commands` or `chain()` writes into the same transaction.
+
+So a position a command takes or reads off the selection is a position in the document, as `editor.storage.pageLayout.engine.getSourceDocument()` returns it, not in `editor.state`.
 
 ### View commands
 
-A few commands belong to what the editor shows rather than to the document:
+A view command runs on the pages instead, because what it acts on exists only there. It moves the caret through what is drawn, such as to the next table cell on the screen.
 
-- one that moves the caret through what is drawn,
-- one that only sends a meta to a plugin of the editor, such as a toggle or a refresh of drawn
-  labels. Run on the document, the meta reaches no plugin.
+Or it only sends a meta, a value on a transaction, to a plugin of the editor, such as a toggle or a refresh of drawn labels. The plugins run on the pages, so on the document none would read it.
 
-Name those in `addViewCommands`, and they run on the pages as they would in an editor without
-pages. It is asked once, before the editor exists, and returns command names. An editor without
-pages ignores it.
+Name these commands in `addViewCommands`, and they run on the pages as in an editor without pages. Here, `toggleAnnotations` only tells the extension's plugin to show or hide its highlights:
 
 ```js
-const Comments = Extension.create({
-  name: 'comments',
+import { Extension } from '@tiptap/core'
+
+const Annotations = Extension.create({
+  name: 'annotations',
   addCommands() {
-    return { addComment, resolveComment, removeComment, toggleComments }
+    return {
+      toggleAnnotations:
+        () =>
+        ({ tr }) => {
+          tr.setMeta('annotations', 'toggle')
+          return true
+        },
+    }
   },
   addViewCommands() {
-    return ['toggleComments']
+    return ['toggleAnnotations']
   },
 })
 ```
 
-`addSourceCommands`, and `sourceCommands` in a layout rule, name commands that run on the document
-even where a view list names them as well.
+`addViewCommands` is asked once, before the editor exists, and returns command names. An editor without pages ignores it. To keep a command on the document although a view list names it, name it in `addSourceCommands`, or in `sourceCommands` in a rule. `addSourceCommands` wins over a rule's `viewCommands`.
 
 ### TypeScript
 
-Declare the fields once in your package:
+In TypeScript, declare `addViewCommands` and `addSourceCommands` so that your extension may have them. Write the declaration exactly like this, because TypeScript merges it with that of other packages only when they are identical:
 
 ```ts
 declare module '@tiptap/core' {
@@ -199,164 +169,121 @@ declare module '@tiptap/core' {
 }
 ```
 
-Write it exactly like this. Other packages declare the same fields, and TypeScript merges the
-declarations only when they are identical.
+### A view command that writes to the pages
 
-### Commands of another Extension
+A view command should act only at the caret or only send a meta, as in [View commands](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#view-commands).
 
-For an extension somebody else wrote, name its view commands in a layout rule under the
-extension's name. Both lists are used together:
+When it reads or writes more, such as the whole document, the end of it or every node of a type, it reads the pages instead of the document. The end of the document, for example, is behind the last sheet on the pages.
+
+Page Layout then cannot copy its edit to the document as written. To find such a command, watch for its report through the `onCommandOnPages` option or a console warning, see [A command the pages could not carry](/page-layout/getting-started/document-and-pages/writing#a-command-the-pages-could-not-carry).
+
+To fix a command for good, run it on the document: take it out of `addViewCommands`, or name it in `addSourceCommands`. To keep it on the pages and make one edit on the document, pass that edit to `editor.commands.onSourceDocument(command)` as a function `(state, dispatch) => boolean`, a ProseMirror command.
+
+Page Layout either drops such an edit or works it out again from what changed on the pages. An edit worked out again has the right text, but may lose the caret. `getDiagnostics()` counts the reports in `commandsOnPages` and keeps the last in `lastCommandOnPages`.
+
+## Commands of another extension
+
+For an extension somebody else wrote, name its view commands in a layout rule under the extension's name. Page Layout uses this `viewCommands` list together with the extension's own `addViewCommands`:
 
 ```js
-defineNodeLayout('comments', {
-  viewCommands: ['toggleComments'],
-})
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('annotations', { viewCommands: ['toggleAnnotations'] })
 ```
 
-- **Tables.** The table extension's `goToNextCell` and `goToPreviousCell` run on the document,
-  including when Tab adds a row before moving to its first cell.
-- **Pro packages.** The commands of [Footnotes](/page-layout/extension-behavior/footnotes),
-  [Cross-references](/page-layout/extension-behavior/cross-references),
-  [Bookmarks](/page-layout/extension-behavior#bookmarks),
-  [Outline numbering](/page-layout/extension-behavior/outline-numbering) and Number formats are
-  named by their packages.
+The table extension's `goToNextCell` and `goToPreviousCell` run on the document, also when Tab adds a row first. Footnotes, Cross-references, Bookmarks, Outline numbering and Number formats name their own view and source commands.
 
 ### Tiptap's own commands
 
-Tiptap's own commands, such as `insertContent`, `setTextSelection` and `toggleMark` called
-directly, are not an extension's, and run on the pages. To write at a position in the document,
-use `editor.commands.onSourceDocument(command)` or `engine.dispatchSourceTransaction(tr)`. See
-[Where to write](/page-layout/getting-started/document-and-pages#where-to-write).
+Tiptap's own commands, such as `insertContent`, `setTextSelection` or `toggleMark` called directly, belong to no extension, so they run on the pages. A position you pass them is a position in the pages.
 
-### A view command that writes to the pages
-
-A view command that writes something the editor cannot take back to the document as written is
-reported. Without an `onCommandOnPages` option, the editor warns on the console once per command.
-With one, it is called instead, with the command, its Extension and what went wrong:
-
-```js
-PageLayout.configure({
-  onCommandOnPages: ({ command, extension, reason, refused }) => {
-    reportToYourLogging(`${extension}.${command}: ${reason}`)
-  },
-})
-```
-
-- **`refused: true`** means nothing was written.
-- **`refused: false`** means the edit was worked out from the difference between the two states.
-  That is right for the text and may lose where the caret was.
-- **Counted.** `editor.storage.pageLayout.engine.getDiagnostics()` counts them in
-  `commandsOnPages` and holds the last one in `lastCommandOnPages`.
+To write at a position in the document, use `editor.commands.onSourceDocument(command)` or `engine.dispatchSourceTransaction(tr)`, as [Writing at a position](/page-layout/getting-started/document-and-pages/writing#writing-at-a-position) shows. With the `experimentalSourceState` option, they run on the document. See [editor.state as the document](/page-layout/getting-started/document-and-pages/writing#editorstate-as-the-document).
 
 ## What the engine needs from your rendering
 
-A NodeView is fine, and so is anything a browser can lay out. The sections below are what to
-watch.
+A NodeView, the code that renders a node, works on pages, and so does anything a browser can lay out. Page Layout plans the pages from the height a node has on screen.
 
 ### Heights that arrive late
 
-The height on screen is the height the pages are planned from. A NodeView that renders late, such
-as an image without dimensions, a chart drawn after a fetch, or a font that arrives afterwards, is
-measured at whatever height it has at that moment.
-
-- **React.** A React NodeView in an editor built with `usePageLayoutEditor` is measured again
-  whenever its height changes.
-- **Any other NodeView** says when its rendering changed, with `measureAgain`.
+A NodeView that renders late, such as a chart drawn after a fetch, is measured at the height it has at that moment, so call `measureAgain` when its height changes. Here, `fetchData` and `drawChart` are your own, and `dom` is the NodeView's element:
 
 ```js
-image.addEventListener('load', () => {
+fetchData().then((data) => {
+  drawChart(dom, data)
   editor.storage.pageLayout.engine.measureAgain([dom])
 })
 ```
 
-- **What it does.** `measureAgain` takes the NodeView's elements and lays out the pages again if
-  one of them came out at another height.
-- **Reserve the space.** The pages move when the height arrives, so reserve the space in CSS where
-  you know it.
+`measureAgain` lays the pages out again if one of the elements came out at another height. It passes over elements in a header, footer or footnote, on a sheet that is not drawn, or no longer in the editor.
+
+Reserve the space in CSS where you know it, because the pages move when the height arrives.
+
+Page Layout measures again by itself when an `IMG`, `VIDEO`, `IFRAME`, `OBJECT` or `EMBED` fires `load`, `error` or `loadedmetadata`, and when a [React NodeView](/page-layout/extension-behavior/your-own-extension/react-nodeviews) changes height.
 
 ### Do not decide layout in the rendering
 
-No `page-break-inside`, no fixed height meant to make something fit, and no scrolling container
-hiding part of the Node.
+Leave where pages end to Page Layout: no `page-break-inside`, no fixed height meant to make something fit, and no scrolling container that hides part of the node.
 
-### A cut Node is rendered twice
+### A cut node is rendered twice
 
-A cut Node is rendered once per fragment, and the second fragment is marked as a continuation.
+A cut node is rendered once per part, and the part on the later page carries `data-tt-split-continuation`, for a label or indent that should not repeat.
 
-- **Per-mount state.** A NodeView that counts its instances, keeps state per mount or registers
-  something globally on create will notice. Keep state on the Node.
-- **Whole-Node actions.** `updateAttributes` and `deleteNode` act on the whole Node from either
-  fragment.
-- **Which fragment.** `engine.sourceNodeOfView(getPos())` says which fragment it is:
-  `{ pos, node, piece: { index, count } }`.
-- **Positions.** `getPos()` is a position in the pages. The `pos` it answers with is the Node's
-  position in the document, for `onSourceDocument` or `dispatchSourceTransaction`.
-- **Styling the continuation.** It carries `data-tt-split-continuation`, for a label or an indent
-  of yours that should not repeat. See [Styling](/page-layout/guides/styling#margins-between-blocks).
+A NodeView that counts instances, keeps state per mount or registers something globally on create notices the second render. So keep such state in the node's attributes, which both parts share.
 
-### Changes the editor makes to a table
+`updateAttributes` and `deleteNode` act on the whole node from either part. `getPos()` is a position in the pages, so a transaction of your own at `getPos()`, or a command, writes only the part it is on.
 
-Every part of a table on a page gets the columns of the whole table, so the editor writes the
-`<colgroup>` and the width on the `<table>` itself.
+To write to the whole node, get its position in the document from [`engine.sourceNodeOfView(getPos())`](/page-layout/extension-behavior/your-own-extension/react-nodeviews#the-node-behind-a-component), and pass it to `onSourceDocument` or `dispatchSourceTransaction`.
 
-- **Your table NodeView.** One built on `TableView` from `@tiptap/pm/tables` is told to leave
-  those changes alone. Its `ignoreMutation` still answers for everything else.
-- **Your own DOM changes.** Code of yours that writes into the rendering of a Node another
-  extension draws says which changes are its own, and every NodeView of that type lets them pass:
+### DOM changes Page Layout makes
+
+Code of yours that writes into the rendering of another extension's node names its DOM changes with `ignoredMutation`, and every NodeView of that type lets them pass:
 
 ```js
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
 defineNodeLayout('image', {
   ignoredMutation: (mutation) => mutation.target.classList?.contains('my-image-badge'),
 })
 ```
 
-### Labels drawn by a Decoration
+Page Layout itself writes the `<colgroup>` and the width of the `<table>` on every part of a table, so each part has the columns of the whole table. Every NodeView of the table lets these changes pass, and its own `ignoreMutation` answers for the rest.
 
-A measurement is kept until the Node changes. A number a Decoration writes into an attribute for
-CSS to print, such as a note mark or a figure number, changes without the Node changing. Name the
-attribute, and the line is measured again when the number gets a digit longer.
+### Labels drawn by a decoration
 
-This is the rule the footnote reference comes with:
+A decoration draws something over the document without changing it. When it writes a number into an attribute for CSS to draw, such as a footnote mark, the node does not change, so Page Layout keeps its old measurement.
+
+Name the attribute in `labelAttribute`, and the line is measured again when the label gets wider, such as by one digit:
 
 ```js
-defineNodeLayout('footnoteReference', {
-  labelAttribute: 'data-tt-footnote-number',
-})
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('footnoteReference', { labelAttribute: 'data-tt-footnote-number' })
 ```
 
-- **Sheets not drawn.** A label on a sheet that is not drawn is noticed when the sheet is drawn.
-- **Only a label whose width varies.** A Decoration that adds a class or a color moves nothing.
-- **Blocks too.** The Node may be a block, such as a heading whose outline number is drawn in
-  front of its text:
+The footnote reference comes with this rule. A block works too, such as a heading with an outline number: `defineNodeLayout('heading', { labelAttribute: 'data-tt-outline-number' })`.
+
+A label on a sheet that is not drawn is noticed when it is drawn. Use `labelAttribute` only for a label whose width varies, because a class or a color moves nothing.
+
+## Values per page
+
+A node in a header or footer is the same node on every page. For a value that differs per page, such as "Page iv of 12", give the type a `pageText` function and a `labelAttribute`.
+
+Page Layout calls `pageText` with the node and the page on every page, and writes the answer into that attribute for your CSS to draw. Here, `pageVariable` stands for your node type:
 
 ```js
-defineNodeLayout('heading', { labelAttribute: 'data-tt-outline-number' })
-```
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
 
-### Values per page
-
-A Node in a header or footer is the same Node on every page. What should differ per page, such as
-a number or a count, is asked per page with `pageText` and written into the `labelAttribute`:
-
-```js
 defineNodeLayout('pageVariable', {
   labelAttribute: 'page-variable-text',
-  pageText: (node, page) => page.label,
+  pageText: (node, page) => `Page ${page.label} of ${page.pageCount}`,
 })
 ```
 
-- **`page`** is a `PageContext`, described under
-  [Your own value per page](/page-layout/features/page-numbers#your-own-value-per-page).
-- **Needs a label attribute.** A type without `labelAttribute` draws nothing from `pageText`.
-- **Bands only.** Only Nodes in headers and footers are asked.
-- **Height per mask.** A band is measured once per mask, so a value that wraps onto a second line
-  on one page does not make that page's band taller.
+`page.label` is the page number in its section's format, and `page.pageCount` the number of pages. [Your own value per page](/page-layout/features/page-numbers#your-own-value-per-page) shows the CSS and every field of `page`.
 
-### Counting Nodes
+## Counting nodes
 
-Counting Nodes of the Editor's document counts the pages' copy of them. A block cut across two
-pages is two Nodes there, and the header or footer being edited is a Node too. An Extension that
-numbers or lists Nodes leaves those out with `ignoreLayoutArtifacts`:
+Counting the nodes of `editor.state.doc` counts the pages, where a block cut across two pages is two nodes, and the header or footer being edited is a node too. `ignoreLayoutArtifacts` skips what exists only on the pages:
 
 ```js
 import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
@@ -364,43 +291,27 @@ import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
 editor.state.doc.descendants((node) => {
   const skip = ignoreLayoutArtifacts(node)
   if (skip === true) {
-    return false // not a Node of the text, nor is anything in it
+    return false
   }
   if (skip === 'descend') {
-    return true // the rest of a list or quote: not a Node of the text, its items are
+    return true
   }
-  // …
+  // Count the node here.
 })
 ```
 
-`isLayoutArtifact(node)` is the same reading as a yes or no. See
-[Packages that work without pages](/page-layout/extension-behavior#packages-that-work-without-pages).
+[Packages that work without pages](/page-layout/extension-behavior#packages-that-work-without-pages) explains each answer and `isLayoutArtifact`.
 
 ## What is not possible
 
-- **A cut inside a Node whose rule is `'none'`.** A Node taller than a page that may not be cut is
-  clipped. Give it a `splitDepth` if it can grow that tall.
-- **Keeping a nested Node together.** `keepTogether`, `keepWithNext`, `startsPage` and
-  `blockBreaksOf` apply to top-level blocks only.
-- **Drawing repeated children** above a continuation of a type other than `table`.
-- **Reusing the table's merged cells.** `fragmentAdapter` builds them, and neither the table's
-  adapter nor its types are exported.
-- **A rule per editor.** Two editors on one page share every rule.
-- **Changing a rule for an editor that exists.** The fields read while the schemas are built, and
-  a `splitDepth` that makes a type splittable for the first time, need the rule in place before
-  the editor is created.
-- **Keeping lines together.** No rule keeps a minimum of lines on either side of a cut.
+No rule keeps a nested node together, because `keepTogether`, `keepWithNext`, `startsPage` and `blockBreaksOf` apply to top-level blocks only. No rule keeps a minimum number of lines on either side of a cut, so there is no widow and orphan control.
+
+Repeated children are drawn for `table` only, and the table's merged cells cannot be reused, as [fragmentAdapter](/page-layout/extension-behavior/your-own-extension/node-layout-reference#fragmentadapter) explains. [Your own extension](/page-layout/extension-behavior/your-own-extension) lists the other limits: clipped nodes, and rules shared by every editor and needed before the editor is created.
 
 ## What must never go into the document
 
-No page numbers, no "this is a continuation" flag, no measured height, and no break your code
-inserted because something did not fit.
+Never put page numbers, a continuation flag, a measured height or a break inserted because something did not fit into the document. These change when a font loads, the paper changes, or a collaborator on another screen edits the same text.
 
-- **They change.** All of those change when a font loads, when the paper changes, or when a
-  collaborator on a different screen edits the same text.
-- **They would spread.** In the document they would be saved to your database and synchronized to
-  everybody, and the next reader would see somebody else's page breaks.
-- **Ask instead.** If your Node needs to know which page it is on, ask the
-  [page map](/page-layout/getting-started/document-and-pages/reading#the-page-map). It is worked out from the document, and it is up to date
-  after every edit.
-- **In a header or footer**, `pageText` is the way.
+In the document they would be saved and synchronized, and the next user would see somebody else's page breaks.
+
+To know which page a node is on, ask [the page map](/page-layout/getting-started/document-and-pages/reading#the-page-map). It is worked out from the current layout of the document, so ask it again after an edit. In a header or footer, use [`pageText`](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#values-per-page).

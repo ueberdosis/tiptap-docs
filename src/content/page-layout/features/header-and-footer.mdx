@@ -1,12 +1,12 @@
 ---
 title: 'Header and footer'
-intro: 'A band above the text column and one below it, drawn on every page of a section. A band holds rich text like the rest of the document: a paragraph, an image, a table, a horizontal rule.'
+intro: 'A header is content at the top of every page of a section, and a footer is content at the bottom. Use them for a running title, a logo or page numbers. Both hold blocks like the rest of the document: paragraphs, images, tables, horizontal rules.'
 headerDemo:
   path: '/Extensions/PageLayoutHeaderFooter'
   isPro: true
 tags:
-  - type: pro
   - type: alpha
+  - type: restricted
 meta:
   title: 'Header and footer | Tiptap Page Layout Docs'
   description: 'Edit headers and footers, use different first and odd and even pages, share them between sections and set how far they sit from the edge.'
@@ -17,8 +17,7 @@ meta:
 
 ## Quick start
 
-Headers and footers are on by default. A reader double-clicks a band to edit it. A toolbar
-button opens one with a Command:
+Headers and footers are on by default, and the user edits one with a double-click. The commands call them furniture. This example gives the first page its own header and footer, then writes into the footer from code:
 
 ```js
 import { createPageLayoutEditor, PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
@@ -26,331 +25,265 @@ import StarterKit from '@tiptap/starter-kit'
 
 const editor = createPageLayoutEditor({
   element: document.querySelector('#editor'),
+  content: { type: 'doc', content: [{ type: 'paragraph' }] },
   extensions: [StarterKit, PageLayout.configure({ setup: pageSetup('A4') })],
 })
 
-editor.commands.openFurniture({ zone: 'header' })
+// Pass both switches. The first page of section 0 gets its own header and footer, empty until written.
+editor.commands.setFurnitureFlags(0, { differentFirstPage: true, differentOddEven: false })
+
+// Open the footer of the cursor's page, write into it, and go back to the text
+editor.commands.openFurniture({ zone: 'footer' })
+editor.chain().insertContent('Draft').run()
+editor.commands.closeFurniture()
 ```
 
-- **One header per section.** The document stores one header, not one per page. Every page
-  draws its copy from it, so pages can come and go without the content changing.
-- **Stored in the section break.** A section's bands are kept inside the section break that
-  starts it. The first section gets a break at the top of the document when its first band is
-  written.
-- **Writing and reading.** Writing is always a Command. Reading is always the engine in
-  `editor.storage.pageLayout`.
+A [section](/page-layout/features/sections) is a run of the document with its own page setup, and section `0` is the first. Commands write headers and footers, and `editor.storage.pageLayout.engine`, the object that lays out the pages, reads them.
 
-## Getting in and out
+## Opening and closing a header or footer
 
-- **Double-click a band** to start editing it. Nothing needs wiring.
-- **A single click** on another band moves there while one is open.
-- **A double-click anywhere else** leaves the band: the text, the margin, the gray around the
-  sheet.
-- **Escape** closes the band and puts the caret back in the text.
-- **An Escape that a menu or a suggestion popup in the band handles** closes that first.
-- **A surface with its own way in** switches the clicks off. That switches Escape off too. The
-  Commands work either way.
+The user double-clicks a header or footer to open it, and double-clicks the text to leave it. You do not need to wire anything for this.
+
+A toolbar opens the header of the cursor's page with [`openFurniture()`](/page-layout/features/header-and-footer#openfurniture), so a button needs to know nothing about pages. [`stepFurniture()`](/page-layout/features/header-and-footer#stepfurniture) moves to the next header, and [`closeFurniture()`](/page-layout/features/header-and-footer#closefurniture) goes back to the text.
+
+`engine.getFurnitureTarget()` returns what is open, as `{ zone, slot, sectionIndex, pageIndex }`, or `null` in the text. Its `slot` says which of the section's headers it is.
+
+While one is open, a single click on another moves there, and a double-click on the text, the margin or the gray around the pages leaves. Escape leaves too, unless a menu or popup in the header takes it first.
+
+While none is open, a single click on a header does nothing, so the text keeps its usual click.
+
+A double-click leaves only inside the nearest ancestor that scrolls the pages, or inside the editor's element when the window scrolls. So one in a toolbar does not, and the toolbar needs a button that calls `closeFurniture()`.
+
+`furnitureClicks: false` switches off the clicks and Escape, for an app with its own way in. The commands work either way:
 
 ```js
+import { PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+
 PageLayout.configure({ setup: pageSetup('A4'), furnitureClicks: false })
 ```
 
-From a toolbar, `openFurniture` opens the band of the page the cursor is on, so the button needs
-to know nothing about pages. `stepFurniture` walks through the bands, which is what a "Next
-header" button does. `closeFurniture` goes back to the text.
+## Editing in a header or footer
+
+While a header or footer is open, the commands of your extensions act on it. `insertTable()` inserts a table into the header, and `addRowAfter()` adds a row to it. `editor.can()` and `editor.isActive()` answer for the cursor in the header.
+
+A transaction dispatched on `editor.view` acts on the header too, unless it also changes the text. `insertFootnote()` puts the reference in the header and the note where notes go, and the cursor stays.
+
+A table cell created empty gets an empty paragraph, as in the text. Mod-A selects only the header's content.
+
+The selection, whether a caret, a range or a selected image, moves with the content through edits, undo, redo and a collaborator's change. Undo keeps the selection the user has rather than the one from before the edit.
+
+By default the text stays visible behind an open header, and the editor's root element has the `data-tt-show-document-text` attribute. `engine.setShowDocumentText(false)` removes it, and `engine.getShowDocumentText()` reads it. Page Layout draws nothing differently, so hide the text in your stylesheet:
+
+```css
+[data-tt-furniture-editing]:not([data-tt-show-document-text]) [data-tt-page-region] {
+  opacity: 0.1;
+}
+```
+
+## A different first page, odd and even pages
+
+`setFurnitureFlags()` gives a section's first page, or its even pages, a header and footer of their own. It takes the section's index and both switches:
 
 ```js
-editor.commands.openFurniture({ zone: 'footer', reveal: true })
-editor.commands.stepFurniture(1) // forwards
-editor.commands.stepFurniture(-1) // backwards
-editor.commands.closeFurniture()
-
 const engine = editor.storage.pageLayout.engine
 
-engine.getFurnitureTarget() // { zone, slot, sectionIndex, pageIndex }, or null in the text
+editor.commands.setFurnitureFlags(0, { differentFirstPage: true, differentOddEven: true })
+
+engine.getFurnitureFlags(0) // { differentFirstPage: true, differentOddEven: true }
+engine.getFurnitureSlots(0) // ['first', 'default', 'even']
 ```
 
-- **`reveal`** scrolls the band into view. Pass it when the button names a band the reader cannot
-  currently see.
-- **A click on a band** needs `reveal` off, since the reader is already looking at what they
-  clicked.
+A section has up to three headers and three footers, one per slot. The slot says which pages draw it:
 
-## Editing in a band
+| Slot      | Drawn on                                                                 |
+| --------- | ------------------------------------------------------------------------ |
+| `default` | Every page no other slot covers. With `differentOddEven`, the odd pages. |
+| `first`   | The section's first page, once `differentFirstPage` is on.               |
+| `even`    | Even pages, once `differentOddEven` is on.                               |
 
-While a band is being edited, the Commands of your Extensions act on it, as they would in an
-editor without pages.
+Each switch covers header and footer together. A later section does not take the switches over, though it shows the earlier section's headers. On a first page that is also even, `first` wins. `getFurnitureSlots()` lists the slots in use in the order `first`, `default`, `even`.
 
-- **Commands.** `insertTable` inserts the table into the header. `addRowAfter` adds a row to a
-  table in it.
-- **Asking.** `editor.can()` and `editor.isActive()` answer for the cursor in the band.
-- **Transactions.** A Transaction dispatched on `editor.view` acts on the band too.
-- **Empty cells.** A cell created empty is given an empty paragraph, as in the text.
-- **A Command that writes somewhere else as well**, such as `insertFootnote`, does both. The
-  reference goes into the header, the note text where notes go, and the cursor stays in the
-  header.
-- **The Selection** stays where it is through an edit, an undo, a redo and a change from another
-  person, moving with the content around it. That holds for a caret, a range and a selected
-  image.
-- **Undo** keeps the current Selection rather than putting back the one from before the edit,
-  as undo in the text does. Select a word in a header after typing, undo, and the word is still
-  selected.
-- **A band no section has yet** is created empty in the section being opened, as it opens. The
-  first keystroke then writes into this section, not into the one before it.
+A `first` or `even` header starts empty and does not fall back to `default`, so a title page without a header is `differentFirstPage: true` and nothing else.
 
-## Different pages, different bands
+To fill the even pages, open the header on one, or pass `slot: 'even'` to `openFurniture()`. Switching a slot off keeps its content for when it is switched on again.
 
-Each zone can have up to three variants per section, called **masks**:
-
-| Mask      | Drawn on                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------ |
-| `default` | Every page that no other mask covers                                                       |
-| `first`   | The first page of the section, once `differentFirstPage` is switched on                    |
-| `even`    | The even pages, once `differentOddEven` is switched on. `default` then covers the odd ones |
-
-The two switches are per section:
-
-```js
-editor.commands.setFurnitureFlags(sectionIndex, {
-  differentFirstPage: true,
-  differentOddEven: false,
-})
-
-engine.getFurnitureFlags(sectionIndex) // the current pair
-engine.getFurnitureSlots(sectionIndex) // the masks in use
-```
-
-- **`getFurnitureSlots`** returns the masks in the order `first`, `default`, `even`, leaving out
-  the ones switched off.
-- **`stepFurniture`** walks them in the order of the first page each one is drawn on. With both
-  switches on, that is `first`, `even`, `default`. A mask no page draws yet comes last.
-
-- **A title page without a header**, and a running header from page two on, is
-  `differentFirstPage: true` with the `first` mask left empty.
-- **Switching a mask off** keeps its content in the document. Switching it on again brings the
-  old header back.
-- **Even follows the number printed on the page.** A section whose count starts again at 1 opens
-  with the `default` mask, wherever it falls in the document.
+Odd and even follow the number printed on the page, so a section whose count starts again at 1 opens with `default` wherever it falls. See [Numbering per section](/page-layout/features/page-numbers/numbering).
 
 ## Inheriting from the section before
 
-A new section shows the header of the section above it until it is given one of its own, like
-Word's _Link to previous_.
+A section without a header of its own shows the header of the section before it, as Word's "Link to previous" does. Each slot inherits on its own, so a `first` or `even` header that no earlier section has is drawn empty.
+
+A section stores its headers and footers in the [section break](/page-layout/features/sections#section-breaks) that starts it. Each of its pages draws a copy, so pages can come and go without changing them.
+
+The first section gets a break at the top of the document when its header is first opened. A header that no section has yet is created empty in the section you open it in, so the first keystroke writes into this section.
+
+Editing an inherited header edits the section it comes from, which reaches every section that shows it. To change one section only, call `unlinkFurniture()` first, which copies the header into the section. These calls act on the open header or footer:
 
 ```js
-engine.isFurnitureInherited() // is the band being edited inherited?
+const engine = editor.storage.pageLayout.engine
+
+engine.isFurnitureInherited() // true when the open header comes from a section before
 engine.getFurnitureSource() // { own, sourceSectionIndex, linkedSectionIndex }, or null
 
 editor.commands.unlinkFurniture() // give this section its own copy to edit
-editor.commands.linkFurniture('previous') // follow the section above again
-editor.commands.linkFurniture(2) // follow a particular section
+editor.commands.linkFurniture('previous') // follow the section before again
+editor.commands.linkFurniture(2) // follow section 2
 ```
 
-`getFurnitureSource` answers for the band being edited, and is `null` while none is:
+While none is open, they return `false` and `null`. `own` is `true` when the section has its own header, which overrules any link.
 
-| Field                | Type             | Description                                                               |
-| -------------------- | ---------------- | ------------------------------------------------------------------------- |
-| `own`                | `boolean`        | The section has a band of its own, which overrules any link               |
-| `sourceSectionIndex` | `number \| null` | The section whose band is drawn, or `null` while no section has one       |
-| `linkedSectionIndex` | `number \| null` | The section this band was told to follow, or `null` for the section above |
+`sourceSectionIndex` is the section whose header is drawn, or `null` while no section has one. `linkedSectionIndex` is the section the header was told to follow, or `null` for the section before.
 
-- **Editing an inherited band** edits the section it came from. A correction to a running
-  header reaches every section that follows it.
-- **To make one section differ**, call `unlinkFurniture()` first. It copies the inherited content
-  into a band of the section's own.
-- **Linking deletes the section's own band.** Ask the reader before you call `linkFurniture`.
-- **A link to a section by index** keeps following that section when another section is inserted
-  in front of it.
+`linkFurniture()` deletes the section's own header, so ask the user first. A link by index keeps following its section when another is inserted in front of it, and falls back to the section before when its section is gone.
 
 ## How far from the edge
 
-The offset is the distance from the top of the sheet to the header, and from the bottom of the
-sheet to the footer, in CSS pixels:
+The offset is how far the header sits from the top edge of the sheet, the paper a page is drawn on, and the footer from the bottom edge. It is in CSS pixels, and one slot can have its own:
 
 ```js
-editor.commands.setFurnitureOffsets(sectionIndex, { header: 96, footer: 96 })
+const engine = editor.storage.pageLayout.engine
 
-engine.getFurnitureOffsets(sectionIndex) // { header, footer }, null for the default
+editor.commands.setFurnitureOffsets(0, { header: 96, footer: 96 })
+engine.getFurnitureOffsets(0) // { header: 96, footer: 96 }, null for the default
+
+// A lower header on the title page only
+editor.commands.setFurnitureOffset({ sectionIndex: 0, zone: 'header', slot: 'first', offset: 192 })
+engine.getFurnitureOffset({ sectionIndex: 0, zone: 'header', slot: 'first' }) // 192
+engine.hasFurnitureOffsetsPerMask(0) // true: a slot (mask) of section 0 has its own offset
 ```
 
-- **`null` is the default** of 1.25 cm. `DEFAULT_FURNITURE_OFFSET` holds it in pixels.
-- **`0` is an offset**: the band sits flush against the edge of the paper.
-- **The text starts at whichever is lower**: the top margin, or the header's offset plus its
-  actual height. A three-line header pushes the first paragraph down. A page with no header
-  starts at the margin.
-- **Setting the section's offsets** drops the offsets of single masks.
+`null` is the default, 1.25 cm or about 47.24 px, which the package exports as `DEFAULT_FURNITURE_OFFSET`. It does not change with the margins, and `0` puts the header against the paper's edge.
 
-An offset can also be set per mask, for a title page whose header sits lower than the rest:
+The text starts at the top margin or under the header, whichever is lower. So a three-line header pushes the text down, and a page without a header starts at the margin.
 
-```js
-editor.commands.setFurnitureOffset({
-  sectionIndex,
-  zone: 'header',
-  slot: 'first',
-  offset: 192, // null falls back to the section's offset
-})
+A header taller than the page still leaves one line of text, and the page overflows. The open header takes its room even when empty, so with a small margin the text moves down while it is open.
 
-engine.getFurnitureOffset({ sectionIndex, zone: 'header', slot: 'first' })
-engine.hasFurnitureOffsetsPerMask(sectionIndex)
-```
+`getFurnitureOffset()` returns the slot's own offset, else the section's, else `null`. `setFurnitureOffsets()` drops the offsets of single slots. An inherited header keeps its offset in every section that shows it, because the offset is written on the section it comes from.
 
-- **`getFurnitureOffset`** returns the mask's own offset, else the section's, else `null`.
-- **`hasFurnitureOffsetsPerMask`** says whether any mask of the section has an offset of its own.
-- **An inherited band** keeps its own offset in every section that shows it.
+## A page number in a header or footer
 
-## A page number in a band
-
-With a band open, `insertPageNumber` puts a field at the caret. It shows the number of whichever
-page the band is drawn on, the count of pages, or the count of the section's pages:
+While a header or footer is open, `insertPageNumber()` puts a field at the caret, an inline node that shows a number for each page. `'page'` shows the page's number, `'pages'` the count of pages, and `'sectionPages'` the count of the section's pages:
 
 ```js
 editor.chain().insertContent('Page ').insertPageNumber('page').run()
 ```
 
-- **The kinds of field** are under
-  [A page number in a header or footer](/page-layout/features/page-numbers#a-page-number-in-a-header-or-footer).
-- **The format and where the count starts** are under
-  [Numbering per section](/page-layout/features/page-numbers/numbering).
-- **To number every page of a section** without opening a band, `insertPageNumbers` puts the
-  number into each of the section's headers or footers at once, beside the band's first line. See
-  [Page numbers on every page](/page-layout/features/page-numbers#page-numbers-on-every-page).
+`insertPageNumbers()` puts the number into a section's headers or footers at once, at the side of their first line, without opening one. See [Page numbers](/page-layout/features/page-numbers).
 
 ## Switching it off
 
+`pageFurniture: false` switches headers and footers off, with no header drawn and no double-click into one:
+
 ```js
+import { PageLayout } from '@tiptap-pro/extension-page-layout'
+
 PageLayout.configure({ pageFurniture: false })
 ```
 
-No bands, no double-click to enter one, and every Command on this page returns `false`.
+Every command on this page then returns `false`. An engine method called directly can throw `page furniture: schema is missing pageFurniture`.
 
 ## Commands
 
-### openFurniture
+The commands return `false` and change nothing when they cannot act, as [How commands behave](/page-layout/reference/commands#how-commands-behave) explains. Some also return `false` while [pageless](/page-layout/features/page-format#pageless), the view of a document without pages. `can()` of `openFurniture()`, `linkFurniture()`, `setFurnitureFlags()`, `setFurnitureOffsets()` and `setFurnitureOffset()` checks only that Page Layout runs, so it is `true` even then.
 
-Opens a header or footer for editing.
+### openFurniture()
+
+Opens a header or footer for editing:
 
 ```js
-editor.commands.openFurniture({ zone: 'header' })
 editor.commands.openFurniture({ zone: 'footer', pageIndex: 3, slot: 'even', reveal: true })
 ```
 
-| Option      | Type                             | Description                                                             |
-| ----------- | -------------------------------- | ----------------------------------------------------------------------- |
-| `zone`      | `'header' \| 'footer'`           | The band to open                                                        |
-| `pageIndex` | `number`                         | The page to open it from, counting from zero. Default the cursor's page |
-| `slot`      | `'default' \| 'first' \| 'even'` | The mask to open. Default the one the page draws                        |
-| `reveal`    | `boolean`                        | Scrolls the band fully into view. Default `false`                       |
+It takes these options:
 
-- **The mask follows the page.** Page four of a section with different odd and even pages opens
-  `even`.
-- **A `slot` opens on the first page of the section that draws it**, not on the page asked from.
-  Asking for `even` from page one opens it on the section's first even page.
-- **A mask no page draws yet**, in a section with fewer pages than masks, opens on the section's
-  last page.
+| Option      | Type                             | Default           | Description                                                                                  |
+| ----------- | -------------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
+| `zone`      | `'header' \| 'footer'`           | Required          | The header or the footer.                                                                    |
+| `pageIndex` | `number`                         | The cursor's page | The page to open from, counted from zero.                                                    |
+| `slot`      | `'default' \| 'first' \| 'even'` | The page's slot   | The slot to open.                                                                            |
+| `reveal`    | `boolean`                        | `false`           | Scrolls it into view, for a button that names a header the user cannot see, not for a click. |
 
-Returns `false` for a page that does not exist and for a mask the section does not draw. `can()`
-answers only whether the engine is running.
+Without `slot`, the page decides, so page four of a section with odd and even pages opens `even`. With `slot`, it opens on the section's first page that draws that slot. When the section has fewer pages than slots, a slot no page draws opens on its last page.
 
-### stepFurniture
+Returns `false` for a page that does not exist and for a slot the section has switched off. To know the slots beforehand, pass `engine.getFurnitureFlags(sectionIndex)` to `slotsInUse()`, which the package exports.
 
-Opens the mask before or after the one being edited, on the page that shows it, in the same zone.
+### stepFurniture()
+
+Opens the slot before or after the open one, in the same zone, on the page that shows it, and scrolls it into view:
 
 ```js
 editor.commands.stepFurniture(1)
 editor.can().stepFurniture(1) // false disables a "Next header" button
 ```
 
-| Argument    | Type      | Description                  |
-| ----------- | --------- | ---------------------------- |
-| `direction` | `1 \| -1` | `1` forwards, `-1` backwards |
+Takes `direction`: `1` forwards or `-1` backwards. It goes in the order of the first page each slot is drawn on, so `first`, `even`, `default` with both switches on. A slot no page draws yet comes last. It crosses sections and wraps from the last slot to the first.
 
-- **It crosses sections**, and wraps around from the last mask to the first.
-- **The band is always scrolled into view.**
+Returns `false` while nothing is open, and when the document has a single slot.
 
-Returns `false` while no band is open, and where the document has a single mask.
+### closeFurniture()
 
-### closeFurniture
-
-Leaves the band and puts the caret back where the reader left the text.
+Leaves the header or footer and puts the caret back where the user left the text:
 
 ```js
 editor.commands.closeFurniture()
 ```
 
-Returns `false` while no band is open.
+It takes no arguments, and returns `false` while nothing is open.
 
-### setFurnitureFlags
+### setFurnitureFlags()
 
-Switches a different first page and different odd and even pages for one section.
+Switches a different first page and different odd and even pages for one section:
 
 ```js
 editor.commands.setFurnitureFlags(0, { differentFirstPage: true, differentOddEven: true })
 ```
 
-| Argument       | Type             | Description                                                 |
-| -------------- | ---------------- | ----------------------------------------------------------- |
-| `sectionIndex` | `number`         | An index of `engine.getSections()`                          |
-| `flags`        | `FurnitureFlags` | `differentFirstPage` and `differentOddEven`, both `boolean` |
-
-A band open in that section is opened again on the same page, with the mask that page now draws.
+Takes `sectionIndex`, an index of `engine.getSections()`, and `flags`, which holds both `differentFirstPage` and `differentOddEven` as `boolean`. A header open in that section opens again on the same page, in the slot that page draws after the change.
 
 Returns `false` while pageless and for an index with no section.
 
-### setFurnitureOffsets
+### setFurnitureOffsets()
 
-Sets how far one section's header and footer sit from the edge of the sheet.
+Sets how far one section's header and footer sit from the edge of the sheet:
 
 ```js
 editor.commands.setFurnitureOffsets(0, { header: 48, footer: null })
 ```
 
-| Argument       | Type               | Description                                                 |
-| -------------- | ------------------ | ----------------------------------------------------------- |
-| `sectionIndex` | `number`           | An index of `engine.getSections()`                          |
-| `offsets`      | `FurnitureOffsets` | `header` and `footer` in CSS pixels, `null` for the default |
+Takes `sectionIndex` and `offsets`, which holds both `header` and `footer`, each in CSS pixels or `null` for the default.
 
 Returns `false` while pageless and for an index with no section.
 
-### setFurnitureOffset
+### setFurnitureOffset()
 
-Sets the offset of one mask, or `null` to follow its section.
+Sets the offset of one slot, or `null` to follow its section:
 
 ```js
-editor.commands.setFurnitureOffset({ sectionIndex: 0, zone: 'header', slot: 'first', offset: 192 })
+editor.commands.setFurnitureOffset({ sectionIndex: 0, zone: 'header', slot: 'first', offset: null })
 ```
 
-| Option         | Type                             | Description                                       |
-| -------------- | -------------------------------- | ------------------------------------------------- |
-| `sectionIndex` | `number`                         | An index of `engine.getSections()`                |
-| `zone`         | `'header' \| 'footer'`           | The band                                          |
-| `slot`         | `'default' \| 'first' \| 'even'` | The mask                                          |
-| `offset`       | `number \| null`                 | In CSS pixels, or `null` for the section's offset |
+Takes one object, every field required: `sectionIndex`, an index of `engine.getSections()`, `zone`, `slot`, and `offset` in CSS pixels or `null`. On a slot nobody has written, it creates that header, empty, with the offset.
 
-Returns `false` while pageless, for an index with no section, and when the mask already has that
-offset.
+Returns `false` while pageless, for an index with no section, and when the slot has that offset already.
 
-### unlinkFurniture
+### unlinkFurniture()
 
-Gives the section of the band being edited its own copy of the band it inherits.
+Copies the inherited header or footer that is open into its section, so the section can change it alone:
 
 ```js
 editor.commands.unlinkFurniture()
 ```
 
-Returns `false` while no band is open, and when the section already has a band of its own.
+It takes no arguments, and returns `false` while nothing is open and when the section has its own already.
 
-### linkFurniture
+### linkFurniture()
 
-Deletes the section's own band, so its pages show the band of the section above or of the
-section named.
+Deletes the open header or footer from its section, so its pages show the one of the section before, or of the section named:
 
 ```js
-editor.commands.linkFurniture('previous')
 editor.commands.linkFurniture(2)
 ```
 
-| Argument | Type                   | Description                                                                      |
-| -------- | ---------------------- | -------------------------------------------------------------------------------- |
-| `source` | `number \| 'previous'` | A section index, or `'previous'` for the nearest section above with its own band |
+Takes `source`: a section index, or `'previous'` for the nearest section before with its own. `engine.linkFurnitureToPrevious()` does the same as `'previous'`.
 
-Returns `false` while no band is open, for the section's own index, and when there is nothing to
-change. `can()` answers only whether the engine is running.
+Returns `false` while nothing is open, for the section's own index, and when the section already follows that source.

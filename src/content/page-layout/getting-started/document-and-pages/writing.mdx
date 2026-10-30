@@ -1,32 +1,24 @@
 ---
 title: 'Writing to the document'
-intro: 'Your own code writes to the document through the engine, never to the pages drawn from it. This page shows how, as part of <a href="/page-layout/getting-started/document-and-pages">The document and the pages</a>. <a href="/page-layout/getting-started/document-and-pages/reading">Reading the pages</a> says where to read.'
+intro: 'Your own code, such as a table menu or a NodeView (the code that renders a node), changes the document through a command or the engine at <code>editor.storage.pageLayout.engine</code>. It does not change <code>editor.state</code>, which holds the pages.'
 tags:
-  - type: pro
   - type: alpha
+  - type: restricted
 meta:
   title: 'Writing to the document | Tiptap Page Layout Docs'
-  description: 'Change the document from your own code: a command on the document, a Transaction of your own, writing at a position, and a table menu as an example.'
+  description: 'Change the document from your own code: a command on the document, a transaction of your own, writing at a position, and a table menu as an example.'
   category: Page Layout
 ---
 
 {/* Synced from ueberdosis/tiptap-pro packages/extension-page-layout/docs/positions-and-events/writing.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
 
-## Why editor.state is the wrong place
+The commands of Tiptap extensions already run on the document, such as `addColumnAfter()` of the table extension.
 
-Code written for an editor without pages usually reads `editor.state` and dispatches on
-`editor.view`. In an editor on pages, `editor.state` holds the pages:
-
-- **A table that runs over a page boundary** is a table per page there, each with only the rows of
-  its page.
-- **A paragraph cut by the boundary** is two paragraphs.
-
-A change worked out from that is worked out from the wrong table.
+In `editor.state`, a table over a page boundary is one table per page with only its rows, and a cut paragraph is two paragraphs. So a change worked out from `editor.state` is worked out from the wrong table, unless you use [editor.state as the document](/page-layout/getting-started/document-and-pages/writing#editorstate-as-the-document).
 
 ## Running a command on the document
 
-Any command of the form `(state, dispatch) => boolean` runs on the document through
-`onSourceDocument`:
+To run a function `(state, dispatch) => boolean` on the document, pass it to `onSourceDocument`. ProseMirror calls such a function a command, and `@tiptap/pm/tables` exports some:
 
 ```js
 import { addColumnAfter } from '@tiptap/pm/tables'
@@ -34,17 +26,27 @@ import { addColumnAfter } from '@tiptap/pm/tables'
 editor.commands.onSourceDocument(addColumnAfter)
 ```
 
-- **It reads the document and its cursor.** A cell that spans rows over a page boundary is one
-  cell, and a table has all its rows.
-- **It is the reader's own edit.** It can be undone, the Selection it sets is kept, and the page
-  is scrolled to where the Transaction asks.
-- **The pages are drawn again** before the call returns.
-- **`editor.can().onSourceDocument(command)`** asks the document as well, so a menu disables an
-  item by it.
+The command sees the whole document and its cursor, so a cell that spans rows over a page boundary is one cell, and a table has all its rows. While a header or footer is open, it runs at the selection there.
 
-## A Transaction of your own
+The change is the user's own edit: it can be undone, the selection the command sets is kept, and the page scrolls to where the transaction asks. The pages are drawn again before `onSourceDocument` returns.
 
-Build it on `engine.getSourceState()` and hand it to `dispatchSourceTransaction`:
+### onSourceDocument()
+
+`onSourceDocument()` runs a function `(state, dispatch) => boolean`, a ProseMirror command, on the document as the user's own edit. `editor.can()` asks the command without running it, so a menu can disable an item:
+
+```js
+import { deleteRow } from '@tiptap/pm/tables'
+
+const canDeleteRow = editor.can().onSourceDocument(deleteRow)
+```
+
+`command` (`(state, dispatch) => boolean`) is the command. It gets no third `view` argument.
+
+Returns `false` when the command returns `false` on the document, or when the editor was not built by `createPageLayoutEditor`.
+
+## A transaction of your own
+
+For an edit the user makes, such as a menu item, build a transaction on `engine.getSourceState()` and pass it to `dispatchSourceTransaction`:
 
 ```js
 const engine = editor.storage.pageLayout.engine
@@ -53,34 +55,27 @@ const state = engine.getSourceState()
 engine.dispatchSourceTransaction(state.tr.insertText('Note: ', state.selection.from))
 ```
 
-- **It is applied as `onSourceDocument` applies a command.** It can be undone, its Selection is
-  kept, and the pages are drawn again before it returns.
-- **It returns `false`** when the editor has been destroyed.
-- **Read the state, build the Transaction and dispatch it in one go.** A state kept across an
-  `await` is out of date by the time it is used.
-- **`applySourceTransaction`** is for changes that are not the reader's. It leaves the undo history
-  alone unless asked, and keeps the reader's Selection where it was.
+It works as `onSourceDocument` does, and returns `false` when the editor has been destroyed. Read the state, build the transaction and dispatch it in one go, because a state kept across an `await` is out of date by the time you use it.
 
-Both throw for a Transaction built on any other state:
+For a change the user did not make, such as a rewrite by your own code, use `applySourceTransaction(tr, options?)`. It keeps the user's selection and does not scroll.
 
-- **Built on `editor.state`.** It holds positions in the pages, which mean something else in the
-  document.
-- **Built on a state read before another change.** It would apply its steps where the text has
-  moved since.
+Undo does not take the change back unless you pass `{ addToHistory: true }`. It returns `false` when nothing changed, or after the editor is destroyed.
 
-The error says which of the two it was:
+Both methods throw for a transaction built on `editor.state`, which holds positions in the pages, with this error:
 
 ```txt
-[page-layout] dispatchSourceTransaction takes a Transaction built on engine.getSourceState(),
-and this one was built on editor.state, which holds the pages rather than the document. Build it
-again from engine.getSourceState().tr.
+[page-layout] dispatchSourceTransaction takes a Transaction built on engine.getSourceState(), and this one was built on editor.state, which holds the pages rather than the document. Build it again from engine.getSourceState().tr.
 ```
+
+For one built on a state read before another change, whose steps would land where the text has moved, the error says it `was built on a document that is no longer the current one`.
 
 ## Writing at a position
 
-Writing at a position is a Transaction on the document:
+To write at a document position, build the transaction on `engine.getSourceState()`. Here `applySourceTransaction` leaves the view where it is, and `addToHistory: true` makes the write undoable:
 
 ```js
+const engine = editor.storage.pageLayout.engine
+
 // Before
 editor.view.dispatch(editor.state.tr.insertText('Note: ', pos))
 
@@ -89,66 +84,32 @@ const state = engine.getSourceState()
 engine.applySourceTransaction(state.tr.insertText('Note: ', pos), { addToHistory: true })
 ```
 
-Without `addToHistory: true`, undo does not take the write back.
-
-A write that is a command, or a `...Transaction` function that builds one from a state, runs on the
-document as the reader's own edit: undoable, the Selection it sets kept, and scrolled to where the
-Transaction asks.
+`engine.runSourceCommand(command)` runs a command as `onSourceDocument` does. Wrap a function that writes into a transaction, such as the `...Transaction` functions of [On a server](/page-layout/guides/on-a-server), in a command to run it as the user's own edit:
 
 ```js
-engine.runSourceCommand((state, dispatch) => {
+editor.storage.pageLayout.engine.runSourceCommand((state, dispatch) => {
   dispatch?.(state.tr.insertText('Note: ', pos))
   return true
 })
 ```
 
-## Going to a position
-
-`revealSourcePosition` also draws the page the position is on and scrolls to it:
-
-```js
-// Before
-editor.commands.setTextSelection(pos)
-editor.commands.scrollIntoView()
-
-// After
-editor.commands.revealSourcePosition(pos)
-```
-
-See [Going to a position](/page-layout/getting-started/document-and-pages/reading#going-to-a-position).
-
 ## Combining commands in a chain
 
-An extension's Commands run on the document. Tiptap's core Commands, such as `insertContent`, run
-on the pages. A chain can mix the two:
+In a chain, commands of extensions run on the document and Tiptap's core commands, such as `insertContent`, run on the pages. Only `editor.chain()`, also under `can()`, combines them. Inside `editor.commands.command(...)` or `first(...)`, a core command after a document command writes nothing, although the call returns `true`:
 
 ```js
-editor.chain().goToNextCell().insertContent('X').run()
-```
-
-- **The editor writes `X` into the next cell.** A core Command in the chain still reads an explicit
-  position as a position in the pages.
-- **Undo may take more than one step.** Each run of document Commands and each run of core
-  Commands is committed on its own.
-- **During IME composition**, a chain that goes from a document Command to a core Command returns
-  `false` before the core Command writes. The document Command is already committed. Run the core
-  Command after composition ends.
-- **In a custom callback**, finish writing to a captured `tr` before you call a Command of the
-  other kind. Changing content, the Selection or stored marks through that `tr` afterwards makes
-  `run()` return `false`. What the chain committed before stays in the document.
-
-Only `editor.chain()`, and the same chain under `can()`, work this way. Inside
-`editor.commands.command(...)` or `editor.commands.first(...)`, a core Command that follows a
-document Command writes nothing, although the call returns `true`. Use a chain for that sequence:
-
-```js
-editor.chain().goToNextCell().insertContent('X').run() // writes X
+editor.chain().goToNextCell().insertContent('X').run() // writes X into the next cell
 editor.commands.command(({ commands }) => commands.goToNextCell() && commands.insertContent('X')) // does not
 ```
 
+A core command in a chain still reads a position you pass it as a position in the pages. Undo may take more than one step, because each run of document commands and of core commands is committed on its own. A chain stops early in these cases:
+
+- **During IME composition.** A chain from a document command to a core command returns `false` before the core command writes, and the document command stays committed. Run the core command after composition ends.
+- **A custom callback that captures `tr`.** Finish writing to `tr` before you call a command of the other kind. A later change to the content, the selection or the stored marks through it makes `run()` return `false`, and what the chain committed stays.
+
 ## Example: a table menu
 
-What a menu needs to know about the table at the cursor, and an action on it:
+A table menu reads the whole table from the document, not the part on one page. Here the cursor of `editor` is in a table:
 
 ```js
 import { addColumnAfter, deleteRow, findTable, TableMap } from '@tiptap/pm/tables'
@@ -171,72 +132,45 @@ const rows = table?.map.height
 const canDeleteRow = editor.can().onSourceDocument(deleteRow)
 editor.commands.onSourceDocument(addColumnAfter)
 
-// Write into the first cell, inside its first paragraph
+// Read the table again: addColumnAfter changed the document,
+// and TableMap positions hold only for the document they came from
 const state = engine.getSourceState()
 const { start, map } = tableAtCursor()
+
+// + 2 steps into the first cell and into its paragraph
 engine.dispatchSourceTransaction(state.tr.insertText('Total', start + map.map[0] + 2))
 ```
 
-`tableAtCursor()` is read again before the Transaction, because the command before it changed the
-document. `map.map` holds positions, which are valid only for the document they were read from.
-
 ## What happens to an edit made on the pages
 
-An edit dispatched on `editor.view` still reaches the document where it can be applied there:
-typing, deleting, pasting, a mark, an attribute on one Node. Two kinds are refused, and change
-nothing:
+An edit dispatched on `editor.view` still reaches the document where Page Layout can map it there: typing, deleting, pasting, a mark, an attribute on one node.
 
-- **An edit that would leave a table inconsistent**, such as a column added to the rows of one page
-  only. See [Nodes that must stay consistent](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#nodes-that-must-stay-consistent).
-- **An edit that would put a page into the document.**
+Other edits are refused and change nothing, such as a column added to the rows of one page only, or an edit that would put a page into the document.
 
-The console says so once per kind, and names `getSourceState()` and `dispatchSourceTransaction`.
-The Commands this package and the table extension put on `editor.commands` already run on the
-document, and are not affected.
+For an edit no command made, the console warns once per reason with `[page-layout] An edit to the pages was refused (<reason>) and did nothing`, and names `getSourceState()` and `dispatchSourceTransaction(tr)` as the fix.
+
+The commands of Page Layout and the table extension already run on the document.
 
 ## A command the pages could not carry
 
-A command that builds its change from what is drawn on one page, rather than from the document, can
-write something the editor cannot carry back. The `onCommandOnPages` option of `PageLayout` is told
-when that happens, with the command's name, which is how such a command is found. See
-[Options](/page-layout/reference/options#the-document).
+A view command runs on the pages, not on the document. Its extension lists it in `addViewCommands`, or a [layout rule](/page-layout/extension-behavior/your-own-extension), the settings of a node type, lists it in `viewCommands`. See [Commands of your own extension](/page-layout/extension-behavior/your-own-extension/when-no-rule-fits#commands-of-your-own-extension).
+
+A view command that reads or writes more than the caret's place, such as the end of the document or every node of a type, reads the pages. Page Layout cannot copy its edit to the document as written.
+
+The console then warns once per command. The option [`onCommandOnPages`](/page-layout/reference/options#oncommandonpages) gets a report with its name instead.
+
+To fix it, run it on the document. Take its name out of the view list, or name it in `addSourceCommands` or a rule's `sourceCommands`, which win over a view list. For one edit, pass a function `(state, dispatch) => boolean`, a ProseMirror command, to [`onSourceDocument()`](/page-layout/getting-started/document-and-pages/writing#onsourcedocument).
 
 ## editor.state as the document
 
-Experimental, and off by default:
+The experimental option `experimentalSourceState`, off by default, makes `editor.state` hold the document, so code written for an editor without pages works unchanged:
 
 ```js
+import { PageLayout, pageSetup } from '@tiptap-pro/extension-page-layout'
+
 PageLayout.configure({ setup: pageSetup('A4'), experimentalSourceState: true })
 ```
 
-`editor.state` then holds the document, so code written for an editor without pages works on it
-unchanged:
+Tiptap's own commands then run on the document, so a position for `setTextSelection`, `insertContentAt` or `deleteRange` is a document position. `editor.view.dispatch(editor.state.tr.insertText('Note: '))` changes the document as the user's own edit. `isActive()` and `getAttributes()` answer for the document, so a cut paragraph is one paragraph.
 
-- **Tiptap's own Commands run on the document.** A position handed to `setTextSelection`,
-  `insertContentAt` or `deleteRange` is a position in the document.
-- **`editor.view.dispatch(editor.state.tr.insertText('Note: '))`** changes the document, as the
-  reader's own edit.
-- **`isActive()` and `getAttributes()`** answer for the document, so a paragraph cut by a page
-  boundary is one paragraph.
-- **`editor.view.state` still holds the pages.** A position read off `editor.state` is wrong when
-  passed to the editor view, such as `editor.view.coordsAtPos()`, `domAtPos()` or `nodeDOM()`, or
-  to `editor.$pos()`. Use the engine's readers instead. See
-  [From the screen to the document and back](/page-layout/getting-started/document-and-pages/reading#from-the-screen-to-the-document-and-back).
-
-## Commands
-
-### onSourceDocument
-
-Runs a command written for an editor view on the document rather than on the pages, as the
-reader's own edit.
-
-```js
-editor.commands.onSourceDocument(addColumnAfter)
-```
-
-| Option    | Type                                 | Description                  |
-| --------- | ------------------------------------ | ---------------------------- |
-| `command` | `(state, dispatch, view) => boolean` | A ProseMirror command to run |
-
-Returns `false` when the command returns `false` on the document, and when the editor was not
-built by `createPageLayoutEditor`.
+`editor.view.state` still holds the pages, so a position from `editor.state` is wrong for `editor.view.coordsAtPos()`, `domAtPos()`, `nodeDOM()` and `editor.$pos()`. Use the engine's methods in [From the screen to the document and back](/page-layout/getting-started/document-and-pages/reading#from-the-screen-to-the-document-and-back) instead.
