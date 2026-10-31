@@ -2,9 +2,10 @@ import type { SidebarConfig } from '@/types'
 
 export const sidebarConfig: SidebarConfig = {
   id: 'composable-docs',
-  title: 'Composable Docs',
-  rootHref: '/composable-docs/slots/getting-started/overview',
+  title: 'Composable Documents',
+  rootHref: '/composable-docs',
   items: [
+    { type: 'link', title: 'Overview', href: '/composable-docs' },
     {
       type: 'group',
       title: 'Slots',
@@ -62,6 +63,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '/composable-docs/variables',
       children: [
         { title: 'Overview', href: '/composable-docs/variables/getting-started/overview' },
+        {
+          title: 'Define and manage variables',
+          href: '/composable-docs/variables/guides/define-variables',
+        },
         { title: 'Slot bindings', href: '/composable-docs/variables/guides/bind-slots' },
         { title: 'API reference', href: '/composable-docs/variables/api-reference/extension' },
         {

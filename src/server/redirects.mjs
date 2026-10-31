@@ -4,6 +4,149 @@
 
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
+  // An empty page; installing the server is part of the Hocuspocus overview
+  {
+    source: '/hocuspocus/server/install',
+    destination: '/hocuspocus/getting-started/overview',
+    permanent: true,
+  },
+  // Guides that belong to one area moved there; the authentication guide merged into the page it repeated
+  {
+    source: '/guides/naming-documents',
+    destination: '/collaboration/guides/naming-documents',
+    permanent: true,
+  },
+  {
+    source: '/guides/offline-support',
+    destination: '/collaboration/guides/offline-support',
+    permanent: true,
+  },
+  {
+    source: '/guides/collaboration-api',
+    destination: '/collaboration/guides/collaboration-api',
+    permanent: true,
+  },
+  {
+    source: '/guides/output-json-html',
+    destination: '/editor/guides/output-json-html',
+    permanent: true,
+  },
+  {
+    source: '/guides/invalid-schema',
+    destination: '/editor/guides/invalid-schema',
+    permanent: true,
+  },
+  {
+    source: '/guides/react-composable-api',
+    destination: '/editor/guides/react-composable-api',
+    permanent: true,
+  },
+  {
+    source: '/guides/spellcheck',
+    destination: '/editor/guides/spellcheck',
+    permanent: true,
+  },
+  {
+    source: '/guides/find-and-replace',
+    destination: '/editor/guides/find-and-replace',
+    permanent: true,
+  },
+  {
+    source: '/guides/create-mark',
+    destination: '/editor/guides/create-mark',
+    permanent: true,
+  },
+  {
+    source: '/guides/nested-node-view-content',
+    destination: '/editor/guides/nested-node-view-content',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-vanilla',
+    destination: '/editor/guides/decorations-vanilla',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-react',
+    destination: '/editor/guides/decorations-react',
+    permanent: true,
+  },
+  {
+    source: '/guides/decorations-vue',
+    destination: '/editor/guides/decorations-vue',
+    permanent: true,
+  },
+  {
+    source: '/guides/authentication',
+    destination: '/collaboration/getting-started/authenticate',
+    permanent: true,
+  },
+  // Pro features have their own sections; the catalog replaces the per-type index pages
+  {
+    source: '/editor/extensions/functionality/ai-generation',
+    destination: '/ai/basic/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/ai-toolkit',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/comments',
+    destination: '/comments/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/export',
+    destination: '/conversion/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/import',
+    destination: '/conversion/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/pages',
+    destination: '/pages/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/snapshot-compare',
+    destination: '/collaboration/documents/snapshot-compare',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/snapshot',
+    destination: '/collaboration/documents/snapshot',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/diagrams',
+    destination: '/diagrams/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/tracked-changes',
+    destination: '/tracked-changes/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/nodes',
+    destination: '/editor/extensions/overview?type=node',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/marks',
+    destination: '/editor/extensions/overview?type=mark',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality',
+    destination: '/editor/extensions/overview?type=extension',
+    permanent: true,
+  },
   {
     source: '/composable-docs/slots/guides/bind-variables',
     destination: '/composable-docs/variables/guides/bind-slots',
@@ -26,7 +169,7 @@ export const redirects = [
   },
   {
     source: '/docs/resources/pricing',
-    destination: '/pricing',
+    destination: 'https://tiptap.dev/pricing',
     permanent: true,
   },
   {

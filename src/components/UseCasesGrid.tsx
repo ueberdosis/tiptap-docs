@@ -209,7 +209,7 @@ function UseCaseCard({ useCase }: { useCase: UseCase }) {
           <div></div>
         </div>
         <div className="font-semibold text-black leading-[140%]">{useCase.title}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{useCase.description}</div>
+        <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{useCase.description}</div>
       </Link>
     </Card>
   )

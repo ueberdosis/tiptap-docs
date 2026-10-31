@@ -102,7 +102,7 @@ function IncidentCard({ incident }: { incident: IncidentData }) {
         </div>
 
         {/* Description */}
-        <div className="leading-[140%] text-grayAlpha-600">{incident.meta.description}</div>
+        <div className="text-sm leading-[140%] text-grayAlpha-600">{incident.meta.description}</div>
 
         {/* Meta information row */}
         <div className="mt-3 flex items-center flex-wrap gap-1 text-sm text-grayAlpha-600">

@@ -24,7 +24,7 @@ function UIComponentCard({ comp }: { comp: UIComponentMetaWithUrl }) {
           </div>
         </div>
         <div className="font-semibold text-black leading-[140%]">{comp.name}</div>
-        <div className="mt-2 leading-[140%] text-grayAlpha-600">{comp.description}</div>
+        <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{comp.description}</div>
         <div className="mt-5 flex items-center flex-wrap gap-1">
           {comp.isOpen ? <Tag>Open Source</Tag> : null}
         </div>

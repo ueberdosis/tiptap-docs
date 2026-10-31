@@ -104,7 +104,7 @@ export type GridItemParagraph = {
 export const ItemParagraph = forwardRef<HTMLParagraphElement, GridItemParagraph>(
   ({ asChild, className, children, ...props }, ref) => {
     const Component = asChild ? Slot : 'div'
-    const itemParagraphClass = cn('text-base leading-[140%]', className)
+    const itemParagraphClass = cn('text-sm leading-[140%] text-grayAlpha-600', className)
 
     return (
       <Component className={itemParagraphClass} ref={ref} {...props}>

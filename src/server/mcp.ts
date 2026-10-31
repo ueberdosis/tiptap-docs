@@ -1,0 +1,430 @@
+import fs from 'fs'
+import { CATALOG_AREAS, CATALOG_GROUPS, CATALOG_PLANS, CATALOG_STATUSES } from '../content/catalog'
+import { INDUSTRIES } from '../content/industries'
+import { EDITOR_PRESETS } from '../content/presets'
+import { createCanonicalUrl } from './createCanonicalUrl'
+import { getCatalog } from './getCatalog'
+import { DocsPage, fileForRoute, getDocsIndex } from './getDocsIndex'
+import { readFrontmatterSync } from './readFrontmatter'
+import { DOCS_SUMMARY, markdownUrl, usageNotes } from './llmsText'
+import { changelogToMarkdown } from './markdown/changelogToMarkdown'
+import { fileToMarkdown } from './markdown/fileToMarkdown'
+import { resolveContentPath } from './markdown/resolveContentPath'
+import { BASE_PATH, FULL_DOMAIN } from '@/utils/constants'
+import { planEditor, planToMarkdown } from '@/utils/planEditor'
+
+// A read-only MCP server for the docs, over Streamable HTTP with plain JSON
+// responses (no event stream). Stateless: every request stands alone.
+
+export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
+
+type JsonRpcId = string | number | null
+type JsonRpcMessage = {
+  jsonrpc?: string
+  id?: JsonRpcId
+  method?: string
+  params?: Record<string, unknown>
+}
+type JsonRpcResponse = {
+  jsonrpc: '2.0'
+  id: JsonRpcId
+  result?: unknown
+  error?: { code: number; message: string }
+}
+type ToolResult = { content: { type: 'text'; text: string }[]; isError?: boolean }
+
+const TOOLS = [
+  {
+    name: 'search_docs',
+    title: 'Search the Tiptap docs',
+    description:
+      'Find documentation pages by keywords. Returns titles, sections, plans, and Markdown URLs; read a page with get_page.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Keywords, such as "comments webhook" or "yjs json"',
+        },
+        limit: { type: 'number', description: 'Maximum number of results, 1 to 20. Default 8.' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_page',
+    title: 'Read a docs page',
+    description:
+      'Return one documentation page as Markdown, with frontmatter that names its section, plan, and status. Accepts a path such as /comments/getting-started/install or a full docs URL.',
+    inputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Page path or URL' } },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'list_features',
+    title: 'List Tiptap features',
+    description:
+      'List features from the catalog with their group, plan, and docs URL, optionally for one industry. Check this before building something Tiptap may already provide.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        area: { type: 'string', enum: Object.keys(CATALOG_AREAS) },
+        plan: { type: 'string', enum: [...CATALOG_PLANS] },
+        status: {
+          type: 'string',
+          enum: [...CATALOG_STATUSES],
+          description: 'Stable means released without a Beta, Alpha, or other status',
+        },
+        group: { type: 'string', enum: CATALOG_GROUPS.map((group) => group.id) },
+        industry: {
+          type: 'string',
+          enum: INDUSTRIES.map((industry) => industry.id),
+          description: INDUSTRIES.map((industry) => `${industry.id}: ${industry.title}`).join('; '),
+        },
+        query: { type: 'string', description: 'Filter by name or description' },
+      },
+    },
+  },
+  {
+    name: 'plan_editor',
+    title: 'Plan an editor',
+    description:
+      'Given a use case or a list of features, return the Tiptap plan, add-ons, services, npm packages, UI template, docs pages, and the next step (start building, start a trial, or talk to sales). Use it before building an editor or a feature.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        preset: {
+          type: 'string',
+          enum: EDITOR_PRESETS.map((preset) => preset.id),
+          description: EDITOR_PRESETS.map((preset) => `${preset.id}: ${preset.title}`).join('; '),
+        },
+        features: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Feature names from list_features, added to the preset',
+        },
+        deployment: {
+          type: 'string',
+          enum: ['cloud', 'on-premises'],
+          description:
+            'Where the Tiptap services run: cloud (default, Tiptap Cloud) or on-premises (Enterprise)',
+        },
+      },
+    },
+  },
+]
+
+// Search ------------------------------------------------------------------
+
+type SearchDoc = {
+  page: DocsPage
+  /** The feature's name, npm package, and meta title, which readers search for as often as the title. */
+  names: string
+  headings: string
+  body: string
+  /** A feature overview, the page to land on for its feature. */
+  isFeature: boolean
+  /** The feature's name on its overview, such as "tracked changes". */
+  featureName?: string
+}
+
+let searchDocs: SearchDoc[] | undefined
+
+function getSearchDocs(): SearchDoc[] {
+  if (searchDocs) return searchDocs
+  searchDocs = getDocsIndex().map((page) => {
+    const file = fileForRoute(page.route)
+    const source = file ? fs.readFileSync(file, 'utf8') : ''
+    const attributes = file ? readFrontmatterSync(file) : {}
+    const raw = source.replace(/^---\n[\s\S]*?\n---\n/, '')
+    const headings = [...raw.matchAll(/^#{1,4}\s+(.+)$/gm)].map((match) => match[1]).join(' ')
+    const body = raw
+      .replace(/^import .*$/gm, '')
+      .replace(/<[^>]+>/g, ' ')
+      .toLowerCase()
+    const names = [
+      attributes.extension?.name,
+      attributes.extension?.package,
+      attributes.meta?.title,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return {
+      page,
+      names,
+      headings: headings.toLowerCase(),
+      body,
+      isFeature: !!attributes.extension,
+    }
+  })
+  return searchDocs
+}
+
+// Words in a question that say nothing about what to find
+const STOP_WORDS = new Set(
+  'a an and add can do does for how i in into is it me my of on or the to use using want with your'.split(
+    ' ',
+  ),
+)
+
+/** A rough stem, so "autocomplete" finds "autocompletion" and "tables" finds "table". */
+function stem(term: string): string {
+  return term.length > 5 ? term.replace(/(ions?|ings?|e[sd]?|s)$/, '') : term
+}
+
+function count(haystack: string, needle: string): number {
+  let total = 0
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, at + 1)) total++
+  return total
+}
+
+export function searchDocsIndex(query: string, limit = 8): DocsPage[] {
+  const terms = query
+    .toLowerCase()
+    .split(/[^a-z0-9.@/-]+/)
+    .filter((term) => term.length > 1 && !STOP_WORDS.has(term))
+  if (terms.length === 0) return []
+
+  const phrase = terms.map(stem).join(' ')
+  const scored = getSearchDocs().map(({ page, names, headings, body, isFeature, featureName }) => {
+    const title = page.title.toLowerCase()
+    const trail = page.trail.join(' ').toLowerCase()
+    const description = (page.description ?? '').toLowerCase()
+    let score = 0
+    let matched = 0
+    for (const word of terms) {
+      const term = stem(word)
+      const termScore =
+        (title.includes(term) || names.includes(term) ? 6 : 0) +
+        (trail.includes(term) ? 3 : 0) +
+        (description.includes(term) ? 3 : 0) +
+        (headings.includes(term) ? 2 : 0) +
+        Math.min(count(body, term), 5) * 0.4
+      if (termScore > 0) matched++
+      score += termScore
+    }
+    // Pages that match every term rank above pages that match some
+    if (matched === terms.length) score *= 2
+    // A feature's overview is where a search for the feature should land
+    if (isFeature) score *= 1.5
+    if (featureName && phrase.includes(featureName.split(' ').map(stem).join(' '))) score *= 2
+    // Legacy pages only when nothing current matches as well
+    if (page.status === 'Legacy') score *= 0.3
+    return { page, score }
+  })
+
+  return scored
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(Math.max(limit, 1), 20))
+    .map(({ page }) => page)
+}
+
+// Tools -------------------------------------------------------------------
+
+function text(value: string, isError = false): ToolResult {
+  return { content: [{ type: 'text', text: value }], ...(isError ? { isError: true } : {}) }
+}
+
+function describe(page: DocsPage): string {
+  const meta = [
+    page.trail.join(' › '),
+    page.plan && page.plan !== 'Open source' ? `plan: ${page.plan}` : '',
+    page.status ?? '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return [
+    `${page.title}${meta ? ` (${meta})` : ''}`,
+    `  ${markdownUrl(page.route)}`,
+    page.description ? `  ${page.description}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/** Turns a path or docs URL into a route: no origin, base path, `.md`, or trailing slash. */
+export function toRoute(input: string): string {
+  let value = input.trim()
+  try {
+    if (/^https?:\/\//.test(value)) value = new URL(value).pathname
+  } catch {
+    // Not a URL; treat it as a path
+  }
+  value = value.split(/[?#]/)[0]
+  if (BASE_PATH && value.startsWith(`${BASE_PATH}/`)) value = value.slice(BASE_PATH.length)
+  if (value.startsWith('/docs/')) value = value.slice('/docs'.length)
+  value = value.replace(/\.mdx?$/, '')
+  while (value.endsWith('/')) value = value.slice(0, -1)
+  return value.startsWith('/') ? value || '/' : `/${value}`
+}
+
+async function getPage(path: string): Promise<ToolResult> {
+  let route = toRoute(path)
+  if (route === '/index') route = '/'
+
+  if (route.startsWith('/resources/changelog/')) {
+    const slug = route.slice('/resources/changelog/'.length)
+    const markdown = changelogToMarkdown(slug, createCanonicalUrl(['resources', 'changelog', slug]))
+    if (markdown) return text(markdown)
+  }
+
+  const resolved = resolveContentPath(route)
+  if (resolved.type === 'redirect') {
+    const target = toRoute(resolved.destination)
+    const file = fileForRoute(target)
+    if (file)
+      return text(await fileToMarkdown(file, createCanonicalUrl(target.split('/').filter(Boolean))))
+  }
+  if (resolved.type === 'file') {
+    return text(
+      await fileToMarkdown(resolved.filePath, createCanonicalUrl(route.split('/').filter(Boolean))),
+    )
+  }
+
+  const suggestions = searchDocsIndex(route.split('/').join(' '), 5)
+  return text(
+    [
+      `No page at ${route}.`,
+      suggestions.length ? `Pages that may help:\n\n${suggestions.map(describe).join('\n\n')}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
+    true,
+  )
+}
+
+function listFeatures(args: Record<string, unknown>): ToolResult {
+  const needle = typeof args.query === 'string' ? args.query.toLowerCase() : ''
+  const groups = new Map(CATALOG_GROUPS.map((group) => [group.id, group.title]))
+  const entries = getCatalog().filter(
+    (entry) =>
+      (!args.area || entry.area === args.area) &&
+      (!args.plan || entry.plan === args.plan) &&
+      (!args.status || (entry.status ?? 'Stable') === args.status) &&
+      (!args.group || entry.group === args.group) &&
+      (!args.industry || (entry.industries ?? []).includes(String(args.industry))) &&
+      (!needle ||
+        entry.name.toLowerCase().includes(needle) ||
+        entry.description.toLowerCase().includes(needle)),
+  )
+  if (entries.length === 0) return text('No features match these filters.')
+  return text(
+    entries
+      .map((entry) => {
+        // Announced features are not a promise: say so, and what to use today
+        const where = entry.url
+          ? markdownUrl(entry.url)
+          : `not available yet, no release date${entry.meanwhile ? `; today use ${entry.meanwhile.label}: ${markdownUrl(entry.meanwhile.url)}` : ''}`
+        const labels = [entry.plan ?? (entry.paid ? 'Paid' : undefined), entry.status]
+          .filter(Boolean)
+          .join(', ')
+        return `- ${entry.name} [${labels}] (${groups.get(entry.group)}): ${entry.description} — ${where}`
+      })
+      .join('\n'),
+  )
+}
+
+function planEditorTool(args: Record<string, unknown>): ToolResult {
+  const preset = EDITOR_PRESETS.find((candidate) => candidate.id === args.preset)
+  if (args.preset && !preset) return text(`Unknown preset "${String(args.preset)}".`, true)
+  const extra = Array.isArray(args.features) ? args.features.map(String) : []
+  if (!preset && extra.length === 0) return text('Pass a preset, features, or both.', true)
+
+  const byName = new Map(
+    getCatalog()
+      .filter((entry) => entry.url)
+      .map((entry) => [entry.name.toLowerCase(), entry]),
+  )
+  const names = [...new Set([...(preset?.features ?? []), ...extra])]
+  const unknown = names.filter((name) => !byName.has(name.toLowerCase()))
+  const features = names
+    .map((name) => byName.get(name.toLowerCase()))
+    .filter((entry) => entry !== undefined)
+    .map(({ name, url, plan, package: pkg }) => ({ name, url, plan, package: pkg }))
+
+  const deployment = args.deployment === 'on-premises' ? 'on-premises' : 'cloud'
+  const markdown = planToMarkdown(
+    planEditor(features, preset?.template, deployment),
+    FULL_DOMAIN,
+    preset ? `Editor plan: ${preset.title}` : 'Editor plan',
+  )
+  const note = unknown.length
+    ? `\nNot in the catalog, so left out: ${unknown.join(', ')}. See list_features for names.\n`
+    : ''
+  return text(markdown + note)
+}
+
+async function callTool(name: unknown, args: Record<string, unknown>): Promise<ToolResult> {
+  switch (name) {
+    case 'search_docs': {
+      const results = searchDocsIndex(String(args.query ?? ''), Number(args.limit) || 8)
+      return results.length
+        ? text(results.map(describe).join('\n\n'))
+        : text('No pages match. Try fewer or different keywords.')
+    }
+    case 'get_page':
+      return getPage(String(args.path ?? ''))
+    case 'list_features':
+      return listFeatures(args)
+    case 'plan_editor':
+      return planEditorTool(args)
+    default:
+      throw Object.assign(new Error(`Unknown tool: ${String(name)}`), { code: -32602 })
+  }
+}
+
+// JSON-RPC ----------------------------------------------------------------
+
+function instructions(): string {
+  return [DOCS_SUMMARY, '', ...usageNotes()].join('\n')
+}
+
+/** Handles one JSON-RPC message. Returns null for notifications, which get no answer. */
+export async function handleMcpMessage(message: JsonRpcMessage): Promise<JsonRpcResponse | null> {
+  const id = message.id ?? null
+  const isNotification = message.id === undefined
+  const reply = (result: unknown): JsonRpcResponse => ({ jsonrpc: '2.0', id, result })
+  const fail = (code: number, errorMessage: string): JsonRpcResponse => ({
+    jsonrpc: '2.0',
+    id,
+    error: { code, message: errorMessage },
+  })
+
+  if (message.jsonrpc !== '2.0' || typeof message.method !== 'string') {
+    return isNotification ? null : fail(-32600, 'Invalid request')
+  }
+  if (isNotification) return null
+
+  try {
+    switch (message.method) {
+      case 'initialize': {
+        const requested = String(message.params?.protocolVersion ?? '')
+        return reply({
+          protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+            ? requested
+            : SUPPORTED_PROTOCOL_VERSIONS[0],
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: { name: 'tiptap-docs', title: 'Tiptap Docs', version: '1.0.0' },
+          instructions: instructions(),
+        })
+      }
+      case 'ping':
+        return reply({})
+      case 'tools/list':
+        return reply({ tools: TOOLS })
+      case 'tools/call': {
+        const args = (message.params?.arguments ?? {}) as Record<string, unknown>
+        return reply(await callTool(message.params?.name, args))
+      }
+      default:
+        return fail(-32601, `Method not found: ${message.method}`)
+    }
+  } catch (error) {
+    const code = (error as { code?: number }).code ?? -32603
+    return fail(code, error instanceof Error ? error.message : 'Internal error')
+  }
+}

@@ -48,8 +48,10 @@ export const CodeDemo = ({
   caption,
   captionActions,
   viewer = DEMO_VIEWER,
+  view = 'preview',
   ...viewerProps
 }: CodeDemoProps) => {
+  // Demos open on their preview; the code is one click away
   if (viewer && !external && !captionActions) {
     return (
       <DemoViewer
@@ -59,6 +61,7 @@ export const CodeDemo = ({
         isSmall={isSmall}
         isLarge={isLarge}
         caption={caption}
+        view={view}
         {...viewerProps}
       />
     )

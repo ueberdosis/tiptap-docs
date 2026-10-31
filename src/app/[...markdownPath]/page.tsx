@@ -5,7 +5,8 @@ import { cache } from 'react'
 import { Layout } from '@/components/layouts/Layout'
 import { createMetadata } from '@/server/createMetadata'
 import { PageFrontmatter } from '@/types'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader, headerTags } from '@/components/PageHeader'
+import { findDocsPage } from '@/server/getDocsIndex'
 import { CopyMarkdownButton } from '@/components/CopyMarkdownButton'
 
 import { createCanonicalUrl } from '@/server/createCanonicalUrl'
@@ -14,8 +15,12 @@ import { importSidebarConfigFromMarkdownPath } from '@/server/importSidebarConfi
 import { Tag } from '@/components/ui/Tag'
 import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
+import { LegacyNotice } from '@/components/LegacyNotice'
+import { MermaidDiagrams } from '@/components/MermaidDiagrams.client'
+import { legacyFeature } from '@/content/legacy'
 import { AskAi } from '@/components/AskAi'
 import { DemoViewer } from '@/components/DemoViewer'
+import { LatestVersion } from '@/components/Changelog'
 
 type Props = {
   params: Promise<{
@@ -96,7 +101,13 @@ export default async function MarkdownPage({ params }: Props) {
     },
   }
 
+  // A sub-page shows the plan and status of its feature, as agents see them in the index
+  const tags = headerTags(pageMdx.frontmatter?.tags, findDocsPage(`/${markdownPath.join('/')}`))
   const headerDemo = pageMdx.frontmatter?.headerDemo
+  // A legacy page says what replaces it before anything else, the demo included
+  const legacy = tags.some((tag) => tag.type === 'legacy')
+    ? legacyFeature(`/${markdownPath.join('/')}`)
+    : undefined
   const showSecondarySidebar = !pageMdx.frontmatter?.sidebars?.hideSecondary
 
   const header = pageMdx.frontmatter ? (
@@ -126,10 +137,11 @@ export default async function MarkdownPage({ params }: Props) {
           </Tag>
         </div>
       ) : null}
-      {pageMdx.frontmatter?.tags ? (
+      {tags.length ? (
         <PageHeader.Tags
-          tags={pageMdx.frontmatter.tags}
+          tags={tags}
           isTemplate={markdownPath.includes('templates')}
+          hideLegacy={!!legacy}
         />
       ) : null}
       {pageMdx.frontmatter.description ? (
@@ -139,6 +151,7 @@ export default async function MarkdownPage({ params }: Props) {
           }}
         />
       ) : null}
+      {legacy ? <LegacyNotice feature={legacy} /> : null}
       {headerDemo ? (
         // The header shows the editor first; its code is one click away
         <div className="mt-8 [&>div]:my-0">
@@ -155,6 +168,10 @@ export default async function MarkdownPage({ params }: Props) {
             isLarge
             view="preview"
           />
+          {/* Without code the caption sits in the demo's bar */}
+          {headerDemo.caption && headerDemo.code !== false ? (
+            <p className="mt-3 text-sm text-grayAlpha-600">{headerDemo.caption}</p>
+          ) : null}
         </div>
       ) : null}
     </PageHeader.Wrapper>
@@ -163,6 +180,13 @@ export default async function MarkdownPage({ params }: Props) {
   const content = (
     <>
       <div className="mdx-content">{pageMdx.default()}</div>
+      <MermaidDiagrams />
+      {pageMdx.frontmatter?.extension?.package ? (
+        <LatestVersion
+          name={pageMdx.frontmatter.extension.name}
+          packages={pageMdx.frontmatter.extension.package}
+        />
+      ) : null}
       <PrevNextTiles
         config={sidebar.sidebarConfig}
         currentPath={`/${markdownPath.join('/')}`}
