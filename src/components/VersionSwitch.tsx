@@ -38,8 +38,9 @@ const VersionItem = ({ version }: { version: VersionData }) => {
 export const VersionSwitch = () => {
   return (
     <DropdownMenu.Root>
+      {/* The logo's size, so the version sits on its baseline */}
       <DropdownMenu.Trigger asChild>
-        <NavLinkButton className="p-1 text-base">
+        <NavLinkButton className="px-1 py-0.5 text-lg">
           {CURRENT_VERSION}
           <ChevronDownIcon className="w-3 h-3" />
         </NavLinkButton>
