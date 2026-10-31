@@ -143,7 +143,7 @@ export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-lif
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
 
 const LABELS: Record<string, SidebarLabel & { rank: number }> = {
-  deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
+  legacy: { text: 'Legacy', kind: 'end-of-life', rank: 0 },
   paid: PAID,
   start: PAID,
   starter: PAID,
@@ -163,13 +163,19 @@ const LABELS: Record<string, SidebarLabel & { rank: number }> = {
 export function sidebarLabel(
   tags: string[] | undefined,
   hidePlan = false,
+  hideLegacy = false,
   newSince?: string,
 ): SidebarLabel | undefined {
   const [label] = (tags ?? [])
     .filter((tag) => tag.toLowerCase() !== 'new')
     .concat(isNew(newSince) ? ['New'] : [])
     .map((tag) => LABELS[tag.toLowerCase()])
-    .filter((label) => label && !(hidePlan && label.kind === 'plan'))
+    .filter(
+      (label) =>
+        label &&
+        !(hidePlan && label.kind === 'plan') &&
+        !(hideLegacy && label.kind === 'end-of-life'),
+    )
     .sort((a, b) => a.rank - b.rank)
   return label ? { text: label.text, kind: label.kind } : undefined
 }
@@ -231,7 +237,7 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(link.tags, link.hidePlan, link.newSince)
+  const label = sidebarLabel(link.tags, link.hidePlan, link.hideLegacy, link.newSince)
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(

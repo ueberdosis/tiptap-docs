@@ -60,4 +60,4 @@ export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 export { PLAN_LABELS } from './plans'
 
 /** The statuses to filter by; Stable is a released feature without a status. */
-export const CATALOG_STATUSES = ['Stable', 'Beta', 'Alpha', 'Experimental', 'Deprecated'] as const
+export const CATALOG_STATUSES = ['Stable', 'Beta', 'Alpha', 'Experimental', 'Legacy'] as const
