@@ -19,7 +19,7 @@ import { CATALOG_GROUPS, CatalogArea, catalogGroupUrl } from '@/content/catalog'
 import { planFromLabel } from '@/content/plans'
 import { getCatalog } from '@/server/getCatalog'
 import { legacyFeature } from '@/content/legacy'
-import { pagePlan } from '@/server/pagePlan'
+import { pagePlan, pageTitle } from '@/server/pagePlan'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 
@@ -133,6 +133,15 @@ function labelWhereItDiffers(entries: SidebarEntry[], underPaid = false): Sideba
       children: entry.children && labelWhereItDiffers(entry.children, underPaid || paid),
     }
   })
+}
+
+/** Each entry with a page carries that page's own title, for the search. */
+function withPageTitles(entries: SidebarEntry[]): SidebarEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    pageTitle: entry.href ? pageTitle(entry.href) : undefined,
+    children: entry.children && withPageTitles(entry.children),
+  }))
 }
 
 /** Plan labels in a sidebar group: shared plans move up, repeated ones go. */
@@ -383,5 +392,8 @@ export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
   rootHref: '/',
   title: 'Home',
-  items: items.map(planLabels),
+  items: items.map(planLabels).map((group) => ({
+    ...group,
+    children: withPageTitles(group.children),
+  })),
 }
