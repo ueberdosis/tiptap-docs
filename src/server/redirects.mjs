@@ -4,6 +4,87 @@
 
 /** @type {Array<{source: string, destination: string, permanent: boolean}>} */
 export const redirects = [
+  // Pro features have their own sections; the feature catalog replaces the per-type index pages
+  {
+    source: '/editor/extensions/functionality/ai-generation',
+    destination: '/ai/basic/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/ai-toolkit',
+    destination: '/ai/ai-toolkit/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/comments',
+    destination: '/comments/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/export',
+    destination: '/conversion/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/import',
+    destination: '/conversion/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/pages',
+    destination: '/pages/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/snapshot-compare',
+    destination: '/collaboration/documents/snapshot-compare',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/snapshot',
+    destination: '/collaboration/documents/snapshot',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/diagrams',
+    destination: '/diagrams/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/tracked-changes',
+    destination: '/tracked-changes/getting-started/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/nodes',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/nodes/index',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/marks',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/marks/index',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/index',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
   {
     source: '/composable-docs/slots/guides/bind-variables',
     destination: '/composable-docs/variables/guides/bind-slots',
