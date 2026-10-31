@@ -15,6 +15,8 @@ import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
+import { planFromLabel } from '@/content/plans'
+import { pagePlan } from '@/server/pagePlan'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 
@@ -27,7 +29,62 @@ function link(config: SidebarConfig, titles: string[]): SidebarEntry {
   return toEntries([pick(config, titles)])[0]
 }
 
-const compare = section('Compare', compareSidebar, { inline: ['Get started'] })
+/** A feature's plan as a sidebar tag, from the frontmatter of its overview page. */
+function planTags(overview: string): string[] | undefined {
+  const plan = pagePlan(overview)
+  return plan && plan !== 'Open source' ? [plan] : undefined
+}
+
+/** A section as one feature entry, tagged with its plan. */
+function feature(
+  title: string,
+  config: SidebarConfig,
+  overview: string,
+  options: Parameters<typeof section>[2] = {},
+): SidebarEntry {
+  return section(title, config, { ...options, tags: planTags(overview) })
+}
+
+const isPaidPlan = (tag: string) => {
+  const plan = planFromLabel(tag)
+  return !!plan && plan !== 'Open source'
+}
+const isPaid = (tags?: string[]) => !!tags?.some((tag) => tag === 'Paid' || isPaidPlan(tag))
+
+/**
+ * An entry whose children all need a paid plan, whichever, says "Paid"; a group
+ * that mixes paid and open source says nothing. The tag is for the label only:
+ * page headers still take the plan from the pages and their features.
+ */
+function withSharedPlan(entry: SidebarEntry): SidebarEntry {
+  if (!entry.children?.length) return entry
+  const children = entry.children.map(withSharedPlan)
+  const allPaid = children.every((child) => isPaid(child.tags))
+  return isPaid(entry.tags) || !allPaid
+    ? { ...entry, children }
+    : { ...entry, tags: [...(entry.tags ?? []), 'Paid'], children }
+}
+
+/** Below a paid entry, its pages don't repeat the label: they share it. */
+function labelWhereItDiffers(entries: SidebarEntry[], underPaid = false): SidebarEntry[] {
+  return entries.map((entry) => {
+    const paid = isPaid(entry.tags)
+    return {
+      ...entry,
+      hidePlan: underPaid && paid ? true : undefined,
+      children: entry.children && labelWhereItDiffers(entry.children, underPaid || paid),
+    }
+  })
+}
+
+/** Plan labels in a sidebar group: shared plans move up, repeated ones go. */
+function planLabels(group: SidebarGroup): SidebarGroup {
+  return { ...group, children: labelWhereItDiffers(group.children.map(withSharedPlan)) }
+}
+
+const compare = feature('Compare', compareSidebar, '/compare/getting-started/overview', {
+  inline: ['Get started'],
+})
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
@@ -48,7 +105,7 @@ const items: SidebarGroup[] = [
       {
         href: '/authentication',
         title: 'Authentication',
-        tags: ['New'],
+        newSince: '2026-04-29',
         children: [
           { href: '/authentication/migrate', title: 'Migrate from legacy' },
           { href: '/authentication/legacy', title: 'Legacy authentication' },
@@ -77,7 +134,8 @@ const items: SidebarGroup[] = [
           {
             title: 'AI Legacy',
             href: '',
-            tags: ['Deprecated'],
+            // Paid like the rest of AI; the label says Deprecated
+            tags: ['Deprecated', 'Paid'],
             children: [
               section('AI Assistant', aiAssistantSidebar, legacyOptions),
               section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
@@ -90,12 +148,19 @@ const items: SidebarGroup[] = [
         title: 'Review',
         href: '',
         children: [
-          section('Comments', commentsSidebar, { inline: ['Get started'] }),
-          section('Tracked Changes', trackedChangesSidebar, {
+          feature('Comments', commentsSidebar, '/comments/getting-started/overview', {
             inline: ['Get started'],
-            // Links to Conversion pages, which have their place there
-            omit: ['DOCX conversion'],
           }),
+          feature(
+            'Tracked Changes',
+            trackedChangesSidebar,
+            '/tracked-changes/getting-started/overview',
+            {
+              inline: ['Get started'],
+              // Links to Conversion pages, which have their place there
+              omit: ['DOCX conversion'],
+            },
+          ),
         ],
       },
       {
@@ -108,13 +173,24 @@ const items: SidebarGroup[] = [
           },
         ],
       },
-      section('Conversion', conversionSidebar, { inline: ['Get started'] }),
-      section('Composable Docs', composableDocsSidebar),
-      section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
-      section('Pages', pagesSidebar, { inline: ['Getting started'] }),
+      feature('Conversion', conversionSidebar, '/conversion/getting-started/overview', {
+        inline: ['Get started'],
+      }),
+      feature(
+        'Composable Docs',
+        composableDocsSidebar,
+        '/composable-docs/slots/getting-started/overview',
+      ),
+      feature('Diagrams', diagramsSidebar, '/diagrams/getting-started/overview', {
+        inline: ['Diagrams'],
+      }),
+      feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
+        inline: ['Getting started'],
+      }),
       {
         ...link(editorSidebar, ['Whiteboard']),
         href: '',
+        tags: planTags('/editor/whiteboard/getting-started/overview'),
         // The AI agent guide has its place in the AI Toolkit
         children: childrenOf(editorSidebar, ['Whiteboard']).filter(
           (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
@@ -155,7 +231,10 @@ const items: SidebarGroup[] = [
       },
       link(collaborationSidebar, ['Features', 'Webhooks']),
       { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
-      section('Hocuspocus', hocuspocusSidebar, { inline: ['Get started'] }),
+      section('Hocuspocus', hocuspocusSidebar, {
+        inline: ['Get started'],
+        tags: ['Open source'],
+      }),
     ],
   },
   {
@@ -227,5 +306,5 @@ export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
   rootHref: '/',
   title: 'Home',
-  items,
+  items: items.map(planLabels),
 }

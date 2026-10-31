@@ -3,7 +3,10 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
-  releaseTag?: 'beta' | 'alpha'
+  /** The day the page went live (YYYY-MM-DD); the entry shows "New" for 90 days after it. */
+  newSince?: string
+  /** Leave out the Paid label, because the entry above already shows it. */
+  hidePlan?: boolean
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
@@ -40,10 +43,6 @@ export type GeneralPageTag = {
     | 'pro'
     | 'new'
     | 'experiment'
-    | 'ai'
-    | 'collaboration'
-    | 'editor'
-    | 'documents'
     | 'beta'
     | 'alpha'
     | 'start'
@@ -57,6 +56,8 @@ export type GeneralPageTag = {
     | 'version'
   tooltip?: string
   label?: string
+  /** For `new`: the day the page went live (YYYY-MM-DD). The tag shows for 90 days after it. */
+  since?: string
 }
 
 export type ImagePageTag = {
