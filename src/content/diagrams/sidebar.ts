@@ -20,7 +20,7 @@ export const sidebarConfig: SidebarConfig = {
           children: [
             { title: 'Appearance', href: '/diagrams/charts/appearance' },
             { title: 'Looks', href: '/diagrams/charts/looks' },
-            { title: 'Editing in the picture', href: '/diagrams/charts/editing' },
+            { title: 'Editing in the chart', href: '/diagrams/charts/editing' },
             { title: 'Axes', href: '/diagrams/charts/axes' },
             { title: 'Reference lines', href: '/diagrams/charts/references' },
           ],
@@ -30,7 +30,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/diagrams/flow-diagrams/overview',
           children: [
             { title: 'Formats', href: '/diagrams/flow-diagrams/formats' },
-            { title: 'Editing in the picture', href: '/diagrams/flow-diagrams/editing' },
+            { title: 'Editing in the diagram', href: '/diagrams/flow-diagrams/editing' },
             { title: 'A diagram from a table', href: '/diagrams/flow-diagrams/from-table' },
           ],
         },
@@ -53,7 +53,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/diagrams/renderers/overview',
           children: [
             { title: 'ECharts', href: '/diagrams/renderers/echarts' },
-            { title: 'd3', href: '/diagrams/renderers/d3' },
+            { title: 'D3', href: '/diagrams/renderers/d3' },
             { title: 'Mermaid', href: '/diagrams/renderers/mermaid' },
             { title: 'draw.io', href: '/diagrams/renderers/drawio' },
             { title: 'BPMN', href: '/diagrams/renderers/bpmn' },

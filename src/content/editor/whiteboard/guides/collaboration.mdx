@@ -5,13 +5,13 @@ tags:
   - type: restricted
 meta:
   title: Collaboration on the whiteboard | Tiptap Editor Docs
-  description: Edit a whiteboard together in real time through Yjs, and show what other users select and drag.
+  description: Edit a whiteboard together in real time through Yjs, and show what other users select, drag and point at.
   category: Editor
 ---
 
 import { Callout } from '@/components/ui/Callout'
 
-A board is one Tiptap document, so users edit it together through Yjs like any other document. The board adds what a whiteboard needs on top: `BoardCollaboration`, and helpers that show what other users select and drag.
+A board is one Tiptap document, so users edit it together through Yjs like any other document. The board adds what a whiteboard needs on top: `BoardCollaboration`, and helpers that show what other users select, drag and point at.
 
 ## Install
 
@@ -125,6 +125,78 @@ A shape that another user selects gets `data-remote-selected`, and that user's c
 ```css
 [data-shape][data-remote-selected] {
   outline: calc(2px / var(--zoom, 1)) solid var(--remote-selection);
+}
+```
+
+## Show the cursors of others
+
+`createRemoteCursors` shows where the other users point, with their names. It also moves the shapes that a user drags along with their cursor, in place of `createRemoteMoves`. Share the point under the pointer in board units, with the time and the drag, at most ten times a second. The pointer events come from `stage`, the element around the board, see [Stage and camera](/editor/whiteboard/guides/stage-and-camera):
+
+```js
+import { clientToBoard, createRemoteCursors } from '@tiptap-pro/extension-whiteboard'
+
+const stage = document.querySelector('.stage')
+let point = null
+let drag = null
+let timer = null
+
+// Shares where this user points, and what they drag, ten times a second at most
+const share = () => {
+  timer ??= setTimeout(() => {
+    timer = null
+    provider.setAwarenessField('cursor', point && { point, time: Date.now(), drag })
+  }, 100)
+}
+
+stage.addEventListener('pointermove', (event) => {
+  point = clientToBoard({ editor, point: { x: event.clientX, y: event.clientY } })
+  share()
+})
+
+stage.addEventListener('pointerleave', () => {
+  point = null
+  share()
+})
+
+editor.on('shapesMove', ({ ids, delta }) => {
+  drag = delta && { ids, delta }
+  share()
+})
+
+// Shows the cursors of the other users
+const cursors = createRemoteCursors(editor)
+
+provider.on('awarenessChange', ({ states }) => {
+  cursors.update(
+    states
+      .filter((state) => state.clientId !== ydoc.clientID && state.cursor)
+      .map(({ clientId, user, cursor }) => ({
+        owner: clientId,
+        ...cursor,
+        name: user?.name ?? '',
+        color: user?.color ?? '',
+      })),
+  )
+})
+```
+
+A cursor moves smoothly through the points of its user, a little late, at the pace they were shared. It fades out when its user stops pointing, or after a minute without moving.
+
+The cursors are over the shapes and keep their size at every zoom, through `--zoom`. Each cursor has its user's color in `--remote-cursor`, with the same `#RRGGBB` rule as selections. Style its arrow and name:
+
+```css
+[data-remote-cursor-arrow] {
+  fill: var(--remote-cursor);
+  stroke: white;
+  stroke-width: 2;
+}
+
+[data-remote-cursor-name] {
+  padding: 2px 6px;
+  color: white;
+  font-size: 12px;
+  background: var(--remote-cursor);
+  border-radius: 4px;
 }
 ```
 
