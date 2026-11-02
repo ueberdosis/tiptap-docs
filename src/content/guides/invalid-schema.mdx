@@ -33,7 +33,7 @@ new Editor({
 
 ## The contentError event
 
-When content checking is enabled, Tiptap will emit a `contentError` event if the initial content provided during editor setup is incompatible with the schema. This event provides you with valuable information to handle the error appropriately.
+When content checking is enabled, Tiptap will emit a `contentError` event if the initial content provided during editor setup is incompatible with the schema. With the Collaboration extension, it is also emitted when the shared document contains content that doesn't fit the schema. See [For collaborative editing](#for-collaborative-editing). This event provides you with valuable information to handle the error appropriately.
 
 ### Handle contentError events
 
@@ -94,28 +94,36 @@ If you're not using collaborative editing features, the default behavior of stri
 
 ### For collaborative editing
 
-When using collaborative features, it's crucial to handle content errors to prevent synchronization issues. Here's an example of how you might handle a content error in a collaborative environment:
+A shared document can contain content that your editor can't display. For example, another user's app version added a node that your schema doesn't have. The [Collaboration extension](/editor/extensions/functionality/collaboration) handles this content depending on `enableContentCheck`:
+
+- With `enableContentCheck: false` (the default), the editor removes the content it can't display and fills in missing required nodes. These changes are synced, so every other user loses that content too. A read-only user also sends these changes, and your server may reject them.
+- With `enableContentCheck: true`, the editor keeps that content in the shared document. It shows what it can, pauses editing and sends no changes. Then it emits the `contentError` event. Editing resumes when a change from another user makes the content fit the schema again.
+
+This needs `@tiptap/extension-collaboration` 3.33.0 and `@tiptap/y-tiptap` 3.1.0 or later. With older versions, the editor removes the content even with `enableContentCheck: true`, and `contentError` isn't emitted.
+
+For example, you can let users who can edit repair the document, and keep read-only users from sending any change:
 
 ```jsx
-onContentError({ editor, error, disableCollaboration }) {
-  // Disable collaboration to prevent syncing invalid content
-  disableCollaboration()
-
-  // Prevent emitting updates
-  const emitUpdate = false
-
-  // Disable further user input
-  editor.setEditable(false, emitUpdate)
-
-  // Notify the user about the issue
-  notifyUser("An error occurred. Please refresh the application.")
-}
-
+new Editor({
+  extensions: [
+    StarterKit.configure({ undoRedo: false }),
+    Collaboration.configure({ document: ydoc }),
+  ],
+  enableContentCheck: !canEdit,
+  onContentError() {
+    // Tell the user why the editor is paused
+    notifyUser(
+      'This document contains content this app cannot show. Please refresh the application.',
+    )
+  },
+})
 ```
 
-This approach:
+To stop syncing with other users completely, call `disableCollaboration()` in the handler. The editor then no longer receives changes, so it doesn't resume on its own:
 
-1. Disables collaboration to prevent syncing invalid content
-2. Prevents updates from being emitted
-3. Disables the editor to prevent further user input
-4. Notifies the user about the issue
+```jsx
+onContentError({ disableCollaboration }) {
+  disableCollaboration()
+  notifyUser('An error occurred. Please refresh the application.')
+}
+```
