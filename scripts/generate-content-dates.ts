@@ -156,8 +156,9 @@ function main() {
   fs.writeFileSync(OUTPUT_PATH, `${JSON.stringify(manifest, null, 2)}\n`)
   console.log(`Wrote ${OUTPUT_PATH}`)
   console.log(
-    `Done! Dated ${Object.keys(manifest).length} content file(s)` +
-      (missing ? `; ${missing} without a git date (last_updated omitted for those).` : '.'),
+    `Done! Dated ${Object.keys(manifest).length} content file(s)${
+      missing ? `; ${missing} without a git date (last_updated omitted for those).` : '.'
+    }`,
   )
 }
 
