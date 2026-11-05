@@ -103,8 +103,8 @@ Request body:
 - `readSelection` (`boolean`, optional)
 - `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
   include an extra metadata field on every proofreading edit, such as a short explanation.
-- `readBoard`, `createShapes`, `arrangeShapes`, `createDiagram`, `updateShapes`, `deleteShapes`,
-  `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
+- `readBoard`, `createShapes`, `arrangeShapes`, `distributeShapes`, `createDiagram`, `updateShapes`,
+  `deleteShapes`, `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
   a whiteboard.
 
 Response:
@@ -728,7 +728,7 @@ Each field that is missing, `null` or invalid falls back on its own: to no selec
 `createShapes`, `createDiagram` and `createDocFrame` take these fields in their input (`tool.input`), so the AI can name the place for new content:
 
 - `near` (`string[]`, optional): Up to 100 ids of the shapes that the new content belongs next to, like the diagram that a summary is about. Defaults to the selected shapes.
-- `side` (`'right' | 'below' | 'left' | 'above'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer.
+- `side` (`'right' | 'below' | 'left' | 'above' | 'between'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer. `'between'` puts the new content in the middle between exactly two shapes, and places it like without `side` for any other number of shapes.
 
 New shapes go beside the shapes in `near` that are on the board, or else beside the selected shapes. Without such shapes, they go in the middle of the viewport, or else right of all shapes on the board, or at the origin of an empty board. When other shapes are in the way, they move to the closest free spot.
 
@@ -790,16 +790,18 @@ Success response:
 
 ### `createShapes`
 
-Adds sticky notes as one grid, in front of all shapes.
+Adds sticky notes as one grid, or plain text as one column, in front of all shapes.
 
 Tool input (`tool.input`):
 
-- `notes` (`array`, required): 1 to 24 notes, in reading order.
+- `notes` (`array`, required): 1 to 24 notes or texts, in reading order.
   - `text` (`string`, required): Text of the note, up to 500 characters. A line break starts a
     new paragraph. Lines that start with `- `, `1. `, `[ ] ` or `[x] ` make a bulleted list, a
     numbered list or a task list.
   - `color` (`'black' | 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'violet'`,
-    optional): Color of the note. Default: `'yellow'`
+    optional): Color of the note or text. Default: `'yellow'` for notes, `'black'` for text
+- `type` (`'note' | 'text'`, optional): `'text'` adds free text without a note around it, like a
+  heading or a caption, up to 400 wide, one text below the other. Default: `'note'`
 - `near` and `side` (optional): Where the notes go. See [board placement](#board-placement).
 
 Tool config (`tool.config`):
@@ -810,8 +812,8 @@ Tool output (`tool.output`):
 
 Success response:
 
-- `success` (`true`): Indicates that the notes were added.
-- `createdIds` (`string[]`): Ids of the new notes, in the order of the input.
+- `success` (`true`): Indicates that the notes or texts were added.
+- `createdIds` (`string[]`): Ids of the new notes or texts, in the order of the input.
 - `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
 
 Error response:
@@ -851,6 +853,38 @@ Error response:
 - `success` (`false`): Indicates that no shapes were arranged. The error lists the reasons.
 - `error` (`string`): Error message.
 
+### `distributeShapes`
+
+Lines shapes up in one row or column, with equal room between them, in their order along it. They line up on the middle of all of them. The row keeps the outer edges of the shapes, unless the room between them would be under 48, and then the shapes go 48 apart. When the row would cover other shapes, it moves as a whole to the closest free spot, but frames of its shapes don't count. Shapes only move, so the arrows that connect them follow, and the shapes in a moved frame move with it.
+
+Tool input (`tool.input`):
+
+- `ids` (`string[]`, required): 2 to 300 ids of the shapes to line up.
+- `direction` (`'horizontal' | 'vertical'`, optional): A row from left to right, or a column from
+  top to bottom. Default: `'horizontal'`
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the shapes were lined up.
+- `movedIds` (`string[]`): Ids of the shapes that moved, with the shapes in moved frames. Shapes
+  that were in place already are left out.
+- `skipped` (`array`): Shapes that stayed where they were, each with `id` and `reason`, like an
+  id that isn't a shape on the board, an arrow, an id that came earlier, or a shape that waits for
+  another user's review.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that fewer than two shapes could be lined up. The error lists the
+  reasons.
+- `error` (`string`): Error message.
+
 ### `createDiagram`
 
 Draws shapes with text, connected by arrows, and lays them out as a diagram. The arrows connect the shapes and hold their labels, so both follow when a user moves a shape.
@@ -862,7 +896,8 @@ Tool input (`tool.input`):
 - `nodes` (`array`, required): 1 to 40 shapes.
   - `key` (`string`, required): The AI's own name for the shape, up to 40 characters and unique
     in the diagram. Arrows refer to it.
-  - `text` (`string`, required): Text in the shape, up to 60 characters.
+  - `text` (`string`, optional): Text in the shape, up to 60 characters. A shape without text is
+    120 wide and 120 tall.
   - `shape` (`'rectangle' | 'ellipse' | 'diamond'`, optional): Kind of the shape. Another kind
     becomes a rectangle. Default: `'rectangle'`
   - `color` (`string`, optional): One of the colors of `createShapes`. Default: `'black'`
@@ -904,7 +939,8 @@ Tool input (`tool.input`):
   - `id` (`string`, required): Id of the shape.
   - `text` (`string`, optional): New text, up to 500 characters, with the same lines as for
     `createShapes`. It replaces the text of the shape, without its formatting. The text that
-    `readBoard` gives for the shape is no change. Sticky notes, geometric shapes and free text
+    `readBoard` gives for the shape is no change. An empty text takes the text away. Free text
+    without text stays on the board, so delete it instead. Sticky notes, geometric shapes and free text
     have text. The text of an arrow is its label, without lists, from Whiteboard 0.2.0 on.
   - `color` (`string`, optional): New color, one of the colors of `createShapes`.
   - `kind` (`'rectangle' | 'ellipse' | 'diamond' | 'triangle'`, optional): New kind of a geometric
