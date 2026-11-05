@@ -1,7 +1,7 @@
 // src/components/Requirements.tsx
 'use client'
 
-import React, { ReactNode, useEffect, useRef, useState } from 'react'
+import React, { ReactNode, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronRightIcon } from 'lucide-react'
 import { Sidebar } from './ui/Sidebar'
@@ -58,18 +58,32 @@ export type RequirementsProps = {
 /**
  * Wraps <RequirementItem/>s and portals them into the sidebar on desktop.
  */
-export function Requirements({ children }: RequirementsProps) {
-  const [isDesktop, setIsDesktop] = useState(false)
-  const portalTarget = useRef<HTMLElement | null>(null)
+const DESKTOP_QUERY = '(min-width: 1280px)'
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1280px)')
-    const update = () => setIsDesktop(mq.matches)
-    update()
-    mq.addEventListener('change', update)
-    portalTarget.current = document.getElementById('requirements-slot')
-    return () => mq.removeEventListener('change', update)
-  }, [])
+function subscribeToDesktop(onChange: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
+}
+
+// The slot is in the layout, which may mount after this component (client navigation)
+function subscribeToSlot(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.body, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}
+
+const getSlot = () => document.getElementById('requirements-slot')
+
+export function Requirements({ children }: RequirementsProps) {
+  // False on the server and while hydrating, so the portal mounts only in the browser
+  const isDesktop = useSyncExternalStore(
+    subscribeToDesktop,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  )
+  const slot = useSyncExternalStore(subscribeToSlot, getSlot, () => null)
+  const portalTarget = isDesktop ? slot : null
 
   const box = <RequirementsBox>{children}</RequirementsBox>
 
@@ -79,9 +93,7 @@ export function Requirements({ children }: RequirementsProps) {
       <div className="block xl:hidden mt-8">{box}</div>
 
       {/* Portal into sidebar on desktop */}
-      {isDesktop && portalTarget.current
-        ? createPortal(<div className="mt-8">{box}</div>, portalTarget.current)
-        : null}
+      {portalTarget ? createPortal(<div className="mt-8">{box}</div>, portalTarget) : null}
     </>
   )
 }
