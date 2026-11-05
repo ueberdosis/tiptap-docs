@@ -4,8 +4,8 @@ import remarkGfm from 'remark-gfm'
 import remarkMdx from 'remark-mdx'
 import remarkStringify from 'remark-stringify'
 import { visit } from 'unist-util-visit'
-import { FULL_DOMAIN } from '@/utils/constants'
 import { componentConverters } from './componentConverter'
+import { FULL_DOMAIN } from '@/utils/constants'
 
 const ASSET_PREFIXES = ['/assets', '/api', '/_next', '/docsassets']
 
@@ -20,10 +20,10 @@ function rewriteUrl(url: string): string {
 
   const isAsset = ASSET_PREFIXES.some((p) => url === p || url.startsWith(`${p}/`))
   if (isAsset) return `${FULL_DOMAIN}${url}`
-  
+
   const [pathPart, hash] = url.split('#')
   const withMd = /\.[a-z0-9]+$/i.test(pathPart) ? pathPart : `${pathPart}.md`
-  
+
   return `${FULL_DOMAIN}${withMd}${hash ? `#${hash}` : ''}`
 }
 
@@ -107,7 +107,8 @@ function remarkFilter() {
 
         let replacement: any[]
         if (result === null) replacement = []
-        else if (result === undefined) replacement = node.children ?? [] // default: unwrap
+        else if (result === undefined)
+          replacement = node.children ?? [] // default: unwrap
         else replacement = Array.isArray(result) ? result : [result]
 
         // A flow element sits in a block context, so its replacement must be
