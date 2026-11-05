@@ -25,6 +25,106 @@ To contribute, please follow these steps:
    - Any relevant information that will help the maintainers understand your changes.
 8. **Review and Merge**: Wait for a maintainer to review your changes. Once approved, your changes will be merged.
 
+## Writing Pages
+
+One text serves people and AI agents: every page is also served as Markdown and listed in `llms.txt`. Write it once, plainly.
+
+### How a page reads
+
+- Open with one or two sentences on what the feature does (`intro` in the frontmatter). Then the demo, then the smallest code that works.
+- Nothing but the intro comes before the first heading: no paragraph that restates it in other words. A demo, a callout, or requirements may follow it directly. A short fact the reader needs first goes into the intro; anything longer gets a heading of its own.
+- Name a thing once per paragraph. Don't list features in one sentence and the same features again in the next.
+- Put a demo under the heading whose topic it shows, after one sentence that says what to try in it. Each demo has one home; other pages link to it.
+- One fact per sentence or bullet. Split a paragraph longer than about 60 words, or turn it into a list or a table.
+- Use tables for things with the same shape: options (option, type, description), return values, what is stored where.
+- Describe behavior as labeled bullets (`**Renaming a step** …`) under a heading that names the situation.
+- Every command looks the same: a heading with its name, one sentence, an example, an options table, and one line on when it returns `false`.
+- Headings are plain text that names a task or a thing. No code in headings.
+- Say a thing once and link to it.
+- Give every page a specific one-line `meta.description`. It becomes the meta description and the line in `llms.txt`; leave out "Learn more in our docs".
+
+### Diagrams
+
+Draw a diagram as a ` ```mermaid ` code block when it shows a flow or a structure better than a sentence, such as how data moves between the editor, the Document Server, and your backend. The build renders it to an SVG; the `.md` version keeps the Mermaid code, which agents read. Keep it small: a few boxes in one direction (`flowchart LR`), with short labels, so it stays readable at the width of the content.
+
+### Page types
+
+| Type             | Use it for                                      | It holds                                                                                                                       |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Feature overview | The entry to a larger feature, such as Comments | `intro`, demo, "What you can do with it" with links into the details, "Get started" with access and minimal code, "Next steps" |
+| Feature page     | One extension or one topic of a feature         | `intro`, demo, quick start, behavior, its commands, an options table                                                           |
+| Install          | Getting a feature running                       | Requirements, install command, the smallest working setup, next steps                                                          |
+| Chooser          | A decision between options, such as hosting     | A comparison table, a recommendation, then a section per option                                                                |
+| Guide            | A task across several steps or features         | Goal, prerequisites, steps, result                                                                                             |
+| API reference    | Looking things up                               | Tables and the command format above; little prose                                                                              |
+| Example          | Showing a finished use                          | The demo first, a short explanation, links to the features it uses                                                             |
+
+A feature overview starts like this:
+
+```mdx
+---
+title: 'Comment on any part of a document'
+intro: 'Comments lets people discuss a document in threads attached to the text they are about.'
+tags:
+  - type: start
+meta:
+  title: 'Comments | Tiptap Docs'
+  description: 'Add comment threads to Tiptap documents, store them with the document, and manage them from your backend.'
+  category: Comments
+extension: { name, description, type, icon, group } # its catalog entry, see Feature Catalog
+---
+
+## What you can do with it
+
+- **Discuss any part of a document.** Threads on text or nodes, inline or in a sidebar. [Manage threads](/comments/core-concepts/manage-threads)
+
+## Get started
+
+## Next steps
+```
+
+## Moving or Renaming Pages
+
+A published URL has to keep working. When you move, rename or delete a page:
+
+1. Add a redirect to `src/server/redirects.mjs` (`permanent: true`). Point it straight at the new page; don't chain redirects.
+2. Update links in content and sidebars to the new URL.
+3. Run `pnpm urls:update` after adding pages. It records new URLs in `tests/fixtures/known-urls.txt`. Never delete a line from that file.
+
+## Sidebars
+
+All documentation shares one sidebar, `src/content/sidebar.ts`; only UI Components keeps its own. Each section still describes its pages in its own `src/content/<section>/sidebar.ts`, and the global sidebar places those sections. A new section needs an entry in the global sidebar; `pnpm test:structure` fails until every page of a section sidebar appears there. A page that no sidebar links to belongs in `tests/fixtures/pages-outside-sidebar.txt`.
+
+## Feature Catalog
+
+The catalog at `/editor/extensions/overview` lists every page whose frontmatter has an `extension` block with a `group`. The groups, their order and their area (Editor or Document Platform) are in `src/content/catalog.ts`; editor groups also make up the sidebar under Features, next to the larger features such as Comments or Conversion, which keep their own sections. A page's plan comes from its `tags` (`start`, `team`, `addon`, `restricted`). A new extension page needs a `group` and its npm `package` (as its install command names it), or `pnpm test:structure` fails.
+
+"Plan your editor" (`/configurator`) and the MCP tool `plan_editor` build on the catalog. Their starting points are in `src/content/presets.ts`, with the services each feature needs; tests check that presets name only documented features. Industries for the catalog filter and the configurator are in `src/content/industries.ts`; each lists the features that matter most there, by catalog name.
+
+Bundles (`/bundles`) are sets of features for one use case, installed as one package. Each is listed in `src/content/bundles.ts` with its parts, by catalog name; the bundle page renders them with `<BundleParts bundle="…" />`, and the sidebar's Bundles group lists every bundle. A part keeps its own page under Features. Tests fail when a bundle names a feature the catalog lacks.
+
+### Labels
+
+- **Plan and status come from the feature.** Tag the feature overview; its pages inherit the plan and status in the sidebar, the page header, `llms.txt`, and the `.md` frontmatter. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
+- **The sidebar shows one grey label per entry**, in this order: Legacy, Soon, Paid, New. Paid stands for any plan, add-on, or the pilot program; the page header names which. A group says Paid when all its entries are paid, and the entries below a paid one don't repeat it; a group that mixes free and paid features says nothing, only its paid entries do. To steer it, set `paid: true` on a catalog group in `src/content/catalog.ts`, add `'Paid'` to a hand-built group's `tags` in `src/content/sidebar.ts`, or set `paid: true` on an upcoming feature that will need a plan. Open source stays unlabeled. Alpha and Beta show in the page header and the catalog, not in the sidebar.
+- **"New" carries a date and expires after 90 days.** In frontmatter, `- type: new` with `since: '2026-10-01'`; in a sidebar, `newSince: '2026-10-01'` on the entry. Put it on new pages inside a feature readers know, not on a new feature: that one shows its plan. `pnpm test:structure` fails on an undated or expired "New".
+- **Legacy is the one end-of-life label.** It means: kept for existing projects, not for new ones. Tag the page `- type: legacy` and add the feature to `src/content/legacy.ts` with what replaces it, how to move, and when it goes away if that is decided; every page of the feature then shows that in a box under the header, and its `.md` version too. Move the entry to the Legacy area at the end of `src/content/sidebar.ts`; its URLs stay. Legacy pages stay out of `llms-full.txt`, and search ranks them last. `pnpm test:structure` fails on a legacy page without an entry.
+
+### Changelog
+
+The changelog at `/resources/changelog` and each package's history are generated from the packages' `CHANGELOG.md` files (`pnpm generate:changelogs`). Two things are written by hand:
+
+- **Highlights** in `src/content/resources/changelog-highlights.ts`: a card for a new feature or a change readers should know about, with a title that says what they can do now and a link to the docs. About one or two a month.
+- **Breaking notes** in `src/content/resources/changelog-breaking.ts`: for every breaking change that asks readers to change their code, what changes, who is affected, and how to migrate. The changelog shows the note under the change it matches.
+
+Each feature group has an RSS feed at `/resources/changelog/rss/<group>.xml`, next to `/resources/changelog/rss.xml` for everything.
+
+## Tests
+
+- `pnpm test:structure` checks without a server that every known URL still reaches a page, that redirects end on pages, that sidebars and internal links point at real pages, and that `llms.txt` and the docs MCP server (`/api/mcp`) answer as expected. It runs on every pull request.
+- `pnpm test:e2e` runs Playwright: every page and its `.md` version answer 200, every old URL redirects to a live page, and one page per page type renders without errors or serious accessibility violations. Locally, build first with `pnpm build:next`; the tests start the server. Against a deployed site, set `DOCS_TEST_URL` (including any base path). In CI they run against each Vercel deployment.
+- `SMOKE_ALL=1 pnpm test:e2e` also loads every page in a browser.
+
 ## Publishing Documentation
 
 The documentation is published automatically when changes are pushed to `main`. The docs do not have versioned releases, so contributions do not need a changeset or a version bump.

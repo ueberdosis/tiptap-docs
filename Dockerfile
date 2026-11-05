@@ -47,6 +47,11 @@ RUN \
 FROM base AS builder
 WORKDIR /app
 
+# Mermaid diagrams render to SVG at build time with a headless browser; Playwright's own
+# Chromium doesn't run on Alpine, so use the system one
+RUN apk add --no-cache chromium
+ENV MERMAID_CHROMIUM_PATH=/usr/bin/chromium-browser
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -55,7 +60,9 @@ ARG GIT_COMMIT_REF_NAME
 ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 ENV GIT_COMMIT_REF_NAME=$GIT_COMMIT_REF_NAME
 
+# TIPTAP_PRO_TOKEN lets the changelog check which Pro versions are published
 RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
+  --mount=type=secret,id=tiptap_pro_token,env=TIPTAP_PRO_TOKEN \
   pnpm run build
 
 # 2.5 ;) Dev runner

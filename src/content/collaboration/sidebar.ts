@@ -51,7 +51,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Webhooks',
           href: '/collaboration/core-concepts/webhooks',
-          tags: ['Team'],
         },
       ],
     },
@@ -71,7 +70,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Snapshots',
           href: '/collaboration/documents/snapshot',
-          tags: ['Start'],
         },
         {
           title: 'Compare Snapshots',
@@ -81,7 +79,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Inject content',
           href: '/collaboration/documents/content-injection',
-          tags: ['Team'],
         },
       ],
     },
@@ -97,6 +94,25 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Metrics',
           href: '/collaboration/operations/metrics',
+        },
+      ],
+    },
+    {
+      type: 'group',
+      href: '/collaboration/guides',
+      title: 'Guides',
+      children: [
+        {
+          title: 'Naming documents',
+          href: '/collaboration/guides/naming-documents',
+        },
+        {
+          title: 'Offline support',
+          href: '/collaboration/guides/offline-support',
+        },
+        {
+          title: 'Change documents with the API',
+          href: '/collaboration/guides/collaboration-api',
         },
       ],
     },

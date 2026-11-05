@@ -71,6 +71,7 @@ const SidebarButton = forwardRef<HTMLButtonElement, SidebarButtonProps>(
 
     return (
       <Component
+        aria-current={isActive ? 'page' : undefined}
         {...rest}
         className={cn(
           'flex items-center justify-between w-full px-2.5 py-1.5 text-sm text-grayAlpha-900 rounded-md',

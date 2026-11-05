@@ -21,7 +21,6 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Live demo',
           href: '/pages/getting-started/live-demo',
-          tags: ['New'],
         },
       ],
     },
@@ -45,12 +44,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Footnotes',
           href: '/pages/core-concepts/footnotes',
-          tags: ['New'],
         },
         {
           title: 'Endnotes',
           href: '/pages/core-concepts/endnotes',
-          tags: ['New'],
         },
         {
           title: 'Page gap & background',
@@ -59,17 +56,14 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Zoom',
           href: '/pages/core-concepts/zoom',
-          tags: ['New'],
         },
         {
           title: 'PageBreak node',
           href: '/pages/core-concepts/page-break-node',
-          tags: ['New'],
         },
         {
           title: 'Layout participants',
           href: '/pages/core-concepts/layout-participants',
-          tags: ['New'],
         },
         {
           title: 'Limitations',

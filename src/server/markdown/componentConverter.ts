@@ -1,4 +1,19 @@
+import { unified } from 'unified'
+import remarkGfm from 'remark-gfm'
+import remarkParse from 'remark-parse'
+import { changelogMarkdown, formatDay } from '../changelogEntries'
+import { groupFeeds } from '../changelogFeed'
+import { bundlePartsMarkdown } from '../bundles'
+import { getCatalog } from '../getCatalog'
+import { getPlanRows } from '../planOverview'
+import { ADD_ON_ACCESS, DASHBOARD_URL, PILOT_PROGRAM_FORM } from '@/content/access'
+import { CHANGELOG_HIGHLIGHTS } from '@/content/resources/changelog-highlights'
+import { CATALOG_GROUPS, catalogGroupUrl } from '@/content/catalog'
 import { DEMO_URL, PRO_DEMO_URL } from '@/utils/constants'
+import { stripTags } from '@/utils/stripTags'
+
+/** Open-source demos live in the tiptap repository; Pro demos stay private. */
+const OPEN_SOURCE_DEMOS = 'https://github.com/ueberdosis/tiptap/tree/main/demos/src'
 
 /**
  * Markdown component converter: converters that turn MDX JSX components into plain
@@ -56,23 +71,35 @@ const link = (url: string, label: string): MdxNode => ({
 /** Derive a human label for a demo from its props or path. */
 function demoLabel(node: MdxNode, url: string): string {
   const explicit = getAttr(node, 'externalTitle') || getAttr(node, 'caption')
-  if (explicit) return explicit
+  // A JSX caption such as `<><strong>Try it</strong> …</>` keeps only its text
+  const plain = explicit && stripTags(explicit).replace(/\s+/g, ' ').trim()
+  if (plain) return plain
   const last = url.split('?')[0].split('/').filter(Boolean).pop()
   return last ? last.replace(/[-_]/g, ' ') : 'Open demo'
 }
 
 export const componentConverters: Record<string, ComponentConverter> = {
-  // <CodeDemo path="/Examples/Minimal" /> → blockquote linking to the live demo.
+  // <CodeDemo path="/Examples/Minimal" /> → blockquote linking to the live demo and,
+  // for open-source demos, to their code on GitHub, which an agent can read.
   CodeDemo: (node) => {
     const src = getAttr(node, 'src')
     const path = getAttr(node, 'path') ?? ''
-    const url = src ?? (hasFlag(node, 'isPro') ? PRO_DEMO_URL : DEMO_URL) + path
-    return {
-      type: 'blockquote',
-      children: [
-        paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))]),
-      ],
+    const isPro = hasFlag(node, 'isPro')
+    const url = src ?? (isPro ? PRO_DEMO_URL : DEMO_URL) + path
+    const children = [
+      paragraph([strong('Interactive demo:'), text(' '), link(url, demoLabel(node, url))]),
+    ]
+    const folder = path.split('?')[0].replace(/\/+$/, '')
+    if (!src && !isPro && folder) {
+      children.push(
+        paragraph([
+          strong('Source code:'),
+          text(' '),
+          link(`${OPEN_SOURCE_DEMOS}${folder}`, `demos/src${folder}`),
+        ]),
+      )
     }
+    return { type: 'blockquote', children }
   },
 
   // <DemoViewer path="…" /> is the same demo in a different frame.
@@ -107,10 +134,143 @@ export const componentConverters: Record<string, ComponentConverter> = {
     }
   },
 
+  // <PlanOverview /> → what each plan includes, as a list, from the catalog.
+  PlanOverview: () => ({
+    type: 'list',
+    ...({ ordered: false, spread: false } as object),
+    children: getPlanRows().map((row) => {
+      const items = [
+        ...row.features.map(({ name, url }) => ({ label: name, url })),
+        ...(row.links ?? []),
+      ]
+      const line: MdxNode[] = [strong(`${row.title}:`), text(` ${row.text}`)]
+      if (row.catalog) line.push(text(' '), link(row.catalog.url, `${row.catalog.count} features`))
+      items.forEach((item, i) => {
+        line.push(text(i === 0 ? ' ' : ', '), link(item.url, item.label))
+      })
+      return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
+    }),
+  }),
+
+  // <BundleParts bundle="…" license="…" /> → the bundle's parts as a table, as on the page.
+  BundleParts: (node) => {
+    const license = getAttr(node, 'license')
+    return markdownNodes(
+      bundlePartsMarkdown(
+        getAttr(node, 'bundle') ?? '',
+        license === 'paid' || license === 'open-source' ? license : undefined,
+        (url) => url,
+      ),
+    )
+  },
+
+  // <CatalogGroup id="…" /> → the group's features as a list, with plan and status.
+  CatalogGroup: (node) => catalogList(getAttr(node, 'id')),
+
+  // <FeatureCatalog /> → every group with a heading and its features, as on the page.
+  FeatureCatalog: () =>
+    CATALOG_GROUPS.filter((group) =>
+      getCatalog().some((entry) => entry.group === group.id),
+    ).flatMap((group) => {
+      const url = catalogGroupUrl(group)
+      const heading: MdxNode = {
+        type: 'heading',
+        ...({ depth: 2 } as object),
+        children: [url ? link(url, group.title) : text(group.title)],
+      }
+      return [heading, catalogList(group.id)]
+    }),
+
   // <Link href="…">text</Link> → a markdown link.
   Link: (node) => {
     const url = getAttr(node, 'href') ?? getAttr(node, 'to')
     if (!url) return undefined
     return { type: 'link', ...({ url } as object), children: node.children ?? [] }
   },
+
+  // <a href="…">text</a> in MDX → a markdown link, like Link.
+  a: (node) => componentConverters.Link(node),
+
+  // <AddOnAccessTable /> → how to try and get each add-on and pilot feature
+  AddOnAccessTable: () => {
+    const catalog = getCatalog()
+    const lines = catalog
+      .filter((entry) => entry.plan === 'Add-on' && entry.url)
+      .map((entry) => {
+        const access = ADD_ON_ACCESS[entry.name]
+        const how = access?.dashboard
+          ? `[buy it in the dashboard](${DASHBOARD_URL})`
+          : `[contact the Tiptap team](${access?.contact ?? 'https://tiptap.dev/contact-sales'})`
+        return `- [${entry.name}](${entry.url}) (add-on): ${access?.trial === undefined ? 'ask the team about the trial' : access.trial ? 'in the trial' : 'not in the trial'}; ${how}`
+      })
+    const pilot = catalog
+      .filter((entry) => entry.plan === 'Pilot program' && entry.url)
+      .map((entry) => `[${entry.name}](${entry.url})`)
+      .join(', ')
+    lines.push(`- ${pilot} (pilot program): [join the pilot program](${PILOT_PROGRAM_FORM})`)
+    return markdownNodes(lines.join('\n'))
+  },
+
+  // The changelog page's generated sections
+  ChangelogHighlights: () =>
+    markdownNodes(
+      CHANGELOG_HIGHLIGHTS.map(
+        (highlight) =>
+          `- **${highlight.type}** · [${highlight.title}](${highlight.url}) (${highlight.feature} ${highlight.version}, ${formatDay(highlight.date)}): ${highlight.text}`,
+      ).join('\n'),
+    ),
+  ChangelogReleases: () => markdownNodes(changelogMarkdown.releases()),
+  ChangelogPackages: () => markdownNodes(changelogMarkdown.packages()),
+  ChangelogFeeds: () =>
+    markdownNodes(
+      [{ title: 'All releases', href: '/resources/changelog/rss.xml' }, ...groupFeeds()]
+        .map((feed) => `- [${feed.title}](${feed.href})`)
+        .join('\n'),
+    ),
+}
+
+/** Markdown text as nodes, so generated sections go through the same transform. */
+function markdownNodes(markdown: string): MdxNode[] {
+  return unified().use(remarkParse).use(remarkGfm).parse(markdown).children as MdxNode[]
+}
+
+/** The features of a catalog group as a list, with plan and status. */
+function catalogList(id: string | undefined): MdxNode {
+  return {
+    type: 'list',
+    ...({ ordered: false, spread: false } as object),
+    children: getCatalog()
+      .filter((entry) => entry.group === id)
+      .map((entry) => {
+        const notes = [entry.status, entry.plan ?? (entry.paid ? 'Paid' : undefined)]
+          .filter(Boolean)
+          .join(', ')
+        const line: MdxNode[] = [
+          entry.url ? link(entry.url, entry.name) : strong(entry.name),
+          text(`${notes ? ` (${notes})` : ''}: ${entry.description}`),
+        ]
+        // An announced feature is not a promise; say what covers the need today
+        if (!entry.url) {
+          line.push(text(' Not available yet, no release date.'))
+          if (entry.meanwhile) {
+            line.push(text(' Today: '), link(entry.meanwhile.url, entry.meanwhile.label), text('.'))
+          }
+        }
+        return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
+      }),
+  }
+}
+
+/**
+ * A self-closing card with `href` and `title`, such as a card component a page
+ * defines for itself, as a list item: `[title](href): description`.
+ */
+export function cardItem(node: MdxNode): MdxNode | undefined {
+  if (node.children?.length) return undefined
+  const url = getAttr(node, 'href')
+  const title = getAttr(node, 'title')
+  if (!url || !title) return undefined
+  const description = getAttr(node, 'description')
+  const line = [link(url, title), ...(description ? [text(`: ${description}`)] : [])]
+  return { type: 'listItem', ...({ spread: false } as object), children: [paragraph(line)] }
 }

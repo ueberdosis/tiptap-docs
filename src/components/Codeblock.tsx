@@ -44,6 +44,10 @@ export const Codeblock = forwardRef<HTMLDivElement, CodeblockProps>(
           }}
           className={collapsible.isCollapsed ? 'overflow-auto' : 'overflow-x-auto'}
           style={collapsible.isCollapsed ? { maxHeight: CODE_COLLAPSED_HEIGHT } : undefined}
+          // A scrolling region has to be reachable by keyboard
+          tabIndex={0}
+          role="region"
+          aria-label="Code example"
         >
           {children}
         </div>

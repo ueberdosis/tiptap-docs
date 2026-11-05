@@ -3,7 +3,7 @@ import { ArrowRightIcon } from 'lucide-react'
 import { PageEditStatus } from '../ui/PageEditStatus'
 import PageHelpFeedback from '../PageHelpFeedback'
 import { TiptapLogo } from '../TiptapLogo'
-import { ProductDropdown } from '../ProductDropdown'
+import { DocsSwitcher } from '../DocsSwitcher'
 import { NavLink } from '../NavLink'
 import { SearchButton } from '../SearchButton'
 import { ToCButton } from '../ToCButton'
@@ -70,10 +70,7 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
             <VersionSwitch />
             <span className="hidden select-none lg:block text-black/15">/</span>
             <nav className="hidden lg:flex items-center gap-[0.5px]">
-              <ProductDropdown />
-              <NavLink href="/guides">Guides</NavLink>
-              <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="/ui-components/getting-started/overview">UI Components</NavLink>
+              <DocsSwitcher />
               <NavLink href="https://tiptap.dev" target="_blank">
                 Website
               </NavLink>

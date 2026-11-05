@@ -9,7 +9,9 @@ import PrevNextTiles from '@/components/PrevNextTiles'
 import { PageHeaderBreadcrumbs } from '@/components/PageHeader.client'
 import { AskAi } from '@/components/AskAi'
 import { getChangelogData, getChangelogIndex } from '@/server/getChangelogData'
-import { renderMarkdown } from '@/server/renderMarkdown'
+import { PackageTimeline } from '@/components/Changelog'
+import Link from '@/components/Link'
+import { packageDisplayName } from '@/server/changelogEntries'
 
 type Props = {
   params: Promise<{
@@ -29,8 +31,8 @@ export async function generateMetadata({ params }: Props) {
   const data = getChangelogData(slug)
   if (!data) return {}
 
-  const title = `${data.packageName} changelog`
-  const description = `Changelog for ${data.packageName}`
+  const title = `${packageDisplayName(data.packageName)} changelog`
+  const description = `Every version of ${data.packageName} that changed something, newest first.`
   const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
 
   return await createMetadata({
@@ -46,12 +48,12 @@ export default async function ChangelogPage({ params }: Props) {
   const data = getChangelogData(slug)
   if (!data) notFound()
 
-  const html = await renderMarkdown(data.content)
   const canonicalUrl = createCanonicalUrl(['resources', 'changelog', slug])
   const sidebar = await importSidebarConfigFromMarkdownPath(['resources'])
 
-  const title = `${data.packageName} changelog`
-  const description = `Changelog for ${data.packageName}`
+  const name = packageDisplayName(data.packageName)
+  const title = `${name} changelog`
+  const description = `Every version of ${data.packageName} that changed something, newest first.`
   const schemaDate = '1970-01-01T00:00:00.000Z'
 
   const techArticleSchema = {
@@ -90,9 +92,14 @@ export default async function ChangelogPage({ params }: Props) {
               </div>
             ) : null}
             <PageHeader.Title>{title}</PageHeader.Title>
-            <PageHeader.Description>{description}</PageHeader.Description>
+            <PageHeader.Intro>
+              Every version of <code>{data.packageName}</code> that changed something, newest first.
+              All releases are on the <Link href="/resources/changelog">changelog</Link>.
+            </PageHeader.Intro>
           </PageHeader.Wrapper>
-          <div className="mdx-content" dangerouslySetInnerHTML={{ __html: html }} />
+          <div className="mdx-content">
+            <PackageTimeline slug={slug} />
+          </div>
           <PrevNextTiles
             config={sidebar.sidebarConfig}
             currentPath={`/resources/changelog/${slug}`}
