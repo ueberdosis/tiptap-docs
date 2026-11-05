@@ -105,6 +105,8 @@ export type FrontmatterHeaderDemo = {
    * when the demo shows no code, where the view switch is not, otherwise below the demo.
    */
   caption?: string
+  /** A CSS length, such as `min(80vh, 52rem)`, for a taller demo. Defaults to `min(70vh, 31rem)`. */
+  height?: string
 }
 
 export type FrontmatterSidebar = {

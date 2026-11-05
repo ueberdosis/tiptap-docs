@@ -166,6 +166,7 @@ export default async function MarkdownPage({ params }: Props) {
               ) : undefined
             }
             isLarge
+            height={headerDemo.height}
             view="preview"
           />
           {/* Without code the caption sits in the demo's bar */}
