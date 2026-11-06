@@ -27,7 +27,7 @@ export const PLAN_LABELS: Record<Plan, { label: string; tooltip: string }> = {
 }
 
 /** Statuses a feature passes on to its pages. */
-export const STATUSES = ['Deprecated', 'Alpha', 'Beta'] as const
+export const STATUSES = ['Legacy', 'Alpha', 'Beta'] as const
 
 export type Status = (typeof STATUSES)[number]
 
@@ -48,7 +48,7 @@ export function planFromLabel(tag: string): Plan | undefined {
   return PLANS.find((plan) => plan.toLowerCase() === tag.toLowerCase())
 }
 
-/** The status a sidebar tag names, such as `beta` or `Deprecated`. */
+/** The status a sidebar tag names, such as `beta` or `Legacy`. */
 export function statusFromLabel(tag: string): Status | undefined {
   return STATUSES.find((status) => status.toLowerCase() === tag.toLowerCase())
 }

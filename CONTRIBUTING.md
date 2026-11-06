@@ -33,9 +33,10 @@ Industries for the catalog filter are in `src/content/industries.ts`; each lists
 
 ## Labels
 
-- **Plan and status come from the feature.** Tag the feature's overview page in its frontmatter (`start`, `team`, `addon`, `restricted`, `mit`; `alpha`, `beta`, `deprecated`). Its pages inherit the plan and status through the sidebar and show them in the page header. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
-- **The sidebar shows one grey label per entry**, in this order: Deprecated, Paid, New. Paid stands for any plan, add-on, or the pilot program; the page header names which. A group says Paid when all its entries are paid, and the entries below a paid one don't repeat it; a group that mixes free and paid features says nothing, only its paid entries do. Open source stays unlabeled. Alpha and Beta show in the page header, not in the sidebar.
+- **Plan and status come from the feature.** Tag the feature's overview page in its frontmatter (`start`, `team`, `addon`, `restricted`, `mit`; `alpha`, `beta`, `legacy`). Its pages inherit the plan and status through the sidebar and show them in the page header. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
+- **The sidebar shows one grey label per entry**, in this order: Legacy, Paid, New. Paid stands for any plan, add-on, or the pilot program; the page header names which. A group says Paid when all its entries are paid, and the entries below a paid one don't repeat it; a group that mixes free and paid features says nothing, only its paid entries do. Open source stays unlabeled. Alpha and Beta show in the page header, not in the sidebar.
 - **"New" carries a date and goes away after 90 days.** In frontmatter, `- type: new` with `since: '2026-10-01'`; in a sidebar, `newSince: '2026-10-01'` on the entry.
+- **Legacy is the one end-of-life label.** It means: kept for existing projects, not for new ones. Tag the page `- type: legacy` and add the feature to `src/content/legacy.ts` with what replaces it, how to move, and when it goes away if that is decided; every page of the feature then shows that in a box under the header. Move its entry to the Legacy area at the end of `src/content/sidebar.ts`; its URLs stay.
 
 ## Publishing Documentation
 
