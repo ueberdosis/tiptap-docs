@@ -1,0 +1,264 @@
+---
+title: "Build a reference picker"
+intro: "A reference picker is the menu or dialog in your app where the user chooses what to refer to and how the reference reads, like Word's cross-reference dialog. This guide builds one that inserts a reference and changes the reference at the cursor."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Build a reference picker | Tiptap Editor Docs"
+  description: "Build the menu or dialog that inserts a cross-reference: list the targets, offer what a reference can show, and change the reference at the cursor."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-cross-references/docs/picker.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## What you build
+
+The user picks a reference type, such as Heading, then one or more targets of it, the headings
+a reference may point at. Then the user picks a display, what the reference reads, such as the
+title, and a join, the rule that reads several targets as `3, 5 and 7`.
+
+A button inserts the reference at the cursor. When the cursor is in a reference, the controls
+show its choices and change them.
+
+The example builds on [Install Cross-references](/features/cross-references/install#a-first-editor) and uses plain DOM
+controls, so it runs in any framework.
+
+## The complete example
+
+The page holds the editor and four `<select>` elements with a button:
+
+```html
+<select id="type"></select>
+<select id="target" multiple></select>
+<select id="show"></select>
+<select id="join"></select>
+<button id="apply">Insert reference</button>
+<div id="editor"></div>
+```
+
+The script creates the editor, fills the controls from the document, and inserts or changes a
+reference when the user clicks the button:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import {
+  CrossReferences,
+  crossReferenceAround,
+  crossReferenceJoinChoices,
+  crossReferenceTargetById,
+  crossReferenceTypesIn,
+  mountCrossReferenceStyles,
+} from '@tiptap-pro/extension-cross-references'
+
+mountCrossReferenceStyles(document)
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, CrossReferences.configure({ targets: { heading: {} }, multiple: true })],
+  content: '<h2>Scope of work</h2><p>The work.</p><h2>Payment</h2><p>See</p>',
+})
+
+const reading = editor.storage.crossReferences
+const [typeSelect, targetSelect, showSelect, joinSelect, button] = [
+  '#type',
+  '#target',
+  '#show',
+  '#join',
+  '#apply',
+].map(selector => document.querySelector(selector))
+
+let types = []
+
+function fill(select, entries) {
+  select.replaceChildren(...entries.map(([value, text]) => new Option(text, value)))
+}
+
+function chosenType() {
+  return types.find(type => type.name === typeSelect.value)
+}
+
+function showTargets() {
+  const type = chosenType()
+  fill(
+    targetSelect,
+    (type?.targets ?? []).map((target, index) => [
+      index,
+      target.label ? `${target.label.fullNumber} ${target.title}` : target.title,
+    ]),
+  )
+  fill(
+    showSelect,
+    (type?.displays ?? []).map(display => [display.id, display.title]),
+  )
+}
+
+function showTypes() {
+  const chosen = typeSelect.value
+  types = crossReferenceTypesIn(editor.state.doc, reading)
+  fill(
+    typeSelect,
+    types.map(type => [type.name, type.name]),
+  )
+  if (types.some(type => type.name === chosen)) typeSelect.value = chosen
+  showTargets()
+}
+
+fill(joinSelect, [
+  ['', 'Default'],
+  ...crossReferenceJoinChoices(reading.joins).map(rule => [rule.id, rule.title]),
+])
+
+function referenceAtCursor() {
+  const { from, to } = editor.state.selection
+  return crossReferenceAround(editor.state.doc, from, to)
+}
+
+function chosenOptions() {
+  return { show: showSelect.value, join: joinSelect.value || null }
+}
+
+function chosenTargets() {
+  const type = chosenType()
+  return [...targetSelect.selectedOptions].map(option => {
+    const target = type.targets[Number(option.value)]
+    return target.id ?? target.pos
+  })
+}
+
+function updateButton() {
+  const reference = referenceAtCursor()
+  button.textContent = reference ? 'Change reference' : 'Insert reference'
+  button.disabled = reference
+    ? !editor.can().setCrossReferenceOptions(chosenOptions())
+    : !editor.can().insertCrossReference({ ...chosenOptions(), targets: chosenTargets() })
+}
+
+function showReferenceAtCursor() {
+  const reference = referenceAtCursor()
+  targetSelect.disabled = reference !== null
+  const first =
+    reference && crossReferenceTargetById(editor.state.doc, reading, reference.targetIds[0])
+  if (first && types.some(type => type.name === first.type)) {
+    typeSelect.value = first.type
+    showTargets()
+    showSelect.value = reference.show
+    joinSelect.value = reference.join ?? ''
+  }
+  updateButton()
+}
+
+typeSelect.addEventListener('change', () => {
+  showTargets()
+  updateButton()
+})
+for (const select of [targetSelect, showSelect, joinSelect]) {
+  select.addEventListener('change', updateButton)
+}
+
+button.addEventListener('click', () => {
+  if (referenceAtCursor()) {
+    editor.chain().focus().setCrossReferenceOptions(chosenOptions()).run()
+  } else {
+    editor
+      .chain()
+      .focus()
+      .insertCrossReference({ ...chosenOptions(), targets: chosenTargets() })
+      .run()
+  }
+})
+
+editor.on('update', () => {
+  showTypes()
+  updateButton()
+})
+editor.on('selectionUpdate', showReferenceAtCursor)
+
+showTypes()
+showReferenceAtCursor()
+```
+
+## Steps
+
+The steps follow the controls in the order the user meets them.
+
+### 1. List the reference types and their targets
+
+`crossReferenceTypesIn(editor.state.doc, editor.storage.crossReferences)` returns what the first
+two controls need. The second argument is the registration, your `targets`, `sources` and
+other options. Each entry is one reference type:
+
+| Field      | Description                                                                            |
+| ---------- | -------------------------------------------------------------------------------------- |
+| `name`     | The type, the node type's name unless the registration's `type` says otherwise         |
+| `targets`  | Its targets, as [`crossReferenceTargetsIn`](/features/cross-references/reading#reading-the-targets) lists them |
+| `displays` | What a reference to the type may show, as `{ id, title }`, in order                    |
+
+The types come in the order of their first targets, and those of [sources](/features/cross-references/sources) outside
+the document come last. A withheld target, one the user may not see, is left out.
+
+A target nothing refers to yet has `id: null`, because a target gets its id with its first
+reference. So the example inserts by id, or by position when there is none.
+
+Read the types again on every `update`, because positions and numbers change. Pass the same
+`editor.storage.crossReferences` each time, because the package caches per object.
+
+### 2. Offer the displays of the chosen type
+
+A type's `displays`, such as `{ id: 'title', title: 'Text' }`, fill the third control. They
+come from the registration of the type's first target, or the default list of
+[Reference types](/features/cross-references/displays#reference-types).
+
+### 3. Offer the join rules
+
+`crossReferenceJoinChoices(editor.storage.crossReferences.joins)` lists the
+[rules for several targets](/features/cross-references/joins) as `{ id, title }`. The example puts "Default" first,
+which stores `join: null`, so the reference reads by the `join` option. Where
+`editor.storage.crossReferences.multiple` is `false`, drop the `multiple` attribute of the
+target list.
+
+### 4. Insert the chosen reference
+
+`insertCrossReference` inserts the reference at the selection. Call it in a chain with
+`focus()`, because the user worked outside the editor and the focus brings the caret back.
+
+`editor.can().insertCrossReference(options)` answers whether the insert would work, and the
+example disables the button with it. It answers `false` when no target is chosen or a reference
+cannot go at the cursor. [Inserting a reference](/features/cross-references/references#inserting-a-reference) has the
+arguments.
+
+### 5. Show and change the reference at the cursor
+
+`crossReferenceAround(doc, from, to)` returns the reference the selection is in or selects, or
+`null`. The reference carries its choices, such as `show`, `join` and `targetIds`. The example
+finds its first target with `crossReferenceTargetById` to choose the type.
+
+`setCrossReferenceOptions(options)` changes the reference at the cursor:
+
+```js
+editor.commands.setCrossReferenceOptions({ show: 'page', join: null })
+```
+
+It returns `false` when the cursor is in no reference or nothing would change. So
+`editor.can()` disables the button while the controls show what the reference already has.
+[Commands](/features/cross-references/commands#setcrossreferenceoptions) has its arguments.
+
+## Check that it works
+
+Put the cursor at the end of the last paragraph and type a space. Pick `heading`, the type's
+name because the registration names no other, then "Payment", then "Text", and click the
+button.
+
+The paragraph reads "See Payment", with "Payment" in the color of a reference. Click into that
+reference, and the button reads "Change reference". Pick "Above/below" and click again, and the
+reference reads "above".
+
+## Next steps
+
+The picker grows with the rest of the feature:
+
+- To offer numbers, give the targets a `label`, see [Numbering targets](/features/cross-references/targets#numbering-targets).
+- To add displays of your own, see [Displays of your own](/features/cross-references/displays#displays-of-your-own).
+- To list bookmarks or targets in other documents, see [Sources](/features/cross-references/sources).
