@@ -1,12 +1,13 @@
 ---
 title: "Bookmarks"
-intro: "Name a run of text, or a point between two characters, in a Tiptap editor. A bookmark is a place to go to, to link to with <code>#name</code>, and to refer to, as bookmarks are in Word."
+intro: "Bookmarks give a run of text, or a point between two characters, a name in a Tiptap editor. Users can go to a bookmark, follow a link to it, and refer to it from elsewhere in the document, as with bookmarks in Word."
 headerDemo:
   path: "/Extensions/Bookmarks"
   isPro: true
 tags:
   - type: pro
   - type: alpha
+  - type: restricted
 meta:
   title: "Bookmarks | Tiptap Editor Docs"
   description: "Name a run of text or a point in a Tiptap editor, link to it with #name, and go to it, with or without Page Layout."
@@ -24,113 +25,154 @@ extension:
 
 ## Install
 
+1. Set up Tiptap's private registry, as the
+   [private registry guide](https://tiptap.dev/docs/guides/pro-extensions) shows. The package
+   comes from there, not from npm's registry.
+2. Install the extension with its peer dependencies and StarterKit, which the example uses:
+
 ```bash
-npm install @tiptap-pro/extension-bookmark
+npm install @tiptap-pro/extension-bookmark @tiptap/core @tiptap/pm @tiptap/starter-kit
 ```
 
-The package comes from Tiptap's private registry. The
-[private registry guide](https://tiptap.dev/docs/guides/pro-extensions) shows how to set it up.
-Its peer dependencies are `@tiptap/core` and `@tiptap/pm`.
-
-## Quick start
+This example builds an editor, puts a bookmark on the first three words, and goes to it by its
+name:
 
 ```js
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
-import { Bookmarks, bookmarkByName } from '@tiptap-pro/extension-bookmark'
+import { Bookmarks, bookmarkByName, mountBookmarkStyles } from '@tiptap-pro/extension-bookmark'
+
+mountBookmarkStyles(document)
 
 const editor = new Editor({
   element: document.querySelector('#editor'),
-  extensions: [StarterKit, Bookmarks],
+  extensions: [StarterKit, Bookmarks.configure({ showBookmarks: true })],
+  content: '<p>Invoices are due within 30 days.</p>',
 })
 
-editor.commands.addBookmark({ name: 'Payment_terms' }) // on the selection
+// Select "Invoices are due": positions count from 1 at the start of the paragraph
+editor.chain().setTextSelection({ from: 1, to: 17 }).addBookmark({ name: 'Payment_terms' }).run()
 
+// Go to it by its name
+const bookmark = bookmarkByName(editor.state.doc, 'Payment_terms')
+editor.commands.goToBookmark(bookmark.id)
+```
+
+When it works, "Invoices are due" has a dashed gray underline and is selected. The underline
+comes from `mountBookmarkStyles` and `showBookmarks: true`. Without them, a bookmark is invisible.
+The other examples on this page build on this editor.
+
+The package brings no buttons, dialogs or lists. Build them from the
+[commands](/features/bookmark#commands) and from the functions in [List the bookmarks](/features/bookmark#list-the-bookmarks), as
+the demo does.
+
+## Common tasks
+
+| To                                       | Call                                                            | See                                              |
+| ---------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| Add a bookmark on the selection          | `editor.commands.addBookmark({ name: 'Price' })`                | [Add a bookmark](/features/bookmark#add-a-bookmark)                |
+| Rename the bookmark at the cursor        | `editor.commands.renameBookmark('Cost')`                        | [Rename or remove](/features/bookmark#rename-or-remove-a-bookmark) |
+| Remove the bookmark at the cursor        | `editor.commands.removeBookmark()`                              | [Rename or remove](/features/bookmark#rename-or-remove-a-bookmark) |
+| Go to a bookmark                         | `editor.commands.goToBookmark(id)`                              | [Go to a bookmark](/features/bookmark#go-to-a-bookmark)            |
+| Insert a link to a bookmark              | `editor.chain().setLink({ href: bookmarkHref('Price') }).run()` | [Link to a bookmark](/features/bookmark#link-to-a-bookmark)        |
+| Show or hide bookmarks                   | `editor.commands.toggleBookmarkVisibility()`                    | [Show bookmarks](/features/bookmark#show-bookmarks)                |
+| List the bookmarks for a panel or dialog | `bookmarksIn(editor.state.doc, { sort: 'name' })`               | [List the bookmarks](/features/bookmark#list-the-bookmarks)        |
+| Disable a button that cannot act         | `editor.can().addBookmark()`                                    | [Commands](/features/bookmark#commands)                            |
+
+## Add a bookmark
+
+`addBookmark` puts a bookmark on the selected text. With nothing selected, it puts a bookmark on
+no text, a point at the cursor, which marks a place between two characters.
+
+```js
+editor.commands.addBookmark({ name: 'Price' })
+```
+
+- **A new name** gives a new bookmark, with a random `id`. Store the `id` to find the bookmark again
+  after it is renamed.
+- **A name the document already has** moves that bookmark to the selection, as Word does. Its name
+  and `id` stay, so links and references to it still find it.
+- **No `name`** names the bookmark after the selected words, such as `the_agreed_price`. With no
+  words selected, the name is `Bookmark`.
+
+`addBookmark` returns `false` and adds nothing for a name that is not valid. It also returns
+`false` where nothing in the selection can hold a bookmark, such as text in a code block. The
+[addBookmark() reference](/features/bookmark#addbookmark) lists its options, such as `from` and `to` for another
+range.
+
+A bookmark on text may run across several paragraphs, and bookmarks may overlap and nest. Typing
+at the end of a bookmark does not make it longer.
+
+### Bookmark names
+
+A bookmark name follows Word's rules, so it survives a round trip through a .docx file. It starts
+with a letter, holds only letters, digits and `_`, and has at most 40 characters. Names are
+compared without regard to case, so `Terms` and `terms` name the same bookmark.
+
+These functions check and make names, for example for a name field in a bookmark dialog:
+
+```js
+import { bookmarkNameFromText, isValidBookmarkName } from '@tiptap-pro/extension-bookmark'
+
+isValidBookmarkName('4th clause') // false, it starts with a digit
+bookmarkNameFromText('the agreed price') // 'the_agreed_price'
+bookmarkNameFromText('Price', ['price']) // 'Price_2', because 'price' is taken
+```
+
+A name that starts with `_` is a hidden name, which Word gives the bookmarks it makes for itself,
+such as `_Ref…` behind a cross-reference and `_Toc…` behind a table of contents. Hidden bookmarks
+are kept but never shown, and `bookmarksIn` lists them only with `hidden: true`.
+
+`addBookmark` refuses a hidden name unless you pass `hidden: true`, so a name the user types
+cannot start with `_`. These functions check and compare names:
+
+| Function               | Arguments                  | Returns                                                                                                 |
+| ---------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `isValidBookmarkName`  | `name, { hidden }?`        | Whether the name follows the rules. With `hidden: true`, a name may start with `_`                      |
+| `bookmarkNameFromText` | `text, taken?`             | A valid name of the words, joined by `_` and numbered when `taken` has it. See the note after the table |
+| `isHiddenBookmarkName` | `name`                     | Whether the name starts with `_`                                                                        |
+| `sameBookmarkName`     | `a, b`                     | Whether two names are the same without regard to case                                                   |
+| `isBookmarkNameFree`   | `state, name, { except }?` | Whether no bookmark has the name. `except` is the `id` of a bookmark that may keep its own              |
+| `BOOKMARK_NAME_LIMIT`  |                            | `40`, the longest name                                                                                  |
+
+`bookmarkNameFromText` puts `Bookmark_` in front of words that do not start with a letter, and
+returns `Bookmark` for no words.
+
+## Rename or remove a bookmark
+
+`renameBookmark` gives the bookmark at the cursor another name, and `removeBookmark` takes the
+bookmark away and leaves its text. Without an `id`, both commands take the smallest bookmark
+around the selection, the innermost one where bookmarks nest:
+
+```js
+editor.commands.renameBookmark('Cost')
+editor.commands.removeBookmark()
+
+// Another bookmark, by its id
+editor.commands.renameBookmark('Cost', id)
+editor.commands.removeBookmark(id)
+```
+
+Renaming keeps the bookmark's `id`, so references by `id` still find it. Links go by name, so a
+link to the old name no longer finds the bookmark. A name another bookmark has is refused, but a
+change of case only, such as `Price` to `price`, is allowed.
+
+## Go to a bookmark
+
+`goToBookmark` selects a bookmark and scrolls it into view. It takes the bookmark's `id`, which
+`bookmarkByName` finds from a name:
+
+```js
 const { id } = bookmarkByName(editor.state.doc, 'Payment_terms')
 editor.commands.goToBookmark(id)
 ```
 
-- **`addBookmark` puts the bookmark on the selected text,** or on a point at the cursor when
-  nothing is selected, and gives it a random `id`.
-- **A bookmark is invisible** unless bookmarks are [shown](/features/bookmark#showing-bookmarks).
-- **It adds nothing to the text.** `editor.getText()` and a copy as plain text are the same with
-  or without one.
+Most editors need nothing more. An editor that scrolls to a position its own way, for example
+because it renders only part of a long document, passes `reveal`. `goToBookmark` and a followed
+link then call `reveal` instead, and select nothing themselves.
 
-## What a bookmark is
-
-`Bookmarks` brings two types:
-
-| Type            | Kind             | For              | HTML                                                                                                     |
-| --------------- | ---------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
-| `bookmark`      | Mark             | A run of text    | `<span class="tiptap-bookmark" data-tt-bookmark="id" data-tt-bookmark-name="name">` around the text      |
-| `bookmarkPoint` | Inline atom node | A point, no text | An empty `<span class="tiptap-bookmark-point" data-tt-bookmark-point="id" data-tt-bookmark-name="name">` |
-
-Each bookmark has two attributes:
-
-| Attribute | Description                                                                                                                                                                             |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`      | Made by `addBookmark`. It does not change when the bookmark is renamed or moved, so code that keeps it, such as a [cross-reference](/features/bookmark#referring-to-a-bookmark), still finds the bookmark |
-| `name`    | What the user sees, and what a .docx stores                                                                                                                                             |
-
-- **A bookmark on text may run across several paragraphs.** Every run of text with the same `id`
-  is one bookmark, from the first position any of them covers to the last.
-- **Bookmarks may overlap and nest.**
-- **Typing at the end of a bookmark** does not widen it.
-
-## Names
-
-A name is one Word accepts: a letter first, then letters, digits and `_`, at most forty
-characters (`BOOKMARK_NAME_LIMIT`). Names are compared without regard to case, so `Terms` and
-`terms` are the same bookmark.
-
-```js
-import { isValidBookmarkName, bookmarkNameFromText } from '@tiptap-pro/extension-bookmark'
-
-isValidBookmarkName('4th clause') // false
-bookmarkNameFromText('the agreed price') // 'the_agreed_price'
-bookmarkNameFromText('Price', ['price']) // 'Price_2', since 'price' is taken
-```
-
-The second argument of `bookmarkNameFromText` lists the names already taken.
-
-- **A name that starts with `_` is hidden.** Word names the bookmarks it makes for itself this
-  way: `_Ref…` behind a cross-reference, `_Toc…` behind a table of contents.
-- **Hidden bookmarks are kept,** and `bookmarksIn` leaves them out unless you ask for them.
-- **`addBookmark` refuses a hidden name** unless you pass `hidden: true`, so a name the user
-  types cannot start with `_`.
-- **Without a `name`,** `addBookmark` names the bookmark after the selected words, with
-  `bookmarkNameFromText`. Words that do not start with a letter get `Bookmark_` in front, and no
-  words give `Bookmark`.
-
-`isHiddenBookmarkName(name)` says whether a name starts with `_`, and `sameBookmarkName(a, b)`
-compares two names without regard to case.
-
-## Adding, moving, renaming, removing
-
-```js
-editor.commands.addBookmark({ name: 'Price' }) // on the selection
-editor.commands.renameBookmark('Cost') // the bookmark around the cursor
-editor.commands.removeBookmark() // the text stays
-```
-
-- **With text selected,** the bookmark is on that text. With nothing selected, it is a point at
-  the cursor.
-- **Adding under a name the document already has moves that bookmark** to the selection, as Word
-  does. Its `id` stays, so every reference to it follows.
-- **Renaming keeps the `id` too.** A name another bookmark has is refused, and the command
-  returns `false`.
-- **Without an `id`,** `renameBookmark` and `removeBookmark` take the smallest bookmark around
-  the selection.
-
-## Going to a bookmark
-
-```js
-editor.commands.goToBookmark(id)
-```
-
-`goToBookmark` selects the bookmark and scrolls to it. Most editors need nothing more. An editor
-that shows a position its own way, for example because the place is not rendered yet, passes
-`reveal`:
+`reveal` gets the bookmark as [List the bookmarks](/features/bookmark#list-the-bookmarks) describes it, and returns
+whether it went there:
 
 ```js
 Bookmarks.configure({
@@ -138,275 +180,319 @@ Bookmarks.configure({
 })
 ```
 
-- **`reveal` gets the bookmark** as `bookmarksIn` reads it, and returns whether it went there.
-- **`goToBookmark` and a followed link** call it instead of selecting the bookmark, so `reveal`
-  selects and scrolls itself where it wants to.
+`myScrollTo` stands for your own function that shows a document position.
 
-## Links to a bookmark
+## Link to a bookmark
 
-A click on a link whose `href` is `#name` goes to the bookmark of that name. That is how a link
-inside a document points at a place in it. To insert such a link, use Tiptap's Link extension,
-which StarterKit includes:
+A link whose `href` is `#` and a bookmark name points at that bookmark, and a click on it goes
+there. `bookmarkHref` makes the `href`. Insert the link with the `setLink` command of Tiptap's
+Link extension, which StarterKit includes:
 
 ```js
 import { bookmarkHref } from '@tiptap-pro/extension-bookmark'
 
 editor
   .chain()
-  .setLink({ href: bookmarkHref('Payment_terms') })
+  .setLink({ href: bookmarkHref('Payment_terms') }) // href '#Payment_terms'
   .run()
 ```
 
-- **A link to a name no bookmark has,** and every other link, is left to whatever else handles
-  links, Tiptap's Link extension included.
-- **`bookmarkNameOfHref(href)`** reads the name back, or returns `null` for an `href` that is not
-  `#name`.
-- **`followLinks: false`** leaves every link alone.
+A click on such a link goes to the bookmark in an editable editor too. The name in the `href` is
+compared without regard to case.
 
-## Showing bookmarks
+- **A link to a name no bookmark has,** and every other link, is left to the Link extension and
+  any other click handler.
+- **`followLinks: false`** leaves all links alone, so a click on `#name` does not go anywhere.
+- **`bookmarkNameOfHref(href)`** reads the name back out of an `href`, or returns `null` when the
+  `href` is not `#` and a name.
 
-This is Word's _Show bookmarks_. The text of every bookmark gets a dashed underline, across
-paragraphs, and a thin bar marks a bookmark on no text. Hidden bookmarks are not shown.
+## Show bookmarks
 
-The underline and the bar come from the package's styles, which you add once with
-`mountBookmarkStyles`. Without them, shown bookmarks get no underline and no bar:
+Shown bookmarks are Word's _Show bookmarks_: the text of each bookmark gets a dashed underline,
+and a thin bar marks a bookmark on no text. Hidden bookmarks stay hidden. The underline and the
+bar need the package's styles, which `mountBookmarkStyles` adds to the page once:
 
 ```js
 import { mountBookmarkStyles } from '@tiptap-pro/extension-bookmark'
 
-mountBookmarkStyles(document) // once; a second call does nothing
+mountBookmarkStyles(document)
 
-Bookmarks.configure({ showBookmarks: true })
-editor.commands.toggleBookmarkVisibility() // on, off
-editor.commands.toggleBookmarkVisibility(false) // off
+Bookmarks.configure({ showBookmarks: true }) // shown from the start
+editor.commands.toggleBookmarkVisibility() // switch
+editor.commands.toggleBookmarkVisibility(false) // hide
 ```
 
-- **Neither takes room or covers a character.** No line rewraps when they appear.
-- **Showing bookmarks writes nothing** to the document.
-- **`areBookmarksShown(state)`** says whether they are shown.
+Showing bookmarks writes nothing to the document, and no line wraps differently while they are
+shown. `areBookmarksShown(editor.state)` says whether they are shown.
 
-`mountBookmarkStyles` adds a `style` element to the page's head. It takes these options as its
-second argument:
+These custom properties change the look:
 
-| Option  | Type     | Default                    | Description                                  |
-| ------- | -------- | -------------------------- | -------------------------------------------- |
-| `id`    | `string` | `'tiptap-bookmark-styles'` | The id of the `style` element                |
-| `nonce` | `string` | None                       | The nonce a Content Security Policy asks for |
+| Property              | Default   | Changes                                    |
+| --------------------- | --------- | ------------------------------------------ |
+| `--tt-bookmark-color` | `#8a8a8a` | The color of the underline and the bar     |
+| `--tt-bookmark-line`  | `dashed`  | The underline, any `text-decoration-style` |
 
-Under a Content Security Policy, pass the same nonce as the editor's `injectNonce` option:
-`mountBookmarkStyles(document, { nonce })`. Where the policy allows no `style` element,
-`bookmarkStyleRules()` returns the same rules as a string. Save them in a stylesheet of your own
-and load that instead.
+The underlined text has the class `tiptap-bookmark-shown` and the bookmark's name as its `title`.
+The bar is `tiptap-bookmark-point-marker`.
 
-The underlined text is `.tiptap-bookmark-shown`, with the bookmark's name as its `title`. The bar
-is `.tiptap-bookmark-point-marker`. These custom properties change them:
+### Styles under a Content Security Policy
 
-| Property              | Default   | Changes                               |
-| --------------------- | --------- | ------------------------------------- |
-| `--tt-bookmark-color` | `#8a8a8a` | The line and the bar                  |
-| `--tt-bookmark-line`  | `dashed`  | The line, any `text-decoration-style` |
+`mountBookmarkStyles` adds a `style` element to the head of the web page, and does nothing when
+an element with its `id` is there already. Under a Content Security Policy, pass it the same nonce
+as Tiptap's `injectNonce` editor option:
 
-## Copy and paste
+```js
+mountBookmarkStyles(document, { nonce })
+```
 
-A name is one bookmark:
+| Option  | Type     | Default                    | Description                                    |
+| ------- | -------- | -------------------------- | ---------------------------------------------- |
+| `id`    | `string` | `'tiptap-bookmark-styles'` | The id of the `style` element                  |
+| `nonce` | `string` | None                       | The nonce the Content Security Policy asks for |
 
-- **Pasting text whose bookmark the document already has,** by the same `id` or another bookmark
-  of that name, pastes the text without it. The bookmark stays where it was.
-- **Pasting what was cut** moves the bookmark, and so does dragging text to another place.
+When the policy allows no `style` element at all, `bookmarkStyleRules()` returns the same rules
+as a string. Save them in a stylesheet of your own and load it instead.
 
-## Reading the bookmarks
+## List the bookmarks
+
+`bookmarksIn` returns the bookmarks of a document, for example to fill a bookmark panel or the
+list of a "go to" dialog. The other functions find one bookmark:
 
 ```js
 import {
-  bookmarksIn,
+  bookmarkAround,
   bookmarkById,
   bookmarkByName,
-  bookmarkAround,
+  bookmarksIn,
 } from '@tiptap-pro/extension-bookmark'
 
 bookmarksIn(editor.state.doc) // in the order they begin
-bookmarksIn(editor.state.doc, { sort: 'name' }) // as Word's dialog sorts them
-bookmarksIn(editor.state.doc, { hidden: true }) // Word's own as well
+bookmarksIn(editor.state.doc, { sort: 'name' }) // by name, as Word's dialog sorts them
+bookmarksIn(editor.state.doc, { hidden: true }) // with the hidden ones
 bookmarkByName(editor.state.doc, 'price') // without regard to case
+bookmarkById(editor.state.doc, id)
 bookmarkAround(editor.state.doc, from, to) // the smallest one around a range
 ```
 
-`bookmarkById`, `bookmarkByName` and `bookmarkAround` return `null` where no bookmark matches.
-
-Each bookmark is `{ id, name, hidden, from, to, point }`:
+`bookmarkById`, `bookmarkByName` and `bookmarkAround` return `null` when no bookmark matches.
+`bookmarkAround` with an empty range, such as a cursor, also finds a bookmark on no text right
+beside it. Each bookmark they return has these fields:
 
 | Field    | Type      | Description                                   |
 | -------- | --------- | --------------------------------------------- |
 | `id`     | `string`  | The bookmark's id                             |
 | `name`   | `string`  | Its name                                      |
 | `hidden` | `boolean` | Whether the name starts with `_`              |
-| `from`   | `number`  | Where it begins                               |
+| `from`   | `number`  | The document position where it begins         |
 | `to`     | `number`  | Where it ends. The same as `from` for a point |
 | `point`  | `boolean` | Whether it is a bookmark on no text           |
 
-`bookmarksInBlock(block, blockPos)` reads the bookmarks that begin in one top-level block, at
-their positions in the document. It is for code that goes through the document block by block,
-such as a [cross-reference](/features/bookmark#referring-to-a-bookmark) source.
+A bookmark across several paragraphs is one entry, from the first position it covers to the last.
 
-### Leaving nodes out
+`bookmarksInBlock(block, blockPos)` returns the bookmarks that begin in one top-level block, a
+direct child of the document, at
+their positions in the document. It is for code that reads the document block by block, such as a
+[cross-reference source](/features/bookmark#refer-to-a-bookmark).
 
-Most editors do not need this. It is for an editor whose document holds copies of content that
-stands elsewhere, such as a table's header row repeated on every page. A bookmark in such a copy
-is not a second bookmark, so the copy has to be left out.
+## Copy and paste
 
-Every function in [Reading the bookmarks](/features/bookmark#reading-the-bookmarks) takes `ignore` in its options, a
-function that gets a node and returns:
+A bookmark name belongs to one bookmark, so a paste never adds a second bookmark of a name:
 
-- **`true`** to skip the node, with everything in it.
-- **`'descend'`** to read inside the node. Use it for a node that holds the document's own content
-  without being part of it.
-- **`false`** to read the node as usual.
+- **Pasting text whose bookmark the document already has,** by `id` or by name, pastes the text
+  without the bookmark. The bookmark in the document stays where it is.
+- **Cutting and pasting text** moves its bookmark, and so does dragging the text to another place.
+- **Text copied in Word** keeps its bookmarks under their names, hidden ones included. Each
+  arrives as a bookmark on no text where it began, because Word's clipboard does not say where a
+  bookmark ends.
+- **A paste as plain text** has no bookmarks.
 
-Pass `ignore` once to the extension, and every command uses it. In this example, the copies are
-nodes with an `isCopy` attribute:
+## Refer to a bookmark
+
+A cross-reference is text such as "see Payment terms" that points at a place in the document and
+stays right when the document changes. The
+[cross-references extension](/features/cross-references) adds them, and
+reads bookmarks through a source, a function you register.
+[Sources](/features/cross-references/sources#inside-the-document) shows the source
+for bookmarks. Neither package depends on the other.
+
+## Word documents
+
+A .docx file holds a bookmark as a name between a `w:bookmarkStart` and a `w:bookmarkEnd`
+element. Tiptap's own .docx import and export do not carry this package's bookmarks yet, as
+[Limitations](/features/bookmark#limitations) says. If you convert .docx files with code of your own, two functions
+read and write that shape:
+
+```js
+import { addImportedBookmarksTransaction, bookmarkRangesIn } from '@tiptap-pro/extension-bookmark'
+
+// Export: every bookmark, hidden ones included, as { name, from, to }
+const ranges = bookmarkRangesIn(editor.state.doc)
+
+// Import: ranges your converter read out of a file, at positions of the editor's document
+const transaction = addImportedBookmarksTransaction(editor.state, rangesFromTheFile)
+if (transaction) editor.view.dispatch(transaction)
+```
+
+`rangesFromTheFile` stands for the `{ name, from, to }` ranges your converter found.
+`addImportedBookmarksTransaction` keeps Word's hidden names, and an empty range becomes a
+bookmark on no text. It returns `null` when it could add none. It skips:
+
+- a name the document already has,
+- a name that does not follow the [name rules](/features/bookmark#bookmark-names),
+- a range in which nothing can hold a bookmark, such as one in a code block,
+- the second of two ranges with the same name.
+
+## Leave copied content out
+
+Most editors do not need this. It is for an editor that holds copies of content that stands
+elsewhere in the document, such as a table header row repeated on every page. A bookmark in such
+a copy is not a bookmark of its own, so the copy has to be left out.
+
+The `ignore` option is a function that gets a node and returns one of these:
+
+- **`true`** skips the node with everything in it.
+- **`'descend'`** reads only what is inside the node.
+- **`false`** reads the node as usual.
+
+Pass `ignore` once to the extension, and the commands and the shown bookmarks use it. In this
+example, the copies are nodes with an `isCopy` attribute:
 
 ```js
 Bookmarks.configure({ ignore: node => node.attrs.isCopy === true })
 ```
 
-## Referring to a bookmark
+Every function in [List the bookmarks](/features/bookmark#list-the-bookmarks) takes the same `ignore` in its
+options.
 
-A cross-reference is text such as "see Payment terms" that points at a place in the document and
-stays right while the document changes. The
-[cross-references extension](/features/cross-references) adds them. It reads
-bookmarks through a source, a function you register, which
-[Sources](/features/cross-references/sources#inside-the-document) shows for
-bookmarks. Neither package depends on the other.
+With [Page Layout](/features/page-layout/getting-started/overview), pass `ignoreLayoutArtifacts` from
+`@tiptap-pro/extension-page-layout` as `ignore`.
+[Bookmarks in Page Layout](/features/page-layout/extension-behavior#bookmarks)
+says what else changes on pages.
 
-## Word
+## What is stored
 
-A .docx holds a bookmark as a name between a `w:bookmarkStart` and a `w:bookmarkEnd`. If you
-convert .docx files with code of your own, two functions read and write that shape. Tiptap's own
-.docx import and export do not use them yet, as [Limitations](/features/bookmark#limitations) says.
+`Bookmarks` adds a mark and a node to the schema. A mark is a property of a run of text, like
+bold, and a node is an element of its own in the document. The bookmark node is an inline atom
+node: it sits in a line of text, has no content, and is moved and deleted as one piece.
 
-```js
-import { bookmarkRangesIn, addImportedBookmarksTransaction } from '@tiptap-pro/extension-bookmark'
+| Type            | Kind             | For                   | HTML                                                                                                     |
+| --------------- | ---------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `bookmark`      | Mark             | A bookmark on text    | `<span class="tiptap-bookmark" data-tt-bookmark="id" data-tt-bookmark-name="name">` around the text      |
+| `bookmarkPoint` | Inline atom node | A bookmark on no text | An empty `<span class="tiptap-bookmark-point" data-tt-bookmark-point="id" data-tt-bookmark-name="name">` |
 
-const ranges = bookmarkRangesIn(editor.state.doc) // [{ name, from, to }]
+The mark and the node store an `id`, which stays the same when the bookmark is renamed or moved,
+and a `name`, which the user sees and a .docx file stores.
 
-const tr = addImportedBookmarksTransaction(editor.state, rangesFromTheFile)
-if (tr) editor.view.dispatch(tr)
+A bookmark across several paragraphs is the `bookmark` mark with the same `id` on each run of
+text. In the JSON of `editor.getJSON()`, the mark and the node look like this:
+
+```json
+[
+  {
+    "type": "text",
+    "text": "Invoices are due",
+    "marks": [{ "type": "bookmark", "attrs": { "id": "bm4k2x9q1z", "name": "Payment_terms" } }]
+  },
+  { "type": "bookmarkPoint", "attrs": { "id": "bm7c0d3e5f", "name": "Signature" } }
+]
 ```
 
-- **`bookmarkRangesIn`** lists every bookmark as `{ name, from, to }`, hidden ones included.
-- **`addImportedBookmarksTransaction`** puts ranges read out of a file onto the document. `from`
-  and `to` are positions in the editor's document. It keeps Word's hidden names. An empty range is
-  a bookmark on no text.
-- **It skips** a name the document already has, a name Word would not accept, a range with no
-  text that can carry a bookmark, and the second of two ranges under one name.
+A bookmark adds no text: `editor.getText()` and a copy as plain text are the same with or without
+one. Whether bookmarks are shown is a setting of the editor and is not stored.
 
-Text copied in Word and pasted keeps its bookmarks under their names, hidden ones included:
-
-- **Each lands as a bookmark on no text** where it begins, because the clipboard does not say
-  where a bookmark ends.
-- **A name the document already has** is dropped, as with any paste.
+`Bookmark` and `BookmarkPoint` are the mark and the node on their own, for a schema that needs them
+without the commands. `BOOKMARK_MARK_NAME` and `BOOKMARK_POINT_NODE_NAME` are their names.
 
 ## Options
 
-| Option          | Type                                       | Default | Description                                                |
-| --------------- | ------------------------------------------ | ------- | ---------------------------------------------------------- |
-| `showBookmarks` | `boolean`                                  | `false` | Whether bookmarks are [shown](/features/bookmark#showing-bookmarks) at first |
-| `followLinks`   | `boolean`                                  | `true`  | Whether a click on a link to `#name` goes to the bookmark  |
-| `ignore`        | `((node) => boolean \| 'descend') \| null` | `null`  | See [Leaving nodes out](/features/bookmark#leaving-nodes-out)                |
-| `reveal`        | `((bookmark) => boolean) \| null`          | `null`  | See [Going to a bookmark](/features/bookmark#going-to-a-bookmark)            |
+`Bookmarks.configure()` takes these options:
+
+| Option          | Type                                       | Default | Description                                                                      |
+| --------------- | ------------------------------------------ | ------- | -------------------------------------------------------------------------------- |
+| `showBookmarks` | `boolean`                                  | `false` | Whether bookmarks are [shown](/features/bookmark#show-bookmarks) from the start                    |
+| `followLinks`   | `boolean`                                  | `true`  | Whether a click on a [link to `#name`](/features/bookmark#link-to-a-bookmark) goes to the bookmark |
+| `ignore`        | `((node) => boolean \| 'descend') \| null` | `null`  | Which nodes to [leave out](/features/bookmark#leave-copied-content-out)                            |
+| `reveal`        | `((bookmark) => boolean) \| null`          | `null`  | How to [go to a bookmark](/features/bookmark#go-to-a-bookmark) your own way                        |
 
 ## Commands
 
-Every command except `toggleBookmarkVisibility` returns `false` where it would do nothing, so a
-toolbar can disable a button with `editor.can()`.
-
-### addBookmark
-
-Adds a bookmark on the Selection, or a point where the Selection is empty.
+Every command except `toggleBookmarkVisibility` returns `false` and changes nothing when it cannot
+act, so `editor.can()` tells a toolbar when to disable a button:
 
 ```js
-editor.commands.addBookmark() // named after the selected words
-editor.commands.addBookmark({ name: 'Price' })
-editor.commands.addBookmark({ name: '_Ref42', hidden: true })
-editor.commands.addBookmark({ name: 'Spot', from: 12, to: 12 })
+const canRemove = editor.can().removeBookmark()
 ```
 
-| Option   | Type      | Description                                                                  |
-| -------- | --------- | ---------------------------------------------------------------------------- |
-| `name`   | `string`  | A [name](/features/bookmark#names) Word accepts. Default the selected words                    |
-| `hidden` | `boolean` | Whether the name may start with `_`. Default `false`                         |
-| `from`   | `number`  | Where the bookmark begins. Default the start of the Selection                |
-| `to`     | `number`  | Where it ends. Default the end of the Selection. Equal to `from` for a point |
+### addBookmark()
 
-A name the document already has moves that bookmark here, and keeps its id.
+Adds a bookmark on the selection, or a bookmark on no text where the selection is empty. See
+[Add a bookmark](/features/bookmark#add-a-bookmark). Its options:
 
-Returns `false` for a name that is not valid, and where nothing in the range can carry a
-bookmark, such as a horizontal rule or an image.
+| Option   | Type      | Default                    | Description                                                  |
+| -------- | --------- | -------------------------- | ------------------------------------------------------------ |
+| `name`   | `string`  | The selected words         | A [name](/features/bookmark#bookmark-names). A name in use moves that bookmark |
+| `hidden` | `boolean` | `false`                    | Whether the name may start with `_`                          |
+| `from`   | `number`  | The start of the selection | Where the bookmark begins                                    |
+| `to`     | `number`  | The end of the selection   | Where it ends. The same as `from` for a bookmark on no text  |
 
-### removeBookmark
+Returns `false` for a name that is not valid, and where nothing in the range can hold a bookmark,
+such as text in a code block or a horizontal rule.
 
-Removes a bookmark. Its text stays.
+### removeBookmark()
 
-```js
-editor.commands.removeBookmark()
-```
+Removes a bookmark and leaves its text. See [Rename or remove](/features/bookmark#rename-or-remove-a-bookmark).
 
-| Argument | Type     | Description                                                 |
-| -------- | -------- | ----------------------------------------------------------- |
-| `id`     | `string` | The bookmark. Default the smallest one around the Selection |
+Takes an optional `id`. Without it, the command removes the smallest bookmark around the selection.
 
 Returns `false` where there is no such bookmark.
 
-### renameBookmark
+### renameBookmark()
 
-Gives a bookmark another name. Its id stays, so references and links by id follow.
-
-```js
-editor.commands.renameBookmark('Cost')
-```
+Gives a bookmark another name and keeps its `id`. See
+[Rename or remove](/features/bookmark#rename-or-remove-a-bookmark). Its arguments:
 
 | Argument | Type     | Description                                                 |
 | -------- | -------- | ----------------------------------------------------------- |
 | `name`   | `string` | The new name                                                |
-| `id`     | `string` | The bookmark. Default the smallest one around the Selection |
+| `id`     | `string` | The bookmark. Default the smallest one around the selection |
 
-Returns `false` where there is no such bookmark, and for a name that is not valid, is the one it
-has, or is another bookmark's.
+Returns `false` where there is no such bookmark, for a name that is not valid, for exactly the
+current name, and for a name another bookmark has.
 
-### goToBookmark
+### goToBookmark()
 
-Selects a bookmark and scrolls it into view, or calls `reveal` where the extension has one.
+Selects a bookmark and scrolls it into view, or calls `reveal` where the extension has one. See
+[Go to a bookmark](/features/bookmark#go-to-a-bookmark).
 
-```js
-editor.commands.goToBookmark(bookmarkByName(editor.state.doc, 'Price').id)
-```
+Takes the bookmark's `id`.
 
-| Argument | Type     | Description       |
-| -------- | -------- | ----------------- |
-| `id`     | `string` | The bookmark's id |
+Returns `false` where no bookmark has that `id`, and where `reveal` returns `false`.
 
-Returns `false` where no bookmark has that id, and where `reveal` returns `false`.
+### toggleBookmarkVisibility()
 
-### toggleBookmarkVisibility
+Shows or hides the bookmarks, and writes nothing to the document. See
+[Show bookmarks](/features/bookmark#show-bookmarks).
 
-Shows or hides the bookmarks in the text. It writes nothing to the document.
-
-```js
-editor.commands.toggleBookmarkVisibility(true)
-```
-
-| Argument  | Type      | Description                                         |
-| --------- | --------- | --------------------------------------------------- |
-| `visible` | `boolean` | Shown or hidden. Default the opposite of what it is |
+Takes an optional `visible`, `true` to show and `false` to hide. Without it, the command switches.
 
 Always returns `true`.
 
-## Writing without a command
+## Write without a command
 
 Each command except `toggleBookmarkVisibility` has a function that returns the transaction
-instead of dispatching it, or `null` where the command returns `false`. Use it to write to a
-document the editor does not show, or to put a bookmark change into the same transaction as
-another change.
+instead of dispatching it, or `null` where the command returns `false`. Use it to change an
+editor state that no editor shows, or to add steps of your own to the same transaction before you
+dispatch it:
+
+```js
+import { addBookmarkTransaction } from '@tiptap-pro/extension-bookmark'
+
+const transaction = addBookmarkTransaction(editor.state, { name: 'Price' })
+if (transaction) {
+  transaction.insertText(' (see the price list)', transaction.selection.to)
+  editor.view.dispatch(transaction)
+}
+```
 
 | Command          | Function                    | Arguments                   |
 | ---------------- | --------------------------- | --------------------------- |
@@ -415,33 +501,36 @@ another change.
 | `renameBookmark` | `renameBookmarkTransaction` | `state, id, name, options?` |
 | `goToBookmark`   | `goToBookmarkTransaction`   | `state, id, options?`       |
 
-```js
-import { addBookmarkTransaction } from '@tiptap-pro/extension-bookmark'
-
-const tr = addBookmarkTransaction(state, { name: 'Price' })
-if (tr) view.dispatch(tr)
-```
-
-- **`options` takes `ignore`,** as in [Leaving nodes out](/features/bookmark#leaving-nodes-out).
-- **`addBookmarkTransaction` also takes** the options of [addBookmark](/features/bookmark#addbookmark).
-- **`renameBookmarkTransaction` also takes `hidden`,** for a hidden name.
-- **`isBookmarkNameFree(state, name, { except })`** says whether a name is free. `except` is the
-  id of a bookmark that may keep its own.
-
-`Bookmark` and `BookmarkPoint` are the mark and the node on their own, for a schema that needs
-them without the commands of `Bookmarks`. `BOOKMARK_MARK_NAME` and `BOOKMARK_POINT_NODE_NAME`
-are their names.
+Every `options` takes [`ignore`](/features/bookmark#leave-copied-content-out). `addBookmarkTransaction` also takes
+the options of [addBookmark()](/features/bookmark#addbookmark), and `renameBookmarkTransaction` takes `hidden` for a
+hidden name. The functions need an `id`, which `bookmarkAround` finds for the selection.
+`goToBookmarkTransaction` sets the selection and scrolls, and does not call `reveal`.
 
 ## Limitations
 
-- **A .docx file does not carry these bookmarks yet.** Tiptap's .docx import and export use a
-  zero-width `bookmark` node of their own, from `@tiptap-pro/extension-convert-kit`. An import
-  places it where a bookmark begins, and loses the range it covered.
-- **That node has the name of this package's mark.** In an editor with `Bookmarks`, pass
-  `bookmark: false` to `ConvertKit`. A schema cannot have a node and a mark of one name.
-- **A paste from Word** gives each bookmark as a point where it begins.
-- **A paste as plain text** has no bookmarks.
+Bookmarks do not yet survive Tiptap's own .docx conversion, and a paste keeps less than the
+original.
 
-With [Page Layout](/features/page-layout/getting-started/overview), pass `ignoreLayoutArtifacts` from
-`@tiptap-pro/extension-page-layout` as `ignore`. See
-[Bookmarks in Page Layout](/features/page-layout/extension-behavior#bookmarks).
+### Tiptap's .docx import and export keep only where a bookmark begins
+
+Tiptap's .docx import and export use a `bookmark` node of their own, from
+`@tiptap-pro/extension-convert-kit`, not this package's bookmarks. An import puts that node where
+a bookmark of the file begins. The text stays, but which text the bookmark covered is lost. To
+keep bookmarks with your own converter, see [Word documents](/features/bookmark#word-documents).
+
+### ConvertKit and Bookmarks in one editor
+
+`ConvertKit` brings a node named `bookmark`, the name of this package's mark, and a schema cannot
+have a node and a mark of one name. In an editor with `Bookmarks`, turn off ConvertKit's node:
+
+```js
+import { Bookmarks } from '@tiptap-pro/extension-bookmark'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+
+const extensions = [ConvertKit.configure({ bookmark: false }), Bookmarks]
+```
+
+### A paste from Word keeps only where a bookmark begins
+
+Each bookmark pasted from Word arrives as a bookmark on no text where it began. See
+[Copy and paste](/features/bookmark#copy-and-paste).
