@@ -233,6 +233,10 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/rest-api/overview',
         },
         {
+          title: 'Import DOCX',
+          href: '/conversion/v3/rest-api/import-docx',
+        },
+        {
           title: 'Export DOCX',
           href: '/conversion/v3/rest-api/export-docx',
         },
