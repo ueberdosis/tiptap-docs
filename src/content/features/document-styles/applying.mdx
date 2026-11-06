@@ -1,0 +1,460 @@
+---
+title: "Applying styles"
+intro: "A paragraph style goes on whole blocks, such as a paragraph or a heading, and a character style goes on a piece of text. An override sets one value of a block or of text apart from its style, and a later change of the style still reaches the rest."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Applying styles | Tiptap Editor Docs"
+  description: "Put a style on a block or on text, build a style picker, set what one paragraph overrides, and keep styles when pasting from Word."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-document-styles/docs/applying.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## Apply a style
+
+`applyStyle()` puts a style on the paragraph at the cursor, or a character style on the selected
+text:
+
+```js
+editor.commands.applyStyle('heading-1')
+```
+
+The id names one of Word's built-in styles, such as `normal`, `title`, `heading-1` or `quote`,
+which come with `DocumentStyles`. It can also name a style the document defines with
+[`setStyleDefinition`](/features/document-styles/definitions), or a style of a [library](/features/document-styles/libraries) in the
+`libraries` option.
+
+For a style menu, `applyStyle(id)` is all you need. The style and the selection decide whether it
+goes on the block or on the text, as
+[A style on a block or on text](/features/document-styles/applying#a-style-on-a-block-or-on-text) describes. [Install](/features/document-styles/install)
+has the complete editor that the examples on this page build on.
+
+## A style picker
+
+A style picker lists the styles and shows the style of the selection. `catalogOf` returns the
+list, an array of style definitions in the order Word's style list uses.
+
+The selection's style is the `styleId` attribute of its paragraph. Read both again on every
+transaction, which covers a moved cursor and a changed style:
+
+```js
+const { documentStyles } = editor.storage
+
+function updatePicker() {
+  const styles = documentStyles.catalogOf(editor.state.doc) // [{ id, name, ... }, ...]
+  const current = editor.getAttributes('paragraph').styleId // 'heading-1', or null
+  renderPicker(styles, current) // your UI, which calls applyStyle(style.id) on a click
+}
+
+editor.on('transaction', updatePicker)
+```
+
+In a heading, read `getAttributes('heading')`, and for the character style of the selected text,
+`getAttributes('textStyle')`. `editor.isActive({ styleId: 'heading-1' })` tells whether the
+selection has that style.
+
+Three fields of a definition order and filter the list:
+
+| Field      | Word's name       | What it does                                                                         |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------ |
+| `priority` | Recommended order | The lower number first. The same priority, and none after those with one, go by name |
+| `hidden`   | Hide until used   | Out of the list until a block or text refers to the style                            |
+| `gallery`  | Quick Styles      | In the short row of featured styles that `catalogOf(doc, { gallery: true })` lists   |
+
+`catalogOf(doc, { hidden: true })` lists hidden styles too. A hidden style with a `defaultFor`,
+the [default style](/features/document-styles/definitions#the-default-style) of a node type, is listed, used or not. One
+used only as the base of a used style is not.
+
+None of the three fields is inherited or changes how anything is drawn, and a hidden style can be
+applied like any other.
+
+A paragraph without a style of its own has `styleId: null`, and is drawn in its default style,
+such as Normal. `styleIdOrDefaultOf` returns a node's own style, or its default, as
+`string | null`:
+
+```js
+import { styleIdOrDefaultOf } from '@tiptap-pro/extension-document-styles'
+
+const defaults = editor.storage.documentStyles.defaultStylesOf(editor.state.doc)
+styleIdOrDefaultOf(defaults, editor.state.selection.$from.parent) // 'normal'
+```
+
+A reference to a style nothing defines still counts as the node's own. With the cursor in a table
+cell, the style is that of the paragraph in the cell, not the table's, as
+[The cursor in a cell](/features/document-styles/tables#the-cursor-in-a-cell) describes.
+
+`styleCatalog(doc, lookup, options)` returns the list without an editor, with the `lookup` that
+`documentStyles.stylesOf(doc)` returns.
+
+## Overrides
+
+An override is one value of a block or of text that differs from its style. The rest still
+follows the style, so a later change of the style still reaches it. With the cursor in a
+paragraph, the override goes on the paragraph:
+
+```js
+editor.commands.setStyleOverride('color', '#c00')
+editor.commands.unsetStyleOverride('color')
+editor.commands.clearStyleOverrides()
+```
+
+The property is CSS in camel case, and the value a CSS value. Overrides are stored as
+`styleOverrides: { color: '#c00' }`. `getHTML()` writes them as inline CSS and as JSON in
+`data-tt-style-overrides`, and reads them back from the JSON.
+
+`detachStyle({ keepFormatting: true })` takes the style off and writes each value it gave as an
+override, so the text looks the same and no longer follows the style.
+
+Where an override goes follows where the selection's style is read:
+
+| Selection                                                               | Where the override goes                                                                       |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Part of a paragraph, and that text has a character style or an override | All of the selected text, with the `styleId` and overrides of its first character             |
+| Anything else, in a block with a style or an override                   | The innermost such block of `types`. In a blockquote whose paragraph has none, the blockquote |
+| A block without a style or an override, in text with a character style  | That text's mark, at the selection's start. At the cursor, only the text typed next gets it   |
+| Nothing styled                                                          | The innermost block of `types`                                                                |
+
+A number is in pixels, except `0` and `fontWeight`, `lineHeight`, `opacity`, `orphans`, `widows`,
+`zIndex`, `flexGrow`, `flexShrink` and `order`. Some values are stored but write no CSS:
+
+- **`null` or a boolean.** `setStyleOverride('color', null)` leaves the style's color on the
+  screen. Use `unsetStyleOverride('color')` to take the override off.
+- **A property that is not camel case**, such as `font-size`.
+- **An empty string**, or one with `;`, `{`, `}`, `<`, `>`, `\` or `/*`.
+
+A paragraph style can set `autoUpdate: true`. Then `setStyleOverride` on a paragraph in it changes
+the style instead, as [Updating automatically](/features/document-styles/definitions#updating-automatically) describes.
+
+## A style on a block or on text
+
+A style without `targets` goes on the text if its `kind` is `'character'`, and on the block
+otherwise. A definition's `targets` choose where the style can go, as a list of
+`{ kind: 'node' | 'mark', types }`.
+
+A linked style lists a node and a mark target, so it can go on a whole block or on a piece of
+text. Word's Title, Subtitle and headings are linked:
+
+```js
+editor.commands.setStyleDefinition({
+  id: 'callout',
+  name: 'Callout',
+  kind: 'paragraph',
+  targets: [
+    { kind: 'node', types: ['paragraph'] },
+    { kind: 'mark', types: ['textStyle'] },
+  ],
+  props: { color: 'theme:accent1' },
+})
+```
+
+Where `applyStyle` puts each kind of style:
+
+| Style           | Where it goes                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Paragraph style | On the block at the cursor, or on each block the selection touches. Of nested blocks, the deepest one in `types`: in a blockquote, the paragraph inside it    |
+| Character style | On the selected text, as a mark of the first type its `mark` target names, or else of the first in `markTypes`. With nothing selected, on the text typed next |
+| Linked style    | On the block, unless part of one paragraph's text is selected. Then the [`partialSelection`](/features/document-styles/options#partialselection) option decides, the text by default |
+
+`types` and `markTypes` are the [options](/features/document-styles/options) that list the node types and mark types
+styles go on. A character style's mark type has to be in `markTypes`. The mark keeps its other
+attributes, so a `textStyle` with a color keeps it, and carries `styleId` beside them.
+
+A toolbar with a "Paragraph style" and a "Character style" menu passes `{ target: 'node' }` and
+`{ target: 'mark' }` to `applyStyle`, to put a linked style on the block or on the text.
+
+Applying a style also takes formatting off:
+
+- **A block style** takes the block's overrides off.
+- **A character style** takes the overrides of the text's mark off.
+- **A block style with text selected** takes the character styles off that text, because they
+  would still win over it there. The marks keep their other attributes and overrides, and a mark
+  left with nothing is removed. A table style leaves the text alone.
+- **A block style with only the cursor in the block** leaves its character styles, as in Word.
+
+A style that goes on text leaves the block's node type as it is, even with `transformNode: true`.
+
+## A style that wraps its blocks
+
+A style whose `node` is a type that holds blocks, such as `blockquote`, wraps the selected blocks
+in one node of that type. It does so with `transformNode: true` passed to `applyStyle`, or with
+the [`transformNodeOnApply`](/features/document-styles/options#transformnodeonapply) option on:
+
+```js
+editor.commands.setStyleDefinition({
+  id: 'pull-quote',
+  name: 'Pull quote',
+  kind: 'paragraph',
+  targets: [{ kind: 'node', types: ['blockquote'] }],
+  node: { type: 'blockquote' },
+  props: { fontStyle: 'italic', paddingLeft: 16 },
+})
+
+editor.commands.applyStyle('pull-quote', { transformNode: true })
+```
+
+`node` says what the blocks turn into, and `targets` what gets the style. Here the new blockquote
+gets the style, because the `node` target names `blockquote`. Without that target, the paragraphs
+inside get the style, and the blockquote has none.
+
+- **The wrapped blocks** lose their own `styleId` and keep their overrides.
+- **Inside a blockquote already**, nothing is wrapped again, and that blockquote gets the style.
+- **A `node` that holds text**, such as `{ type: 'heading', attrs: { level: 1 } }`, turns each
+  selected paragraph or heading into that type. Two styles can share a heading level, and a `node`
+  of `paragraph` turns a heading back into a paragraph.
+- **A `node` type the schema lacks**, or an inline or leaf one, transforms nothing. The style is
+  still set.
+
+A wrapper is a blockquote, or another node of `types`, whose style has that node's type as its
+`node`.
+
+Applying a style with a different `node` to a block inside a wrapper takes the block out, and a
+block in the middle splits the wrapper. This needs `transformNode` or `transformNodeOnApply`, as
+wrapping does.
+
+With `transformNodeOnApply` on, `removeStyle` takes every block out of a wrapper. With only
+`transformNode: true` passed to `applyStyle`, it takes the style off and leaves the blockquote. A
+blockquote that no style made stays.
+
+## A style nothing defines
+
+`applyStyle` applies an id nothing defines all the same by default. Such a style has no
+stylesheet rule, so the block looks unstyled until something defines it. The
+[`onMissingStyle`](/features/document-styles/options#onmissingstyle) option can apply `fallbackStyleId` instead, or take
+the style off.
+
+Such an id goes on the innermost block of `types`, not on text, so `target: 'mark'` returns
+`false`. [Missing styles](/features/document-styles/cleanup#missing-styles) finds these references later.
+
+## Tiptap's own formatting
+
+Tiptap's formatting extensions, such as Color, Bold and TextAlign, write formatting of their own
+beside the styles. `adoptDirectFormatting()` turns it into overrides, drawn the same, so the
+theme, `clearStyleOverrides` and [`updateStyleFromSelection`](/features/document-styles/definitions#updatestylefromselection)
+reach it.
+
+`expressAsDirectFormatting()` is the way back, for handing the document to something that knows
+Tiptap's marks and nothing of overrides. It reads the marks of `markTypes` and the blocks of
+`types`. What each command writes:
+
+| Formatting                      | `adoptDirectFormatting()`                                                                                                                           | `expressAsDirectFormatting()`                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| A color and Bold on text        | `{ color: '#c00000', fontWeight: 700 }` on the first mark type in `markTypes`, and the Bold mark comes off. Without a mark type, only blocks change | Color's attribute on `textStyle` and a Bold mark. `fontWeight: 'bold'` is Bold too |
+| An alignment                    | An override of the block, whose `textAlign` goes back to the default                                                                                | The block's `textAlign`                                                            |
+| Underline and Strike            | `textDecorationLine: 'underline line-through'`                                                                                                      | Underline and Strike, where the schema has both marks                              |
+| The same property set both ways | The existing override is kept, because it is the one drawn                                                                                          | The override's value is written                                                    |
+| A cursor, no selection          | Acts on the block the cursor is in                                                                                                                  | Acts on the block the cursor is in                                                 |
+
+An override stays an override where no rule can write it:
+
+- a theme reference such as `theme:accent1`, or a named color reference (`named:`)
+- a value no mark stands for, such as `fontWeight: 'normal'`
+- a property whose mark or attribute the editor does not have
+
+Which extension writes which property is the [`directFormatting`](/features/document-styles/options#directformatting)
+option. [Tiptap's own formatting](/features/document-styles/values#tiptaps-own-formatting) describes what counts as such
+formatting. [`clearInlineStyles()`](/features/document-styles/applying#clearinlinestyles) takes it off instead.
+
+## Pasting from Word
+
+Text pasted from Word keeps its styles where the document has a style for them. Nothing needs to
+be set up, whatever the options. Word names a style in the HTML it copies:
+
+- **Word's built-in classes**, such as `class=MsoTitle`, are read as the built-in name `Title`.
+- **A class the user made**, such as `class=Summary`, is read as the style name that Word's
+  `<style>` block gives it in `mso-style-name`.
+- **`<h1>` to `<h6>` without a known class** are read as `heading 1` to `heading 6`.
+
+The name becomes a reference to the style whose [`builtIn`](/features/document-styles/definitions#words-built-in-name),
+Word's name for it, is that name. Otherwise it refers to the style whose `name` matches, trimmed
+and in any case.
+
+A paste brings no definitions, so a style the document has nothing for is not created, and the
+text keeps the formatting the rest of the HTML carries.
+[`discoverStyles`](/features/document-styles/cleanup#formatting-that-should-be-a-style) can make a style of it afterwards.
+
+A `<p>` in a style with `'paragraph'` in its `defaultFor`, such as Normal, gets no reference.
+
+Which pasted elements get a style:
+
+- **Only Word's HTML.** HTML from anywhere else is pasted as it is. Word's is told by its Office
+  namespaces or a `class="Mso…"`.
+- **Paragraphs, list items, headings, tables, `div` and `span`** are read, by their first class.
+- **A `<span>`** takes only a character style, and any other element only a style that is not
+  one.
+- **Headings of level 4 to 6** get no style while Word's built-in styles are the only ones,
+  because those have Heading 1 to 3.
+- **An element that already has `data-tt-style-id`** keeps it.
+
+A character style lands on the mark of `markTypes` that reads the `<span>`, TextStyle in practice.
+The first pasted paragraph merges into the paragraph at the cursor and keeps that paragraph's
+style. The ones after it keep their own.
+
+`wordStylesToHtml(html, styleIdOf)` does the same on a string of Word's HTML, with the lookup
+`styleIdOfWordNameIn(doc, libraries, precedence)` that the paste uses. `libraries` defaults to
+`[]` and `precedence` to `'document'`:
+
+```js
+import { styleIdOfWordNameIn, wordStylesToHtml } from '@tiptap-pro/extension-document-styles'
+
+const html = wordStylesToHtml(htmlFromWord, styleIdOfWordNameIn(editor.state.doc))
+```
+
+## Commands
+
+Each command is one step of the history. A command returns `false` where it would change nothing
+or refuses, without throwing, so `editor.can()` tells a toolbar which of them apply.
+
+### applyStyle()
+
+Puts a style on the block at the selection, or on the selected text. See
+[A style on a block or on text](/features/document-styles/applying#a-style-on-a-block-or-on-text).
+
+```js
+editor.commands.applyStyle('heading-1', { target: 'node' })
+```
+
+The options are `ApplyStyleOptions`:
+
+| Argument                | Type                         | Default                | Description                                                                                  |
+| ----------------------- | ---------------------------- | ---------------------- | -------------------------------------------------------------------------------------------- |
+| `styleId`               | `string`                     | Required               | The style                                                                                    |
+| `options.target`        | `'auto' \| 'node' \| 'mark'` | `'auto'`               | Where a style that can be both goes                                                          |
+| `options.transformNode` | `boolean`                    | `transformNodeOnApply` | Also turns each paragraph or heading into the style's `node` type, or wraps the blocks in it |
+
+Returns `false` where nothing selected can carry the style: a type not in `types`, no mark type
+in `markTypes`, a `target` the style cannot take. It also returns `false` in these cases:
+
+- the style the block already has, without overrides, with only the cursor in it
+- `partialSelection: 'reject'` with part of a paragraph selected
+- `onMissingStyle: 'fallback'` without a fallback style that exists
+- `onMissingStyle: 'remove'` where there is nothing to take off
+
+### removeStyle()
+
+Takes the style and every override off the selection, where [an override would go](/features/document-styles/applying#overrides).
+
+```js
+editor.commands.removeStyle()
+```
+
+Takes no arguments. With the cursor in a block without a style, inside text with a character
+style, it acts on the text typed next and the text keeps its style. With `transformNodeOnApply`,
+it unwraps a [wrapper a style made](/features/document-styles/applying#a-style-that-wraps-its-blocks).
+
+Returns `false` where nothing changes, such as a block with no style and no override.
+
+### setStyleOverride()
+
+Sets one value of the selection apart from its style. See [Overrides](/features/document-styles/applying#overrides).
+
+```js
+editor.commands.setStyleOverride('color', '#c00')
+```
+
+It takes the property and its value:
+
+| Argument | Type         | Description                             |
+| -------- | ------------ | --------------------------------------- |
+| `prop`   | `string`     | A CSS property in camel case            |
+| `value`  | `StyleValue` | `string`, `number`, `boolean` or `null` |
+
+Returns `false` where the selection has no block or mark a style can go on, and on a block that
+already overrides `prop` with that value. On text, it writes the mark again and returns `true`.
+
+### unsetStyleOverride()
+
+Takes one override off, so the value is the style's again. After the last one,
+`styleOverrides` is `null`.
+
+```js
+editor.commands.unsetStyleOverride('color')
+```
+
+Takes one argument, `prop`, a CSS property in camel case. Returns `false` where the selection does
+not override `prop`.
+
+### clearStyleOverrides()
+
+Takes every override off, so the selection looks as its style says.
+
+```js
+editor.commands.clearStyleOverrides()
+```
+
+Takes no arguments. Returns `false` where the selection overrides nothing.
+
+### detachStyle()
+
+Takes the style off the selection. See [Overrides](/features/document-styles/applying#overrides).
+
+```js
+editor.commands.detachStyle({ keepFormatting: true })
+```
+
+It takes an options object:
+
+| Argument                 | Type      | Default | Description                                     |
+| ------------------------ | --------- | ------- | ----------------------------------------------- |
+| `options.keepFormatting` | `boolean` | `false` | Writes each value the style gave as an override |
+
+With `keepFormatting: true`, the values include what the style inherits through `basedOn`, with
+the existing overrides over them. With `false`, the existing overrides stay and the style's values
+go.
+
+With a style nothing defines, or with a loop of styles where each is `basedOn` the other,
+`keepFormatting` keeps only the existing overrides.
+
+Returns `false` where the selection has no style.
+
+### clearInlineStyles()
+
+Takes every character style, every override on the text's marks and Tiptap's own formatting off
+the selected text, as Word's Clear Character Formatting does.
+
+```js
+editor.commands.clearInlineStyles()
+```
+
+Takes no arguments.
+
+- **What goes.** A color from `setColor`, a font from `setFontFamily`, Bold, Italic, and any other
+  formatting the `directFormatting` rules know.
+- **What stays.** The block's style, overrides and alignment. Another extension's attribute on a
+  mark. A mark no rule names, such as a link.
+- **A mark left with nothing** is removed.
+- **At the cursor**, it acts on the text typed next.
+
+Returns `false` where nothing changes.
+
+### adoptDirectFormatting()
+
+Turns Tiptap's own formatting in the selection into overrides. See
+[Tiptap's own formatting](/features/document-styles/applying#tiptaps-own-formatting).
+
+```js
+editor.commands.adoptDirectFormatting()
+```
+
+Takes no arguments. Returns `false` where the selection has no such formatting.
+
+`adoptDirectFormattingTransaction(tr, from, to, { rules, markType })` writes the same into a
+transaction of your own and returns it. `markType` is the mark type text gets its overrides on,
+or `null` to change only blocks, and is required. `rules` defaults to `DIRECT_FORMATTING`.
+
+### expressAsDirectFormatting()
+
+Writes the overrides in the selection as Tiptap's own formatting. See
+[Tiptap's own formatting](/features/document-styles/applying#tiptaps-own-formatting).
+
+```js
+editor.commands.expressAsDirectFormatting()
+```
+
+Takes no arguments, and returns `false` where nothing can be written.
+
+`expressAsDirectFormattingTransaction(tr, from, to, { rules, markTypes })` writes the same into a
+transaction of your own. `markTypes`, `readonly string[]`, is required, and `rules` defaults to
+`DIRECT_FORMATTING`.
