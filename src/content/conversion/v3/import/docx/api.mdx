@@ -61,37 +61,50 @@ When the import fails and no `onError` is set, the context is `{ content: null, 
 
 On success, it has these fields.
 
-| Field                                | Type                              | What it holds                                                                                                                                                                                     |
-| ------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`                            | `JSONContent`                     | The document as Convert returned it.                                                                                                                                                              |
-| `error`                              | `null`                            | Always `null` on success.                                                                                                                                                                         |
-| `setEditorContent`                   | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when a newer import has started.                                                                                         |
-| `logs`                               | `ImportLogs`                      | The entries Convert logged: `info`, `warn` and `error`. `info` is always empty.                                                                                                                   |
-| `cssStyles`                          | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on.                                                                                                                               |
-| `pageLayout`                         | `PageLayout \| null`              | The page size and margins, or `null` when the file has none.                                                                                                                                      |
-| `numberingFormats`                   | `object[] \| null`                | An array of numbering format objects, one for each numbered list style. `null` when the file has none. See [lists](/conversion/v3/content-reference/text-and-formatting/lists#numbering-formats). |
-| `commentThreads`                     | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments.                                                                                                                                         |
-| `header`, `footer`                   | `JSONContent \| null`             | The default header and footer.                                                                                                                                                                    |
-| `headerFirstPage`, `footerFirstPage` | `JSONContent \| null`             | The header and footer of the first page.                                                                                                                                                          |
-| `headerEven`, `footerEven`           | `JSONContent \| null`             | The header and footer of even pages.                                                                                                                                                              |
-| `headerOdd`, `footerOdd`             | `JSONContent \| null`             | Always `null`. Read `header` and `footer` for odd pages.                                                                                                                                          |
-| `footnotes`                          | `Record<string, JSONContent>`     | The footnote bodies, keyed by note id. Empty when the file has none.                                                                                                                              |
-| `endnotes`                           | `Record<string, JSONContent>`     | The endnote bodies, keyed by note id. Empty when the file has none.                                                                                                                               |
+| Field              | Type                              | What it holds                                                                                                                                   |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`          | `JSONContent`                     | The document as Convert returned it. It is a Page Layout document, so sections, headers, footers, page numbers, breaks and notes are inside it. |
+| `error`            | `null`                            | Always `null` on success.                                                                                                                       |
+| `setEditorContent` | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when the document can't be written or a newer import has started.      |
+| `logs`             | `ImportLogs`                      | The entries Convert logged: `info`, `warn` and `error`. `info` is always empty.                                                                 |
+| `cssStyles`        | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on.                                                                             |
+| `commentThreads`   | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments.                                                                                       |
+| `warnings`         | `ImportDocxWarning[]`             | The warnings Convert sent. They reach `onWarning` before `onImport` runs.                                                                       |
 
-`setEditorContent` registers `numberingFormats` with the editor when the editor has a `registerNumberingFormats` command. With Page Layout, it also writes the notes. Without it, the notes stay in `footnotes` and `endnotes`. See [import with Page Layout](/conversion/v3/import/docx/page-layout) and [import without Page Layout](/conversion/v3/import/docx/without-page-layout).
+`setEditorContent` writes the document in the first of these ways that applies.
 
-For the content of the header, footer, notes and comment fields, see the [headers and footers](/conversion/v3/content-reference/page-layout/headers-footers), [footnotes and endnotes](/conversion/v3/content-reference/structures-and-media/footnotes-endnotes) and [comments](/conversion/v3/content-reference/structures-and-media/comments) pages.
+1. An extension with an [import handler](#import-handlers) writes it.
+2. With Page Layout, it replaces the source document in one step, so one undo takes it back. See [import with Page Layout](/conversion/v3/import/docx/page-layout).
+3. Without Page Layout, it writes the body with `setContent` and leaves out the nodes only Page Layout can hold. See [import without Page Layout](/conversion/v3/import/docx/without-page-layout).
 
-### PageLayout
+For the content of the headers, footers, notes and comments, see the [headers and footers](/conversion/v3/content-reference/page-layout/headers-footers), [footnotes and endnotes](/conversion/v3/content-reference/structures-and-media/footnotes-endnotes) and [comments](/conversion/v3/content-reference/structures-and-media/comments) pages.
 
-All sizes are in twips. A twip is 1/1440 inch.
+### Import handlers
 
-| Field         | Type                        | What it holds                                                                   |
-| ------------- | --------------------------- | ------------------------------------------------------------------------------- |
-| `width`       | `number`                    | The page width.                                                                 |
-| `height`      | `number`                    | The page height.                                                                |
-| `orientation` | `'portrait' \| 'landscape'` | The page orientation.                                                           |
-| `margins`     | `object`                    | `top`, `right`, `bottom`, `left`, `header`, `footer` and `gutter`, all numbers. |
+An extension can write the import itself. Keep a function named `applyDocxImport` in its storage. `setEditorContent` calls it with `{ content }` instead of writing the document. Return `true` when you wrote it, or `false` to let the import write it as usual. When several extensions have one, the first in the editor's extension order is called.
+
+```ts
+import { Extension } from '@tiptap/core'
+import type { DocxImport } from '@tiptap-pro/extension-import-docx'
+
+const ImportIntoMyStore = Extension.create({
+  name: 'importIntoMyStore',
+  addStorage() {
+    return {
+      applyDocxImport: ({ content }: DocxImport) => {
+        this.editor
+          .chain()
+          .setMeta('trackedChanges', { type: 'skipTracking' })
+          .setContent(content)
+          .run()
+        return true
+      },
+    }
+  },
+})
+```
+
+`content` is a copy of the document, not yet checked against any schema, so check it before you write it. The import still applies the CSS styles. The function's type is `DocxImportHandler`.
 
 ### ImportedCommentThread
 
