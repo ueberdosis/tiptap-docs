@@ -1,68 +1,80 @@
 ---
 title: Images
+tags:
+  - type: beta
 meta:
   title: Images | Tiptap Conversion
-  description: See how Word images, their size, alt text and cropping move through DOCX import and export.
+  description: Check how images in a .docx file reach the editor through your upload endpoint, and how export embeds the editor's images with their size and alt text.
   category: Conversion
 ---
 
-Import uploads each image in the `.docx` file to your server and returns an `image` node with the URL you give back. Export downloads each image and embeds it in the `.docx` file.
+Import sends each image in the `.docx` file to an upload endpoint on your server and returns an `image` node with the URL the endpoint gives back. Export downloads the image of each `image` node and embeds it in the file. Images sit inline in the text in both directions.
 
-## Set up the editor
+## What you need
 
-`@tiptap/extension-image` isn't part of `StarterKit`. Import puts images inside paragraphs, so set `inline` to `true`.
+`Image` from `@tiptap/extension-image` isn't part of `StarterKit`. Import puts images inside paragraphs, so set `inline` to `true`. A block `Image` splits the paragraph instead and stands between its two halves:
 
 ```ts
+import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 
 const extensions = [StarterKit, Image.configure({ inline: true })]
 ```
 
-Import sets `src`, `alt`, `title`, `width` and `height`, which `Image` defines. It also sets `cropTop`, `cropBottom`, `cropLeft` and `cropRight` when Word crops the image. The editor drops those four without an extension that defines them.
+Import sets these attributes:
 
-Without `Image`, import leaves the images out and `onWarning` receives an `unsupported` warning.
+| Attribute                                        | From Word                                |
+| ------------------------------------------------ | ---------------------------------------- |
+| `src`                                            | The URL your upload endpoint returns     |
+| `alt` and `title`                                | The image's description and title        |
+| `width` and `height`                             | The image's size, in pixels              |
+| `cropTop`, `cropBottom`, `cropLeft`, `cropRight` | Word's cropping, only on a cropped image |
+
+`Image` defines all but the crop attributes, which no Tiptap extension defines. The editor keeps them in the node's `preservedAttrs` attribute, which holds attributes the editor's extensions don't define, so they come back once you add an extension that defines them.
+
+Without `Image`, import keeps each image as [preserved content](/conversion/v3/content-reference/overview#what-the-editor-keeps) and reports a `preserved` warning. The image comes back once you add `Image`.
 
 ## Import
 
-Word stores images inside the file. Convert can't give you a URL for them, so it sends each image to an upload endpoint you provide. Set it with [`imageUploadConfig`](/conversion/v3/import/docx/image-handling).
+Word stores images inside the file, so they have no URL. Without `imageUploadConfig`, import skips every image. With it, the Conversion service, which converts the file, sends each image to your endpoint and uses the returned URL as `src`.
+
+In this example, `CONVERSION_TOKEN` stands for your Conversion token, which [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows how to get, and `UPLOAD_TOKEN` for a token your endpoint accepts:
 
 ```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
 ImportDocx.configure({
-  token: 'CONVERT_TOKEN',
+  token: CONVERSION_TOKEN,
   imageUploadConfig: {
     url: 'https://example.com/upload',
-    headers: { Authorization: 'Bearer UPLOAD_TOKEN' },
+    headers: { Authorization: `Bearer ${UPLOAD_TOKEN}` },
   },
 })
 ```
 
-Convert sends each image to `url` with a `POST` request, or the `method` you set. The request has a `Content-Type` header and a `File-Name` header. The endpoint responds with JSON that has an absolute `http` or `https` address in `url`.
+The service sends one `POST` request for each image, with the raw image bytes as the body and `Content-Type` and `File-Name` headers. `method` and `queryParams` in `imageUploadConfig` change the method and add query parameters. The endpoint responds with an absolute `http` or `https` address in `url`:
 
 ```json
 { "url": "https://example.com/images/photo.png" }
 ```
 
-`url` must be an `http` or `https` address. `headers` must be a plain object of strings. You can also set `queryParams`. An invalid setting fails the import with an error.
+[Image handling](/conversion/v3/import/docx/image-handling) shows a complete endpoint.
 
-Import skips an image in these cases. `onWarning` receives one `image-skipped` warning, and `logs.warn` names each skipped image and why.
+When the `url` in `imageUploadConfig` isn't an `http` or `https` address, or `headers` isn't a plain object of strings, the import fails before it sends anything, with an `ImageUploadConfigValidationError`.
 
-- You didn't set `imageUploadConfig`.
-- The endpoint failed or took too long to respond.
-- The endpoint didn't return a usable `url`.
+Import also skips an image when the endpoint fails, doesn't answer within 10 seconds, the default, or returns no usable `url`. `onWarning` then receives one `image-skipped` warning, and `context.logs.warn` in `onImport` names each image and the reason.
 
-Import also skips images that sit behind the text, such as watermarks, and reports them the same way. Set [`behindTextImages`](/conversion/v3/import/docx/image-handling#images-behind-the-text) to `'import'` to keep them. It adds a floating image inline and loses its position and text wrapping.
-
-`width` and `height` are in pixels. `alt` comes from the image's description in Word, and `title` from its title.
+Images behind the text, such as watermarks, are skipped the same way unless you set [`behindTextImages`](/conversion/v3/import/docx/image-handling#images-behind-the-text) to `'import'`. A floating image imports inline, without its position and wrapping.
 
 ## Export
 
-Export takes `src` from each `image` node and downloads it. Convert fetches public URLs. The browser uploads the images Convert can't reach: `blob:` URLs, `data:` URLs longer than 64 KB and images on your own origin.
+Export downloads each `src`. The Conversion service fetches public URLs itself. The browser uploads the images the service can't reach: `blob:` URLs, `data:` URLs over 64 KB and images on your app's own origin.
 
-Supported formats are PNG, JPEG, GIF, BMP and SVG. `width` and `height` set the size in pixels. Without them, export uses the size of the file. The `alt` attribute becomes the alt text in Word.
+Word holds PNG, JPEG, GIF, BMP and SVG. `width` and `height` set the size in pixels, or else the file's own size counts. An image with a side longer than 225,457 pixels, the largest Word opens, is scaled down with an `image-resized` warning.
 
-Export writes every image inline. Cropping isn't written, so a cropped image exports whole.
+`alt` becomes the alt text. Export writes every image inline, without its cropping, as [Limits](#limits) lists.
 
-Export leaves out an image it can't use and reports it to `onWarning`. If it was the only content of its paragraph, the paragraph goes too. Common causes are a failed download, a format Word can't hold such as EMF, and a missing `src`. Pass `onWarning` to see which images export skipped. Set `onImageError: 'throw'` to fail the export instead. See [handle images](/conversion/v3/export/docx/usage#handle-images).
+An image export can't use, such as one that failed to download, is in EMF or has no `src`, is left out and reported to `onWarning`. Its paragraph goes too when the image was its only content. `onImageError: 'throw'` fails the export instead. Image warnings carry the image's `src`:
 
 ```ts
 editor.commands.exportDocx({
@@ -71,11 +83,11 @@ editor.commands.exportDocx({
 })
 ```
 
-One export uploads at most 64 files, fonts and images together. An uploaded image can be at most 20 MB. See [limits](/conversion/v3/rest-api/export-docx#limitations).
+One export uploads at most 64 files, counting images and the [fonts it embeds](/conversion/v3/export/docx/styles#embed-fonts), each image up to 20 MB. The [Export DOCX REST API](/conversion/v3/rest-api/export-docx) lists the limits for images the service downloads, and [Export DOCX](/conversion/v3/export/docx/editor-extension#images) has more on images.
 
-## Limitations
+## Limits
 
-- Import needs `imageUploadConfig`. Without it, no image arrives.
-- Floating images lose their position. Export writes every image inline.
-- Cropping imports as attributes and isn't written on export.
-- Import skips images behind the text unless you set `behindTextImages: 'import'`.
+- An image import skips is left out of the document, with an `image-skipped` warning.
+- Floating images lose their position on import, and export writes every image inline.
+- Export doesn't write cropping.
+- An image the browser uploads in a format Word can't hold, such as WebP, fails the whole export with status `400`, whatever `onImageError` says. The same image at a public URL is left out with a warning.

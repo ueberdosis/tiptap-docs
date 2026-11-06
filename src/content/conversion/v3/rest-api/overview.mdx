@@ -4,57 +4,92 @@ tags:
   - type: beta
 meta:
   title: REST API overview | Tiptap Conversion
-  description: Call the Convert v3 REST API directly. Base URLs, regions, authentication, errors, rate limits and the export warnings headers.
+  description: Call the Conversion service from your backend, with the base URLs, the token, errors and rate limits that every v3 REST call shares.
   category: Conversion
 ---
 
-import RegionalEndpoints from '../../_shared/_regional-endpoints.mdx'
-
-Call the Convert v3 REST API when you import or export from your own server instead of the editor extensions. Every v3 call shares the base URL, authentication, errors and rate limits below. The endpoints are [Import DOCX](/conversion/v3/rest-api/import-docx) and [Export DOCX](/conversion/v3/rest-api/export-docx).
-
-<RegionalEndpoints />
+The v3 REST API runs the same conversions as the editor extensions, from your backend and without an editor, such as in a job that exports stored documents. This page covers what every call shares. Each endpoint has its own page: [Export DOCX REST API](/conversion/v3/rest-api/export-docx) and [Import DOCX REST API](/conversion/v3/rest-api/import-docx).
 
 ## Base URL
 
-Every v3 endpoint lives under `/v3`. The same endpoints are also available under `/v3/convert`, which matches the path the editor extensions call.
+Tiptap Cloud runs the Conversion service in an EU and a US region, under `/v3/convert` on the region's host. If you run the Conversion service yourself, on [your own server](#your-own-server), it serves the endpoints under both `/v3` and `/v3/convert`:
 
-| Where       | Base URL                                  |
-| ----------- | ----------------------------------------- |
-| Cloud, EU   | `https://api.tiptap.dev/v3/convert`       |
-| Cloud, US   | `https://api-us.tiptap.dev/v3/convert`    |
-| On-premises | `https://<your-host>/v3` or `/v3/convert` |
+| Where            | Base URL                                                     |
+| ---------------- | ------------------------------------------------------------ |
+| Tiptap Cloud, EU | `https://api.tiptap.dev/v3/convert`                          |
+| Tiptap Cloud, US | `https://api-us.tiptap.dev/v3/convert`                       |
+| Your own server  | `https://<your-host>/v3/convert` or `https://<your-host>/v3` |
+
+## Get a token
+
+Every call needs a Conversion token, a JWT (a signed JSON token) that your backend creates. When you create a secret in the Tiptap dashboard, you get the private key that signs it.
+
+This example signs a token with `jose`, a JWT library for Node.js:
+
+```js
+import { SignJWT, importPKCS8 } from 'jose'
+
+const privateKey = await importPKCS8(process.env.TIPTAP_PRIVATE_KEY, 'ES256')
+
+const token = await new SignJWT({
+  permissions: [
+    { action: 'Convert:Export:Docx', resource: '*' },
+    { action: 'Convert:Import:Docx', resource: '*' },
+  ],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer(process.env.TIPTAP_ENVIRONMENT_ID)
+  .setAudience('Convert')
+  .setExpirationTime('1h')
+  .sign(privateKey)
+```
+
+`TIPTAP_ENVIRONMENT_ID` is the ID of your Tiptap environment, which holds your keys, plan and settings in the dashboard. The audience `Convert` makes it a Conversion token.
+
+Each entry in `permissions` allows one endpoint: `Convert:Export:Docx` the export, `Convert:Import:Docx` the import. `resource: '*'` allows it for every document, and [Authentication](/authentication) explains each claim.
 
 ## Authenticate
 
-Send a JWT in the `Authorization` header as `Bearer <token>`. The token must allow the action of the endpoint you call. Import DOCX needs `Convert:Import:Docx`, and Export DOCX needs `Convert:Export:Docx`.
+Send the token in the `Authorization` header with the `Bearer` scheme:
 
 ```bash
-curl -H "Authorization: Bearer $CONVERT_TOKEN" ...
+curl -H "Authorization: Bearer $CONVERSION_TOKEN" ...
 ```
 
-### Cloud
+### Tiptap Cloud
 
-A token for the Convert service names `Convert` as its audience, and Convert checks its permissions for each route. The call also needs a Convert feature on your plan.
+Your environment's plan needs to include Tiptap Conversion, or the call fails with `403` and `feature_not_available`.
 
-A token for your Tiptap Cloud app works too. Send the app id in the `X-App-Id` header with it. Without the header, the call fails with `missing_app_id`.
+If your environment restricts allowed origins, the `Origin` header of a request must be on that list. A call from a backend sends no `Origin` header unless you set one, so it fails with `403` and `forbidden`.
 
-If your app restricts allowed origins, a request must send an `Origin` header from that list. Calls from a server often don't send one, so they fail with `forbidden`. Add your own origin to the list, or remove the restriction.
+To call from a backend, send an `Origin` header with an origin from the list, or remove the restriction. A list of only `*`, or only an empty string, lets every origin through.
 
-On-premises servers can restrict allowed origins too.
+A token from [Legacy authentication](/authentication/legacy), the older setup with an App ID and its secret, works too. Send the app ID in the `X-App-Id` header with it, or the call fails with `401` and `missing_app_id`. A token with `aud: "Convert"` needs no `X-App-Id`.
 
-### On-premises
+## Rate limits
 
-Convert checks your license on every call and returns `503` when it's invalid. Convert checks the permissions of a token for the Convert service. Any other token only needs a valid signature. The `Authorization` header must use the `Bearer` scheme.
+Tiptap Cloud limits how many requests one client sends in a time window. A request over the limit gets `429` and this body:
 
-Your administrator can turn authentication off. Then a call needs no token, but the license check still applies.
+```json
+{
+  "message": "Too many requests. Retry after the number of seconds in the Retry-After header.",
+  "code": "RATE_LIMITED"
+}
+```
+
+Wait for the number of seconds in the `Retry-After` header before you retry. The lowercase `rate_limited` in [Authentication errors](#authentication-errors) means the same.
+
+While rate limits are on, export and import responses carry the `RateLimit` and `RateLimit-Policy` headers, with your limit, the window and your remaining requests. Only a backend caller can read them, because the service doesn't expose them to browsers.
+
+On your own server, rate limits are off until you turn them on, as [Your own server](#your-own-server) shows.
 
 ## Errors
 
-Convert returns failures as JSON, and the shape depends on where the failure happens. Read the status first, then `code`.
+The Conversion service returns a failure as JSON, and its shape depends on where the request failed. Check the status code first, because not every shape has `success`. Then read `code`.
 
 ### Request errors
 
-Import DOCX and Export DOCX return their own request errors with this shape.
+Export DOCX and Import DOCX return a failure of the request itself, such as an invalid field, in this shape:
 
 ```json
 {
@@ -65,91 +100,82 @@ Import DOCX and Export DOCX return their own request errors with this shape.
 }
 ```
 
-| Field     | Type     | What it holds                                                                         |
-| --------- | -------- | ------------------------------------------------------------------------------------- |
-| `success` | `false`  | Always `false`.                                                                       |
-| `code`    | `string` | The error code, such as `INVALID_EXPORT_OPTIONS`. Each endpoint page lists its codes. |
-| `error`   | `string` | The reason, safe to show to a developer.                                              |
-| `path`    | `string` | The option that caused the error. Left out when none applies.                         |
-| `docsUrl` | `string` | A page that explains the replacement. Left out when none applies.                     |
-| `logs`    | `object` | Import only. The entries Convert logged before a failed read of the file.             |
+A request error has these fields:
 
-A failure inside the custom node rules returns `error` and `code` without `success`. The `code` starts with `DOCX_DSL_`. It also carries `dslPath`, and on a `422`, `nodePath` and `nodeType`. See [render custom nodes](/conversion/v3/export/docx/custom-nodes#validation-and-limits).
+| Field     | Type     | What it holds                                                                           |
+| --------- | -------- | --------------------------------------------------------------------------------------- |
+| `success` | `false`  | `false` on every request error.                                                         |
+| `code`    | `string` | The error code, such as `INVALID_EXPORT_OPTIONS`. Each endpoint's page lists its codes. |
+| `error`   | `string` | The reason, written for a developer.                                                    |
+| `path`    | `string` | The field that caused the error. Left out when none applies.                            |
+| `docsUrl` | `string` | A link to a docs page. Only `REMOVED_EXPORT_OPTION` for `customNodes` sets it.          |
+| `logs`    | `object` | Import only. The service's log of an import that failed with `422` or `500`.            |
+
+A failed custom node rule of an export has a shape of its own, which [Export DOCX REST API](/conversion/v3/rest-api/export-docx#errors) describes.
 
 ### Authentication errors
 
-Authentication and origin checks return `message` and `code`.
+A failed authentication or origin check returns `message` and `code`:
 
 ```json
 {
-  "message": "Missing token. You need to provide a valid JWT within the Tiptap Convert extension.",
-  "code": "missing_token"
+  "message": "Token is missing permission Convert:Export:Docx.",
+  "code": "permission_denied"
 }
 ```
 
-| Status     | `code`                   | When                                                                             |
-| ---------- | ------------------------ | -------------------------------------------------------------------------------- |
-| 401        | `missing_token`          | The `Authorization` header is missing or has no token.                           |
-| 401        | `missing_app_id`         | Cloud, with an app token and no `X-App-Id` header.                               |
-| 401        | `auth_failed_internally` | Authentication failed on Convert's side.                                         |
-| 401        | Other                    | A Convert token is invalid, expired or not signed by a known key.                |
-| 401 or 403 | `auth_cloud_failed`      | Cloud, with an app token. The check returned its own status, usually 401 or 403. |
-| 403        | `permission_denied`      | The token lacks the permission for this route.                                   |
-| 403        | `feature_not_available`  | Cloud only. Your environment doesn't include Convert.                            |
-| 403        | `forbidden`              | The request `Origin` isn't in your allowed origins.                              |
-| 429        | `rate_limited`           | Cloud only. The authentication service rate limited the call.                    |
-| 500        | `auth_not_configured`    | On-premises, and authentication isn't set up.                                    |
-| 503        | `license_invalid`        | On-premises, and the license is invalid or can't be reached.                     |
-| 503        | `service_unavailable`    | Cloud, and the authentication service is unavailable.                            |
-| 503        | `auth_cloud_unavailable` | Cloud, with an app token, and the check couldn't be reached.                     |
+The codes, with their status and when each one happens:
+
+| Status     | `code`                   | When                                                                                                                    |
+| ---------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 401        | `missing_token`          | The `Authorization` header is missing or has no token.                                                                  |
+| 401        | `missing_app_id`         | Tiptap Cloud, with a legacy token and no `X-App-Id` header.                                                             |
+| 401        | `auth_failed_internally` | Authentication failed inside the Conversion service.                                                                    |
+| 401        | Other                    | The token is invalid, expired or not signed by a known key, with a code such as `token_expired` or `signature_invalid`. |
+| 401 or 403 | `auth_cloud_failed`      | Tiptap Cloud refused a legacy token. The status is the one Tiptap Cloud returned.                                       |
+| 403        | `permission_denied`      | The token lacks the action of this endpoint.                                                                            |
+| 403        | `feature_not_available`  | Tiptap Cloud only. Your environment doesn't include the Conversion feature.                                             |
+| 403        | `forbidden`              | The request's `Origin` isn't in your allowed origins.                                                                   |
+| 429        | `rate_limited`           | Tiptap Cloud only. The authentication service rate limited the call.                                                    |
+| 500        | `auth_not_configured`    | Your own server, and authentication isn't set up.                                                                       |
+| 503        | `license_invalid`        | Your own server, and the license is invalid or can't be reached.                                                        |
+| 503        | `service_unavailable`    | Tiptap Cloud, and the authentication service is unavailable.                                                            |
+| 503        | `auth_cloud_unavailable` | Tiptap Cloud, with a legacy token, and the check couldn't be reached.                                                   |
 
 ### Request size
 
-Convert refuses a body over the limit with `413` before it reads it. The limit is 100 MB by default. On-premises, your administrator can change it. See [limits](/conversion/v3/rest-api/export-docx#limitations) for the other export limits.
+The Conversion service refuses a request body over 100 MB with `413`, before it reads the body, for export and import. The [Export DOCX REST API](/conversion/v3/rest-api/export-docx#limits) lists the other export limits.
 
 ```json
 { "error": "Request body exceeds the 100MB limit", "code": "REQUEST_BODY_TOO_LARGE" }
 ```
 
-## Rate limits
+## Your own server
 
-Rate limits are on in the cloud. On-premises they are off until your administrator turns them on. The defaults are 100 requests per 10 seconds for your environment and 500 for one IP address.
+When you run the Conversion service on your own server, it checks your Tiptap license on every call. A license it can't verify fails the call with `503` and `license_invalid`.
 
-Convert returns `429` and this body for a request over the limit.
+The service checks the permissions of a token with `aud: "Convert"`, like Tiptap Cloud. It checks any other token only for a valid signature, so that token can call every endpoint. It doesn't read `X-App-Id`.
 
-```json
-{
-  "message": "Too many requests. Retry after the number of seconds in the Retry-After header.",
-  "code": "RATE_LIMITED"
-}
-```
+These environment variables of the service set up authentication, origins and limits:
 
-This uppercase `RATE_LIMITED` comes from Convert. The lowercase `rate_limited` in [authentication errors](#authentication-errors) comes from the authentication service.
+| Variable                                                      | What it sets                                                                                                                                                                   |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `JWT_KEY_<LABEL>_VALUE`, `JWT_KEY_<LABEL>_ALGORITHM`          | A key that verifies tokens, as PEM or as an `HS*` secret, and its algorithm, such as `ES256`. One pair per key, with a label of your choice.                                   |
+| `JWT_SECRET`                                                  | A shared secret that verifies tokens signed with HS256, HS384 or HS512.                                                                                                        |
+| `DISABLE_AUTH`                                                | `true` turns authentication off. Calls then need no token, and the license check still runs.                                                                                   |
+| `ALLOWED_ORIGINS`                                             | The origins a request may come from, separated by commas.                                                                                                                      |
+| `MAX_REQUEST_BODY_MB`                                         | The largest request body, in MB. Defaults to 100.                                                                                                                              |
+| `RATE_LIMIT`                                                  | `on` turns the rate limits on.                                                                                                                                                 |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_IP_MAX` | The window in milliseconds, and the requests per window for one client and for one IP address. Default 10,000, 100 and 500. The IP address limit also counts refused requests. |
+| `RATE_LIMIT_OVERRIDES`                                        | Limits for single clients, as `key=max,key=max` with the keys `env:<id>`, `app:<id>` or `ip:<address>`.                                                                        |
+| `TRUST_PROXY_HEADERS`                                         | `true` reads the client's IP address from `x-real-ip` and `x-forwarded-for`. Only safe behind a proxy that sets them.                                                          |
 
-Wait for the number of seconds in the `Retry-After` header before you retry. Every response also carries `RateLimit` and `RateLimit-Policy` headers with your remaining requests and the window.
-
-## Export warnings headers
-
-An export that succeeds can still leave content out. Convert reports it in two response headers.
-
-| Header                        | What it holds                                                             |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| `X-Export-Warnings`           | A base64 string of a JSON array of warnings. Missing when there are none. |
-| `X-Export-Warnings-Truncated` | `true` when more warnings existed than fit in the header.                 |
-
-The header is limited to about 8 KB. Convert keeps whole warnings, in order, so the value always decodes. Decode it like this.
-
-```ts
-const header = response.headers.get('X-Export-Warnings')
-const warnings = header ? JSON.parse(Buffer.from(header, 'base64').toString('utf8')) : []
-```
-
-Each warning has `code` and `message`. The codes are in the [Export DOCX API](/conversion/v3/export/docx/api#warnings-and-errors).
-
-A browser reads these headers only when the server exposes them. Convert v3 allows any origin and exposes both headers.
+A client is the environment of a token with `aud: "Convert"`, else the app ID of a legacy token, else the IP address. Each replica of the service counts on its own, so behind a load balancer the limit applies per replica.
 
 ## Next steps
 
-- [Import DOCX](/conversion/v3/rest-api/import-docx)
-- [Export DOCX](/conversion/v3/rest-api/export-docx)
-- [Install Conversion](/conversion/v3/getting-started/install)
+Where to go from here:
+
+- Turn a Tiptap document into a `.docx` file: [Export DOCX REST API](/conversion/v3/rest-api/export-docx).
+- Turn a `.docx` file into Tiptap JSON: [Import DOCX REST API](/conversion/v3/rest-api/import-docx).
+- Convert in the browser instead: [Install Tiptap Conversion](/conversion/v3/getting-started/install).

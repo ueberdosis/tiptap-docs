@@ -1,52 +1,129 @@
 ---
 title: Lists
+tags:
+  - type: beta
 meta:
   title: Lists | Tiptap Conversion
-  description: See how bullet lists, ordered lists and numbering formats move through DOCX import and export.
+  description: See how bullet lists, ordered lists and their nesting convert on DOCX import and export, and how to export numbering formats and numbered headings.
   category: Conversion
 ---
 
-Bullet lists and ordered lists convert in both directions, with nesting. Import doesn't bring in custom numbering formats yet, so lists import with default numbering. Export writes a numbering format back when the editor has stored it.
+Bullet lists and ordered lists convert in both directions, with their nesting. Export can also write numbering formats you define, such as `1)` then `a)`.
 
-## Set up the editor
+## What you need
 
-`StarterKit` has `BulletList`, `OrderedList`, `ListItem` and `ListKeymap`. That is enough for nesting and for the plain numbering of each list.
+`StarterKit` from `@tiptap/starter-kit` has `BulletList`, `OrderedList` and `ListItem`, which is enough for nested lists with plain numbering. Checkbox lists need two more nodes, which [Task lists](/conversion/v3/content-reference/text-and-formatting/task-lists) sets up.
 
-The editor keeps a numbering format, such as `A, B, C`, only with an extension that defines the `numberingFormat` attribute. See [numbering formats](#numbering-formats). For checkbox lists, see [task lists](/conversion/v3/content-reference/text-and-formatting/task-lists).
+An editor without the list nodes keeps imported lists as preserved content, with a [`preserved` warning](/conversion/v3/import/docx/warnings-and-errors), as [What converts](/conversion/v3/content-reference/overview#what-the-editor-keeps) explains.
+
+Numbering formats also need a `numberingFormat` attribute on the list, which [Numbering formats](#numbering-formats) adds.
 
 ## Import
 
-Word has no list element. A list is a run of paragraphs with the same numbering. Import groups them, and the level of each paragraph sets its nesting.
+Import turns paragraphs that share a Word numbering into one list, and the level of each paragraph sets its nesting. A list stays one list when Word continues its count in a second numbering definition. Empty paragraphs between its items don't split it either.
 
-- A bullet, no marker or an empty marker format becomes a `bulletList`.
-- Any other format, such as decimal, letters or Roman numerals, becomes an `orderedList`.
+The kind of list follows the marker:
 
-The outermost list gets these attributes.
+- A bullet, no marker or an empty marker gives a `bulletList`.
+- Any other marker, such as numbers, letters or Roman numerals, gives an `orderedList`.
 
-| Attribute         | Value                                                         |
-| ----------------- | ------------------------------------------------------------- |
-| `numberingFormat` | The id of the list's format in the file. On both list types.  |
-| `start`           | The first number of the first level. Left out when it is `1`. |
-| `type`            | `a`, `A`, `i` or `I` for letter and Roman formats.            |
+The outermost list gets these attributes:
 
-`OrderedList` already defines `start` and `type`, so those two render in the editor as they are.
+| Attribute         | Value                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| `numberingFormat` | The id of the list's numbering format, such as `docx-num-1x7k2qd` |
+| `start`           | The first number of the first level. Left out when it is `1`.     |
+| `type`            | `a`, `A`, `i` or `I` for letters and Roman numerals               |
 
-Import doesn't return the format definitions yet. Without them, a list shows default numbering, apart from `start` and `type`.
+`OrderedList` defines `start` and `type`, so the editor shows the first number and letter or Roman lists as Word does.
+
+Bullet lists and ordered lists both get `numberingFormat`, an id that import builds from the format's levels. No v3 extension defines it, so import keeps it in the list's `preservedAttrs` attribute, from `@tiptap-pro/extension-preserved-content`.
 
 ## Export
 
-Export writes each list as a Word list with the nesting you have. A list deeper than nine levels stays on the ninth. Each ordered list numbers on its own, so two lists in one document don't continue each other.
+Export writes each list as a Word list with its nesting. Word has nine list levels, so a list nested deeper exports on the ninth level.
+
+Each ordered list numbers on its own, so two lists in one document don't continue each other. To continue the count by hand, set `start` on the second list, because a list without a numbering format numbers from its `start` in Word's default style.
+
+Lists also continue when their numbering format has a level with `linkedStyle`, a field that links a Word paragraph style such as `Heading1`. All lists in that format then share one numbering.
 
 ### Numbering formats
 
-A format is a definition with an `id` and a list of levels. Export finds the format of a list through its `numberingFormat` attribute. It looks in the formats the editor has registered and in the [`numberingFormats`](/conversion/v3/export/docx/usage#keep-list-numbering) option of the export command.
+A numbering format sets the marker of each list level. A list uses one when its `numberingFormat` attribute matches the format's `id`. No v3 extension defines `numberingFormat`, so add it with an extension of your own:
 
-Export doesn't read `start` or `type` by themselves. A list without a matching format exports with Word's default numbering.
+```ts
+import { Extension } from '@tiptap/core'
 
-Tiptap's `OrderedList` has no `numberingFormat` attribute, so the editor drops the format and shows default numbering. Export still accepts definitions through the `numberingFormats` option.
+const ListNumberingFormat = Extension.create({
+  name: 'listNumberingFormat',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['orderedList', 'bulletList'],
+        attributes: { numberingFormat: { default: null } },
+      },
+    ]
+  },
+})
+```
 
-## Limitations
+Then set the attribute on a list, and pass the format in the `numberingFormats` option of `ExportDocx.configure()` or of the `exportDocx` command. In the examples on this page, `editor` is an editor with `ExportDocx` and the extension above, as [Export DOCX](/conversion/v3/export/docx/editor-extension) sets it up:
 
-- Import doesn't bring in custom numbering formats yet. Lists import with default numbering.
-- Without a `numberingFormat` attribute, a list exports with default numbering. Letter and Roman lists lose their format.
-- Word list levels are limited to nine.
+```ts
+editor.commands.updateAttributes('orderedList', { numberingFormat: 'report' })
+
+editor.commands.exportDocx({
+  numberingFormats: [
+    {
+      id: 'report',
+      levels: [
+        { baseStyle: 'decimal', textTemplate: '%1)' },
+        { baseStyle: 'lowerLetter', textTemplate: '%2)' },
+      ],
+    },
+  ],
+})
+```
+
+`updateAttributes` sets the attribute on the ordered list around the cursor. Export reads it only on the outermost list, so put the cursor in a top-level item.
+
+In `textTemplate`, `%1` to `%9` stand for the counter of that level. `baseStyle` is Word's counter format, such as `decimal`, `lowerLetter`, `lowerRoman` or `bullet`. A list deeper than the levels you define reuses them in order. [Export DOCX types](/conversion/v3/export/docx/types#numberingleveldefinition-and-numberingformatdefinition) lists every field of a level, such as `startAt` and `markerFont`.
+
+Formats you pass to the `exportDocx` command replace all formats from `ExportDocx.configure()`, instead of adding to them. The Conversion service, the server that builds the file, leaves out a format it can't build, with a `numbering-format-invalid` warning, and its lists get Word's default numbering.
+
+Export turns the `numberingFormat` id of an imported list back before it sends the document. Import doesn't return the format itself, as [Limits](#limits) says, so the id finds a format only when you pass one with that id.
+
+{/* TODO(never-loses): The command also adds the formats registered in the editor storage orderedListNumbering (ConvertKit today): command formats win, then registered, then configured. Write this once it is settled what registers them in v3 (Number formats is proposed, not shipped). */}
+
+### List indents
+
+Export measures where your editor draws each list level. To set the positions yourself, pass `listLevels`, with one entry per level for `bullet`, `ordered` and `task` lists:
+
+```ts
+editor.commands.exportDocx({
+  listLevels: {
+    ordered: [
+      { numberIndent: 360, textIndent: 720 },
+      { numberIndent: '0.5in', textIndent: '1in' },
+    ],
+  },
+})
+```
+
+`numberIndent` places the marker, `textIndent` the text and `rightIndent` the right edge, measured from the left margin. A plain number here is twips, a twentieth of a point, not pixels as in the [paragraph attributes](/conversion/v3/content-reference/text-and-formatting/paragraphs#export). A string with a unit, such as `'0.5in'`, also works.
+
+Your entries repeat in order for deeper levels, and a field you leave out keeps the measured value. An entry can also set the marker, with `text`, `markerFont` and `format`, as [ListLevelGeometry](/conversion/v3/export/docx/types#listlevelgeometry) shows.
+
+### Outline numbering
+
+Numbered headings, such as `1`, `1.1` and `1.1.1`, arrive in Word without their numbers. They come from the [Outline Numbering](/features/outline-numbering) extension, which draws the numbers and doesn't store them on the headings.
+
+The `exportDocx` command sends the extension's data as the `outline` option, but the Conversion service doesn't write numbers from it.
+
+On import, a numbered heading from Word becomes a list item, and the heading becomes the item's paragraph, with a `restructured` warning, as [Headings](/conversion/v3/content-reference/text-and-formatting/headings#limits) says.
+
+## Limits
+
+Export doesn't read `type`, so a letter or Roman list without a numbering format exports with numbers.
+
+Import doesn't return the definitions of the file's numbering formats, so imported lists show default numbering, apart from `start` and `type`. There is no warning. This is a known limit that is being fixed.

@@ -19,10 +19,6 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/getting-started/install',
         },
         {
-          title: 'Feature support matrix',
-          href: '/conversion/v3/getting-started/feature-support-matrix',
-        },
-        {
           title: 'Migrate export from 0.x',
           href: '/conversion/v3/getting-started/migrate-export-from-0x',
         },
@@ -38,7 +34,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Content reference',
       children: [
         {
-          title: 'Overview',
+          title: 'What converts',
           href: '/conversion/v3/content-reference/overview',
         },
         {
@@ -118,6 +114,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Comments',
               href: '/conversion/v3/content-reference/structures-and-media/comments',
+            },
+            {
+              title: 'Tracked changes',
+              href: '/conversion/v3/content-reference/structures-and-media/tracked-changes',
             },
             {
               title: 'Word styles',
@@ -202,8 +202,8 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/export/docx/editor-extension',
         },
         {
-          title: 'Control the output',
-          href: '/conversion/v3/export/docx/usage',
+          title: 'Styles and fonts',
+          href: '/conversion/v3/export/docx/styles',
         },
         {
           title: 'Render custom nodes',
@@ -212,6 +212,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Custom node builder',
           href: '/conversion/v3/export/docx/custom-node-builder',
+        },
+        {
+          title: 'Warnings and errors',
+          href: '/conversion/v3/export/docx/warnings-and-errors',
         },
         {
           title: 'API',

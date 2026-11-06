@@ -1,24 +1,24 @@
 ---
 title: Comments
+tags:
+  - type: beta
 meta:
   title: Comments | Tiptap Conversion
-  description: See how Word comments, replies and resolved threads move through DOCX import and export.
+  description: Check how Word comments, replies and resolved threads come into the Comments extension on import, and how export writes the editor's threads back as Word comments.
   category: Conversion
 ---
 
-Import turns Word comments into threads, with their replies and resolved state. Export writes the threads of your comments extension back as Word comments.
+Import turns Word comments into comment threads with their replies and resolved state, and marks the commented text. Export writes the threads of the Comments extension back as Word comments on the same text.
 
-## Set up the editor
+## What you need
 
-Add the Tiptap comments extension. Import marks the commented text with an `inlineThread` mark, or wraps commented blocks in a `blockThread` node. Both carry the thread id in `data-thread-id`.
+The Comments extension, `@tiptap-pro/extension-comments`, holds the threads, as [Integrate Comments into your app](/comments/getting-started/overview) shows. Import marks commented text with an `inlineThread` mark, and wraps commented blocks in a `blockThread` node. Both carry the thread id in their `data-thread-id` attribute, in the JSON too.
 
-Without those types, `onWarning` receives an `unsupported` warning and the text arrives without comment anchors. A `blockThread` node that holds content stays as a paragraph. The editor drops the mark. The threads still come back in `onImport`.
-
-Export reads threads from the comments extension's provider, which must be named `comments`.
+Without the Comments extension, import keeps both as [preserved content](/conversion/v3/content-reference/overview#what-the-editor-keeps), with a `preserved` warning. The marks come back once you add the extension, and the threads still arrive in `onImport`.
 
 ## Import
 
-`onImport` receives [`commentThreads`](/conversion/v3/import/docx/api#importcontext). Each thread has an `id`, a `resolved` flag and `messages` in order, the root comment first and the replies after it by date. Each message has a `body` as Tiptap JSON and `data` with the `author`, the `initials` and the dates.
+`onImport` receives the threads in `commentThreads`, which is empty when the file has no comments. In this example, `editor` is an editor set up as in [Import DOCX](/conversion/v3/import/docx/editor-extension#set-up-the-editor), and `file` is a `.docx` file the user picked:
 
 ```ts
 editor.commands.importDocx({
@@ -31,42 +31,57 @@ editor.commands.importDocx({
 })
 ```
 
-`commentThreads` is empty when the file has no comments.
+Each thread has an `id`, a `resolved` flag and its `messages`: the root comment first, then the replies by date. A message has a `body` as Tiptap JSON, and `data` with the `author` and, when the file has them, the `initials` and the dates. [ImportedCommentThread](/conversion/v3/import/docx/api#importedcommentthread) lists every field.
+
+The Comments extension keeps its threads on the Document Server, through its collaboration provider. So an editor shows the imported comments as threads only when they are live, as [Live threads](#live-threads) describes. Without live threads, the text keeps its marks with the ids from the file, and `commentThreads` is the only copy of the threads. Store it with the document if you need the comments later, for example to set up live threads and import the file again.
 
 ### Live threads
 
-Import can create the threads on the Document Server for you. It does that when all of these are true.
+Import creates the threads on the Document Server, which stores your collaborative documents, when all of these are true:
 
-- The editor has a collaboration provider with a document name, on the comments extension or on a collaboration caret extension.
-- The import uses a Tiptap access control token, and that token grants `Documents:Write` on the document.
+- The Comments extension has a collaboration provider with a document name. Import also looks for the provider on the CollaborationCaret and CollaborationCursor extensions.
+- Your Conversion token, the `token` of `ImportDocx.configure()`, also lists the action `Documents:Write` in its `permissions`, with that document name as `resource`, as [Get a Conversion token](/conversion/v3/getting-started/install#3-get-a-conversion-token) shows for the Conversion actions.
 - The file has comments.
 
-Import then returns the ids the Document Server gave the threads, and the same ids sit in the content. Otherwise the threads carry ids made from the file, and nothing is created. Either way the import succeeds.
+Import then returns the Document Server's thread ids, and the content uses them. Otherwise the ids come from the file, and `context.logs.warn` says why when the token was the reason. The import succeeds either way.
 
-### Importing again
+### Import the same file again
 
-Each created comment records the Word id it came from. When you import a file again onto the same document, import compares the file with the threads that came from a Word import.
+With live threads, each comment an import creates records its Word id. When you import a file again into the same collaborative document, import compares it with the threads from earlier Word imports:
 
 - A comment that is already there isn't created twice.
-- A changed comment updates the thread.
+- A changed comment updates its thread.
 - A new comment becomes a new thread.
-- Import removes a comment that is gone from the file, when it came from a Word import.
+- A comment gone from the file is removed, if a Word import created it.
 
-Import never removes a comment you wrote in the editor. Keep one document for each `.docx` file, so a new import is only compared with its own comments.
+Import doesn't remove a comment the user wrote in the editor. Keep one collaborative document for each `.docx` file, so an import is compared only with that file's comments.
 
 ## Export
 
-Export reads the unarchived threads from the comments provider. Each thread becomes a Word comment anchored to the same text, with its replies in order and the resolved state. The author, initials and date go with it.
+Export reads the threads from the Comments extension's provider, leaving out the ones a user archived. Each thread becomes a Word comment on the same text, with its replies in order, its resolved state, and the name, initials and date of each message. Without a provider, and without the `comments` option, export writes no comments, and the text stays.
 
-The body of a comment goes through the normal conversion, so basic formatting stays. Keep comments to discussion text.
+A comment body converts like the document, so its formatting stays, but a table in it is left out.
 
-To send your own threads, pass [`comments`](/conversion/v3/export/docx/usage#keep-notes-and-comments). Pass an empty list to export no comments.
+To send threads of your own, pass `comments: { threads }`, on the command or in `ExportDocx.configure()` of an editor set up as in [Export DOCX](/conversion/v3/export/docx/editor-extension). A thread there is a [`SourceThread`](/conversion/v3/export/docx/types#sourcethread). This example turns the `commentThreads` you stored after an import back into threads for the export. `storedThreads` stands for them:
 
 ```ts
-editor.commands.exportDocx({ comments: { threads: [] } })
+const threads = storedThreads.map((thread) => ({
+  id: thread.id,
+  resolvedAt: thread.resolved ? new Date().toISOString() : null,
+  comments: thread.messages.map((message, index) => ({
+    id: message.id ?? `${thread.id}-${index}`,
+    content: message.body,
+    data: { ...message.data, originalWId: message.wId },
+  })),
+}))
+
+editor.commands.exportDocx({ comments: { threads } })
 ```
 
-## Limitations
+`originalWId` lets Word match the comment with the one it came from. An empty list, `{ threads: [] }`, exports no comments.
 
-- A comment is tied to the text it marks. When that text goes, so does the anchor.
+## Limits
+
+- A comment is tied to the text it marks, so deleting that text removes the mark.
 - Live threads need a collaboration provider and write access to the document.
+- A table in a comment body doesn't export.
