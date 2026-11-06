@@ -1,0 +1,203 @@
+---
+title: "Formats stored in the document"
+intro: "With the <code>NumberFormats</code> extension, a document stores its own formats and its language. Every collaborator, server and export that opens the document then writes the same counts, such as page, footnote and heading numbers, without defining anything in code."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Formats stored in the document | Tiptap Editor Docs"
+  description: "Store number formats and a language in the document with setNumberFormat and setNumberLanguage, so every collaborator and server writes the same counts."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-number-formats/docs/stored-in-the-document.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+Footnotes, Outline numbering and page numbers read these formats on their own. They also work
+without the extension, when the document stores nothing.
+
+## Store the language
+
+Register `NumberFormats`, then call `setNumberLanguage` with a language tag. From then on,
+`'cardinalText'`, `'ordinalText'` and `'ordinal'` write German words everywhere in the document:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import {
+  formatNumber,
+  NumberFormats,
+  numberFormatContextOf,
+} from '@tiptap-pro/extension-number-formats'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, NumberFormats],
+})
+
+editor.commands.setNumberLanguage('de')
+
+formatNumber(4, 'cardinalText', numberFormatContextOf(editor.state.doc)) // 'vier'
+```
+
+Call it once for a document, not each time the editor starts. The language is then part of the
+document, and it is there the next time the document opens. `editor.commands.setNumberLanguage(null)`
+removes it again, so the document is English.
+
+## Store a format
+
+`setNumberFormat` stores a definition in the document under a name. A collaborator whose code never
+defined `clause` then writes `§ 1`, `§ 2` too:
+
+```js
+editor.commands.setNumberFormat('clause', {
+  system: 'numeric',
+  symbols: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+  prefix: '§ ',
+})
+```
+
+Then name `'clause'` wherever a format is taken, such as Page Layout's
+`editor.commands.setPageNumbering({ format: 'clause' })`.
+`editor.commands.setNumberFormat('clause', null)` removes the definition again.
+
+A definition in the document wins over one of the same name that code defined with
+`defineNumberFormat`. [What a definition holds](/features/number-formats/your-own-formats#what-a-definition-holds) lists
+its fields, and [setNumberFormat()](/features/number-formats/stored-in-the-document#setnumberformat) says when the command refuses one.
+
+## The hidden block
+
+The document keeps its formats and its language in one hidden block, a `numberFormats` node with
+the attributes `definitions` and `language`. The commands add it the first time either is set, and
+remove it once both are empty.
+
+- **Where it goes:** at the end of the document, as in StarterKit's schema. In a schema whose
+  document holds only nodes that contain blocks, such as sections, it goes at the end of the last
+  one. When no place at the end takes a block node, the command throws.
+- **In the editor:** the block shows nothing, and the user cannot select or drag it.
+- **In HTML:** a hidden `div` with `data-tt-number-formats="true"`, `data-tt-definitions` and
+  `data-tt-language`. Copying and pasting HTML carries it. If you sanitize the HTML you save, keep
+  this `div` and its attributes.
+- **In JSON:** a node of type `numberFormats`, like any other node of the document.
+- **Names:** `NUMBER_FORMATS_NODE` is the node's name, `'numberFormats'`, and
+  `NUMBER_FORMATS_ATTRIBUTE` the attribute, `'data-tt-number-formats'`. Use them in code that
+  finds or keeps the block, such as the allow list of an HTML sanitizer.
+
+## Write a count as the document does
+
+Footnotes, outline numbers and page numbers follow the document's formats on their own. Your own
+code needs the document's formats for counts it shows itself, such as a table of contents or the
+labels of a format picker.
+
+`numberFormatContextOf(doc)` returns what a document stores, its formats and its language. Pass it
+to `formatNumber`, `numberFormatNames` or `numberFormatSample`:
+
+```js
+import {
+  formatNumber,
+  numberFormatContextOf,
+  numberFormatNames,
+} from '@tiptap-pro/extension-number-formats'
+
+const context = numberFormatContextOf(editor.state.doc)
+
+formatNumber(4, 'clause', context) // '§ 4'
+numberFormatNames(context) // the built-in names, then 'clause', then the ones your code defines
+```
+
+`numberFormatContextOf` takes a ProseMirror document node, such as `editor.state.doc`. It leaves out
+a stored definition or language that is not valid, so a broken document still opens. Its argument's
+type is `NumberFormatsDocument`, the parts of a node it reads, which every document node has.
+
+## On a server
+
+A server reads the formats of a stored document without an editor. It turns the JSON into a
+document node with the schema of your extensions, then reads the context from it. `extensions`
+stands for the list your editor is created with, `NumberFormats` included, and `json` for what
+`editor.getJSON()` returned:
+
+```js
+import { getSchema } from '@tiptap/core'
+import { Node } from '@tiptap/pm/model'
+import { formatNumber, numberFormatContextOf } from '@tiptap-pro/extension-number-formats'
+
+const doc = Node.fromJSON(getSchema(extensions), json)
+const context = numberFormatContextOf(doc)
+
+formatNumber(4, 'clause', context) // '§ 4'
+```
+
+## With a transaction of your own
+
+`setNumberFormatTransaction` and `setNumberLanguageTransaction` do what the two commands do, on a
+transaction you pass in, and return it. Use them where you build a transaction yourself instead of
+calling `editor.commands`:
+
+```js
+import { setNumberLanguageTransaction } from '@tiptap-pro/extension-number-formats'
+
+editor.view.dispatch(setNumberLanguageTransaction(editor.state.tr, 'de'))
+```
+
+- **They throw** for a definition or a language tag the command would refuse, and when the schema
+  has no `numberFormats` node.
+- **`null` in a document that stores nothing** returns the transaction unchanged.
+- **`numberFormatsAt(doc)`** returns the hidden block and its position as `{ node, pos }`, or
+  `null`, for code that reads the block's attributes or changes it with a step of its own.
+  `NumberFormatsAt` is its type.
+
+In a Page Layout editor, `editor.state` holds the pages, not the document you store. Build the
+transaction on Page Layout's own state of the document instead, as
+[Number formats in Extension behavior](/features/page-layout/extension-behavior#number-formats)
+shows.
+
+## A format this app does not know
+
+This app is the app or server your code runs in. A document can name a format this app was never
+given: one that a collaborator's code defined, or one that a newer version of this package builds
+in.
+
+- **The name is kept.** Reading the document and writing it back leaves the name as it is, so the
+  collaborator still sees their format.
+- **Counts are written in decimal** until this app defines the name, or the document stores it.
+- **Outline numbering**, which numbers headings from templates such as `{2:clause}`, shows that
+  template text in place of the number.
+- **Choosing a new format is stricter.** Page Layout's `setPageNumbering` refuses a format this app
+  cannot write, so a typo is not stored for everybody.
+
+[Check a format name](/features/number-formats/built-in-formats#check-a-format-name) shows how to tell the two cases apart
+in your own code.
+
+## setNumberFormat()
+
+Stores a definition in the document under a name, or removes it with `null`. The example is in
+[Store a format](/features/number-formats/stored-in-the-document#store-a-format). It takes these arguments:
+
+| Argument     | Type                             | Description                         |
+| ------------ | -------------------------------- | ----------------------------------- |
+| `name`       | `string`                         | The format's name                   |
+| `definition` | `NumberFormatDefinition \| null` | The definition, or `null` to remove |
+
+Returns `false` for a definition `defineNumberFormat` would refuse, such as one under a built-in
+name, and for `null` in a document that stores no formats and no language.
+
+## setNumberLanguage()
+
+Stores the language tag the document writes words in, or removes it with `null`. The example is in
+[Store the language](/features/number-formats/stored-in-the-document#store-the-language). It takes one argument:
+
+| Argument   | Type             | Description                         |
+| ---------- | ---------------- | ----------------------------------- |
+| `language` | `string \| null` | A language tag, or `null` to remove |
+
+Returns `false` for a value that is not a language tag, and for `null` in a document that stores no
+formats and no language. A tag this app has no words for is stored all the same. Its counts are
+written in the format's fallback until
+[defineNumberLanguage](/features/number-formats/words#a-language-of-your-own) defines the language.
+
+## Limits
+
+- **Two collaborators storing two formats at the same moment** keep only one of them, because all
+  definitions are one attribute of the block.
+- **Selecting everything and deleting it** deletes the stored formats with the rest. Undo restores
+  them.
