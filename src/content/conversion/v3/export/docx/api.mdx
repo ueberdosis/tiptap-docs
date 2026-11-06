@@ -1,154 +1,127 @@
 ---
 title: Export DOCX API
+tags:
+  - type: beta
 meta:
   title: Export DOCX API | Tiptap Conversion
-  description: Reference for the ExportDocx extension, the exportDocx command, every export option, warnings, errors and helpers.
+  description: Look up every option of the ExportDocx extension with its default, the exportDocx command, the node types it converts, the removed 0.x options and the endpoint and CSS helpers.
   category: Conversion
 ---
 
-Import the runtime API and the public types from `@tiptap-pro/extension-export-docx`. Import the custom node builder from `@tiptap-pro/extension-export-docx/dsl`.
+`@tiptap-pro/extension-export-docx` exports the `ExportDocx` extension, its `exportDocx` command, and helpers for the endpoint and the measured CSS. The custom node builder comes from `@tiptap-pro/extension-export-docx/dsl`, as [Custom node builder](/conversion/v3/export/docx/custom-node-builder) describes. The types are in [Export DOCX types](/conversion/v3/export/docx/types).
 
-## ExportDocx and the exportDocx command
+## ExportDocx
 
-`ExportDocx` is the editor extension named `'export-docx'`. It adds one command and no storage or events.
+`ExportDocx` is the extension, named `'export-docx'`. It adds the `exportDocx` command, and no storage or events. [Export DOCX](/conversion/v3/export/docx/editor-extension) shows how to set it up.
 
-`editor.commands.exportDocx(options?: ExportDocxCommandOptions)` starts an export and returns `true` right away. It does three things.
+Every option on this page works in `ExportDocx.configure()` and on the command. An option passed to the command wins for that export, and replaces the configured value as a whole.
 
-1. Collects the document, page setup, numbering, comments, measured CSS, fonts and the images Convert can't download.
-2. Sends them to `POST <endpoint>/export/docx` with the token in an `Authorization: Bearer` header, and `appId` in an `X-App-Id` header when set.
-3. Calls `onCompleteExport` with the file, shaped by `exportType`.
+## exportDocx()
 
-Any failure while building or sending the export reaches `onError`. An error thrown inside `onCompleteExport` doesn't. Without `onError`, the command rethrows the error as an unhandled rejection.
+`exportDocx()` exports the document as a `.docx` file and hands the file to `onCompleteExport`. In this example, `upload` stands for your own function that sends the bytes to your server:
 
-`ExportDocxCommandOptions` is a partial `ExportDocxOptions`. Each option you leave out falls back to the value from `ExportDocx.configure`.
+```ts
+editor.commands.exportDocx({
+  exportType: 'buffer',
+  onCompleteExport: (bytes) => upload(bytes),
+})
+```
 
-| `exportType` | `onCompleteExport` receives                   |
-| ------------ | --------------------------------------------- |
-| `'blob'`     | A `Blob` with the DOCX content type. Default. |
-| `'buffer'`   | A `Uint8Array`.                               |
-| `'base64'`   | A base64 string.                              |
-| `'string'`   | A binary string, one character per byte.      |
+The command takes one optional argument, an object with any of the options on this page. Its type is `ExportDocxCommandOptions`.
 
-Any other value fails the export through `onError`.
+The command collects the document, its page setup, comments, measured CSS, fonts, and the images the Conversion service can't download. It sends them to `POST <endpoint>/export/docx`, with the token in an `Authorization: Bearer` header and `appId`, when set, in an `X-App-Id` header.
 
-## Configuration
+The command then calls `onCompleteExport` with the file in the shape `exportType` sets.
 
-The command leaves an optional value without a default listed below out of the request.
+The command returns `true` right away, also when the export fails later. It does not return `false`. A failure reaches `onError`, as [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors#errors) describes.
 
-### Connection
+## Connection
 
-| Option     | Type and effect                                                                     |
-| ---------- | ----------------------------------------------------------------------------------- |
-| `token`    | `string`. The Convert JWT. Required. Without it the export fails through `onError`. |
-| `appId`    | `string`. Your Tiptap app id, sent as `X-App-Id`.                                   |
-| `region`   | `'eu' \| 'us'`. The Convert region when `endpoint` isn't set. Default `'eu'`.       |
-| `endpoint` | `string`. A custom Convert base URL. It wins over `region`.                         |
+These options say where the command sends the document, and with which credentials:
 
-The command resolves `endpoint` with `resolveConvertV3Endpoint`.
+| Option     | Type           | Default  | Description                                                                                                                                                                                      |
+| ---------- | -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `token`    | `string`       | Required | The Conversion token. Without it, the export fails through `onError`.                                                                                                                            |
+| `appId`    | `string`       | None     | Your app ID, sent as `X-App-Id`. Tiptap Cloud needs it only for a legacy app token, and refuses that token without it with 401 `missing_app_id`. A token with `aud: "Convert"` does not need it. |
+| `region`   | `'eu' \| 'us'` | `'eu'`   | The Tiptap Cloud region, used when `endpoint` is not set.                                                                                                                                        |
+| `endpoint` | `string`       | None     | The base URL of your own Conversion service. It wins over `region`. [Endpoint helpers](#endpoint-helpers) says how the command reads it.                                                         |
 
-- A base that ends in `/v2` or `/v3` becomes `/v3`. One that ends in `/v2/convert` or `/v3/convert` becomes `/v3/convert`. A query string or hash stays.
-- The command uses any other base as it is, with a one-time console warning.
+`token` is optional in the TypeScript type, but every export needs it. [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint) says which of the two to use.
 
-### Callbacks
+## Callbacks
 
-| Option             | Type and effect                                                                                                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `exportType`       | `ExportDocxType`. The shape `onCompleteExport` receives. Default `'blob'`.                                                                                                                       |
-| `onCompleteExport` | `(result: Blob \| string \| Uint8Array) => void`. Required. Receives the file. Set it here or on the command. The default throws an error once the file arrives, and `onError` doesn't catch it. |
-| `onError`          | `(error: unknown) => void`. Receives the error when the export fails.                                                                                                                            |
-| `onWarning`        | `OnExportDocxWarning`. Receives each warning. Without it, warnings go to the console.                                                                                                            |
+These options receive the result:
 
-### Document options
+| Option             | Type                                             | Default                          | Description                                                                                                                                           |
+| ------------------ | ------------------------------------------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exportType`       | `'blob' \| 'buffer' \| 'base64' \| 'string'`     | `'blob'`                         | What `onCompleteExport` receives, as [Save the file](/conversion/v3/export/docx/editor-extension#save-the-file) lists.                                |
+| `onCompleteExport` | `(result: Blob \| string \| Uint8Array) => void` | Required                         | Receives the file. The default throws an error when the file arrives, and `onError` does not catch it. An error thrown here does not reach `onError`. |
+| `onError`          | `(error: unknown) => void`                       | None, the error is rethrown      | Receives the error when the export fails.                                                                                                             |
+| `onWarning`        | `(warning: ExportDocxWarning) => void`           | Logs each warning to the console | Receives each warning. An error thrown inside it is ignored. See [Read warnings](/conversion/v3/export/docx/warnings-and-errors#read-warnings).       |
 
-| Option                  | Type and effect                                                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `documentStyles`        | `boolean`, default `true`. Measures the mounted editor's CSS and sends it.                                                 |
-| `styleOverrides`        | Word style definitions, typed as `IStylesOptions`.                                                                         |
-| `cssStyles`             | `CssStylesOptions`. Experimental. Styles written as CSS properties.                                                        |
-| `pageSetup`             | `Record<string, unknown>`. A Page Layout setup. Default: the editor's Page Layout setup.                                   |
-| `pageSize`              | `{ width?: PageMeasure; height?: PageMeasure }`.                                                                           |
-| `pageMargins`           | `top` and `bottom` as `SignedPageMeasure`. `left`, `right`, `header` and `footer` as `PageMeasure`.                        |
-| `pageColor`             | `string`. The page background color.                                                                                       |
-| `defaultTabStop`        | `number`. Twips between default tab stops.                                                                                 |
-| `paragraphOverrides`    | `ParagraphOverrides`. Applied to every paragraph.                                                                          |
-| `textRunOverrides`      | `TextRunOverrides`. Applied to every text run.                                                                             |
-| `tableOverrides`        | `TableOverrides`. Applied to every table.                                                                                  |
-| `tableRowOverrides`     | `TableRowOverrides`. Applied to every table row.                                                                           |
-| `tableCellOverrides`    | `TableCellOverrides`. Applied to every table cell.                                                                         |
-| `imageOverrides`        | `ImageOverrides`. Applied to every image.                                                                                  |
-| `headerFooterOverrides` | `HeaderFooterOverrides`. The six overrides above, for header and footer content.                                           |
-| `numberingFormats`      | `readonly NumberingFormatDefinition[]`. Added to the formats the editor registered.                                        |
-| `outline`               | Outline numbering data. Default: the `outlineNumbering` storage of the editor.                                             |
-| `listLevels`            | `ListLevels`. Bullet, ordered and task list positions.                                                                     |
-| `footnotes`, `endnotes` | `Record<string, JSONContent>`. Note content by note id.                                                                    |
-| `comments`              | `{ threads: SourceThread[] }`. Default: unarchived threads from the comments provider. An empty array exports no comments. |
-| `customNodeDsl`         | `CustomNodeDsl`. JSON rules for custom nodes. See [render custom nodes](/conversion/v3/export/docx/custom-nodes).          |
-| `fonts`                 | `readonly DocxFontDefinition[]`. Font files to embed.                                                                      |
-| `embedFonts`            | `boolean`, default `false`. Embeds the page's `@font-face` files for the families the document uses.                       |
-| `onImageError`          | `ImageErrorPolicy`. `'skip'` leaves an unusable image out. `'throw'` fails the export.                                     |
+## Document options
 
-Each override option must be a plain object. The command drops a function and reports an `unsupported` warning.
+These options shape the file. The command sends an option without a default only when you set it:
 
-The override types and `IStylesOptions` ship with the package's type declarations.
+| Option                  | Type                                                               | Default                                          | Description                                                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `documentStyles`        | `boolean`                                                          | `true`                                           | Measures the CSS of the mounted editor and sends it. See [Match your editor's formatting](/conversion/v3/export/docx/styles#match-your-editors-formatting).                                                                                                              |
+| `styleOverrides`        | `ExportDocxOptions['styleOverrides']`                              | None                                             | Word style definitions, the `IStylesOptions` of `docx`. See [Set Word styles](/conversion/v3/export/docx/styles#set-word-styles).                                                                                                                                        |
+| `cssStyles`             | `CssStylesOptions`                                                 | None                                             | Experimental. Styles written as CSS properties. See [Describe styles with CSS](/conversion/v3/export/docx/styles#describe-styles-with-css).                                                                                                                              |
+| `pageSetup`             | `Record<string, unknown>`                                          | The editor's Page Layout setup                   | The setup of the first section, in CSS pixels: `format`, `orientation`, `margins`, and optionally `columns` and `pageNumbering`, as [Page format](/features/page-layout/page-format) describes.                                                                          |
+| `pageSize`              | `{ width?: PageMeasure; height?: PageMeasure }`                    | A4                                               | The page size without Page Layout. See [Page size and margins](/conversion/v3/export/docx/editor-extension#page-size-and-margins).                                                                                                                                       |
+| `pageMargins`           | `top` and `bottom`: `SignedPageMeasure`. The others: `PageMeasure` | 2.54 cm top and bottom, 3.17 cm left and right   | The page margins without Page Layout: `top`, `bottom`, `left`, `right`, `header` and `footer`.                                                                                                                                                                           |
+| `pageColor`             | `string`                                                           | The measured editor background                   | The page background color. See [Page color](/conversion/v3/content-reference/page-layout/page-structure#page-color).                                                                                                                                                     |
+| `defaultTabStop`        | `number`                                                           | The measured tab size                            | Twips between default tab stops. It must be greater than 0. See [Tabs](/conversion/v3/content-reference/text-and-formatting/tabs).                                                                                                                                       |
+| `paragraphOverrides`    | `ParagraphOverrides`                                               | None                                             | Applied to every paragraph. See [Set default formatting](/conversion/v3/export/docx/styles#set-default-formatting).                                                                                                                                                      |
+| `textRunOverrides`      | `TextRunOverrides`                                                 | None                                             | Applied to every text run.                                                                                                                                                                                                                                               |
+| `tableOverrides`        | `TableOverrides`                                                   | None                                             | Applied to every table.                                                                                                                                                                                                                                                  |
+| `tableRowOverrides`     | `TableRowOverrides`                                                | None                                             | Applied to every table row.                                                                                                                                                                                                                                              |
+| `tableCellOverrides`    | `TableCellOverrides`                                               | None                                             | Applied to every table cell.                                                                                                                                                                                                                                             |
+| `imageOverrides`        | `ImageOverrides`                                                   | None                                             | Applied to every image.                                                                                                                                                                                                                                                  |
+| `headerFooterOverrides` | `HeaderFooterOverrides`                                            | The body's overrides                             | The six overrides for header and footer content. See [Header and footer formatting](/conversion/v3/export/docx/styles#header-and-footer-formatting).                                                                                                                     |
+| `numberingFormats`      | `readonly NumberingFormatDefinition[]`                             | None                                             | Numbering formats that lists point at by id. See [Lists](/conversion/v3/content-reference/text-and-formatting/lists).                                                                                                                                                    |
+| `listLevels`            | `ListLevels`                                                       | The measured list positions                      | The positions of bullet, ordered and task list levels. See [Lists](/conversion/v3/content-reference/text-and-formatting/lists).                                                                                                                                          |
+| `outline`               | `{ types, levels, ignore }`                                        | The `outlineNumbering` storage of the editor     | Outline numbering data from the [Outline Numbering](/features/outline-numbering) extension. The Conversion service does not use it, so headings export without these numbers. See [Lists](/conversion/v3/content-reference/text-and-formatting/lists#outline-numbering). |
+| `footnotes`, `endnotes` | `Record<string, JSONContent>`                                      | None                                             | Note content by note id, without Page Layout. With Page Layout, they are ignored with a warning. See [Footnotes and endnotes](/conversion/v3/content-reference/structures-and-media/footnotes-endnotes).                                                                 |
+| `comments`              | `{ threads: SourceThread[] }`                                      | The unarchived threads of the Comments extension | The comment threads. `{ threads: [] }` exports no comments. See [Comments](/conversion/v3/content-reference/structures-and-media/comments).                                                                                                                              |
+| `customNodeDsl`         | `CustomNodeDsl`                                                    | None                                             | Rules that write node types of your own. See [Render custom nodes](/conversion/v3/export/docx/custom-nodes).                                                                                                                                                             |
+| `fonts`                 | `readonly DocxFontDefinition[]`                                    | None                                             | Font files to embed. See [Embed fonts](/conversion/v3/export/docx/styles#embed-fonts).                                                                                                                                                                                   |
+| `embedFonts`            | `boolean`                                                          | `false`                                          | Downloads and embeds the fonts the document uses. See [Embed fonts](/conversion/v3/export/docx/styles#embed-fonts).                                                                                                                                                      |
+| `onImageError`          | `'skip' \| 'throw'`                                                | `'skip'`                                         | `'skip'` leaves an image that can't be used out and reports it. `'throw'` fails the export. See [Images](/conversion/v3/export/docx/editor-extension#images).                                                                                                            |
 
-For how to use these options, see [control the output](/conversion/v3/export/docx/usage). Outline numbering comes from the [Outline Numbering](/pages/v2/extensions/outline-numbering) extension.
+{/* TODO(never-loses): which extension registers the numbering formats the command adds to `numberingFormats` (today ConvertKit's `orderedListNumbering` storage), and which extension defines `footnoteReference` and `endnoteReference` for `footnotes` and `endnotes` without Page Layout. The update to the brief settles `numberingFormat` and the other attributes, not these two. */}
+
+Each override option must be a plain object. The command leaves out a function, with an `unsupported` warning that names the option.
+
+The command sends only the options on this page. A body field of the [Export DOCX REST API](/conversion/v3/rest-api/export-docx) that is not here, such as `repeatTableHeaderRows`, is not sent.
+
+## Node types
+
+The Conversion service converts these node types itself. Any other node type needs a rule, as [Render custom nodes](/conversion/v3/export/docx/custom-nodes) explains:
+
+| Kind   | Types                                                                                                                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Block  | `paragraph`, `heading`, `blockquote`, `codeBlock`, `bulletList`, `orderedList`, `taskList`, `taskItem`, `listItem`, `table`, `image`, `horizontalRule`, `pageBreak`, `blockMath`, `blockThread`, `pageNumberFrame` |
+| Inline | `text`, `hardBreak`, `image`, `inlineMath`, `footnoteReference`, `endnoteReference`, `bookmark`, `pageBreak`, `columnBreak`, `pageNumber`                                                                          |
+
+`blockThread` is a commented block of the Comments extension, and `pageNumberFrame` a page number that Page Layout places in a header or footer. No Tiptap extension defines `bookmark`, as [Hyperlinks and bookmarks](/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks) explains.
 
 ## Removed 0.x options
 
-These options existed in 0.x. The command leaves them out and reports an `unsupported` warning that names the option. See [migrate export from 0.x](/conversion/v3/getting-started/migrate-export-from-0x).
+These options existed in 0.x. The command leaves them out and reports an `unsupported` warning that names the option, so the Conversion service does not refuse the request for them. [Migrate export from 0.x](/conversion/v3/getting-started/migrate-export-from-0x) walks through the changes.
 
-| Removed option        | Use instead                                                        |
-| --------------------- | ------------------------------------------------------------------ |
-| `customNodes`         | `customNodeDsl`.                                                   |
-| `customNodeDslLimits` | None. Convert applies its own limits.                              |
-| `headers`, `footers`  | The header and footer content of the Page Layout setup.            |
-| `placeholders`        | None.                                                              |
-| Function overrides    | Plain objects. Describe node-specific output with `customNodeDsl`. |
-
-## Warnings and errors
-
-`ExportDocxWarning` describes content the export skipped. It has `code` and `message`. Depending on the code it also has `src`, `family`, `status`, `contentType`, `nodeType`, `attribute`, `value`, `path`, `formatId` or `noteId`.
-
-| `code`                        | Meaning                                                                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `image-missing-src`           | An image node has no `src`.                                                                                              |
-| `image-request-failed`        | An image request didn't complete.                                                                                        |
-| `image-fetch-failed`          | An image host returned a failure, the image is over 20 MB, or the export is over the 64-file limit.                      |
-| `image-unsupported-type`      | DOCX can't embed the image format.                                                                                       |
-| `font-fetch-failed`           | A font couldn't be read, isn't TTF, OTF or WOFF2, is over 25 MB, or the export is over the 64-file limit.                |
-| `document-styles-failed`      | Measuring the editor's CSS failed. The export used default styles.                                                       |
-| `unsupported`                 | DOCX can't hold a setting, Convert doesn't take an option, or a note has no reference. `attribute` or `noteId` names it. |
-| `list-paragraph-path-missing` | A list paragraph path points at nothing, so its list styling was skipped.                                                |
-| `numbering-format-invalid`    | Convert couldn't build a numbering format, so its lists use default numbering. `formatId` names it.                      |
-| `warnings-truncated`          | Convert had more warnings than fit in its response.                                                                      |
-
-`OnExportDocxWarning` is `(warning: ExportDocxWarning) => void`. An error thrown inside it is ignored.
-
-Convert sends its warnings in the `X-Export-Warnings` response header. A browser can read the header only when CORS exposes it.
-
-`ExportDocxRequestError` reaches `onError` when Convert refuses the export or the request never reaches it. It has `code: ExportDocxRequestErrorCode`, and optional `status`, `path` and `docsUrl`.
-
-- `NETWORK_ERROR`: the request didn't reach Convert. `cause` holds the original error.
-- `HTTP_ERROR`: Convert returned a failure status and no error code.
-- Any other code comes from Convert. `path` names the option that caused it, when Convert names one.
-
-With `onImageError: 'throw'`, an image the browser can't read fails the export with `ImageFetchError` or `ImageRequestError`. All image errors extend `ImageConversionError` and have `code`, `message`, and optional `src` and `cause`.
-
-| Error class                 | `code`                   | Extra field            |
-| --------------------------- | ------------------------ | ---------------------- |
-| `ImageMissingSrcError`      | `image-missing-src`      |                        |
-| `ImageRequestError`         | `image-request-failed`   |                        |
-| `ImageFetchError`           | `image-fetch-failed`     | `status: number`       |
-| `UnsupportedImageTypeError` | `image-unsupported-type` | `contentType?: string` |
+| Removed option        | Use instead                                                   |
+| --------------------- | ------------------------------------------------------------- |
+| `customNodes`         | `customNodeDsl`.                                              |
+| `customNodeDslLimits` | None. The Conversion service applies its own limits.          |
+| `headers`, `footers`  | The header and footer content of the Page Layout setup.       |
+| `placeholders`        | None.                                                         |
+| Function overrides    | Plain objects. For output per node type, use `customNodeDsl`. |
 
 ## Endpoint helpers
 
-`CONVERT_V3_REGION_ENDPOINTS` maps each region to its Convert base.
-
-- `eu`: `https://api.tiptap.dev/v3/convert`
-- `us`: `https://api-us.tiptap.dev/v3/convert`
-
-`resolveConvertV3Endpoint({ endpoint?, region? }): string` returns the base the command uses, following the rules in [connection](#connection).
+`resolveConvertV3Endpoint()` returns the base URL the command sends to, from the `endpoint` and `region` options. Use it to check where a custom `endpoint` leads:
 
 ```ts
 import { resolveConvertV3Endpoint } from '@tiptap-pro/extension-export-docx'
@@ -157,15 +130,37 @@ resolveConvertV3Endpoint({ endpoint: 'https://convert.example.com/v2' })
 // 'https://convert.example.com/v3'
 ```
 
+`resolveConvertV3Endpoint()` takes one object with these fields:
+
+| Field      | Type           | Default | Description                                         |
+| ---------- | -------------- | ------- | --------------------------------------------------- |
+| `endpoint` | `string`       | None    | A custom base URL. It wins over `region`.           |
+| `region`   | `'eu' \| 'us'` | `'eu'`  | The Tiptap Cloud region when `endpoint` is not set. |
+
+Without `endpoint`, it returns the region's URL: `https://api.tiptap.dev/v3/convert` for `eu`, and `https://api-us.tiptap.dev/v3/convert` for `us`. `CONVERT_V3_REGION_ENDPOINTS` holds the same map.
+
+With `endpoint`, it rewrites the version at the end of the path to v3, and keeps a query string or hash:
+
+- A base that ends in `/v2` or `/v3` becomes `/v3`.
+- A base that ends in `/v2/convert` or `/v3/convert` becomes `/v3/convert`.
+- Any other base stays as it is, with one console warning for each base.
+
 ## CSS helpers
 
-`extractTiptapCssStyles({ scope? }?): CssStylesInput` reads supported rules from the page's stylesheets. `scope` defaults to `'.tiptap'`. It returns an empty object outside a browser and skips stylesheets it can't read.
+`extractTiptapCssStyles()` reads the supported rules from the page's stylesheets, and returns them as a `CssStylesInput`, the shape `cssStyles.styles` takes. Its optional argument is an object with `scope`, the selector a rule must start with, which defaults to `'.tiptap'`. Outside a browser it returns an empty object, and it skips stylesheets it can't read.
 
-`getDocumentCss({ editor, listDepth?, adjustProbe? }): Promise<DocumentCss>` reads the editor's rendered CSS after web fonts are ready. This is what `documentStyles` measures.
+```ts
+import { extractTiptapCssStyles } from '@tiptap-pro/extension-export-docx'
 
-- `listDepth` is 1 to 9. Default 9.
-- `adjustProbe(probe: HTMLElement)` lets you adapt the temporary DOM used for the measurement.
+editor.commands.exportDocx({ cssStyles: { styles: extractTiptapCssStyles() } })
+```
 
-It throws outside a browser, or when the editor is destroyed, not mounted or not laid out.
+`getDocumentCss()` returns a promise of the `DocumentCss` that `documentStyles` measures and the command sends. It waits for the page's web fonts first. [Check what the command measures](/conversion/v3/export/docx/styles#check-what-the-command-measures) shows how to use it. It takes one object with these fields:
 
-See the [types](/conversion/v3/export/docx/types) for every shape named on this page.
+| Field         | Type                           | Default  | Description                                                                                                        |
+| ------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `editor`      | `Editor`                       | Required | The mounted editor to measure.                                                                                     |
+| `listDepth`   | `number`                       | `9`      | How many list depths to measure, an integer from 1 to 9. Another value throws.                                     |
+| `adjustProbe` | `(probe: HTMLElement) => void` | None     | Changes the temporary DOM this one measurement reads. Keep its `data-css` attributes. The command does not use it. |
+
+`getDocumentCss()` throws outside a browser, and when the editor is destroyed, has no view, is not mounted or is not laid out, such as inside an element with `display: none`.

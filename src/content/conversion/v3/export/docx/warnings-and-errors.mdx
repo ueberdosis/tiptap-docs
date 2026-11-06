@@ -1,0 +1,189 @@
+---
+title: Export warnings and errors
+tags:
+  - type: beta
+meta:
+  title: Export warnings and errors | Tiptap Conversion
+  description: Read the warnings a DOCX export reports for content it left out or changed, and handle the errors that stop an export.
+  category: Conversion
+---
+
+A DOCX export reports two kinds of problems. A warning means the export left something out or changed it, and the file still arrives. An error means the export stopped, and no file arrives.
+
+## Read warnings
+
+The `onWarning` option receives each warning. Set it in `ExportDocx.configure()` or pass it to the `exportDocx` command:
+
+```ts
+editor.commands.exportDocx({
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+Without `onWarning`, each warning goes to the console as `[export-docx] <message>`. A warning does not stop the export, and an error thrown inside `onWarning` is ignored. Every warning arrives before `onCompleteExport`.
+
+The Conversion service sends its warnings in the `X-Export-Warnings` response header. A proxy in front of a Conversion service on your own server can remove that header, and the browser then gets none of these warnings.
+
+A warning has a `code`, a `message` that is safe to log, and the fields that fit its code. An image or font warning holds the file's URL in `src`. [ExportDocxWarning](/conversion/v3/export/docx/types#exportdocxwarning) lists every field.
+
+## Warning codes
+
+Each code says what export left out or changed, and which fields name it:
+
+| Code                          | What happened                                                                                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `unsupported`                 | Something Word or the Conversion service can't take was left out. `attribute`, `nodeType` or `noteId` names it. The cases follow the table.                                                                                                      |
+| `image-missing-src`           | An image node has no `src`.                                                                                                                                                                                                                      |
+| `image-request-failed`        | An image download did not complete, or passed a limit of the Conversion service.                                                                                                                                                                 |
+| `image-fetch-failed`          | The image host answered with a failure, in `status`. Without `status`, an uploaded image is over 20 MB or past the limit of 64 files.                                                                                                            |
+| `image-unsupported-type`      | Word can't hold the image format, which `contentType` names.                                                                                                                                                                                     |
+| `image-resized`               | An image too large for Word was scaled down. The code is not in the `ExportDocxWarning` type, so compare `String(warning.code)` to find it.                                                                                                      |
+| `font-fetch-failed`           | The font in `family` could not be read, is not TTF, OTF or WOFF2, is over 25 MB or is past the limit of 64 files. Word shows another font.                                                                                                       |
+| `document-styles-failed`      | Measuring the editor's CSS failed, so the file uses default styles.                                                                                                                                                                              |
+| `list-paragraph-path-missing` | The measured CSS names a list paragraph that the document does not have, so that measured list styling was skipped. `path` holds one index per nested `content` array, such as `[2, 0]`.                                                         |
+| `numbering-format-invalid`    | The numbering format in `formatId`, the way a list counts such as `1.` or `a)`, could not be built, so its lists get Word's default numbering. [Lists](/conversion/v3/content-reference/text-and-formatting/lists) says where formats come from. |
+| `warnings-truncated`          | The Conversion service had more warnings than fit in its response header, about 8 KB.                                                                                                                                                            |
+
+An `unsupported` warning covers these cases:
+
+- **A removed 0.x option**, in `attribute`. [Removed 0.x options](/conversion/v3/export/docx/api#removed-0x-options) says what replaces it.
+- **An override passed as a function**, such as `paragraphOverrides`, in `attribute`.
+- **The `footnotes` or `endnotes` option with Page Layout**, in `attribute`. Page Layout takes the notes from the document instead.
+- **A note without a reference, with Page Layout**, in `noteId`. `nodeType` is `'footnote'` for an endnote too.
+- **A node type without a converter or a rule**, in `nodeType`. See [Render custom nodes](/conversion/v3/export/docx/custom-nodes#nodes-without-a-rule).
+- **A section setting Word can't hold**, in `attribute` and `value`, with `nodeType` `'sectionBreak'`, or `'pageFurniture'` for a header or footer. [Page structure](/conversion/v3/content-reference/page-layout/page-structure) and [Headers and footers](/conversion/v3/content-reference/page-layout/headers-footers) list them. Each one is reported once per export, not once per section.
+
+## Errors
+
+An error stops the export, so `onError` receives it and `onCompleteExport` is not called. Without `onError`, it becomes an unhandled promise rejection. These errors reach `onError`:
+
+| Error                                                                           | When                                                                                                                |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Error`: "The [exportDocx] command needs a [token] for the Tiptap convert API." | No `token` is set. See [The export fails with a missing token error](#the-export-fails-with-a-missing-token-error). |
+| `Error`: "DOCX export does not support pending node type changes."              | See [A pending node type change fails the export](#a-pending-node-type-change-fails-the-export).                    |
+| `Error`: `Invalid export type "<value>"`                                        | `exportType` is not `'blob'`, `'buffer'`, `'base64'` or `'string'`.                                                 |
+| `ImageRequestError`, `ImageFetchError`                                          | With `onImageError: 'throw'`, the browser could not use an image. See [Image errors](#image-errors).                |
+| `ExportDocxRequestError`                                                        | The request did not reach the Conversion service, or the Conversion service refused it.                             |
+
+An error thrown inside `onCompleteExport` does not reach `onError`. It becomes an unhandled promise rejection.
+
+### ExportDocxRequestError
+
+`ExportDocxRequestError` means the request did not reach the Conversion service, or the Conversion service refused it. Its `code` tells the cases apart:
+
+```ts
+import { ExportDocxRequestError } from '@tiptap-pro/extension-export-docx'
+
+editor.commands.exportDocx({
+  onError: (error) => {
+    if (error instanceof ExportDocxRequestError) {
+      console.error(error.code, error.status, error.path)
+    }
+  },
+})
+```
+
+Besides `code`, the error carries these fields:
+
+| Field     | What it holds                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `status`  | The HTTP status. Unset when the request got no answer.                                               |
+| `path`    | The option that caused the error, when the Conversion service names one.                             |
+| `docsUrl` | A page that explains the error, when the Conversion service sends one.                               |
+| `message` | The error text of the Conversion service, or "The export failed with status `<status>`" without one. |
+
+The `code` says what happened:
+
+| `code`                                                                                       | `status`   | What happened                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NETWORK_ERROR`                                                                              | None       | The request did not reach the Conversion service. `cause` holds the original error.                                                                                                                             |
+| `HTTP_ERROR`                                                                                 | Any        | A failure status without a JSON body or an error code.                                                                                                                                                          |
+| `INVALID_EXPORT_OPTIONS`                                                                     | 400        | An option, named in `path`, is not valid, such as a `px` page measure or a `defaultTabStop` of 0.                                                                                                               |
+| `DOCX_DSL_` and a name                                                                       | 400 or 422 | A custom node rule failed validation (400) or rendering (422). The error does not say which rule.                                                                                                               |
+| `FAILED_TO_EXPORT_DOCX_FILE`                                                                 | 422        | The Conversion service could not build the file, such as for an image it downloads with `onImageError: 'throw'`.                                                                                                |
+| `REQUEST_BODY_TOO_LARGE`                                                                     | 413        | The request is over 100 MB.                                                                                                                                                                                     |
+| `RATE_LIMITED`                                                                               | 429        | Too many requests in a short time. Wait before you retry, because a browser can't read the `Retry-After` and `RateLimit` headers. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits. |
+| Authentication and origin codes, such as `missing_app_id` for a legacy token without `appId` | 401, 403   | The token, the app ID or the page's origin was refused. `message` gives only the status, such as "The export failed with status 401". [REST API overview](/conversion/v3/rest-api/overview) lists these codes.  |
+
+When `INVALID_EXPORT_OPTIONS` names `path: 'documentCss'`, the Conversion service could not read the measured CSS. Set `documentStyles: false` to export without it.
+
+`DOCX_DSL_` is the prefix of the errors of custom node rules. The names after it are `UNKNOWN_VERSION`, `INVALID_SHAPE`, `DUPLICATE_NODE_TYPE`, `UNKNOWN_ELEMENT`, `UNKNOWN_OPERATION`, `RESERVED_SHAPE`, `INVALID_PROP`, `INVALID_ENUM`, `INVALID_REF`, `INVALID_TEMPLATE`, `INVALID_UNIT`, `INVALID_TRANSFORM`, `INVALID_CONTEXT`, `INVALID_OP_ARITY`, `RUNTIME_TYPE_MISMATCH`, `RESOURCE_LIMIT`, `RENDER_FAILED` and `DISABLED`.
+
+## Image errors
+
+With `onImageError: 'throw'`, an image the browser can't use fails the export instead of being left out. The error class depends on whether the image host answered:
+
+- **`ImageFetchError`**, code `image-fetch-failed`: the host answered with a failure, and `status` holds it.
+- **`ImageRequestError`**, code `image-request-failed`: the download did not complete, or the image is over 20 MB or past the limit of 64 files.
+
+So an image over 20 MB gives the warning `image-fetch-failed` with `'skip'`, but an `ImageRequestError` with `'throw'`.
+
+Both classes extend `ImageConversionError`, which has `code`, `message`, and optionally `src` and `cause`. All three come from `@tiptap-pro/extension-export-docx`:
+
+```ts
+import { ImageConversionError } from '@tiptap-pro/extension-export-docx'
+
+editor.commands.exportDocx({
+  onImageError: 'throw',
+  onError: (error) => {
+    if (error instanceof ImageConversionError) {
+      console.error(error.code, error.src)
+    }
+  },
+})
+```
+
+An image the Conversion service downloads itself fails as an `ExportDocxRequestError` instead, with the code `FAILED_TO_EXPORT_DOCX_FILE`, the status 422 and the image's `src` in the message.
+
+## Limits
+
+These limits apply to each export from the editor:
+
+| What                                                      | Limit                      | Over the limit                                                                                 |
+| --------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| Files the browser uploads, fonts first, then images       | 64                         | Left out with `font-fetch-failed` or `image-fetch-failed`                                      |
+| Size of an uploaded image                                 | 20 MB                      | Left out with `image-fetch-failed`                                                             |
+| Format of an uploaded image                               | PNG, JPEG, GIF, BMP or SVG | 400 `INVALID_EXPORT_OPTIONS`, see [Images](/conversion/v3/export/docx/editor-extension#images) |
+| Size of an uploaded font                                  | 25 MB                      | Left out with `font-fetch-failed`                                                              |
+| Size of the request                                       | 100 MB                     | 413 `REQUEST_BODY_TOO_LARGE`                                                                   |
+| Images the Conversion service downloads                   | 200                        | `image-request-failed`, or 422 with `onImageError: 'throw'`                                    |
+| Total size of the images the Conversion service downloads | 100 MB                     | `image-request-failed`, or 422 with `onImageError: 'throw'`                                    |
+| Time to download one image on the Conversion service      | 15 s                       | `image-request-failed`, or 422 with `onImageError: 'throw'`                                    |
+| Font families the Conversion service looks up             | 20                         | Not embedded, without a warning                                                                |
+
+The extension keeps its limits of 64 files, 20 MB and 25 MB even when a Conversion service on your own server allows more. The limits on custom node rules are in [Validation and limits](/conversion/v3/export/docx/custom-nodes#validation-and-limits).
+
+A page measure in `pi`, another spelling of picas, passes the `PageMeasure` type, but fails the export with a 422 error. Write the same length in `pc`. This is a known limit that is being fixed.
+
+## The export fails with a missing token error
+
+`onError` receives an `Error` with the message "The [exportDocx] command needs a [token] for the Tiptap convert API. The DOCX is built in the Tiptap Cloud." The export has no token, so it stopped before it called the Conversion service.
+
+Set `token` in `ExportDocx.configure()`, or pass it to the command. [Install Tiptap Conversion](/conversion/v3/getting-started/install) says how to get a token.
+
+## A pending node type change fails the export
+
+`onError` receives an `Error` with the message "DOCX export does not support pending node type changes. Accept or reject them before exporting."
+
+With the Tracked Changes extension, a suggestion to change a node's type, such as a paragraph into a heading, waits in the node's `suggestionNodeTypeChange` attribute. Word can't hold such a change, so the export fails before it sends anything, for a change in the document or in a note.
+
+Accept or reject these suggestions with the extension's `acceptSuggestion({ id })` or `rejectSuggestion({ id })` command, as [the Tracked Changes commands](/tracked-changes/api-reference/commands) show, then export again. [Tracked changes](/conversion/v3/content-reference/structures-and-media/tracked-changes) says what export writes for the other suggestions.
+
+## Styles look different in Word
+
+The file gets its styles from the CSS the command measures. [Match your editor's formatting](/conversion/v3/export/docx/styles#match-your-editors-formatting) says when the measurement is skipped or misses something, and [Check what the command measures](/conversion/v3/export/docx/styles#check-what-the-command-measures) shows how to see it.
+
+For a result that does not depend on the browser, set the styles yourself, as [Export styles and fonts](/conversion/v3/export/docx/styles) describes.
+
+## Content is missing from the file
+
+Read the warnings first, or the browser console without `onWarning`, because export reports most of what it leaves out. These are the usual causes:
+
+- **A node type of your own without a rule**, with an `unsupported` warning. See [Render custom nodes](/conversion/v3/export/docx/custom-nodes).
+- **An image that can't be used**, with an image warning. See [Images](/conversion/v3/export/docx/editor-extension#images).
+- **A note without a reference, with Page Layout.** See [Footnotes and endnotes](/conversion/v3/content-reference/structures-and-media/footnotes-endnotes).
+- **Comments.** Export leaves out the archived threads of the Comments extension, the ones it keeps as deleted. Resolved threads are exported. See [Comments](/conversion/v3/content-reference/structures-and-media/comments).
+- **A formatting change from tracked changes.** See [Tracked changes](/conversion/v3/content-reference/structures-and-media/tracked-changes).
+- **A font the Conversion service did not find**, without a warning. See [Embed fonts](/conversion/v3/export/docx/styles#embed-fonts).
+
+When no warning of the Conversion service arrives at all, a proxy may remove the `X-Export-Warnings` header, as [Read warnings](#read-warnings) explains.

@@ -1,23 +1,28 @@
 ---
 title: Render custom nodes
+tags:
+  - type: beta
 meta:
   title: Render custom nodes | Tiptap Conversion
-  description: Describe how export writes your own node types to Word with customNodeDsl, using the builder or plain JSON.
+  description: Write your own node types to the Word file on export with custom node rules, built with the custom node builder or written as JSON.
   category: Conversion
 ---
 
-import { Callout } from '@/components/ui/Callout'
+A custom node is a node type your application adds, such as a callout or a mention. Export DOCX leaves it out of the Word file, with its content, unless a custom node rule says what to write instead, such as a paragraph or a table.
 
-A custom node is a node type your application adds, such as a callout or a mention. Convert doesn't know how to write it to Word, so you describe its output with `customNodeDsl`. The description is JSON, because it travels to Convert with the request.
+The rules go into the `customNodeDsl` option of `ExportDocx`, named after the rule language (DSL) they use. They are JSON, not functions, because the Conversion service, the server that builds the Word file, applies them.
 
-A rule only applies to node types export doesn't write itself. A rule for a built-in node such as `paragraph`, `heading` or `codeBlock` doesn't run.
+Export converts the node types in [Node types](/conversion/v3/export/docx/api#node-types) itself, so a rule for one of them is ignored.
 
 ## Describe a node with the builder
 
-The builder from `@tiptap-pro/extension-export-docx/dsl` creates the JSON and gives you autocomplete.
+The custom node builder from `@tiptap-pro/extension-export-docx/dsl` creates the rules, and TypeScript checks their shape. This rule writes each `notice` node as a paragraph with the text of its `message` attribute, or "Notice" when it has none.
+
+`CONVERSION_TOKEN` stands for your Conversion token, which [Install Tiptap Conversion](/conversion/v3/getting-started/install) says how to get, and `download` for your own function that saves the file:
 
 ```ts
-import { ExportDocx, type CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
 import { docxNode, paragraph, ref, textOp } from '@tiptap-pro/extension-export-docx/dsl'
 
 const customNodeDsl: CustomNodeDsl = {
@@ -31,29 +36,35 @@ const customNodeDsl: CustomNodeDsl = {
 }
 
 const exportExtension = ExportDocx.configure({
-  token: 'CONVERT_TOKEN',
+  token: CONVERSION_TOKEN,
   customNodeDsl,
-  onCompleteExport: (result) => console.log(result),
+  onCompleteExport: (blob) => download(blob),
 })
 ```
 
-Add `exportExtension` to the editor from [Export DOCX](/conversion/v3/export/docx/editor-extension), next to the extension that defines the `notice` node. A `notice` node with `attrs.message` set to `'Remember to save.'` becomes a paragraph with that text. Without the attribute, the paragraph reads "Notice".
+The calls in the rule do this:
 
-Calling `toJSON()` creates JSON. It doesn't export anything. See the [builder reference](/conversion/v3/export/docx/custom-node-builder) for every function.
+- `docxNode('notice').block()` starts the rule for a block node.
+- `emit()` gives what export writes, a `paragraph()` with `children()`.
+- `textOp()` writes a value as text, with the marks of the custom node.
+- `ref()` reads an attribute. Its `default` replaces a missing or `null` value.
+- `toJSON()` returns the rule as JSON, and exports nothing.
+
+`dslVersion` must be `'1.0'`. [Custom node builder](/conversion/v3/export/docx/custom-node-builder) lists every function.
+
+Add `exportExtension` to the editor, next to the extension that defines `notice`. Then call `editor.commands.exportDocx()`, as [Export DOCX](/conversion/v3/export/docx/editor-extension#export-the-document) shows, and the file arrives in `onCompleteExport`. `exportDocx({ customNodeDsl })` replaces the configured rules for one export.
 
 ## More examples
 
-These examples use these imports.
+Each example is one rule for the `nodes` array, and they use these imports:
 
 ```ts
 import {
   childrenBlock,
   childrenInline,
   docxNode,
-  externalHyperlink,
   paragraph,
   ref,
-  switchValue,
   table,
   tableCell,
   tableRow,
@@ -62,7 +73,29 @@ import {
 } from '@tiptap-pro/extension-export-docx/dsl'
 ```
 
-An inline node that keeps its own marks. `applyMarks('node')` copies the node's marks onto the run, so a bold `mention` exports in bold.
+A `tip` that holds text, written as one shaded paragraph. `childrenInline()` writes the text inside the node, and each piece of it keeps its own marks:
+
+```ts
+docxNode('tip')
+  .block()
+  .emit(paragraph({ shading: { fill: 'FFF4CE' } }).children(childrenInline()))
+  .toJSON()
+```
+
+A `callout` that holds paragraphs and lists, written as a table with one shaded cell. `childrenBlock()` writes the blocks inside the node, and `type: 'pct'` makes the width a percentage of the available width:
+
+```ts
+docxNode('callout')
+  .block()
+  .emit(
+    table({ width: { size: 100, type: 'pct' } }).children([
+      tableRow().children([tableCell({ shading: { fill: 'FFF4CE' } }).children(childrenBlock())]),
+    ]),
+  )
+  .toJSON()
+```
+
+A `mention` that sits inside text. `textRun()` writes text with the formatting you set, unlike `textOp()`, and ignores the marks of the node. An inline node carries marks, such as `bold` in bold text, so `applyMarks('node')` adds them to the text. `hexNoHash` turns `#4472C4` into the `4472C4` Word expects:
 
 ```ts
 docxNode('mention')
@@ -76,69 +109,9 @@ docxNode('mention')
   .toJSON()
 ```
 
-A block node that keeps its inline content. `childrenInline` renders the text and marks inside the node.
-
-```ts
-docxNode('tip')
-  .block()
-  .emit(
-    paragraph({ shading: { type: 'solid', fill: 'FFF4CE' }, spacing: { after: 120 } }).children(
-      childrenInline({ marks: 'default' }),
-    ),
-  )
-  .toJSON()
-```
-
-A block node that holds blocks, written as a one-cell table. `childrenBlock` renders the paragraphs inside the cell.
-
-```ts
-docxNode('callout')
-  .block()
-  .emit(
-    table({ width: { size: 100, type: 'pct' } }).rows(
-      tableRow().children([
-        tableCell({ shading: { type: 'solid', fill: 'FFF4CE' } }).children(childrenBlock()),
-      ]),
-    ),
-  )
-  .toJSON()
-```
-
-A node that picks a value from an attribute.
-
-```ts
-docxNode('badge')
-  .inline()
-  .emit(
-    textRun({
-      text: ref('node.attrs.label'),
-      bold: true,
-      color: switchValue({
-        on: ref('node.attrs.level'),
-        cases: { high: 'C00000', low: '2E7D32' },
-        default: '000000',
-      }),
-    }),
-  )
-  .toJSON()
-```
-
-A link built from an attribute.
-
-```ts
-docxNode('ticket')
-  .inline()
-  .emit(
-    externalHyperlink({ link: template('https://example.com/tickets/{node.attrs.id}') }).children(
-      textRun({ text: template('#{node.attrs.id}') }),
-    ),
-  )
-  .toJSON()
-```
-
 ## Write the JSON by hand
 
-The `notice` rule without the builder:
+Without the builder, you write the rules as objects, for example on a server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx). This is the `notice` rule from [Describe a node with the builder](#describe-a-node-with-the-builder) as its `toJSON()` returns it:
 
 ```ts
 import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
@@ -162,77 +135,126 @@ const customNodeDsl: CustomNodeDsl = {
 }
 ```
 
-The only accepted version is `'1.0'`.
+Each rule has a `type`, an optional `nodeKind`, and a `render` that holds `emit` or is `null`. `nodes` holds one rule per node type. The root takes only `dslVersion` and `nodes`.
+
+These mistakes fail the export, and `onError` receives the code, as [Validation and limits](#validation-and-limits) explains:
+
+- A `dslVersion` other than `'1.0'` fails with `DOCX_DSL_UNKNOWN_VERSION`.
+- A second rule for the same type fails with `DOCX_DSL_DUPLICATE_NODE_TYPE`.
+- The reserved root fields `requiresStyles`, `contributedStyles`, `externalRefs` and `limits` fail with `DOCX_DSL_RESERVED_SHAPE`.
+
+The types of a rule and everything inside it are exported from `@tiptap-pro/extension-export-docx`, and [Export DOCX types](/conversion/v3/export/docx/types#custom-node-types) shows their shapes.
 
 ## Choose the output shape
 
-The elements are `Paragraph`, `TextRun`, `ExternalHyperlink`, `Table`, `TableRow`, `TableCell` and `PageBreak`. Each container takes the matching child kind. A `Paragraph` takes inline content and a `Table` takes rows.
+The `emit` of a rule holds an element, an operation, an array of them, or `null`. An array writes its items one after the other.
 
-| Operation   | What it does                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| `$children` | Renders the children of the original node as `inline`, `block`, `table-row` or `table-cell`. |
-| `$text`     | Emits text.                                                                                  |
-| `$fragment` | Groups siblings. A plain array of render nodes does the same.                                |
-| `$if`       | Picks a branch from a test.                                                                  |
-| `$switch`   | Picks a branch by exact string match.                                                        |
+An element is one piece of the Word file, such as a paragraph. Its `props` set its formatting, and [Properties](/conversion/v3/export/docx/custom-node-builder#properties) lists them. These are the elements:
 
-Set `render: null` to drop a node and everything inside it. `emit: null` writes nothing for the node. Its content doesn't appear either.
+| Element             | Kind       | Children                                             |
+| ------------------- | ---------- | ---------------------------------------------------- |
+| `Paragraph`         | block      | inline content                                       |
+| `TextRun`           | inline     | none, the `text` property holds the text             |
+| `ExternalHyperlink` | inline     | inline content. The `link` property is required      |
+| `Table`             | block      | `TableRow` elements                                  |
+| `TableRow`          | table row  | at least one `TableCell`                             |
+| `TableCell`         | table cell | block content. An empty cell gets an empty paragraph |
+| `PageBreak`         | block      | none. It writes a paragraph that holds a page break  |
 
-`nodeKind` is `'block'`, `'inline'` or `'auto'`. The default is `'auto'`.
+An operation writes something from the node, such as its content. These are the operations, in JSON and in the builder:
 
-### Marks
+| JSON                                                    | Builder                                                                            | What it writes                                                                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `{ $children: { as, marks?, wrapInlineInParagraph? } }` | `childrenInline()`, `childrenBlock()`, `childrenTableRow()`, `childrenTableCell()` | The content of the node, `as` `inline`, `block`, `table-row` or `table-cell`. Each child converts as usual, or by its own rule. |
+| `{ $text, marks?, default? }`                           | `textOp()`                                                                         | One text run from the value in `$text`. Its `default` replaces an empty, missing or `null` value.                               |
+| `{ $fragment: [...] }`                                  | `fragment()`                                                                       | Its items, the same as an array.                                                                                                |
+| `{ $if: { test, then, else? } }`                        | `iff()`                                                                            | `then` when `test` is truthy, otherwise `else` or nothing. `false`, `null`, `0`, `''` and a missing value are falsy.            |
+| `{ $switch: { on, cases, default? } }`                  | `switch_()`                                                                        | The branch in `cases` whose key equals `on`, otherwise `default` or nothing. An `on` that isn't a string fails.                 |
 
-Mark policies keep, ignore or override text formatting.
+The kind of `$children` must match its element: a `Paragraph` takes `inline` and a `TableCell` takes `block`. Another kind fails with `DOCX_DSL_INVALID_CONTEXT`. When a node can hold text directly as well as blocks, pass `wrapInlineInParagraph: true` to its `childrenBlock()`, so export wraps the text in a paragraph instead of failing.
 
-- `marks` on `$children` takes `'default'`, `'none'`, `'node'` or an object. `'default'` uses the marks of each child. `'node'` uses the custom node's marks.
-- `marks` on `$text` takes `'default'` or `'none'`.
-- `applyMarks` on `TextRun` and `ExternalHyperlink` takes `'node'` or an object with `mode: 'node'`.
-- Without `applyMarks`, export ignores the custom node's marks.
+The `nodeKind` of a rule says whether the node is a block or sits inside text. With `'block'` or `'inline'`, set by `block()` or `inline()`, a rule that emits the other kind fails with `DOCX_DSL_INVALID_CONTEXT` before the export starts.
 
-The mark names are `bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `textStyle`, `highlight` and `link`. An object policy can `disable` marks and set `overrides` per mark. An override has `props` for the run and `replace`, which skips the standard mapping of that mark.
+Without `nodeKind`, or with `'auto'`, export works out the kind from what the rule emits. Then a block, such as a paragraph, that the rule emits for a node inside text is left out without an error. Set `block()` or `inline()` to get the error instead.
 
-### Value expressions
+## Keep or drop the content
 
-A value can be a literal, an array, an object or one of these expressions.
+Every way of writing nothing for a node also leaves out the content inside it. To leave out only the node, emit its children:
 
-| Expression  | Result                                                     |
-| ----------- | ---------------------------------------------------------- |
-| `$ref`      | A value from the node. Takes `default` and `transform`.    |
-| `$template` | A string with `{path}` slots. `{{` and `}}` escape braces. |
-| `$op`       | A computed value from `args`.                              |
-| `$unit`     | A converted measurement or color.                          |
-| `$switch`   | A value picked by exact match, inside element props.       |
+| Rule                                                | Builder                                     | Result                                                    |
+| --------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| `render: null` or `render: { emit: null }`          | `drop()` or `emitNothing()`, the same       | The node and its content are left out, without a warning. |
+| `render: { emit: { $children: { as: 'block' } } }`  | `emit(fragment(childrenBlock().toJSON()))`  | The blocks inside the node are written without the node.  |
+| `render: { emit: { $children: { as: 'inline' } } }` | `emit(fragment(childrenInline().toJSON()))` | The text inside an inline node is written without it.     |
 
-A reference starts with `node` and reads one of `node.type`, `node.attrs`, `node.attrs.<key>`, `node.text` or `node.textContent`. Array indexes, wildcards and JavaScript expressions aren't accepted.
+The builder's `emit()` doesn't take the children builders, so they go into `fragment()` as JSON.
 
-- Transforms: `hexNoHash`, `lower`, `upper`, `trim`, `parseIntStrict`, `parseFloatStrict`, `boolean` and `nullableString`.
-- Operators: `add`, `sub`, `mul`, `div`, `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `and`, `or`, `not` and `coalesce`. `add`, `mul` and `coalesce` take two or more arguments. `sub`, `div` and the comparisons take two. `not` takes one.
-- Units: `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips`, `lineHeightToDocx`, `universalMeasureToTwips`, `normalizeColor`, `inchesToTwips`, `cmToTwips` and `mmToTwips`.
+## Marks
 
-Numeric properties use Word units. Font sizes are half-points, spacing and indents are twips. The [builder reference](/conversion/v3/export/docx/custom-node-builder) lists every property.
+Marks, such as bold or a link, come from the text inside the custom node. A custom node that sits inside text carries marks of its own too, such as `bold` in bold text. These settings say which marks the written text gets:
+
+| Setting                                           | Values                                                                                                                            | Default                             |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `marks` on inline `$children`, `childrenInline()` | `'default'`: each piece of text keeps its own marks. `'none'`: no marks. `'node'`: the custom node's marks instead. Or an object. | `'default'`                         |
+| `marks` on `$text`, `textOp()`                    | `'default'`: the custom node's marks. `'none'`: no marks.                                                                         | `'default'`                         |
+| `applyMarks` on `TextRun` and `ExternalHyperlink` | `'node'`, or an object with `mode: 'node'`: the custom node's marks.                                                              | the custom node's marks are ignored |
+
+Export writes the formatting of `bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `textStyle`, the mark for text color and font, `highlight` and `link`. Other marks add no formatting.
+
+An object in place of a value leaves out some marks or changes their formatting, such as red text instead of bold. [Mark policies](/conversion/v3/export/docx/custom-node-builder#mark-policies) shows it in the builder and in JSON.
+
+## Value expressions
+
+A property takes a fixed value, such as `'C00000'`, or an expression that the Conversion service works out from the node, such as the value of an attribute. An array or object value can hold expressions too.
+
+Numbers are in Word's units: half-points for a font size, so `24` is 12 pt, and twips, 1/20 of a point, for spacing and indents. [Properties](/conversion/v3/export/docx/custom-node-builder#properties) gives the unit of each property.
+
+These are the expressions, in JSON and in the builder:
+
+| JSON                                   | Builder                               | Result                                                                                                        |
+| -------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `{ $ref: path, default?, transform? }` | `ref(path, { default, transform })`   | A value from the node, so a number stays a number. `default` replaces a missing or `null` value.              |
+| `{ $template: text }`                  | `template(text)`                      | A string with `{path}` slots, such as `'@{node.attrs.label}'`. `{{` and `}}` write a brace.                   |
+| `{ $op: name, args: [...] }`           | `op(name, ...args)`                   | A value computed from `args`, such as a sum or a comparison.                                                  |
+| `{ $unit: name, value }`               | `unit(name, value)`                   | A measurement or color converted for Word, such as centimeters to twips.                                      |
+| `{ $switch: { on, cases, default? } }` | `switchValue({ on, cases, default })` | The value in `cases` whose key equals `on`, otherwise `default` or `null`. An `on` that isn't a string fails. |
+
+A path is usually `node.attrs.<key>`, one attribute, or `node.textContent`, all the text inside the node. A key can go deeper into an object attribute, such as `node.attrs.style.color`. `node`, `node.type`, `node.attrs` and `node.text` work too, but array indexes, wildcards, JavaScript, `node.content` and `node.marks` don't.
+
+A `transform`, such as `hexNoHash`, changes the value of a `$ref` or its `default`. [Value factories](/conversion/v3/export/docx/custom-node-builder#value-factories) lists the transforms, the operations of `$op` and the units of `$unit`.
+
+Most numeric properties take whole numbers only, and nothing rounds a number. So `pixelsToHalfPoints` of `15` gives a font size of `22.5`, which fails with `DOCX_DSL_INVALID_PROP`. To set a font size from an attribute, store it in whole points and double it with `unit('pointsToHalfPoints', ref('node.attrs.fontSize'))`.
 
 ## Nodes without a rule
 
-Export leaves a node type with no rule out of the file, with all of its content. `onWarning` receives an `unsupported` warning with the node type. A rule with `render: null` drops the node without a warning.
+When a node type has no rule and export can't convert it, export leaves the node out of the file, with all of its content. A rule that writes nothing does the same without a warning.
 
-That includes the `columns` and `column` nodes an import creates for a multi-column section. To keep their content through a re-export, define your own `columns` and `column` nodes and add a rule for them.
+Without a rule, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors) lists every warning.
 
-<Callout title="Content that needs a rule" variant="warning">
-  Export drops the nodes `crossReference`, `bookmarkPoint`, `columnLayout` and `column`, and the
-  Bookmarks mark. A rule can render the nodes, not the mark. See the [feature support
-  matrix](/conversion/v3/getting-started/feature-support-matrix).
-</Callout>
+Export has no converter for the `crossReference` node of `@tiptap-pro/extension-cross-references` or the `bookmarkPoint` node of `@tiptap-pro/extension-bookmark`, so a rule can write them. Rules apply only to nodes, so the `bookmark` mark stays left out. [Hyperlinks and bookmarks](/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks) says what export writes for links and bookmarks.
 
 ## Validation and limits
 
-Convert validates the description and applies its own limits. You can't set them from the browser.
+The Conversion service checks the rules before it builds the file, and again while it writes each node. It also limits their size, and the browser can't change the limits.
 
-Convert limits the number of rules, the depth of the render tree, the number of render nodes, the length of strings and templates, and the size of tables.
+When the Conversion service runs on your own server, as [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint) explains, an environment variable with a positive whole number changes a limit:
 
-Reserved root fields such as `requiresStyles`, `contributedStyles`, `externalRefs` and `limits` aren't accepted.
+| Limit                                                    | Default | Environment variable               |
+| -------------------------------------------------------- | ------- | ---------------------------------- |
+| Rules in `customNodeDsl`                                 | 128     | `DOCX_DSL_MAX_RULES`               |
+| Nesting depth of the elements and operations in one rule | 32      | `DOCX_DSL_MAX_DEPTH`               |
+| Elements and operations in one rule                      | 1,024   | `DOCX_DSL_MAX_NODES`               |
+| Depth of one value expression                            | 16      | `DOCX_DSL_MAX_VALUE_DEPTH`         |
+| Characters in a string                                   | 10,000  | `DOCX_DSL_MAX_STRING_LEN`          |
+| Characters in the result of a `$template`                | 2,000   | `DOCX_DSL_MAX_TEMPLATE_LEN`        |
+| Arguments of one `$op`                                   | 32      | `DOCX_DSL_MAX_OP_ARGS`             |
+| Rows of one table                                        | 1,024   | `DOCX_DSL_MAX_TABLE_ROWS`          |
+| Cells of one table row                                   | 64      | `DOCX_DSL_MAX_TABLE_CELLS_PER_ROW` |
 
-When Convert refuses the description, `onError` receives an [`ExportDocxRequestError`](/conversion/v3/export/docx/api#warnings-and-errors).
+Rules over a limit fail with `DOCX_DSL_RESOURCE_LIMIT`.
 
-- Convert returns status 400 for a rule that fails validation.
-- Convert returns status 422 for a rule that fails while it renders a node.
-- The `code` starts with `DOCX_DSL_`, such as `DOCX_DSL_INVALID_PROP`, and the message names the field.
+When the Conversion service refuses the rules, no file arrives, and `onError` receives an `ExportDocxRequestError`. Its `status` is `400` for a rule that fails the check before the export starts, and `422` for one that fails while a node is written.
+
+The `code` of the error starts with `DOCX_DSL_`, as [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors#errors) lists, and its `message` names the field that failed.
+
+`ExportDocxRequestError` doesn't say where in the rules the error is. The response of the [Export DOCX REST API](/conversion/v3/rest-api/export-docx) does, and for a `422` it also names the node that failed.

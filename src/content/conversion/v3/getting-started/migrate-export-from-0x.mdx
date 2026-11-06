@@ -1,20 +1,32 @@
 ---
 title: Migrate export from 0.x
+tags:
+  - type: beta
 meta:
   title: Migrate export from 0.x | Tiptap Conversion
-  description: Move from Export DOCX 0.x to 1.0. Add a token, replace removed options and exports, and handle warnings.
+  description: Move an editor from Export DOCX 0.x to 1.0 by adding a Conversion token and replacing the options and exports that 1.0 removed.
   category: Conversion
 ---
 
-In 1.0 the browser no longer builds the `.docx` file. The `exportDocx` command sends the document to the Convert service and gets the file back. Options that only worked in the browser, such as JavaScript renderers and function overrides, are gone.
+Export DOCX 1.0 no longer builds the `.docx` file in the browser. The `exportDocx` command sends the document to the Conversion service, in Tiptap Cloud or on your own server, and gets the file back. So the options that ran code in the browser are gone.
 
-Each step shows the 0.x code and its 1.0 replacement.
+At the end of this guide, your editor exports with 1.0 and reports anything left from 0.x as a warning. First, update the package:
 
-## 1. Add your Convert token
+```bash
+npm install @tiptap-pro/extension-export-docx@^1.0.0
+```
 
-Every export needs a `token`. Add `appId` if you have one, and `region` or `endpoint` if you don't use the EU region.
+In the examples, `CONVERSION_TOKEN` stands for your token, `save` for your own function that stores the file, and `editor` for an editor with the `ExportDocx` extension.
+
+## 1. Add a Conversion token
+
+Every export in 1.0 calls the Conversion service, so it needs a `token`: a JWT, a signed token your server creates, that allows the `Convert:Export:Docx` action. [Get a Conversion token](/conversion/v3/getting-started/install#3-get-a-conversion-token) shows how to sign one and get it into the browser.
+
+Add the token to `ExportDocx.configure()`:
 
 ```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
 // 0.x
 ExportDocx.configure({
   onCompleteExport: (result) => save(result),
@@ -22,18 +34,24 @@ ExportDocx.configure({
 
 // 1.0
 ExportDocx.configure({
-  token: 'CONVERT_TOKEN',
-  appId: 'APP_ID',
-  region: 'us',
+  token: CONVERSION_TOKEN,
   onCompleteExport: (result) => save(result),
 })
 ```
 
-An `endpoint` that ends in `/v2` now points at `/v3`. You don't need to change it. [Install](/conversion/v3/getting-started/install#which-url-each-extension-calls) lists the rules.
+After this step, the export reaches the Conversion service in Tiptap Cloud's EU region. `exportDocx()` also takes `token` per call, so each export can use a fresh token.
+
+Add more options for these setups:
+
+- **US region.** Add `region: 'us'`.
+- **Your own server.** Set `endpoint` to its base URL. An `endpoint` from 0.x that ends in `/v2` works without a change, as [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint) explains.
+- **A token from [Legacy authentication](/authentication/legacy)**, with an App ID. Add `appId`.
 
 ## 2. Replace the standalone `exportDocx` function
 
-The `exportDocx` function is gone. Load the JSON into an editor and run the command. The editor doesn't need to be mounted.
+1.0 removed the 0.x function that turned a JSON document into a file without an editor. Load the JSON into an editor instead, which does not need to be mounted on the page, and run the command.
+
+The editor needs an extension for each node type in your documents, such as tables and images, next to `StarterKit`:
 
 ```ts
 // 0.x
@@ -58,8 +76,9 @@ const file = await new Promise((resolve, reject) => {
     extensions: [
       StarterKit,
       ExportDocx.configure({
-        token: 'CONVERT_TOKEN',
+        token: CONVERSION_TOKEN,
         exportType: 'buffer',
+        styleOverrides: {},
         onCompleteExport: resolve,
         onError: reject,
       }),
@@ -69,29 +88,21 @@ const file = await new Promise((resolve, reject) => {
 })
 ```
 
-Call `editor.destroy()` when you no longer need the editor.
+Here `json` stands for your Tiptap document. The other options of the 0.x call, such as `styleOverrides`, move to `ExportDocx.configure()`. The promise resolves with the file, and an error rejects it. Call `editor.destroy()` when you no longer need the editor.
 
 ## 3. Read buffers as `Uint8Array` and drop stream output
 
-`exportType: 'buffer'` now gives a `Uint8Array` instead of a Node.js `Buffer`. `exportType: 'stream'` is gone and fails the export.
+`exportType: 'buffer'` gives a `Uint8Array` in 1.0, not a Node.js `Buffer`. Code that only passes the file on, such as to `writeFile`, keeps working. A check such as `Buffer.isBuffer(file)` becomes `file instanceof Uint8Array`.
 
-```ts
-// 0.x
-if (Buffer.isBuffer(file)) await writeFile('report.docx', file)
-
-// 1.0
-if (file instanceof Uint8Array) await writeFile('report.docx', file)
-```
-
-Use `'buffer'` or `'blob'` where you used `'stream'`.
+`exportType: 'stream'` is gone and fails the export. Use `'buffer'` or `'blob'` instead. After this step, `onCompleteExport` receives the type your code expects.
 
 ## 4. Move custom nodes to `customNodeDsl`
 
-The `customNodes` JavaScript renderers are gone. Describe each node with `customNodeDsl`. Build the rules with the helpers from `@tiptap-pro/extension-export-docx/dsl`. See [render custom nodes](/conversion/v3/export/docx/custom-nodes) and the [builder reference](/conversion/v3/export/docx/custom-node-builder).
+1.0 can't run the JavaScript renderers of `customNodes` on the Conversion service, so it removed them. Describe each node type of your own with a custom node rule in `customNodeDsl` instead, built with the helpers from `@tiptap-pro/extension-export-docx/dsl`:
 
 ```ts
 // 0.x
-import { Docx } from '@tiptap-pro/extension-export-docx'
+import { Docx, ExportDocx } from '@tiptap-pro/extension-export-docx'
 
 ExportDocx.configure({
   customNodes: [
@@ -103,9 +114,11 @@ ExportDocx.configure({
 })
 
 // 1.0
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
 import { docxNode, paragraph, ref, textOp } from '@tiptap-pro/extension-export-docx/dsl'
 
 ExportDocx.configure({
+  token: CONVERSION_TOKEN,
   customNodeDsl: {
     dslVersion: '1.0',
     nodes: [
@@ -118,13 +131,17 @@ ExportDocx.configure({
 })
 ```
 
-Remove `customNodeDslLimits` too. Convert applies its own limits.
+The `notice` node then exports as a paragraph with its message. `docxNode('notice')` starts the rule for the node type, `emit()` says what export writes, and `ref()` reads the node's `message` attribute. [Render custom nodes](/conversion/v3/export/docx/custom-nodes) explains the rules, and [Custom node builder](/conversion/v3/export/docx/custom-node-builder) lists the helpers.
+
+Remove `customNodeDslLimits` too, because the Conversion service applies its own limits.
 
 ## 5. Turn function overrides into plain objects
 
-The override options only take plain objects. The command drops a function and reports an `unsupported` warning. This applies to `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides` and each field of `headerFooterOverrides`.
+The override options take plain objects only in 1.0, because a function can't be sent to the Conversion service. The command drops a function with an `unsupported` warning, for `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides` and each field of `headerFooterOverrides`:
 
 ```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
 // 0.x
 ExportDocx.configure({
   paragraphOverrides: (node, context) => (context.table ? {} : { spacing: { after: 120 } }),
@@ -132,18 +149,25 @@ ExportDocx.configure({
 
 // 1.0
 ExportDocx.configure({
+  token: CONVERSION_TOKEN,
   paragraphOverrides: { spacing: { after: 120 } },
 })
 ```
 
-If an override depended on the node or its table, describe that node with `customNodeDsl` instead.
+The plain object applies to every paragraph, including those in tables, so the 0.x exception for tables has no 1.0 form.
+
+A `customNodeDsl` rule as in step 4 formats a node type of your own. It can't change a built-in one such as `paragraph`, because rules apply only to node types export has no converter for.
 
 ## 6. Remove headers, footers and placeholders
 
-`headers`, `footers` and `placeholders` are gone. So are `Docx.Header`, `Docx.Footer`, `convertHeader` and `convertFooter`. Headers and footers now come from Page Layout. See [headers and footers](/pages/v2/core-concepts/header-and-footer).
+1.0 writes headers and footers only from Page Layout, the extension that shows the editor as pages and replaces `@tiptap-pro/extension-pages`.
+
+So the options that built them in code are gone: `headers`, `footers`, `placeholders`, `Docx.Header`, `Docx.Footer`, `convertHeader` and `convertFooter`. Remove `@tiptap-pro/extension-export-docx-header-footer` and its `ExportDocxHeaderFooter` extension too, because 1.0 ignores them. The command then takes no header or footer content:
 
 ```ts
 // 0.x
+import { Docx } from '@tiptap-pro/extension-export-docx'
+
 editor.commands.exportDocx({
   headers: { default: new Docx.Header({ children: [new Docx.Paragraph('Example report')] }) },
   footers: { default: new Docx.Footer({ children: [new Docx.Paragraph('Confidential')] }) },
@@ -153,72 +177,83 @@ editor.commands.exportDocx({
 editor.commands.exportDocx()
 ```
 
-Keep `headerFooterOverrides` for header and footer formatting.
+To keep headers and footers in the file, add [Page Layout](/features/page-layout/getting-started/overview) to the editor. The file then has the headers and footers the user sees, and an editor without Page Layout has none to export. Keep `headerFooterOverrides` to format them.
 
-The command no longer reads headers, footers, notes or page setup from the Pages 1 extension. Pass `footnotes`, `endnotes`, `pageSize` and `pageMargins` yourself if you relied on that.
+[Header and footer](/features/page-layout/header-and-footer) shows how to add them, and [Page numbers](/features/page-layout/page-numbers) how a footer shows the page number that `placeholders` filled in.
+
+1.0 reads nothing from `@tiptap-pro/extension-pages`. Without Page Layout, pass the page size and margins in the `pageSize` and `pageMargins` options, as [Page size and margins](/conversion/v3/export/docx/editor-extension#page-size-and-margins) shows. Pass notes in the `footnotes` and `endnotes` options, as [Footnotes and endnotes](/conversion/v3/content-reference/structures-and-media/footnotes-endnotes) shows.
+
+{/* TODO(never-loses): Without Page Layout, the `footnotes` and `endnotes` options need `footnoteReference` and `endnoteReference` nodes with a `noteId`. Which extension defines them at release? The same question is open on footnotes-endnotes. */}
 
 ## 7. Replace removed exports
 
-The package no longer exports the `docx` library or its own converters.
+1.0 no longer exports the `docx` library or its own converters, because the Conversion service builds the file. Replace each import your code still has:
 
-| 0.x export                                                                                                                                                                                                          | 1.0 replacement                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `Docx`                                                                                                                                                                                                              | None. Use plain objects in overrides and `customNodeDsl` for custom output. |
-| `CharacterSet`                                                                                                                                                                                                      | The charset string, such as `'00'` for ANSI.                                |
-| `LevelFormat`                                                                                                                                                                                                       | The format string, such as `'decimal'` or `'lowerRoman'`.                   |
-| `IRunOptions`, `PositiveUniversalMeasure`                                                                                                                                                                           | `TextRunOverrides` and `PageMeasure`.                                       |
-| `convertNode`, `convertParagraph`, `convertTable`, `convertTextNode` and the other `convert*` helpers                                                                                                               | None. Convert renders every node.                                           |
-| `processCssStyles`, `createExportStyles`, `exportStylesFromCss`, `ExportStyles`                                                                                                                                     | Pass `cssStyles`, or keep `documentStyles` on. Convert compiles the styles. |
-| `compileCustomNodeDsl`, `DEFAULT_LIMITS`, `DslCompileError`, `DslRuntimeError`                                                                                                                                      | None. Convert validates `customNodeDsl`.                                    |
-| `CustomNode`, `CustomNodeResult`, `OverrideContext`, `*OverridesConfig`, `ResolvedHeaderFooterOverrides`, `DocxPlaceholders`, `DocxPlaceholderField`, `DocxPlaceholderRegistry`, `ConvertConfig`, `ImageDimensions` | None.                                                                       |
-| `hash31` and the `/hash31` entry                                                                                                                                                                                    | `hash31` from `@tiptap-pro/extension-convert-kit/hash31`.                   |
+| 0.x export                                                                                                                                                                                                          | 1.0 replacement                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Docx`                                                                                                                                                                                                              | None. Use plain objects in overrides, and `customNodeDsl` for output of your own.                                                 |
+| `CharacterSet`                                                                                                                                                                                                      | The character set string, such as `'00'` for ANSI.                                                                                |
+| `LevelFormat`                                                                                                                                                                                                       | The format string, such as `'decimal'` or `'lowerRoman'`.                                                                         |
+| `IRunOptions`, `PositiveUniversalMeasure`                                                                                                                                                                           | The types `TextRunOverrides` and `PageMeasure` of this package.                                                                   |
+| `convertNode`, `convertParagraph`, `convertTable`, `convertTextNode` and the other `convert*` helpers                                                                                                               | None. The Conversion service renders the nodes.                                                                                   |
+| `processCssStyles`, `createExportStyles`, `exportStylesFromCss`, `ExportStyles`, `ExportStylesOptions`                                                                                                              | The `cssStyles` option, or `documentStyles: true`, the default. See [Export styles and fonts](/conversion/v3/export/docx/styles). |
+| `compileCustomNodeDsl`, `DEFAULT_LIMITS`, `DslCompileError`, `DslRuntimeError`, `DslErrorCode`, `DslErrorPayload`                                                                                                   | None. The Conversion service checks `customNodeDsl`.                                                                              |
+| `CustomNode`, `CustomNodeResult`, `OverrideContext`, `*OverridesConfig`, `ResolvedHeaderFooterOverrides`, `DocxPlaceholders`, `DocxPlaceholderField`, `DocxPlaceholderRegistry`, `ConvertConfig`, `ImageDimensions` | None.                                                                                                                             |
+| `hash31` and the `/hash31` entry                                                                                                                                                                                    | None in this package. `hash31` turned a comment ID into the number Word uses for it.                                              |
 
-```ts
-// 0.x
-import { LevelFormat } from '@tiptap-pro/extension-export-docx'
+{/* TODO(never-loses): 0.x users imported `hash31` from `@tiptap-pro/extension-convert-kit/hash31`. Where does `hash31` come from once ConvertKit is gone? */}
 
-const format = LevelFormat.LOWER_ROMAN
+A constant becomes its string value, so `LevelFormat.LOWER_ROMAN` becomes `'lowerRoman'`. After this step, your code imports nothing that 1.0 removed, so it builds again.
 
-// 1.0
-const format = 'lowerRoman'
-```
+## 8. Replace the unit helpers
 
-## 8. Import unit helpers from the registry package
+0.x exported helpers that convert pixels and points to Word's units. `@tiptap-pro/extension-export-docx` 1.0 no longer exports them. Each one is a single multiplication, so write it in your code:
 
-The unit helpers moved to `@tiptap-pro/extension-convert-kit/ooxml-registry`.
-
-```ts
-// 0.x
-import { pixelsToPoints, pointsToTwips } from '@tiptap-pro/extension-export-docx'
-
-// 1.0
-import { pixelsToPoints, pointsToTwips } from '@tiptap-pro/extension-convert-kit/ooxml-registry'
-```
-
-| 0.x helper           | 1.0 replacement                                       |
-| -------------------- | ----------------------------------------------------- |
-| `pixelsToPoints`     | `pixelsToPoints`                                      |
-| `pixelsToHalfPoints` | `pixelsToHalfPoints`                                  |
-| `pointsToTwips`      | `pointsToTwips`                                       |
-| `lineHeightToDocx`   | `multiplierToLineSpacingUnits`. It rounds the result. |
-| `pointsToHalfPoints` | No helper. Multiply the points by 2.                  |
+| 0.x helper                 | 1.0 code       |
+| -------------------------- | -------------- |
+| `pixelsToPoints(px)`       | `px * 0.75`    |
+| `pixelsToHalfPoints(px)`   | `px * 1.5`     |
+| `pointsToTwips(pt)`        | `pt * 20`      |
+| `pointsToHalfPoints(pt)`   | `pt * 2`       |
+| `lineHeightToDocx(height)` | `height * 240` |
 
 ## 9. Check images and fonts
 
-The command now uploads some images with the request. These are `blob:` URLs, `data:` URLs longer than 64 KB, and images on the page's own origin. Convert downloads the rest, so their URLs must be public.
+1.0 builds the file on the Conversion service, so the service needs every image and font of the document. Check that each image is public or on the page's own origin.
 
-`fonts` now takes WOFF2 bytes as well as TTF and OTF. `embedFonts` uploads the page's `@font-face` files with the request. One export uploads at most 64 files, fonts and images together. See [limits](/conversion/v3/rest-api/export-docx#limitations).
+The command uploads images on the page's origin, `blob:` URLs and `data:` URLs over 64 KB from the browser. The service downloads every other image itself. So an image on another origin that needs a login is left out with a warning.
+
+For fonts, the `fonts` option, which embeds font files you pass, takes WOFF2 files as well as TTF and OTF. `embedFonts: true` uploads the page's `@font-face` files. [Embed fonts](/conversion/v3/export/docx/styles#embed-fonts) shows both.
+
+One export uploads at most 64 files, fonts first and then images. A file over the limit is left out with a warning. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors#limits) lists the other limits.
+
+After this step, the file has the images and fonts the user sees.
 
 ## 10. Handle warnings
 
-Export reports the content it skips to `onWarning`. That includes the removed options above. Add a handler to catch leftover 0.x options. The [warning codes](/conversion/v3/export/docx/api#warnings-and-errors) are listed in the API reference.
+Export reports what it leaves out to `onWarning`, and that includes the 0.x options from the steps before. Add a handler, so a leftover 0.x option shows up instead of being dropped without notice:
 
 ```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
 ExportDocx.configure({
-  token: 'CONVERT_TOKEN',
+  token: CONVERSION_TOKEN,
   onWarning(warning) {
     if (warning.code === 'unsupported') console.warn(warning.attribute, warning.message)
   },
   onCompleteExport: (result) => save(result),
 })
 ```
+
+A removed option, such as `headers` or `customNodes`, isn't sent and arrives as an `unsupported` warning with its name in `attribute`. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors) lists every warning code.
+
+## Check that it worked
+
+Run an export with the `onWarning` handler of step 10. The migration is done when `onCompleteExport` receives the file and the console shows no `unsupported` warning.
+
+## Next steps
+
+Where to go after the migration:
+
+- Set up the import too: [Migrate import from 0.x](/conversion/v3/getting-started/migrate-import-from-0x).
+- Change page size, styles and fonts: [Export DOCX](/conversion/v3/export/docx/editor-extension).

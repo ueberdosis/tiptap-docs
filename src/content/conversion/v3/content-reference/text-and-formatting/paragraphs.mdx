@@ -1,63 +1,103 @@
 ---
 title: Paragraphs
+tags:
+  - type: beta
 meta:
   title: Paragraphs | Tiptap Conversion
-  description: See how Word paragraphs, with their spacing, indentation and line height, move through DOCX import and export.
+  description: See how Word paragraphs, with their spacing, indents and line spacing, come into the editor on import and go back into the .docx file on export.
   category: Conversion
 ---
 
-A Word paragraph imports as a `paragraph` node and exports back as a Word paragraph. Spacing, indentation and line height travel as node attributes. The editor keeps an attribute only when an extension defines it.
+A Word paragraph imports as a `paragraph` node and exports as a Word paragraph. Its spacing, indents and line spacing travel as attributes on the node.
 
-## Set up the editor
+## What you need
 
-- `StarterKit` has the `Paragraph` node.
-- `TextAlign` from `@tiptap/extension-text-align` keeps alignment. See [text alignment](/conversion/v3/content-reference/text-and-formatting/text-alignment).
-
-Import puts these attributes on every `paragraph` and `heading`.
-
-| Attribute                       | Word setting                                     | Value                                                |
-| ------------------------------- | ------------------------------------------------ | ---------------------------------------------------- |
-| `spacingBefore`, `spacingAfter` | Space before and after                           | Pixels                                               |
-| `lineHeight`                    | Line spacing                                     | A multiple such as `1.5`, or a length such as `18pt` |
-| `indent`, `indentRight`         | Left and right indent                            | Pixels                                               |
-| `firstLineIndent`               | First line indent. A hanging indent is negative. | Pixels                                               |
-| `contextualSpacing`             | Don't add space between paragraphs of one style  | `true`                                               |
-| `keepNext`, `keepLines`         | Keep with next, keep lines together              | `true`                                               |
-| `fontSize`                      | Size of the paragraph mark                       | A pixel string such as `16px`                        |
-
-`Paragraph` and `Heading` from `StarterKit` define none of these. ProseMirror drops an attribute the schema doesn't define, and import doesn't warn about it.
-
-Add what you need. The `LineHeight` extension from `@tiptap/extension-text-style` takes node types.
+`StarterKit` from `@tiptap/starter-kit` has the `Paragraph` and `Heading` nodes, but they define none of the spacing and indent attributes that import sets. For line spacing, add `LineHeight` from `@tiptap/extension-text-style` and list the node types in its `types` option, which is `['textStyle']` by default:
 
 ```ts
+import StarterKit from '@tiptap/starter-kit'
 import { LineHeight, TextStyle } from '@tiptap/extension-text-style'
 
 const extensions = [
+  StarterKit,
   TextStyle,
   LineHeight.configure({ types: ['textStyle', 'paragraph', 'heading'] }),
 ]
 ```
 
-Spacing, indentation and the two keep flags have no ready-made extension. The editor drops them unless an extension you write defines them.
+Alignment needs `TextAlign`, as [Text alignment](/conversion/v3/content-reference/text-and-formatting/text-alignment) shows.
+
+No v3 extension defines spacing, indents or the keep settings, so the editor doesn't show them. Import keeps them in each node's `preservedAttrs` attribute, from `@tiptap-pro/extension-preserved-content`, which the ImportDocx extension adds on its own.
+
+Export turns them back before it sends the document to the Conversion service, the server that builds the file, so they reach the `.docx` file.
+
+### Show spacing and indents
+
+To show a kept attribute, define it in an extension of your own. The node then holds it as a real attribute, as [What converts](/conversion/v3/content-reference/overview#what-the-editor-keeps) explains. This extension shows the space before and after each paragraph and heading:
+
+```ts
+import { Extension } from '@tiptap/core'
+
+const ParagraphSpacing = Extension.create({
+  name: 'paragraphSpacing',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph', 'heading'],
+        attributes: {
+          spacingBefore: {
+            default: null,
+            renderHTML: ({ spacingBefore }) =>
+              spacingBefore == null ? {} : { style: `margin-top: ${spacingBefore}px` },
+          },
+          spacingAfter: {
+            default: null,
+            renderHTML: ({ spacingAfter }) =>
+              spacingAfter == null ? {} : { style: `margin-bottom: ${spacingAfter}px` },
+          },
+        },
+      },
+    ]
+  },
+})
+```
+
+The other attributes in [Import](#import) work the same way.
 
 ## Import
 
-Each Word paragraph becomes a `paragraph` node. Direct formatting wins. A value the paragraph's named style sets, including the styles it is based on, fills in the rest.
+Import sets these attributes on every `paragraph` and `heading` node:
 
-- Spacing and indents come from Word's twips, divided by 15 and rounded to whole pixels.
+| Attribute                       | Word setting                                         | Value                                                |
+| ------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| `spacingBefore`, `spacingAfter` | Space before and after                               | Pixels                                               |
+| `lineHeight`                    | Line spacing                                         | A multiple such as `1.5`, or a length such as `18pt` |
+| `indent`, `indentRight`         | Left and right indent                                | Pixels                                               |
+| `firstLineIndent`               | First line indent. A hanging indent is negative.     | Pixels                                               |
+| `contextualSpacing`             | Don't add space between paragraphs of the same style | `true`                                               |
+| `keepNext`, `keepLines`         | Keep with next, keep lines together                  | `true`                                               |
+| `fontSize`                      | Font size of the paragraph mark, the ¶ at its end    | A pixel string such as `16px`                        |
+
+Formatting set on the paragraph itself wins. The paragraph's named style fills in the rest, together with the styles it is based on. A paragraph without a named style takes the style Normal.
+
+Import converts the values like this:
+
+- Word stores spacing and indents in twips, a twentieth of a point. Import divides them by 15 and rounds to whole pixels.
 - A line spacing in multiples becomes a number such as `1.5`. Import leaves out a value within 0.01 of single spacing.
 - A line spacing of "at least" or "exactly" becomes a length in points, such as `18pt`.
-- `contextualSpacing`, `keepNext` and `keepLines` appear only when they are on.
+- `contextualSpacing`, `keepNext` and `keepLines` are `true` when Word turns them on.
 
-The text keeps its inline formatting as marks. The font, size and color of the paragraph's style fill in what a run doesn't set.
+A run is a stretch of text with the same formatting. When a run doesn't set its font, size or color, the paragraph style's value arrives as a mark. [Font family and size](/conversion/v3/content-reference/text-and-formatting/font-family-size) and [Text color and highlight](/conversion/v3/content-reference/text-and-formatting/text-color-highlight) show the marks.
+
+This is a justified paragraph with space after it and a line spacing of 1.15, in an editor with the extensions from [What you need](#what-you-need) and `TextAlign`. `spacingAfter` sits in `preservedAttrs`, because no extension in that editor defines it:
 
 ```json
 {
   "type": "paragraph",
   "attrs": {
     "textAlign": "justify",
-    "spacingAfter": 13,
-    "lineHeight": 1.15
+    "lineHeight": 1.15,
+    "preservedAttrs": { "attrs": { "spacingAfter": 13 } }
   },
   "content": [{ "type": "text", "text": "This is a paragraph." }]
 }
@@ -65,39 +105,26 @@ The text keeps its inline formatting as marks. The font, size and color of the p
 
 ## Export
 
-Export reads the same attributes from each paragraph and heading.
+Export reads the same attributes from each `paragraph` and `heading` node:
 
-- A number is pixels. A string with a unit, such as `12px` or `0.5in`, also works.
+- A number is pixels. A string with a unit also works: `cm`, `mm`, `in`, `pt`, `pc` or `px`, such as `0.5in`.
 - A negative `firstLineIndent` becomes a hanging indent.
-- A `lineHeight` multiple such as `1.5` or `150%` becomes a minimum line height scaled to the paragraph's font size. Export ignores a multiple above `5`.
-- A `lineHeight` length such as `24px`, `18pt` or `1cm` becomes an exact line height. Export leaves `em` and `rem` values to the style default.
-- `keepNext` and `keepLines` become Word's pagination settings.
+- A `lineHeight` multiple such as `1.5` or `150%` becomes an "at least" line height of that many times the font size. Export ignores a multiple above `5`.
+- A `lineHeight` length such as `24px`, `18pt` or `1cm` becomes an exact line height. For an `em` or `rem` value, export writes no line height, so the paragraph takes the one of its Word style.
+- `keepNext` and `keepLines` become Word's "Keep with next" and "Keep lines together".
 
-An empty paragraph exports as an empty Word paragraph, so vertical space survives.
+An empty paragraph exports as an empty Word paragraph, so a blank line keeps its space.
 
-### Paragraph styles
+Export also measures your editor's CSS and writes it into the Word style Normal, so a paragraph without attributes of its own looks as the user sees it.
 
-Export measures the CSS your mounted editor renders and writes it into the Word style Normal. A paragraph without its own attributes takes the editor's font, size and spacing.
+A headless or unmounted editor has nothing to measure, and Normal then starts as Arial 11pt with 10pt after each paragraph and a line height of 1.15. [Export styles and fonts](/conversion/v3/export/docx/styles) shows how to set fixed values or skip the measurement.
 
-A headless or unmounted editor has nothing to measure. Normal then starts as Arial at 11pt, with 10pt after each paragraph and a 1.15 line height.
+## Limits
 
-To set fixed values, pass plain objects. The [export options](/conversion/v3/export/docx/usage#set-default-formatting-with-overrides) list every override.
+Import ignores paragraph borders and paragraph shading. Export writes paragraph borders only from the editor's CSS.
 
-```ts
-editor.commands.exportDocx({
-  paragraphOverrides: { spacing: { after: 120 } },
-  styleOverrides: {
-    default: {
-      document: { run: { font: 'Arial', size: 24 } },
-    },
-  },
-})
-```
+A line spacing of "at least" imports as a length, so it exports as an exact line height.
 
-`after` is in twips and `size` is in half-points, so `24` is 12pt. Set `documentStyles: false` to skip the measurement.
+The exported file doesn't match the editor pixel for pixel, because Word and the browser measure fonts and lines differently.
 
-## Limitations
-
-- Import ignores paragraph borders and background colors. Export writes borders from the editor's CSS only.
-- A line spacing of "at least" imports as a length, so it exports as an exact height.
-- The exported document won't match the editor pixel for pixel. Word and the browser measure fonts and lines differently.
+Import drops a carriage-return line break (Word's `w:cr`), so the lines on both sides run together. It also drops hidden text, and the runs inside an inline custom XML element (`w:customXml`). None of these gives a warning. They are known limits that are being fixed.
