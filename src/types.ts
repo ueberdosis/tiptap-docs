@@ -7,6 +7,8 @@ export type SidebarLink = {
   newSince?: string
   /** Leave out the Paid label, because the entry above already shows it. */
   hidePlan?: boolean
+  /** The page's own title, which the search shows; the sidebar label is often shorter. */
+  pageTitle?: string
   /** Leave out the Legacy label, because the entry sits in the Legacy area. */
   hideLegacy?: boolean
   external?: boolean

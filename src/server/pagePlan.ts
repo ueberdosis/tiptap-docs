@@ -18,3 +18,9 @@ export function pagePlan(route: string): Plan | undefined {
   const tags = readFrontmatterSync(file).tags ?? []
   return planFromTags(tags.map((tag) => tag.type))
 }
+
+/** A page's own title from its frontmatter, such as "Import .docx in your editor". */
+export function pageTitle(route: string): string | undefined {
+  const file = fileForRoute(route.split('#')[0])
+  return file ? readFrontmatterSync(file).title : undefined
+}
