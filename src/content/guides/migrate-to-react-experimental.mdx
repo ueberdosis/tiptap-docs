@@ -1,0 +1,174 @@
+---
+tags:
+  - type: editor
+title: Migrate to the experimental React renderer
+meta:
+  title: Migrate to @tiptap/react-experimental | Tiptap Editor Docs
+  description: Move a @tiptap/react project to the experimental React renderer, where React owns the document DOM. Learn what changes and what stays the same.
+  category: Editor
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+`@tiptap/react-experimental` is an experimental React binding in which **React owns the editable document DOM**. It is designed as a drop-in replacement for `@tiptap/react`: the public API is the same, so most projects migrate by changing an import.
+
+<Callout title="Experimental" variant="warning">
+  This package is experimental and opt-in. The API mirrors `@tiptap/react`, but internals and edge behavior may still change, and cross-browser IME (Safari in particular) is still being validated. Try it in a branch before adopting it in production.
+</Callout>
+
+## Why the experimental renderer
+
+In `@tiptap/react`, ProseMirror owns the document DOM and React node views are mounted through **portals** into ProseMirror-created wrapper elements. That has three costs:
+
+- **Extra DOM.** A React node view renders as `<div><p><span>…` instead of the `<p>` you wrote — a wrapper element ProseMirror needs to own.
+- **Broken React context.** A child node view is a separate portal root, so React context does not flow from a parent node view to its children.
+- **`flushSync`.** ProseMirror reads the DOM synchronously after each change, forcing synchronous React renders.
+
+The experimental renderer inverts exactly one responsibility — who creates the document DOM — and keeps everything else (state, transactions, plugins, commands, selection, input, clipboard, geometry) in ProseMirror. The result: a `<p>` renders as a `<p>`, React context flows normally between parent and child node views, and there is no `flushSync` on the render path.
+
+## What stays the same
+
+The whole day-to-day surface is identical:
+
+- `useEditor(options, deps?)` and `<EditorContent editor={editor} />`
+- The `<Tiptap>` provider, `<Tiptap.Content />`, `useTiptap`, `useTiptapState`
+- `useCurrentEditor`, `useEditorState`
+- Node and mark views configured on the extension via `addNodeView()` / `addMarkView()`
+- `NodeViewWrapper`, `NodeViewContent`, `MarkViewContent`
+- `ReactRenderer` for suggestion/mention popups
+- `BubbleMenu` and `FloatingMenu` from the `/menus` subpath
+- `export * from '@tiptap/core'`, so `import { Editor } from '@tiptap/react-experimental'` works just like it does from `@tiptap/react`
+
+## Step 1: Install the package
+
+Add `@tiptap/react-experimental` alongside your existing ProseMirror dependency. You can keep `@tiptap/react` installed during migration and switch imports file by file.
+
+```bash
+npm install @tiptap/react-experimental @tiptap/pm
+```
+
+## Step 2: Update your imports
+
+For most files, migrating is a find-and-replace of the package name.
+
+```diff
+- import { useEditor, EditorContent } from '@tiptap/react'
++ import { useEditor, EditorContent } from '@tiptap/react-experimental'
+```
+
+Menus move with the package, from the same `/menus` subpath:
+
+```diff
+- import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus'
++ import { BubbleMenu, FloatingMenu } from '@tiptap/react-experimental/menus'
+```
+
+Your editor setup does not change:
+
+```tsx
+import { EditorContent, useEditor } from '@tiptap/react-experimental'
+import StarterKit from '@tiptap/starter-kit'
+
+function Editor() {
+  const editor = useEditor({ extensions: [StarterKit], content: '<p>Hello</p>' })
+
+  return <EditorContent editor={editor} />
+}
+```
+
+## Step 3: Node views
+
+Node views are still configured on the extension, exactly as before. Components written for `@tiptap/react` — using `NodeViewWrapper` and `NodeViewContent` — keep working. Import `ReactNodeViewRenderer` (and the wrapper components) from the experimental package:
+
+```diff
+- import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react'
++ import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react-experimental'
+
+  Node.create({
+    name: 'callout',
+    addNodeView() {
+      return ReactNodeViewRenderer(CalloutComponent)
+    },
+  })
+```
+
+Because React now owns the DOM, you can optionally drop the wrapper entirely and let your component render its own root element with the **native contract** (`nodeView`). The component attaches the node view `ref` to its top-level element (and `contentDOMRef` to the element holding editable content):
+
+```tsx
+import { Node } from '@tiptap/core'
+import { nodeView } from '@tiptap/react-experimental'
+import type { NodeViewComponentProps } from '@tiptap/react-experimental'
+
+function Callout(props: NodeViewComponentProps) {
+  return (
+    <div ref={props.ref} className="callout">
+      <div ref={props.contentDOMRef}>{props.children}</div>
+    </div>
+  )
+}
+
+Node.create({
+  name: 'callout',
+  addNodeView: () => nodeView(Callout),
+})
+```
+
+Either way there is no wrapper `<div>` and no portal: the element your component returns is the node's DOM.
+
+<Callout title="Unsupported node view options" variant="info">
+  The `ReactNodeViewRenderer` `update` and `contentDOMElementTag` options have no equivalent in this renderer (updates are memo-driven and the content element belongs to your component); they are ignored with a one-time console warning. Imperative, non-React `addNodeView()` constructors are not hosted — they fall back to the schema's `renderHTML`/`toDOM`.
+</Callout>
+
+## Step 4: Mark views
+
+Mark views mirror node views. `ReactMarkViewRenderer` + `MarkViewContent` keep working from the new package, and `markView` registers a native-contract component:
+
+```diff
+- import { ReactMarkViewRenderer, MarkViewContent } from '@tiptap/react'
++ import { ReactMarkViewRenderer, MarkViewContent } from '@tiptap/react-experimental'
+```
+
+## Step 5: Suggestions and mentions
+
+Suggestion and mention dropdowns use `ReactRenderer`, which renders a component into its own element outside the document. The API is unchanged, so `suggestion.render()` code migrates by swapping the import:
+
+```diff
+- import { ReactRenderer } from '@tiptap/react'
++ import { ReactRenderer } from '@tiptap/react-experimental'
+```
+
+## Accessing the editor from child components
+
+`useCurrentEditor()` returns the editor from any component rendered inside an `EditorContent` or `<Tiptap>` — including node views and deeply nested children — and `{ editor: null }` outside one.
+
+```tsx
+import { useCurrentEditor } from '@tiptap/react-experimental'
+
+function Toolbar() {
+  const { editor } = useCurrentEditor()
+
+  if (!editor) {
+    return null
+  }
+
+  return <button onClick={() => editor.chain().focus().toggleBold().run()}>Bold</button>
+}
+```
+
+## Not yet available
+
+A few pieces of the `@tiptap/react` surface are intentionally not part of the experimental package:
+
+- **`EditorProvider` / `EditorContext` / `EditorConsumer`.** Use the `<Tiptap>` provider instead, and read the editor with `useCurrentEditor()` or `useTiptap()`.
+- **`PureEditorContent`** and the legacy `ReactNodeView` / `ReactMarkView` classes are not exported.
+- **Imperative node/mark views** (non-React `addNodeView()` results) are not hosted.
+
+## Rolling back
+
+Migration is reversible per file: switch the import back to `@tiptap/react` (and `@tiptap/react/menus`). Components written with `NodeViewWrapper` / `NodeViewContent` work under both renderers, so you can migrate incrementally and revert without rewrites.
+
+## Next steps
+
+- [React installation guide](/editor/getting-started/install/react)
+- [React Composable API](/guides/react-composable-api)
+- [Performance guide](/guides/performance)
