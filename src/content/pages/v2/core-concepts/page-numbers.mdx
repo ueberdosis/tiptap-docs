@@ -1,0 +1,269 @@
+---
+title: Page numbers
+meta:
+  title: Page numbers | Tiptap Pages
+  description: Read the page map, number pages per section, add page numbers to headers and footers, and go to a position.
+  category: Pages
+---
+
+Page Layout tells you which page a passage is on, how many pages there are, and what each page holds. That is the page map. It has one entry per page, in page order. Page Layout works it out from the layout and stores it nowhere.
+
+A status bar that says "page 4 of 9", a comment that remembers its page, a print range and a table of contents all read the same array.
+
+## Read the map
+
+```js
+const engine = editor.storage.pageLayout.engine
+
+engine.getPageMap() // one entry per page
+engine.getPageCount() // how many there are
+```
+
+`pageAt` finds the page a position is on:
+
+```js
+import { pageAt } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+const page = pageAt(engine.getPageMap(), engine.getSourceState().selection.from)
+
+console.log(`The cursor is on page ${page?.pageNumber} of ${engine.getPageCount()}.`)
+```
+
+Ask again after an edit. An edit at the top of the document changes every page number below it. Read the numbers in the `onChange` option of `createPageLayoutEditor`, which runs after the pages are drawn. Don't cache them.
+
+The map is empty in a [pageless](/pages/v2/core-concepts/page-format#pageless) editor, because there are no sheets to number.
+
+### From a decoration
+
+An extension that draws on the editor's own document, such as a label or a decoration, asks `pageNumberAt` or `pageLabelAt` with a position in that document:
+
+```js
+import { pageLabelAt, pageNumberAt } from '@tiptap-pro/extension-page-layout'
+
+pageNumberAt(editor.state.doc, pos) // 7, or null where the editor has no pages
+pageLabelAt(editor.state.doc, pos) // 'vii' in a section numbered in roman numerals
+```
+
+Both read the document you give them. Inside a plugin's `apply`, that is the page in the document the transaction produced, not the one before it.
+
+They also work on `engine.getSourceDocument()` with a position in it, as long as that document is the one Page Layout laid out last. That is the document a command of another extension runs on. For a document that has changed since, they return `null`.
+
+Both return the number printed on the page, which is not always its position. A section can start its count again. See [number the pages](#number-the-pages). The position of the sheet is `pageIndex` in the page map.
+
+A cross-reference uses `pageLabelAt` to print a line such as "see page 7". See [cross-references on pages](/pages/v2/extensions/cross-references#see-page-7).
+
+## Go to a position
+
+`revealSourcePosition` puts the cursor at a position in the document and scrolls its page into view, whether the sheet is drawn yet or not. Use it for a table of contents, a search result or a link to a heading:
+
+```js
+editor.can().revealSourcePosition(pos) // is it a position of the document?
+editor.commands.revealSourcePosition(pos)
+```
+
+`pos` is a position in `engine.getSourceDocument()`, the same document `pageAt` takes. Where no cursor can stand at `pos`, such as in front of a heading, it goes to the nearest place after it that can. The command returns `false`, and `can()` too, for a position outside the document.
+
+With a second position, it selects the text between the two. Use it to show a bookmark or a search result as what it covers:
+
+```js
+editor.commands.revealSourcePosition(from, to)
+```
+
+It returns `false` for a range that ends before it starts.
+
+The editor takes the focus, so the cursor is visible where it lands. Called from a button or a sidebar, it would otherwise be somewhere the user can't see it.
+
+## What an entry holds
+
+| Field                                   | What it holds                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pageNumber`                            | The number printed on the page. It is the position counting from one, until a section starts the count again. |
+| `pageLabel`                             | That number as the page writes it, in the format of its section: `'iv'`, `'C'` or `'12'`.                     |
+| `pageIndex`                             | The position of the sheet, counting from zero. Two sheets can share a `pageNumber`, never a `pageIndex`.      |
+| `sectionPageNumber`, `sectionPageCount` | Which page of its section this is, counting from one, and how many pages begin in that section.               |
+| `from`, `to`                            | The stretch of the document the sheet lies within, from the first position on it to the last.                 |
+| `ranges`                                | What the sheet shows: stretches in document order, none touching another.                                     |
+| `blockIndices`                          | The top-level blocks on the page, whole or in part.                                                           |
+| `sectionIndex`, `sectionIndices`        | The section the page begins in, and every section it carries.                                                 |
+| `box`                                   | The paper: its size, its margins and how the area is divided.                                                 |
+| `startsInsideBlock`, `endsInsideBlock`  | Whether the page begins or ends in the middle of a block.                                                     |
+
+`from` and `to` are the outer bounds, and `ranges` is what the sheet actually shows. They differ on a page that holds a split table row. The row splits at one height in every cell, so one sheet holds the top of all three cells and the sheet below holds all three bottoms. The two pages' bounds overlap, and neither page holds everything between its own ends. To take content out of the document, such as a slice, an export or a comparison, read `ranges`.
+
+`startsInsideBlock` and `endsInsideBlock` tell you whether you can export this page on its own. When both are `false`, the range is whole blocks.
+
+`pagesOfSection` returns the pages a section reaches, for "Section 2, pages 4 to 7":
+
+```js
+import { pagesOfSection } from '@tiptap-pro/extension-page-layout'
+
+const pages = pagesOfSection(engine.getPageMap(), 1)
+```
+
+It reads `sectionIndices` and not `sectionIndex`. A section after a continuous break shares a sheet with the section before it, so that sheet counts among its pages.
+
+## Number the pages
+
+Each [section](/pages/v2/core-concepts/sections) sets the number format of its pages, and whether the count starts again:
+
+```js
+pageSetup('A4', { pageNumbering: { format: 'lowerRoman', start: 1 } }) // i, ii, iii
+pageSetup('A4', { pageNumbering: { format: 'decimal', start: null } }) // carries on
+```
+
+`format` is a [number format](/pages/v2/extensions/number-formats) such as `'decimal'` or `'lowerRoman'`. `start: null` is the default. It carries on from the section before. A number from `start` is the number of the first page of the section. `0` is allowed, for a title page that counts as none.
+
+To change it for the section at the cursor, use [`setPageNumbering`](/pages/v2/api/commands#setpagenumberingnumbering).
+
+A page is numbered by the section it begins in. A section that begins in the middle of a sheet, after a continuous break, starts its count on the first sheet that begins in it.
+
+### Write the chapter in front
+
+A section can write the chapter in front of each page number, as in `2-1` and `2-2`:
+
+```js
+editor.commands.setPageNumbering({ chapter: { level: 1, separator: 'hyphen' } })
+editor.commands.setPageNumbering({ chapter: null }) // the number alone again
+```
+
+| Separator  | Reads                              |
+| ---------- | ---------------------------------- |
+| `'hyphen'` | `2-1`                              |
+| `'period'` | `2.1`                              |
+| `'colon'`  | `2:1`                              |
+| `'emDash'` | An em dash between the two numbers |
+| `'enDash'` | An en dash between the two numbers |
+
+`level` is the heading level that begins a chapter, from 1 to 9. The chapter of a page is the first heading of that level on it. On a page with none, it is the last one before it. A page in front of the first such heading shows its number alone.
+
+A heading is Tiptap's `heading` at its `level`, or any node whose layout rule names a `chapterLevel`. Page Layout counts headings the way an outline does: `2` for the second level 1 heading, and `2.3` for the third level 2 heading under it.
+
+To write the number yourself, pass `chapterNumbersFromHeadings` with a `label` function:
+
+```js
+import { chapterNumbersFromHeadings, PageLayout } from '@tiptap-pro/extension-page-layout'
+
+PageLayout.configure({
+  chapterNumberOf: chapterNumbersFromHeadings({
+    label: ({ counted }) => `Article ${counted}`,
+  }),
+})
+```
+
+`label` receives `{ doc, node, pos, level, counted }`. `counted` is the number the heading gets from the count above. When `label` returns `null` or an empty string, the count is used.
+
+For another rule altogether, `chapterNumberOf` takes any function of the page. See [options](/pages/v2/api/options#page).
+
+The chapter changes how the number is written and nothing else. Page `2-4` is still an even page. `pageLabel` and `pageLabelAt` return `'2-4'`, and `pageNumber` stays `4`.
+
+Without a `chapterNumberOf` and without a node that has a `chapterLevel` in the schema, `setPageNumbering` with a `chapter` returns `false`.
+
+Odd and even pages follow the number printed on the page, not the position of the sheet. A section that starts again at 1 on the fourth sheet opens with the odd-page header. See [different pages, different bands](/pages/v2/core-concepts/header-and-footer#different-pages-different-bands).
+
+## Page numbers on every page
+
+`insertPageNumbers` gives every header or every footer of a section a page number. It applies to the section whose header or footer is open, or else to the section at the cursor.
+
+```js
+editor.commands.insertPageNumbers({ zone: 'footer', align: 'outside', firstPage: false })
+editor.commands.removePageNumbers()
+```
+
+| Option      | What it does                                                                                             |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| `zone`      | `'header'` or `'footer'`.                                                                                |
+| `align`     | Where on the line the number sits.                                                                       |
+| `firstPage` | `false` switches on a different first page for the section and leaves that page's band without a number. |
+
+| Alignment                       | Sits                                     |
+| ------------------------------- | ---------------------------------------- |
+| `'left'`, `'center'`, `'right'` | At that side of the band, on every page. |
+| `'outside'`                     | Right on odd pages, left on even ones.   |
+| `'inside'`                      | Left on odd pages, right on even ones.   |
+
+Odd and even come from the number the page shows. A section that starts again at 1 opens on the right with `'outside'`.
+
+Calling it again replaces the numbers instead of adding more. Open the band to write around the number, such as `Page ` in front of it.
+
+`removePageNumbers` takes the numbers out of both zones. It leaves page numbers that you wrote into the text of a band with `insertPageNumber`. It returns `false` where the section has none:
+
+```js
+editor.can().removePageNumbers()
+```
+
+`getPageNumbers` reads the numbers back as the options that put them there, or `null` where the section has none. A control can use it to show the current alignment:
+
+```js
+const engine = editor.storage.pageLayout.engine
+engine.getPageNumbers() // { zone: 'footer', align: 'outside', firstPage: false }
+```
+
+Both commands turn off with the feature: `PageLayout.configure({ pageNumber: false })`.
+
+## A page number in a header or footer
+
+While a header or footer is open for editing, `insertPageNumber` puts a page number field at the cursor:
+
+```js
+editor.commands.openFurniture({ zone: 'footer', slot: 'default' })
+
+editor
+  .chain()
+  .insertContent('Page ')
+  .insertPageNumber('page')
+  .insertContent(' of ')
+  .insertPageNumber('pages')
+  .run()
+```
+
+| Kind             | Reads                                                                                    |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `'page'`         | The number printed on the page, in the format of its section: `iv` or `12`. The default. |
+| `'pages'`        | How many pages the document has, in digits.                                              |
+| `'sectionPages'` | How many pages begin in the section of the page, in digits.                              |
+
+The document stores which number stands there and never the number. Every page the footer is drawn on shows its own number, and adding a page changes all of them without an edit. The field is one character to the cursor, so Backspace removes it whole.
+
+```js
+editor.can().insertPageNumber('page') // false while no header or footer is open
+```
+
+`can()` and the command are `false` while no header or footer is open. The field turns off with `PageLayout.configure({ pageNumber: false })`.
+
+Only headers and footers read the field. A field pasted into the text shows nothing, because the text isn't drawn once per page. For the page of a position in the text, use `pageNumberAt`.
+
+A header has the same height on every page that uses its slot. Its height is measured once, so a number that wraps to two lines on page 100 and not on page 99 doesn't make that header taller.
+
+## Your own value per page
+
+Any node can read the page it is drawn on, as the page number field does. Give a node a `pageText` and a `labelAttribute`. Each page of a header that holds the node writes the text into that attribute:
+
+```js
+import { defineNodeLayout } from '@tiptap-pro/extension-page-layout'
+
+defineNodeLayout('pageVariable', {
+  labelAttribute: 'page-variable-text',
+  pageText: (node, page) => `${page.label} / ${page.pageCount}`,
+})
+```
+
+Draw it with your own stylesheet, from the attribute:
+
+```css
+[page-variable-text]::after {
+  content: attr(page-variable-text);
+}
+```
+
+`page` holds:
+
+| Field                                   | What it holds                                                                          |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| `value`                                 | The number printed on the page.                                                        |
+| `label`                                 | That number in the format of its section.                                              |
+| `pageIndex`, `pageCount`                | The position of the sheet, from zero, and how many sheets there are.                   |
+| `sectionPageNumber`, `sectionPageCount` | Which page of its section this is, from one, and how many pages begin in that section. |
+| `sectionIndex`                          | The section the page begins in, from zero.                                             |
+
+Return `null` to write nothing. A node without a `labelAttribute` gets nothing written. As with the field, Page Layout asks only for nodes in headers and footers. Register the rule before you create the editor. The other rules a node can have are in [custom nodes](/pages/v2/guides/custom-nodes).

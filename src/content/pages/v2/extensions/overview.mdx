@@ -1,0 +1,118 @@
+---
+title: Extensions on pages
+tags:
+  - type: beta
+meta:
+  title: Extensions on pages | Tiptap Pages
+  description: What Page Layout does with the standard content types and with each Pro extension when a block meets the bottom of a page.
+  category: Pages
+---
+
+What happens at the bottom of a page depends on the block type. A paragraph splits between two of its lines. A list moves an item to the next page whole. A horizontal rule never splits.
+
+Each Pro extension has its own page below, covering how it works with and without pages.
+
+## Extension pages
+
+| Extension                                                   | On pages                                                                                      |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Tables](/pages/v2/extensions/tables)                       | A row split at the boundary, a header row repeated on every page, and what a user can forbid. |
+| [Column layout](/pages/v2/extensions/columns)               | Columns side by side, split at one height, and kept on one page.                              |
+| [Footnotes](/pages/v2/extensions/footnotes)                 | A note at the foot of the page it is referred from, and numbering per page or section.        |
+| [Cross-references](/pages/v2/extensions/cross-references)   | "See page 7", writing through the engine, and going to a target that is not drawn yet.        |
+| [Outline numbering](/pages/v2/extensions/outline-numbering) | A heading split by a page numbered once, and clauses counting on over a page.                 |
+| [Bookmarks](/pages/v2/extensions/bookmarks)                 | Going to a bookmark on a page that is not drawn yet.                                          |
+| [Document styles](/pages/v2/extensions/document-styles)     | Text moving with a style, and reading the styles of a document that has pages.                |
+| [Number formats](/pages/v2/extensions/number-formats)       | Writing a document's number formats and language.                                             |
+| [Whole blocks](/pages/v2/extensions/whole-blocks)           | A block that carries on over a page, selected whole.                                          |
+
+## What the standard types do
+
+| Type                        | At the bottom of a page                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `paragraph`                 | Splits between two lines.                                                                                 |
+| `heading`                   | Splits between two lines.                                                                                 |
+| `codeBlock`                 | Splits between two lines. The piece on the next page stays a code block.                                  |
+| `blockquote`                | Splits between two of its blocks. A paragraph inside it then splits between lines.                        |
+| `horizontalRule`            | Never splits. It moves to the next page.                                                                  |
+| `hardBreak`                 | Ends a line, so a page can end right after it.                                                            |
+| `bulletList`, `orderedList` | Splits between two items. The item at the boundary moves to the next page whole.                          |
+| `table`                     | Splits between rows, and through a row when that isn't enough. See [tables](/pages/v2/extensions/tables). |
+| `columnLayout`              | Splits at one height through all of its columns. See [column layout](/pages/v2/extensions/columns).       |
+
+A split doesn't add a node to the source document. It keeps one paragraph, one list and one table, and the two pieces on screen are two views of it. An ordered list that continues on the next page keeps counting across the boundary. A split block has the same attributes and marks in both pieces.
+
+## Keep a list on one page
+
+Two settings sit on the list, and both match Word:
+
+```js
+// Word's "Keep lines together": the list moves to the next page whole.
+editor.commands.setListKeepTogether(true)
+
+// Word's "Allow row to break across pages", for a list: an item may split between two lines.
+editor.commands.setListBreakItems(true)
+```
+
+The list stores them as `keepTogether` and `breakItemsAcrossPages`, and both are `false` by default. Out of the box, a list breaks between its items and never inside one. Both commands return `false` when the cursor is not in a list. See [commands](/pages/v2/api/commands#tables-columns-and-lists).
+
+With the cursor in a nested item, both commands and `getListContext()` act on the outermost list. That is the block the page boundary meets. Holding a sub-list together does nothing while the list around it can break anywhere.
+
+`PageLayout.configure({ listPagination: false })` takes both settings away.
+
+### Read the state
+
+```js
+const context = editor.storage.pageLayout.engine.getListContext()
+```
+
+`getListContext()` returns `null` when the cursor is not in a list. Otherwise it returns:
+
+| Field                   | What it holds                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `list`, `listPosition`  | The list node and where it starts.                                                                   |
+| `keepTogether`          | Whether the list stays on one page.                                                                  |
+| `breakItemsAcrossPages` | Whether an item may split.                                                                           |
+| `itemCount`             | How many items the list has. A one-item list makes both settings pointless, so a toolbar can say so. |
+
+## Keep together is a preference
+
+Page Layout splits a block that is taller than a page anyway. The alternative is a block hanging off the bottom of the sheet, so Page Layout drops the setting at that boundary and keeps the page. The block keeps the setting the user gave it.
+
+A toolbar can find out and say so:
+
+```js
+const engine = editor.storage.pageLayout.engine
+const context = engine.getListContext()
+
+if (context?.keepTogether) {
+  const split = engine.isDividedInView(
+    context.listPosition,
+    context.listPosition + context.list.nodeSize,
+  )
+
+  if (split) {
+    // The list is taller than a page. Tell the user instead of leaving the switch looking broken.
+  }
+}
+```
+
+`isDividedInView(from, to)` takes positions in the source document. It returns `true` when Page Layout draws the content between them in more than one piece, on two pages or in two columns. It works for a table row, a list, a column layout or a paragraph.
+
+A manual page break inside such a block always counts. A user who put a break in the middle of a list said where the page ends, so the two settings don't compete with it.
+
+## Packages that work without pages
+
+These packages work in any editor and don't depend on Page Layout. On pages, Page Layout draws a block split across two pages as two nodes, and the header or footer being edited is a node too. Outline numbering, whole blocks, bookmarks and cross-references each take an `ignore` option. Pass `ignoreLayoutArtifacts` from Page Layout as `ignore` to leave those nodes out.
+
+`ignoreLayoutArtifacts(node)` returns:
+
+- `true` for a header or footer, and for the piece of a paragraph or heading that continues from the page before. Neither the node nor anything in it belongs to the source document.
+- `'descend'` for the piece of a list, quote or other container that continues from the page before. The container isn't a block of its own, but the items in it are. A list split between its third and fourth item has its fourth item on the next page.
+- `false` for everything else.
+
+`isLayoutArtifact(node)` returns the same result as a boolean. It is `true` wherever `ignoreLayoutArtifacts` doesn't return `false`. Use it in your own code when you only need to know whether a node stands for itself.
+
+## Limitations
+
+Page Layout has no widow and orphan control and no keep-with-next rule for headings. [Limitations](/pages/v2/core-concepts/limitations#pagination) lists both, with the ways to keep a block on one page.
