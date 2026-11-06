@@ -42,7 +42,7 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
       variant === 'neutral' ? 'text-grayAlpha-800 bg-white border-grayAlpha-200' : '',
       variant === 'gray' ? 'bg-grayAlpha-100 border-grayAlpha-100 text-grayAlpha-600' : '',
       variant === 'invert' ? 'text-whiteAlpha-900 bg-grayAlpha-800 border-grayAlpha-800' : '',
-      variant === 'success' ? 'text-green-900 bg-green-100 border-[#0BDA81]' : '',
+      variant === 'success' ? 'text-[#05603a] bg-green-100 border-[#0BDA81]' : '',
       variant === 'info' ? 'text-purpleAlpha-800 bg-purpleAlpha-50 border-purpleAlpha-500' : '',
       variant === 'hint' ? 'text-yellow-900 bg-yellow-100 border-yellow-500' : '',
       variant === 'warning' ? 'text-red-900 bg-red-100 border-red-500' : '',
@@ -79,8 +79,9 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
           tooltip &&
           showTooltip &&
           createPortal(
+            // As wide as its text, up to 280px, wherever the tag sits on the page
             <div
-              className="fixed z-50 pointer-events-none"
+              className="fixed z-50 pointer-events-none w-max max-w-[280px]"
               style={{
                 top: `${tooltipPosition.top}px`,
                 left: `${tooltipPosition.left}px`,
@@ -89,7 +90,7 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(
             >
               <div
                 className={cn(
-                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal max-w-[280px] break-words text-center',
+                  'bg-black text-white py-1.5 px-3 rounded-lg font-normal break-words text-center',
                   tooltipFontSize,
                 )}
               >

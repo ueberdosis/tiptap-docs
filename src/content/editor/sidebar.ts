@@ -266,7 +266,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/ai-toolkit',
               title: 'AI Toolkit',
               tags: ['Add-on'],
-              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/bubble-menu',
@@ -317,7 +316,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/export',
               title: 'Export',
               tags: ['Start'],
-              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/filehandler',
@@ -367,7 +365,6 @@ export const sidebarConfig: SidebarConfig = {
               href: '/editor/extensions/functionality/import',
               title: 'Import',
               tags: ['Start'],
-              releaseTag: 'beta',
             },
             {
               href: '/editor/extensions/functionality/pages',
