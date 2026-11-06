@@ -1,9 +1,10 @@
 ---
 title: "Cleaning up"
-intro: "Deleting a style says what becomes of everything that refers to it. The same page finds missing and unused styles, and formatting set by hand often enough to be a style."
+intro: "Delete the styles a document no longer needs, point the content that uses one style at another, and repair references to styles nothing defines. The same commands and functions find formatting set by hand often enough to be a style, and blocks that have no style at all."
 tags:
   - type: pro
   - type: alpha
+  - type: restricted
 meta:
   title: "Cleaning up | Tiptap Editor Docs"
   description: "Delete and replace styles, repair missing references, remove unused styles, and turn repeated formatting into a style."
@@ -12,51 +13,116 @@ meta:
 
 {/* Synced from ueberdosis/tiptap-pro packages/extension-document-styles/docs/cleanup.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
 
-```js
-editor.commands.deleteStyle('old-body', { strategy: 'replace', replacementStyleId: 'body' })
-```
-
 ## Deleting a style
 
-`deleteStyle` removes the definition. Its `strategy` says what happens to the references, the
-blocks and text that refer to the style by its id:
+`deleteStyle` removes one of the document's own styles. Its `strategy` says what becomes of the
+references to it, the blocks and runs of text that name the style's id in their `styleId`
+attribute.
 
-| `strategy`             | What becomes of the references                                 |
-| ---------------------- | -------------------------------------------------------------- |
-| `'replace'`            | They get `replacementStyleId`. Their overrides stay            |
-| `'freeze-inline'`      | They keep how they looked: the style's values become overrides |
-| `'remove-reference'`   | They lose the style. Their overrides stay                      |
-| `'preserve-reference'` | They stay, and are [missing](/features/document-styles/cleanup#missing-styles)                  |
+The code builds on the editor of [Install](/features/document-styles/install), and `lead` and `body` stand for styles of
+your own:
 
-- **The selection and the rest of the text** stay as they were.
-- **One step** of the history.
-- **A Mark left with no attribute at all** by `'remove-reference'` is taken off.
+```js
+editor.commands.deleteStyle('lead', { strategy: 'replace', replacementStyleId: 'body' })
+```
 
-`replaceStyle(styleId, replacementStyleId)` points everything at another style and keeps both
-definitions. See [replaceStyle](/features/document-styles/cleanup#replacestyle).
+The `strategy` is required. The overrides are the values a reference sets apart from its style,
+as [Overrides](/features/document-styles/applying#overrides) describes:
+
+| `strategy`             | What becomes of the references                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `'replace'`            | They get the style `replacementStyleId`, and keep their overrides                              |
+| `'freeze-inline'`      | They keep how they looked: the style's values become overrides, and the reference is taken off |
+| `'remove-reference'`   | They lose the style, and keep their overrides                                                  |
+| `'preserve-reference'` | They stay, and are [missing](/features/document-styles/cleanup#missing-styles)                                                  |
+
+A block whose reference is taken off is drawn in its type's
+[default style](/features/document-styles/definitions#the-default-style) again. Where a library also defines the id,
+references that keep it are drawn in the library's definition.
+
+Styles based on the deleted one keep their `basedOn`, and cannot be resolved until something
+defines the id again.
+
+`'freeze-inline'` keeps what the style sets in `props`, inherited values included, with each
+reference's own overrides over them. The style's outline level, pagination, next style and table
+formats are lost. A style that cannot be resolved, such as one in a circular `basedOn`, leaves its
+references as they are.
+
+## Replacing a style
+
+`replaceStyle(styleId, replacementStyleId)` points everything that uses one style at another, and
+keeps both definitions and every override. It does what selecting all text in a style in Word and
+choosing another style does:
+
+```js
+editor.commands.replaceStyle('lead', 'heading-2')
+```
+
+The new style goes only where it could have been applied, and every other reference keeps the old
+style. A style's [`targets`](/features/document-styles/definitions#definition-fields) are the node and mark types it can
+go on:
+
+- **On a block**, the new style has to be a paragraph style, or a table style on a table type.
+  Where its `targets` name node types, the block has to be one of them.
+- **On text**, the new style has to be a character style, or have a mark in its `targets`. Which
+  mark type that is does not matter.
+
+With the [`transformNodeOnApply`](/features/document-styles/options#transformnodeonapply) option, each block also becomes
+the new style's `node` type with its attributes, such as a level 2 heading. A style whose `node`
+holds blocks, such as a blockquote, gets the reference without wrapping anything.
+
+`replaceStyle` also works on references to a [missing style](/features/document-styles/cleanup#missing-styles), so `styleId` does
+not need a definition.
 
 ## Missing styles
 
-A reference to an id nothing defines is drawn as if it had no style, and kept. Once something
-defines the id, it is drawn by it.
+A missing style is an id that blocks or text refer to and nothing defines, neither the document
+nor a library. This happens when a document is opened without the library that defined its
+style, or after `deleteStyle` with `'preserve-reference'`.
 
-- **`replaceMissingStyles(replacementStyleId)`** points every such reference to a style that
-  exists.
-- **`removeMissingStyleReferences()`** takes every such reference off, and keeps its overrides.
-- **`missingStyleReferences(doc, lookup)`** lists them without changing anything.
+The reference is kept, and the block or text is drawn as if it had no style, not in its type's
+default style. Once something defines the id, the reference is drawn by it.
+
+To repair missing references, point them at a style that exists, or take them off. Both keep each
+reference's overrides:
+
+```js
+editor.commands.replaceMissingStyles('body') // they get the style body
+editor.commands.removeMissingStyleReferences() // they have no style
+```
+
+`missingStyleReferences(doc, lookup)` lists them without changing anything, as a
+`StyleReference[]`. It takes a document and its style lookup, as
+[How styles are used](/features/document-styles/cleanup#how-styles-are-used) shows. Missing means the lookup's `getStyle(id)`
+returns `null`, so a style that exists but cannot be resolved, such as through a circular
+`basedOn`, is not missing.
 
 ## Unused styles
 
-`removeUnusedStyles()` removes the document's own styles nothing refers to.
+`removeUnusedStyles()` removes the document's own styles that nothing refers to:
 
-- **Based on, so used.** A style another one in use is based on counts as used.
-- **Defaults are used.** A default style, and the styles it is based on, are kept.
-- **A library's styles** are never removed.
-- **`unusedStyles(doc, lookup)`** lists them without changing anything, a library's included.
+```js
+editor.commands.removeUnusedStyles()
+```
+
+`removeUnusedStyles` keeps these styles:
+
+- **A style a block or text refers to**, and the styles in its `basedOn` chain, because removing a
+  base would change every style built on it.
+- **A default style**, any style with a non-empty `defaultFor`, and its bases. This holds even
+  where it cannot be resolved or another default wins over it.
+- **A library's style.** With `precedence: 'libraries'`, so does the document's own definition of
+  an id a library also defines, because the lookup finds it in the library.
+
+A style named only as another style's `nextStyle`, the style Enter gives the next paragraph, counts
+as unused and is removed. So does one named only as a deprecated style's `replacementStyleId`.
+`unusedStyles(doc, lookup)` lists the unused styles without changing anything, a library's
+included, as a `StyleDefinition[]`.
 
 ## How styles are used
 
-`analyzeStyleUsage(doc, lookup)` reports every reference in the document:
+`analyzeStyleUsage(doc, lookup)` reports every reference in the document, for a panel that cleans
+up styles:
 
 ```js
 import { analyzeStyleUsage } from '@tiptap-pro/extension-document-styles'
@@ -65,73 +131,141 @@ const doc = editor.state.doc
 const report = analyzeStyleUsage(doc, editor.storage.documentStyles.stylesOf(doc))
 ```
 
-| Field                | Type                | Description                                                                 |
-| -------------------- | ------------------- | --------------------------------------------------------------------------- |
-| `totalReferences`    | `number`            | Every styled block and run of text                                          |
-| `usedStyles`         | `StyleUsage[]`      | Per style: its references, how many are Nodes and Marks, what they override |
-| `missingStyles`      | `StyleUsage[]`      | References to an id nothing defines                                         |
-| `deprecatedStyles`   | `StyleUsage[]`      | Styles in use that are deprecated                                           |
-| `unusedStyles`       | `StyleDefinition[]` | Styles nothing refers to, and no base of a used one                         |
-| `overrideReferences` | `StyleReference[]`  | Every reference that overrides something, with a style or without one       |
+A run of text is the text side by side in one block that carries the same mark. A styled run
+counts once, however many other marks, such as bold, split it into pieces. The report is a
+`StyleUsageReport`:
 
-- **A styled run of text** counts once, however many other Marks run through it.
-- **`styleReferencesOf(doc)`** lists every styled block and run of text as a `StyleReference`:
-  `from`, `to`, `type`, `kind`, `styleId` and `overrides`.
+| Field                | Type                | Description                                                                                        |
+| -------------------- | ------------------- | -------------------------------------------------------------------------------------------------- |
+| `totalReferences`    | `number`            | Every block and run of text that refers to a style id. One that only overrides is not counted      |
+| `usedStyles`         | `StyleUsage[]`      | One entry per id referred to, sorted by id, the missing ones included                              |
+| `missingStyles`      | `StyleUsage[]`      | The ids referred to that nothing defines                                                           |
+| `deprecatedStyles`   | `StyleUsage[]`      | The styles in use with `status: 'deprecated'`                                                      |
+| `unusedStyles`       | `StyleDefinition[]` | Styles nothing refers to, no base of a used one and no default, sorted by id, a library's included |
+| `overrideReferences` | `StyleReference[]`  | Every reference that overrides something, with a style or without one                              |
+
+Each `StyleUsage` describes one id:
+
+| Field                | Type                                                  | Description                                           |
+| -------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| `styleId`            | `string`                                              | The id                                                |
+| `style`              | `StyleDefinition \| null`                             | Its definition, or `null` where it is missing         |
+| `status`             | `'draft' \| 'published' \| 'deprecated' \| 'missing'` | Its status. A style without `status` is `'published'` |
+| `references`         | `StyleReference[]`                                    | Every reference to it                                 |
+| `nodeReferences`     | `number`                                              | How many of them are blocks                           |
+| `markReferences`     | `number`                                              | How many of them are runs of text                     |
+| `overrideReferences` | `number`                                              | How many of them also override something              |
+| `overrideProps`      | `string[]`                                            | Every value some reference overrides, sorted          |
+
+`styleReferencesOf(doc)` lists every block and run of text that refers to a style or overrides
+one, in document order. One that only overrides has `styleId: null`. Each is a `StyleReference`:
+
+| Field       | Type                     | Description                                                            |
+| ----------- | ------------------------ | ---------------------------------------------------------------------- |
+| `from`      | `number`                 | The position before the node, or the first character of the mark's run |
+| `to`        | `number`                 | Where it ends                                                          |
+| `type`      | `string`                 | The node or mark type                                                  |
+| `kind`      | `'node' \| 'mark'`       | Whether it is a block or a run of text                                 |
+| `styleId`   | `string \| null`         | The style it refers to                                                 |
+| `overrides` | `StyleOverrides \| null` | What it overrides                                                      |
 
 ## Formatting that should be a style
 
-The same overrides, set again and again, are a style nobody defined yet. `discoverStyles` finds
-them, most frequent first:
+The same formatting, set by hand again and again, is a style nobody defined yet, such as
+paragraphs made 18 pixels and bold one by one. `discoverStyles(doc, options)` finds it, most
+frequent first, and `createStyleFromCandidate` turns what it found into a style:
 
 ```js
 import { discoverStyles } from '@tiptap-pro/extension-document-styles'
 
 const [candidate] = discoverStyles(editor.state.doc, { minOccurrences: 3 })
 
-candidate.props // { fontSize: '18px', fontWeight: 700 }
-candidate.references // every place it was found
+if (candidate) {
+  candidate.props // { fontSize: '18px', fontWeight: 700 }, as the formatting set them
+  candidate.references // every place it was found
 
-editor.commands.createStyleFromCandidate(candidate, {
-  id: 'lead',
-  name: 'Lead',
-  applyToMatches: true,
-})
+  editor.commands.createStyleFromCandidate(candidate, {
+    id: 'lead',
+    name: 'Lead',
+    applyToMatches: true,
+  })
+}
 ```
 
-- **Tiptap's own formatting counts.** Text colored with `setColor` counts the same as text with
-  that color as an override, so both end up in one candidate. See
-  [Tiptap's own formatting](/features/document-styles/values#tiptaps-own-formatting).
-- **Values are compared in one spelling**, so `#1F2937` and `#1f2937` are the same formatting.
-- **Nothing found** is an empty array.
-- **Order does not matter.** Two sets of overrides are the same where their values are.
-- **Blocks and text apart.** A candidate's `targetKind` is `'node'` or `'mark'`.
-- **`styleDefinitionOfCandidate(candidate, { id, name })`** turns one into a definition without
-  storing it.
+`discoverStyles` returns a `StyleCandidate[]`, empty when it finds nothing. With
+`applyToMatches`, every place that still has the formatting gets the new style in its place.
+Without it, the command only stores the style.
 
-| Option               | Type                     | Default                                             | Description                                                                                               |
-| -------------------- | ------------------------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `minOccurrences`     | `number`                 | `2`                                                 | How often the same formatting has to occur                                                                |
-| `includeStyledNodes` | `boolean`                | `false`                                             | Also counts formatting on content that already has a style                                                |
-| `kind`               | `StyleKind`              | Guessed by Node type                                | The kind every candidate gets                                                                             |
-| `unstyledBlocks`     | `boolean`                | `false`                                             | Also groups blocks with no style and no formatting. See [Blocks without a style](/features/document-styles/cleanup#blocks-without-a-style) |
-| `blockAttributes`    | `string[]`               | `['level']`                                         | The attributes that tell two unstyled blocks of a type apart                                              |
-| `skipUnstyled`       | `(node) => boolean`      | —                                                   | Leaves out the unstyled blocks it answers `true` for                                                      |
-| `directFormatting`   | `DirectFormattingRule[]` | `DIRECT_FORMATTING`                                 | How Tiptap's own formatting writes a property                                                             |
-| `markTypes`          | `string[]`               | Every Mark type with a `styleId`, `textStyle` first | The Mark types a character style goes on                                                                  |
-
-To use a style the document already has instead, give it to the candidate:
+To give the places a style the document already has, use `applyStyleToCandidate` instead:
 
 ```js
 editor.commands.applyStyleToCandidate(candidate, 'heading-2')
 ```
 
+Formatting counts the same however it was set. Text colored with the `setColor` command of
+Tiptap's Color extension, and text with that color as an override, end up in one candidate, as
+[Tiptap's own formatting](/features/document-styles/values#tiptaps-own-formatting) explains.
+
+Values are compared in one spelling, so `#1F2937` and `#1f2937` are the same. Empty values are
+left out, and the order the values were set in does not matter.
+
+Blocks and text are grouped apart, and a candidate's `targetKind` says which it holds. Text in a
+schema with no mark for a character style is skipped. A `StyleCandidate` has these fields:
+
+| Field        | Type                 | Description                                                                                                               |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `kind`       | `StyleKind`          | The kind of style it would be                                                                                             |
+| `targetKind` | `'node' \| 'mark'`   | Whether it was found on blocks or on text                                                                                 |
+| `props`      | `StyleProps`         | The formatting                                                                                                            |
+| `signature`  | `string`             | Equal for equal formatting, such as `'node\|fontSize:18px;fontWeight:700'`, or `'unstyled\|heading\|level:2'` for a group |
+| `references` | `StyleReference[]`   | Every place it was found                                                                                                  |
+| `node`       | `StyleNodeTransform` | Only for a group of [blocks without a style](/features/document-styles/cleanup#blocks-without-a-style): their type and the attributes they have            |
+
+`styleDefinitionOfCandidate(candidate, { id, name })` turns a candidate into a definition without
+storing it. The definition has the candidate's `kind`, `props` and `node`, and `targets` of its
+`targetKind` that name the types its references are on.
+
+`discoverStyles` does not read the editor's options. Where the editor sets its own
+`directFormatting` or `markTypes`, pass them too. Its `options` can be left out:
+
+| Option               | Type                     | Default                                                      | Description                                                                                        |
+| -------------------- | ------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `minOccurrences`     | `number`                 | `2`                                                          | How often the same formatting has to occur                                                         |
+| `includeStyledNodes` | `boolean`                | `false`                                                      | Also counts formatting on content that has a style. Applying a style to it replaces that style     |
+| `kind`               | `StyleKind`              | Guessed by type                                              | The kind every candidate gets                                                                      |
+| `unstyledBlocks`     | `boolean`                | `false`                                                      | Also groups [blocks without a style](/features/document-styles/cleanup#blocks-without-a-style)                                      |
+| `blockAttributes`    | `string[]`               | `['level']`                                                  | With `unstyledBlocks`: the attributes that tell two unstyled blocks of a type apart                |
+| `skipUnstyled`       | `(node) => boolean`      | None                                                         | With `unstyledBlocks`: leaves out the unstyled blocks it returns `true` for                        |
+| `directFormatting`   | `DirectFormattingRule[]` | `DIRECT_FORMATTING`                                          | How Tiptap's own formatting writes a property. See [directFormatting](/features/document-styles/options#directformatting) |
+| `markTypes`          | `string[]`               | The mark types with a `styleId` attribute, `textStyle` first | The mark types a character style goes on                                                           |
+
+With `includeStyledNodes`, styled and unstyled places with equal formatting are one candidate. Text
+formatted only by Tiptap's own marks, such as a bold word, gets the first of `markTypes` as its
+type. Without `kind`, the kind is guessed from the type:
+
+| Type                       | Kind          |
+| -------------------------- | ------------- |
+| Text                       | `'character'` |
+| A name with "list" in it   | `'list'`      |
+| `tableCell`, `tableHeader` | `'cell'`      |
+| A name with "table" in it  | `'table'`     |
+| `image`, `figure`          | `'object'`    |
+| Anything else              | `'paragraph'` |
+
 ## Blocks without a style
 
-A document from somewhere else often has no styles at all: its headings are headings, its
-paragraphs paragraphs. `unstyledBlocks` groups the blocks that have neither a style nor overrides,
-by Node type and level:
+A document from somewhere else, such as an imported one, often has no styles at all: its headings
+are headings and its paragraphs are paragraphs. To give such blocks styles you can change in one
+place, group them with `unstyledBlocks`.
+
+`unstyledBlocks` groups the blocks that have no style, no overrides and none of Tiptap's own
+formatting, such as a `textAlign`, by node type and level.
+
+Candidates found by formatting have no `node`, so filtering on `candidate.node` keeps only these
+groups:
 
 ```js
+const doc = editor.state.doc
 const groups = discoverStyles(doc, { unstyledBlocks: true, minOccurrences: 1 }).filter(
   candidate => candidate.node,
 )
@@ -142,8 +276,14 @@ groups[0].references.length // 11
 editor.commands.applyStyleToCandidate(groups[0], 'heading-2')
 ```
 
-`skipUnstyled` leaves blocks out, such as those already drawn in their
-[default style](/features/document-styles/definitions#the-default-style):
+A group's `node` leaves out an attribute that is `null` or missing, and is `{ type }` alone where
+none is left. Only blocks whose type has a `styleId` attribute, the `types` of the editor, are
+grouped.
+
+With Word's built-in styles on, every paragraph and every heading of level 1 to 3 has a
+[default style](/features/document-styles/definitions#the-default-style), and is grouped too. To leave out the blocks
+already drawn in a default, pass `skipUnstyled`. `defaultStylesOf(doc).of(node)` returns the
+default style id of a block, or `null`:
 
 ```js
 const defaults = editor.storage.documentStyles.defaultStylesOf(doc)
@@ -151,37 +291,48 @@ const defaults = editor.storage.documentStyles.defaultStylesOf(doc)
 discoverStyles(doc, { unstyledBlocks: true, skipUnstyled: node => defaults.of(node) !== null })
 ```
 
-- **A style made of such a group** with `createStyleFromCandidate` sets nothing, so the blocks
-  look as before.
-- **Its `node`** is the group's type and attributes. Applying it to another block turns that block
-  into, for example, a level 2 heading.
+`createStyleFromCandidate` makes a style of a group that sets nothing, `props: {}`. So the blocks
+look as before, and share a style you can change in one place. The style's `node` is the group's
+type and attributes.
+
+Applying that style to another block changes only how it looks. To also turn the block into a
+level 2 heading, for example, pass `applyStyle`'s `transformNode` option, or set the
+[`transformNodeOnApply`](/features/document-styles/options#transformnodeonapply) option.
 
 ## Writing the defaults onto the blocks
 
-A paragraph without a style of its own has `styleId: null` and is drawn in the
-[default style](/features/document-styles/definitions#the-default-style) of its type, such as Body Text. When the
-default changes, so does the paragraph. That happens when a library loaded later brings another
-default for paragraphs, or when a style is no longer a default.
+A paragraph without a style of its own has `styleId: null`, and is drawn in the
+[default style](/features/document-styles/definitions#the-default-style) of its type, such as Normal. When the default
+changes, the paragraph changes too. A library loaded later can bring another default for
+paragraphs, and a style can stop being the default.
 
-`applyDefaultStyles` writes the default's id onto those blocks, so they keep their style when the
-default changes:
+To keep how such blocks look, write the default's id onto them with `applyDefaultStyles` before
+the default changes:
+
+```js
+editor.commands.applyDefaultStyles() // every default
+editor.commands.applyDefaultStyles('body') // only the blocks drawn in the style body
+```
+
+Each block keeps its overrides and is drawn in the same style as before, now because its own
+`styleId` names it. Only blocks of the editor's `types` are written to. A block with a missing
+style is not written to, because it has a style of its own.
+
+To see first which blocks would be written to, call `defaultStyledBlocksOf(doc)`. It returns a
+`DefaultStyledBlocks[]`, one `{ styleId, positions }` per default, in the order each first
+occurs. `positions` are the positions before each block:
 
 ```js
 editor.storage.documentStyles.defaultStyledBlocksOf(editor.state.doc)
 // [{ styleId: 'body', positions: [0, 42, 97] }]
-
-editor.commands.applyDefaultStyles() // every default
-editor.commands.applyDefaultStyles('body') // only the blocks drawn in Body Text
 ```
 
-- **Nothing looks different.** Each block is drawn in the same style as before, now because its
-  `styleId` names it, and keeps its overrides.
-- **Only blocks of `types`** are written to.
+Which default wins for a block is described in [The default style](/features/document-styles/definitions#the-default-style).
+A style that cannot be resolved is the default of nothing.
 
-`applyDefaultStyles` can also write defaults the editor does not draw yet. This is for an editor
-configured with `wordStyles: { defaults: false }`, which offers Word's styles without drawing
-unstyled blocks in them. Pass the libraries whose defaults to write, and every paragraph gets
-Normal and every heading the Heading of its level:
+An editor configured with `wordStyles: { defaults: false }` offers Word's styles, but draws no
+block in them. To give the blocks Word's defaults anyway, pass Word's library. Every paragraph then
+gets Normal, and every heading of level 1 to 3 the Heading of its level:
 
 ```js
 import { wordStyleLibrary } from '@tiptap-pro/extension-document-styles'
@@ -189,20 +340,26 @@ import { wordStyleLibrary } from '@tiptap-pro/extension-document-styles'
 editor.commands.applyDefaultStyles(null, { libraries: [wordStyleLibrary()] })
 ```
 
-- **Here the blocks look different**, since they were drawn in no style before.
-- **A default the editor cannot draw is not written.** Its id has to be defined by the document
-  or by one of the editor's own libraries.
+Here the blocks do look different, since they were drawn in no style before. Headings of level 4
+and lower get nothing, because Word's library has no style for them.
 
-## References without an editor
+With `libraries`, the command reads the defaults of the document and of the libraries passed, not
+those of the editor's libraries.
 
-Each of these writes into a Transaction you pass, and returns it:
+It writes a default only where the document or one of the editor's own libraries defines the id,
+because the editor could not draw it otherwise. So the written id is drawn in the editor's
+definition, which may differ from the library passed.
+
+## Without an editor
+
+Code that holds a transaction but no editor, such as a migration script, can rewrite references
+with functions. Here `tr` is a transaction on the document. Each function writes into the
+transaction you pass, and returns it:
 
 ```js
 import {
-  replaceStyleReferencesTransaction,
-  freezeStyleReferencesTransaction,
-  removeStyleReferencesTransaction,
   mapStyleReferencesTransaction,
+  replaceStyleReferencesTransaction,
 } from '@tiptap-pro/extension-document-styles'
 
 replaceStyleReferencesTransaction(tr, 'old', 'new')
@@ -211,149 +368,136 @@ mapStyleReferencesTransaction(tr, reference =>
 )
 ```
 
-| Function                            | Arguments                         | What it writes                                                                    |
-| ----------------------------------- | --------------------------------- | --------------------------------------------------------------------------------- |
-| `replaceStyleReferencesTransaction` | `tr, styleId, replacementStyleId` | Every reference to a style, pointed at another                                    |
-| `freezeStyleReferencesTransaction`  | `tr, styleId, lookup`             | The style's values as overrides, and the reference taken off                      |
-| `removeStyleReferencesTransaction`  | `tr, styleId`                     | Every reference to a style taken off                                              |
-| `mapStyleReferencesTransaction`     | `tr, change`                      | Each reference as `change` answers it, a `StyleReferenceChange`. `null` leaves it |
-| `applyDefaultStylesTransaction`     | `tr, defaults, types, styleId`    | The defaults onto the blocks drawn in them                                        |
+These functions check nothing: neither id needs a definition, and no kind or target is checked.
 
-- **`defaultStyledBlocks(doc, defaults, types)`** answers the blocks drawn in a default.
-- **`defaultStylesWhere(defaults, keep)`** filters defaults, as `applyDefaultStyles` does with
-  `libraries`.
+| Function                            | Arguments                         | What it writes                                                                                      |
+| ----------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `replaceStyleReferencesTransaction` | `tr, styleId, replacementStyleId` | Every reference to a style, pointed at another, overrides kept                                      |
+| `freezeStyleReferencesTransaction`  | `tr, styleId, lookup`             | The style's values as overrides, and the reference taken off                                        |
+| `removeStyleReferencesTransaction`  | `tr, styleId`                     | Every reference to a style taken off, overrides kept                                                |
+| `mapStyleReferencesTransaction`     | `tr, change`                      | Each reference as `change` answers it                                                               |
+| `removeStyleDefinitionTransaction`  | `tr, styleId`                     | The document's own definition removed, the references left as they are                              |
+| `applyDefaultStylesTransaction`     | `tr, defaults, types, styleId`    | The defaults onto the blocks drawn in them. `styleId` is optional, default `null` for every default |
+
+`change` is a `StyleReferenceChange`, a function that takes a `StyleReference` and returns
+`{ styleId, overrides }` or `null`. `null` leaves the reference as it is. The `overrides` it
+returns replace the old ones, and `overrides: null` clears them. `mapStyleReferencesTransaction`
+also visits references that only override, with `styleId: null`.
+
+`applyDefaultStylesTransaction` writes to blocks of the node types in `types`, such as the
+editor's `types` option. These functions read the default styles:
+
+| Function              | Arguments                    | Returns                                                                                                |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `defaultStyles`       | `doc, libraries, precedence` | The `defaults` the functions take                                                                      |
+| `defaultStyledBlocks` | `doc, defaults, types`       | The blocks drawn in each default                                                                       |
+| `defaultStylesWhere`  | `defaults, keep`             | Only the defaults `keep` returns `true` for. A block the others covered gets the next one that matches |
+
+`applyDefaultStyles` filters with `defaultStylesWhere` when you pass `libraries`.
 
 ## Commands
 
-Every Command is one step of the history.
+Each command on this page is one step of the history. It returns `false` where it would change
+nothing or refuses, rather than throwing, so `editor.can()` tells a toolbar which of them apply.
 
-### deleteStyle
+Where a command takes the style off a mark that carried nothing else, such as a `textStyle`, it
+takes the mark off too.
 
-Deletes one of the document's styles, and says what becomes of what refers to it.
+### deleteStyle()
 
-```js
-editor.commands.deleteStyle('old-body', { strategy: 'freeze-inline' })
-```
+Deletes one of the document's own styles. See [Deleting a style](/features/document-styles/cleanup#deleting-a-style).
 
-| Argument                     | Type     | Description                                         |
-| ---------------------------- | -------- | --------------------------------------------------- |
-| `styleId`                    | `string` | The style                                           |
-| `options.strategy`           | `string` | Required. See [Deleting a style](/features/document-styles/cleanup#deleting-a-style) |
-| `options.replacementStyleId` | `string` | With `'replace'` only: the style the references get |
+| Argument                     | Type                                                                         | Description                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `styleId`                    | `string`                                                                     | The style                                                               |
+| `options.strategy`           | `'replace' \| 'freeze-inline' \| 'remove-reference' \| 'preserve-reference'` | Required. See [Deleting a style](/features/document-styles/cleanup#deleting-a-style)                     |
+| `options.replacementStyleId` | `string`                                                                     | Required with `'replace'`, and only there: the style the references get |
 
-Returns `false` for a style that is not the document's own. With `'replace'`, also for a
-replacement nothing defines, and for the style itself.
+The options are a `DeleteStyleOptions`, which is exported. With `'replace'`, the command does not
+check that the replacement resolves or fits the references, as `replaceStyle` does. It rewrites
+each reference in place, so the selection and the rest of the text stay as they were.
 
-### replaceStyle
+Returns `false` for a style that is not the document's own, such as one of Word's, as
+[Read only](/features/document-styles/libraries#read-only) explains. With `'replace'`, it also returns
+`false` for a replacement nothing defines, and for the style itself. Returns `true` otherwise.
 
-Points everything that uses one style at another, keeping both definitions and every override.
-That is Word's "Select all instances" followed by another style.
+### replaceStyle()
 
-```js
-editor.commands.replaceStyle('subtitle', 'heading-2')
-```
+Points everything that uses one style at another. See [Replacing a style](/features/document-styles/cleanup#replacing-a-style).
 
 | Argument             | Type     | Description          |
 | -------------------- | -------- | -------------------- |
 | `styleId`            | `string` | The style to replace |
 | `replacementStyleId` | `string` | The style they get   |
 
-The new style goes only where it could have been applied, and every other reference keeps the
-old style:
+Returns `false` for a replacement nothing defines or that cannot be resolved, and for the style
+itself. Also returns `false` where no reference the new style fits uses the old one.
 
-- **On a block**, the new style has to be a paragraph style, or a table style on a table. Where
-  its `targets` name Node types, the block has to be one of them.
-- **On text**, the new style has to be a character style, or name a Mark type in its `targets`.
-- **With the `transformNodeOnApply` option**, each block also becomes the new style's `node`
-  type, such as a heading. A style whose `node` holds blocks, such as a blockquote, gets the
-  reference without wrapping anything.
+### replaceMissingStyles()
 
-Returns `false` for a replacement nothing defines or that cannot be resolved, for the style
-itself, and where nothing it fits uses the style.
+Points every reference to a style nothing defines at one that exists, and keeps its overrides. See
+[Missing styles](/features/document-styles/cleanup#missing-styles).
 
-### replaceMissingStyles
-
-Points every reference to a style nothing defines at one that exists.
-
-```js
-editor.commands.replaceMissingStyles('body')
-```
-
-| Argument             | Type     | Description         |
-| -------------------- | -------- | ------------------- |
-| `replacementStyleId` | `string` | A style that exists |
+Takes `replacementStyleId`, a `string`: a style that exists. The command does not check that it
+resolves or fits, so a paragraph style can land on a mark.
 
 Returns `false` for a replacement nothing defines, and where no reference is missing.
 
-### removeMissingStyleReferences
+### removeMissingStyleReferences()
 
-Takes every reference to a style nothing defines off, and keeps its overrides.
+Takes every reference to a style nothing defines off, and keeps its overrides. See
+[Missing styles](/features/document-styles/cleanup#missing-styles).
 
-```js
-editor.commands.removeMissingStyleReferences()
-```
+Takes no arguments. Returns `false` where no reference is missing.
 
-Returns `false` where no reference is missing.
-
-### removeUnusedStyles
+### removeUnusedStyles()
 
 Deletes the document's own styles nothing refers to. See [Unused styles](/features/document-styles/cleanup#unused-styles).
 
-```js
-editor.commands.removeUnusedStyles()
-```
+Takes no arguments. Returns `false` where every style of the document's own is used.
 
-Returns `false` where every style of the document's own is used.
+### applyDefaultStyles()
 
-### applyDefaultStyles
-
-Writes the default style onto every block drawn in it. See
+Writes each default style's id onto the blocks drawn in it. See
 [Writing the defaults onto the blocks](/features/document-styles/cleanup#writing-the-defaults-onto-the-blocks).
 
-```js
-editor.commands.applyDefaultStyles('body')
-```
-
-| Argument            | Type             | Description                                                        |
-| ------------------- | ---------------- | ------------------------------------------------------------------ |
-| `styleId`           | `string \| null` | Optional. Only the blocks drawn in this default. Default every one |
-| `options.libraries` | `StyleLibrary[]` | Optional. The defaults these libraries say instead of the editor's |
+| Argument            | Type             | Default       | Description                                                |
+| ------------------- | ---------------- | ------------- | ---------------------------------------------------------- |
+| `styleId`           | `string \| null` | Every default | Only the blocks drawn in this default                      |
+| `options.libraries` | `StyleLibrary[]` | None          | The defaults these libraries name, instead of the editor's |
 
 Returns `false` where no block is drawn in a default, or in the one named.
 
-### createStyleFromCandidate
+### createStyleFromCandidate()
 
-Stores a style made of formatting `discoverStyles` found.
+Stores a style made of formatting `discoverStyles` found. See
+[Formatting that should be a style](/features/document-styles/cleanup#formatting-that-should-be-a-style).
 
-```js
-editor.commands.createStyleFromCandidate(candidate, {
-  id: 'lead',
-  name: 'Lead',
-  applyToMatches: true,
-})
-```
+| Argument               | Type             | Description                                                                                                     |
+| ---------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| `candidate`            | `StyleCandidate` | What `discoverStyles` returned                                                                                  |
+| `input.id`             | `string`         | The new id                                                                                                      |
+| `input.name`           | `string`         | The new name                                                                                                    |
+| `input.applyToMatches` | `boolean`        | Optional. Also gives the style to every place that still has the formatting, and takes the formatting off there |
 
-| Argument               | Type             | Description                                                                                            |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
-| `candidate`            | `StyleCandidate` | What `discoverStyles` answered                                                                         |
-| `input.id`             | `string`         | The new id                                                                                             |
-| `input.name`           | `string`         | The new name                                                                                           |
-| `input.applyToMatches` | `boolean`        | Also gives the style to every place that still has that formatting, and takes the formatting off there |
+Taking the formatting off removes the overrides and Tiptap's own formatting at each place. Where
+only Tiptap's own marks formatted the text, the text gets a mark of the candidate's type that
+carries the style.
 
-Returns `false` for an id that is taken.
+Returns `false` for an id that is taken, by the document or by a library, and for an empty id,
+since the definition is then not valid.
 
-### applyStyleToCandidate
+### applyStyleToCandidate()
 
 Gives a style the document can use to everything a candidate found, in place of its formatting.
-
-```js
-editor.commands.applyStyleToCandidate(candidate, 'heading-2')
-```
+See [Formatting that should be a style](/features/document-styles/cleanup#formatting-that-should-be-a-style).
 
 | Argument    | Type             | Description                    |
 | ----------- | ---------------- | ------------------------------ |
-| `candidate` | `StyleCandidate` | What `discoverStyles` answered |
+| `candidate` | `StyleCandidate` | What `discoverStyles` returned |
 | `styleId`   | `string`         | A style that exists            |
 
-A place that was restyled since the candidate was found is left alone. Returns `false` for a style
-that cannot be resolved, and where no place still has the formatting.
+A place that was restyled since the candidate was found is left alone. The command does not check
+that the style fits, so a paragraph style can be put on a run of text.
+
+Returns `false` for a style that cannot be resolved, and where no place still has the formatting.
