@@ -3,7 +3,7 @@ import { Card } from './ui/Card'
 import { Tag } from './ui/Tag'
 import { UIComponentMetaWithUrl } from '@/types'
 import Link from '@/components/Link'
-import { getIcon } from '@/utils/iconKit'
+import { IconByName } from '@/utils/iconKit'
 
 interface UIComponentsGridProps {
   components: UIComponentMetaWithUrl[]
@@ -13,12 +13,11 @@ interface UIComponentsGridProps {
 }
 
 function UIComponentCard({ comp }: { comp: UIComponentMetaWithUrl }) {
-  const Icon = getIcon(comp.icon)
   return (
     <Card isClickable asChild>
       <Link href={comp.url} key={comp.path}>
         <div className="flex items-center justify-between gap-2 mb-5">
-          {!!Icon ? <Icon className="w-3.5 h-3.5" /> : null}
+          <IconByName name={comp.icon} className="w-3.5 h-3.5" />
           <div className="ml-auto flex items-center gap-1">
             {comp.isNew ? <Tag variant="info">New</Tag> : null}
           </div>
