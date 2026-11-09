@@ -1,36 +1,14 @@
-import fs from 'fs'
-import path from 'path'
-
+import { sidebarConfig as globalSidebar } from '@/content/sidebar'
+import { sidebarConfig as uiComponentsSidebar } from '@/content/ui-components/sidebar'
 import type { SidebarConfig } from '@/types'
 
+/**
+ * The sidebar for a page. All documentation shares the global sidebar
+ * (src/content/sidebar.ts); UI Components keeps its own.
+ */
 export async function importSidebarConfigFromMarkdownPath(markdownPath: string[]): Promise<{
   sidebarConfig: SidebarConfig | undefined
 }> {
-  let importPath = ''
-  let steppedSegments: string[] = []
-
-  const restSegments = ['', ...markdownPath]
-
-  while (!importPath && restSegments.length > 0) {
-    const fullPath = path.join(process.cwd(), 'src/content', ...restSegments, 'sidebar.ts')
-    const fileExists = fs.existsSync(fullPath)
-
-    if (fileExists) {
-      const isIndex = steppedSegments[steppedSegments.length - 1] === ''
-      const path = restSegments.join('/')
-
-      importPath = isIndex ? 'sidebar' : `${path}/sidebar`
-    }
-
-    // remove last segment
-    restSegments.pop()
-  }
-
-  // if the importPath starts with a slash, remove it
-  // as import statements do not support leading slashes
-  if (importPath.startsWith('/')) {
-    importPath = importPath.slice(1)
-  }
-
-  return import(`@/content/${importPath}`)
+  const sidebarConfig = markdownPath[0] === 'ui-components' ? uiComponentsSidebar : globalSidebar
+  return { sidebarConfig }
 }
