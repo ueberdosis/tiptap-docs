@@ -1,4 +1,5 @@
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
+import { isAtOrBelow } from '@/utils/isAtOrBelow'
 
 export type Breadcrumb = {
   href?: string
@@ -7,15 +8,11 @@ export type Breadcrumb = {
 
 type Item = SidebarLink | SidebarGroup | Omit<SidebarLink, 'type'>
 
-function isAtOrBelow(pathname: string, href: string): boolean {
-  if (!href) return false
-  if (href === '/') return pathname === '/'
-  return pathname === href || pathname.startsWith(`${href}/`)
-}
+const isLink = (item: Item) => !('type' in item && item.type === 'group')
 
 /** The first page an item leads to: its own href, or that of its first linked descendant. */
 function firstHref(item: Item): string | undefined {
-  if (item.href && !('type' in item && item.type === 'group')) return item.href
+  if (item.href && isLink(item)) return item.href
   for (const child of item.children ?? []) {
     const href = firstHref(child)
     if (href) return href
@@ -24,14 +21,28 @@ function firstHref(item: Item): string | undefined {
 }
 
 /** The chain of items from the top of the sidebar down to the one for `pathname`. */
-function findTrail(items: Item[], pathname: string, exact: boolean): Item[] | null {
+function findTrail(items: Item[], pathname: string): Item[] | null {
   for (const item of items) {
-    const below = findTrail(item.children ?? [], pathname, exact)
+    const below = findTrail(item.children ?? [], pathname)
     if (below) return [item, ...below]
-    const isLink = !('type' in item && item.type === 'group')
-    if (isLink && (exact ? item.href === pathname : isAtOrBelow(pathname, item.href))) return [item]
+    if (isLink(item) && item.href === pathname) return [item]
   }
   return null
+}
+
+/** The chain down to the entry with the longest URL that `pathname` lies below. */
+function findDeepestTrail(items: Item[], pathname: string): Item[] | null {
+  let best: Item[] | null = null
+  const visit = (items: Item[], parents: Item[]) => {
+    for (const item of items) {
+      const trail = [...parents, item]
+      const deeper = !best || item.href.length > best[best.length - 1].href.length
+      if (isLink(item) && isAtOrBelow(pathname, item.href) && deeper) best = trail
+      visit(item.children ?? [], trail)
+    }
+  }
+  visit(items, [])
+  return best
 }
 
 /**
@@ -44,9 +55,9 @@ export const generateBreadcrumbs = (config: SidebarConfig, pathname: string): Br
   const root: Breadcrumb[] =
     config.rootHref === '/' ? [] : [{ text: config.title, href: config.rootHref }]
 
-  const exact = findTrail(config.items, pathname, true)
+  const exact = findTrail(config.items, pathname)
   // The page itself is the title below the breadcrumbs
-  const trail = exact ? exact.slice(0, -1) : (findTrail(config.items, pathname, false) ?? [])
+  const trail = exact ? exact.slice(0, -1) : (findDeepestTrail(config.items, pathname) ?? [])
 
   const crumbs = [...root, ...trail.map((item) => ({ text: item.title, href: firstHref(item) }))]
   return crumbs.filter(

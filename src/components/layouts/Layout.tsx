@@ -59,17 +59,21 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
   ({ config, ...rest }, ref) => {
     return (
       <header ref={ref} {...rest} className="container sticky top-0 w-full py-1.5 z-50">
-        <div className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center">
+        <div
+          data-header-bar
+          className="bg-white h-14 shadow-slim rounded-tl-pilled rounded-tr-pilled lg:rounded-pilled px-[1.125rem] py-3 flex items-center"
+        >
           <div className="flex items-center gap-2">
-            <Link href="/" className="font-deco text-lg flex items-center gap-2.5 pr-2.5">
+            <Link href="/" className="text-lg flex items-center gap-2.5 pr-2.5">
               <TiptapLogo />
-              <span>
+              <span className="whitespace-nowrap">
                 <span className="font-semibold">Tiptap</span> Docs
               </span>
             </Link>
             <VersionSwitch />
-            <span className="hidden select-none lg:block text-black/15">/</span>
-            <nav className="hidden lg:flex items-center gap-[0.5px]">
+            {/* The links fit from tablet width; below it they move into the menu */}
+            <span className="hidden select-none md:block text-black/15">/</span>
+            <nav className="hidden md:flex items-center gap-[0.5px]">
               <DocsSwitcher />
               <NavLink href="https://tiptap.dev" target="_blank">
                 Website
@@ -84,10 +88,8 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               <ToCButton />
               <SearchButton />
             </div>
-            <div className="block lg:hidden">
-              <MobileNavigationDropdown />
-            </div>
-            <div className="hidden lg:block">
+            {/* Sign up stays next to the menu as long as it fits */}
+            <div className="hidden min-[390px]:block">
               <NavLink
                 variant="invert"
                 href="https://cloud.tiptap.dev/register"
@@ -96,6 +98,9 @@ export const LayoutHeader = forwardRef<HTMLDivElement, { config?: SidebarConfig 
               >
                 Sign up
               </NavLink>
+            </div>
+            <div className="block md:hidden">
+              <MobileNavigationDropdown />
             </div>
           </div>
         </div>

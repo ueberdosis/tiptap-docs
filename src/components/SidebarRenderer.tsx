@@ -19,6 +19,7 @@ import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
 import { isNew } from '@/utils/isNew'
+import { isAtOrBelow } from '@/utils/isAtOrBelow'
 
 export const DocsSidebar = ({
   config,
@@ -191,17 +192,6 @@ function showTitleIfCut(event: React.MouseEvent<HTMLElement>) {
 
 /** Every href in the sidebar. A page that has its own entry opens only the entries above it. */
 const ListedPages = createContext<Set<string>>(new Set())
-
-/**
- * Whether the page is `href` or, for a page without its own entry, lies below it.
- * An entry that only folds open (`href: ''`) never matches.
- */
-function isAtOrBelow(pathname: string, href: string, listed: Set<string>): boolean {
-  if (href === '') return false
-  if (pathname === href) return true
-  if (href === '/' || listed.has(pathname)) return false
-  return pathname.startsWith(`${href}/`)
-}
 
 /**
  * Where an entry leads: its own page or, for an entry that only folds open, the page of its
