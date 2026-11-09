@@ -42,6 +42,11 @@ export function planFromTags(types: string[]): Plan | undefined {
   return undefined
 }
 
+/** The status that frontmatter tag types name, if any. */
+export function statusFromTags(types: string[]): Status | undefined {
+  return STATUSES.find((status) => types.includes(status.toLowerCase()))
+}
+
 /** The plan a sidebar tag names, such as `Add-on`, or `Starter` for Start. */
 export function planFromLabel(tag: string): Plan | undefined {
   if (tag.toLowerCase() === 'starter') return 'Start'
