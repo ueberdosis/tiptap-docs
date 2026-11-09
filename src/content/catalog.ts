@@ -30,6 +30,8 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Docs', area: 'platform' },
+  // Its entry comes from the overview's frontmatter, which the tiptap-pro docs sync writes
+  { id: 'diagrams', title: 'Diagrams', area: 'platform' },
   { id: 'page-layout', title: 'Pages', area: 'platform' },
   { id: 'whiteboard', title: 'Whiteboard', area: 'platform' },
   { id: 'kits', title: 'Starter kit', area: 'editor' },
