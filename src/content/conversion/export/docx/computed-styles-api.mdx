@@ -1,0 +1,589 @@
+---
+title: Computed styles API for DOCX export
+tags:
+  - type: start
+  - type: beta
+meta:
+  title: Computed styles API | Tiptap Conversion
+  description: Functions and types that read the editor's computed styles and turn them into DOCX styles, for exports that don't use the exportDocx command.
+  category: Conversion
+---
+
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    To install this frontend extension, authenticate to Tiptap's private npm registry by following
+    the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+`@tiptap-pro/extension-export-docx` exports the functions that the `exportDocx` command uses to read the editor's [computed styles](/conversion/export/docx/computed-styles). Use them to read the styles yourself, to save them, or to export without the command.
+
+The command calls these functions for you. It also catches their errors, copies rendered equations, reads Pages headers, footers and notes, and merges your style options. Most apps don't need this page.
+
+The package does not export the option types of `readEditorDocxStyles`, `createDocxStyles` and `readTiptapStylesheetRules` by name. This page shows their shape so you know what to pass.
+
+## Functions
+
+### `readEditorStyles`
+
+```ts
+function readEditorStyles(options: ReadEditorStylesOptions): Promise<EditorStyles>
+```
+
+Reads the styles of the whole document from the editor. It waits at most 3 seconds for web fonts, puts a hidden sample next to the editor element, measures it and removes it. It also reads the values that the Pages and ConvertKit extensions change. It does not read the nodes of the document.
+
+| Option   | Type     | Default  | Description                     |
+| -------- | -------- | -------- | ------------------------------- |
+| `editor` | `Editor` | Required | The mounted editor to read from |
+
+It returns [`EditorStyles`](#editorstyles). The result holds only numbers, strings, booleans, `null`, arrays and plain objects, so you can save it with `JSON.stringify` and pass it to [`createDocxStyles`](#createdocxstyles) later.
+
+```ts
+import { readEditorStyles } from '@tiptap-pro/extension-export-docx'
+
+const editorStyles = await readEditorStyles({ editor })
+
+editorStyles.paragraph.fontFamily // a font name, such as 'Georgia'
+editorStyles.paragraph.fontSize // pixels, such as 16
+editorStyles.headings[1].color // '#RRGGBB'
+editorStyles.page.backgroundColor // '#RRGGBB'
+```
+
+It throws an `Error` in these cases:
+
+| Message                                                                                       | Cause                                                                 |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `readEditorStyles needs a browser to read styles`                                             | `getComputedStyle` does not exist.                                    |
+| `readEditorStyles: the editor has been destroyed`                                             | The editor is destroyed, or Tiptap has not mounted its view yet.      |
+| `readEditorStyles cannot read the editor before its view exists`                              | `editor.view` throws, while the editor does not report as destroyed.  |
+| `readEditorStyles: the editor is not in the document`                                         | The editor element is not part of the page.                           |
+| `readEditorStyles: the editor must be the body or an element inside it, not the html element` | The editor element is `<html>`.                                       |
+| `readEditorStyles cannot measure the editor. Check whether CSS hides it.`                     | The editor element has no box.                                        |
+| `readEditorStyles: the editor was unmounted`                                                  | Tiptap unmounted the editor while the sample was on the page.         |
+| `readEditorStyles: the editor root changed during the reading`                                | `editor.view.dom` is another element than at the start.               |
+| `The root element or its style sample is no longer in the document`                           | Something removed the editor element or the sample.                   |
+| `Style sample "<name>" is missing`                                                            | Code on the page removed an element from the sample.                  |
+
+### `createDocxStyles`
+
+```ts
+function createDocxStyles(options: {
+  editorStyles: EditorStyles
+  cellParagraphIds?: ReadonlySet<string>
+  genericFonts?: Record<string, string>
+}): DocxStyles
+```
+
+Converts saved `EditorStyles` into Word styles and export options. It needs no browser and no editor, so it also runs in Node.
+
+| Option             | Type                     | Default   | Description                                                                                       |
+| ------------------ | ------------------------ | --------- | ------------------------------------------------------------------------------------------------- |
+| `editorStyles`     | `EditorStyles`           | Required  | The result of `readEditorStyles`                                                                  |
+| `cellParagraphIds` | `ReadonlySet<string>`    | Empty set | The `id` attributes of paragraphs in table cells. See [`DocxStylesOptions`](#docxstylesoptions)   |
+| `genericFonts`     | `Record<string, string>` | `{}`      | Word fonts for font names. See [`DocxStylesOptions`](#docxstylesoptions)                          |
+
+It returns [`DocxStyles`](#docxstyles) with the styles of the whole document only. It has no formatting for single nodes, because that needs the rendered editor. Tables keep the width, indent, borders and cell margins that their ConvertKit attributes set.
+
+| Field                | Content                                                                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `styleOverrides`     | Document defaults, the paragraph styles `Normal`, `Quote`, `CodeBlock`, `horizontalRule` and `Heading1` to `Heading6`, the `listParagraph` and `hyperlink` defaults, and the `Code` character style |
+| `paragraphOverrides` | A function. Adds the settings of `td p` and `th p` to paragraphs in cells, `bidirectional` to right-to-left blocks, and the spacing of the first block                            |
+| `textRunOverrides`   | A function. Adds the formatting of the `bold`, `italic`, `underline`, `strike`, `highlight`, `subscript` and `superscript` marks, and the text settings of cell paragraphs        |
+| `tableOverrides`     | A function. The default table settings for each table                                                                                                                              |
+| `tableRowOverrides`  | An object. The default row settings                                                                                                                                                |
+| `tableCellOverrides` | A function. The header cell or body cell settings, by node type                                                                                                                    |
+| `defaultTabStop`     | Twips                                                                                                                                                                              |
+| `pageColor`          | `#RRGGBB`                                                                                                                                                                          |
+| `listLevels`         | `{ bullet, ordered, task }`, one entry for each level                                                                                                                              |
+
+It throws `createDocxStyles: editorStyles.bulletList.levels must contain at least one list level.` when `editorStyles.bulletList.levels` is empty.
+
+```ts
+import { createDocxStyles, readEditorStyles } from '@tiptap-pro/extension-export-docx'
+
+const editorStyles = await readEditorStyles({ editor })
+const docxStyles = createDocxStyles({
+  editorStyles,
+  genericFonts: { 'sans-serif': 'Calibri' },
+})
+```
+
+### `readEditorDocxStyles`
+
+```ts
+function readEditorDocxStyles(options: {
+  editor: Editor
+  document?: Node
+  numberingFormats?: readonly NumberingFormatDefinition[]
+  listLevels?: ListLevels
+  onWarning?: OnExportDocxWarning
+  cellParagraphIds?: ReadonlySet<string>
+  genericFonts?: Record<string, string>
+}): Promise<DocxStyles>
+```
+
+Reads the editor and converts the result into export options in one step.
+
+| Option             | Type                                   | Default                                  | Description                                                                                                                  |
+| ------------------ | -------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `editor`           | `Editor`                               | Required                                 | The mounted editor to read from                                                                                              |
+| `document`         | `Node`                                 | `undefined`                              | The JSON document you will export. With it, the result also holds the formatting of each node                               |
+| `numberingFormats` | `readonly NumberingFormatDefinition[]` | `undefined`                              | Your numbering formats. A format level with its own indents replaces the measured indent of its list paragraphs             |
+| `listLevels`       | `ListLevels`                           | `undefined`                              | Your list levels. A level that sets `textIndent` or `numberIndent` replaces the measured left indent of its list paragraphs |
+| `onWarning`        | `OnExportDocxWarning`                  | `undefined`                              | Receives the warning when the editor content changes during the reading. Without it, the function uses `console.warn`       |
+| `cellParagraphIds` | `ReadonlySet<string>`                  | The IDs of the paragraphs inside tables | See [`DocxStylesOptions`](#docxstylesoptions)                                                                                |
+| `genericFonts`     | `Record<string, string>`               | `{}`                                     | See [`DocxStylesOptions`](#docxstylesoptions)                                                                                |
+
+It returns [`DocxStyles`](#docxstyles):
+
+- Without `document`, the result holds the styles of the whole document, like `createDocxStyles` with the result of `readEditorStyles`.
+- With `document`, it also reads each node of that document and each list paragraph. `paragraphOverrides`, `textRunOverrides`, the table options and `imageOverrides` then hold the formatting of each node.
+- `numberingFormats` and `listLevels` change only the measured list paragraphs. The `listLevels` field of the result keeps the measured levels.
+
+The function stores the formatting of each node with the JSON node object it belongs to. Pass the same `document` object to `exportDocx`. With another object, even an equal copy, the export finds no node formatting and uses only the styles of the whole document.
+
+When the editor content changes while the function waits for fonts, it keeps the styles of the whole document, drops the formatting of each node, and sends a `document-styles-failed` warning.
+
+The `exportDocx` command does more than this function. `readEditorDocxStyles`:
+
+- Throws the same errors as [`readEditorStyles`](#readeditorstyles). The command catches them and sends a warning instead.
+- Does not copy rendered equations. `exportDocx` then builds every equation from its LaTeX source, without the measured size, color and alignment.
+- Does not read Pages headers, footers and notes.
+- Does not merge your style options. See [Call `exportDocx` yourself](#call-exportdocx-yourself).
+- Does not send the `document-styles-dark-page` warning.
+
+```ts
+import { exportDocx, readEditorDocxStyles } from '@tiptap-pro/extension-export-docx'
+
+const document = editor.getJSON()
+const styles = await readEditorDocxStyles({ editor, document })
+
+const file = await exportDocx({
+  document, // the same object that the reading got
+  exportType: 'blob',
+  customNodes: [],
+  ...styles,
+})
+```
+
+### `readTiptapStylesheetRules`
+
+```ts
+function readTiptapStylesheetRules(options?: { scope?: string }): CssRules
+```
+
+Reads the supported CSS rules under a selector prefix from `document.styleSheets`. This is the reading that `cssStyles.readFromStylesheets` runs.
+
+| Option  | Type     | Default     | Description                              |
+| ------- | -------- | ----------- | ---------------------------------------- |
+| `scope` | `string` | `'.tiptap'` | Reads rules whose selectors start with it |
+
+It returns [`CssRules`](#cssrules-and-supportedselector):
+
+- A rule counts only when its selector is the scope, a space and one [supported selector](#cssrules-and-supportedselector). The function removes the scope, so `.tiptap h1` comes back as `h1`.
+- The property names use hyphens, such as `'font-size'`. The values are the text of the rule as the browser keeps it. The function replaces `var()` with the value of the custom property on the first element that matches the scope.
+- The function does not compare selector specificity. A later rule wins, and an `!important` value wins over values without it.
+- It returns `{}` outside a browser, and it skips stylesheets that the browser does not let it read, such as stylesheets from another origin.
+
+```ts
+import { readTiptapStylesheetRules } from '@tiptap-pro/extension-export-docx'
+
+const rules = readTiptapStylesheetRules()
+rules.h1?.['font-size'] // for example '30px'
+
+const panelRules = readTiptapStylesheetRules({ scope: '.side-panel .tiptap' })
+```
+
+### `createDocxStylesFromRules`
+
+```ts
+function createDocxStylesFromRules(options: CssRulesOptions | undefined): IStylesOptions
+```
+
+Converts CSS rules into Word styles, the same way the `cssStyles` option does. `IStylesOptions` is the styles type of the `docx` library, the same type as `styleOverrides`.
+
+| Option    | Type                           | Default  | Description                                       |
+| --------- | ------------------------------ | -------- | ------------------------------------------------- |
+| `options` | `CssRulesOptions \| undefined` | Required | See [`CssRulesOptions`](#cssrulesoptions) |
+
+- With `readFromStylesheets: true`, it reads the `.tiptap` rules first and merges `styles` over them.
+- It returns `{}` when `options` is `undefined`, or when it has neither `styles` nor `readFromStylesheets`.
+- It prints a `console.warn` message for an unknown selector, an unknown property, and a value that it can't convert.
+
+```ts
+import { createDocxStylesFromRules } from '@tiptap-pro/extension-export-docx'
+
+const styles = createDocxStylesFromRules({
+  styles: { h1: { color: 'red', 'font-size': '5rem' } },
+  baseFontSize: 16,
+})
+// {
+//   paragraphStyles: [
+//     {
+//       id: 'Heading1',
+//       name: 'Heading 1',
+//       basedOn: 'Normal',
+//       quickFormat: true,
+//       run: { color: 'FF0000', size: 120 },
+//     },
+//   ],
+// }
+```
+
+`5rem` is 80px with a `baseFontSize` of 16. That is 60pt, and Word writes font sizes in half points, so the size is `120`.
+
+## Export without a browser
+
+The reading measures the rendered page, so it runs only in a browser. You can read the styles in the browser, save them as JSON, and convert them later, for example on a server:
+
+```ts
+import { readEditorStyles } from '@tiptap-pro/extension-export-docx'
+
+// In the browser.
+const editorStyles = await readEditorStyles({ editor })
+const saved = JSON.stringify(editorStyles)
+```
+
+```ts
+import { createDocxStyles, exportDocx } from '@tiptap-pro/extension-export-docx'
+
+// On a server, for example in Node.
+const docxStyles = createDocxStyles({ editorStyles: JSON.parse(saved) })
+
+const file = await exportDocx({
+  document: documentJson,
+  exportType: 'buffer',
+  customNodes: [],
+  ...docxStyles,
+})
+```
+
+`saved` and `documentJson` stand for the data your app sends to the server.
+
+The result has the styles of the whole document only. `DocxStyles` holds functions, so it can't go through `JSON.stringify`. Save `EditorStyles` instead.
+
+## Call `exportDocx` yourself
+
+The `exportDocx` function does not read the editor. When you pass it the result of `readEditorDocxStyles` or `createDocxStyles`, other rules apply than with the command:
+
+- A key that you pass after `...styles` replaces that key of the result in full, without a merge. `styleOverrides: { ... }` replaces all Word styles that the export read, and `paragraphOverrides: ...` replaces every measured paragraph setting.
+- The result puts the measured styles into `styleOverrides`, which wins over `cssStyles`. With the command, `cssStyles` wins over the measured values.
+- `readEditorDocxStyles` throws when the reading fails. The command catches that error and sends a `document-styles-failed` warning instead.
+- Pass the same `document` object to `readEditorDocxStyles` and `exportDocx`. The result links the values that it measured to the nodes of that object.
+
+Use the `exportDocx` command when you want the merge rules of [Which value wins](/conversion/export/docx/computed-styles#which-value-wins).
+
+## Types
+
+`@tiptap-pro/extension-export-docx` exports every type in this section. Sizes in `EditorStyles` are CSS pixels, rounded to two decimals. Colors are solid, uppercase `#RRGGBB` strings.
+
+### `ReadEditorStylesOptions`
+
+The options of `readEditorStyles`.
+
+| Field    | Type     | Description                     |
+| -------- | -------- | ------------------------------- |
+| `editor` | `Editor` | The mounted editor to read from |
+
+### `EditorStyles`
+
+The result of `readEditorStyles`.
+
+| Field            | Type                                                   | Read from                                                                      |
+| ---------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `page`           | `PageStyles`                                           | The background behind the editor                                               |
+| `text`           | `TextStyles`                                           | The editor element. Its `backgroundColor` and `textBorder` are always `null`   |
+| `paragraph`      | `BlockStyles`                                          | `p`                                                                            |
+| `headings`       | `Record<1 \| 2 \| 3 \| 4 \| 5 \| 6, BlockStyles>`      | `h1` to `h6`                                                                   |
+| `blockquote`     | `{ container: ElementStyles, paragraph: BlockStyles }` | The `blockquote` and the paragraph inside it                                   |
+| `codeBlock`      | `{ container: BlockStyles, code: TextStyles }`         | The `pre` and the `code` inside it                                             |
+| `bulletList`     | `ListStyles`                                           | A `ul` with 9 levels                                                           |
+| `orderedList`    | `ListStyles`                                           | An `ol` with 9 levels                                                          |
+| `taskList`       | `TaskListStyles`                                       | A task list with 9 levels                                                      |
+| `table`          | `TableStyles`                                          | The sample table                                                               |
+| `horizontalRule` | `RuleStyles`                                           | `hr`                                                                           |
+| `marks`          | `MarkStyles`                                           | The mark samples in a paragraph                                                |
+| `firstBlock`     | `FirstBlockStyles \| null`                             | The first block of the document                                                |
+
+### `PageStyles`
+
+| Field             | Type       | Description                                       |
+| ----------------- | ---------- | ------------------------------------------------- |
+| `backgroundColor` | `HexColor` | The color behind the text, mixed to a solid color |
+
+### `TextStyles`
+
+| Field             | Type                                       | Description                                                               |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| `fontFamily`      | `string`                                   | The first named font, or the first generic family when no font has a name |
+| `fontSize`        | `number`                                   | Pixels                                                                    |
+| `bold`            | `boolean`                                  | `true` when the font weight is above 500                                  |
+| `italic`          | `boolean`                                  | `true` for `italic` and `oblique`                                         |
+| `underline`       | `{ style, color } \| null`                 | `style` is `'solid'`, `'double'`, `'dotted'`, `'dashed'` or `'wavy'`      |
+| `strikethrough`   | `'single' \| 'double' \| null`             | The line-through                                                          |
+| `color`           | `HexColor`                                 | The text color after mixing it with the background                        |
+| `backgroundColor` | `HexColor \| null`                         | The background of the element after mixing. `null` when clear             |
+| `letterSpacing`   | `number`                                   | Pixels. 0 for `normal`                                                    |
+| `allCaps`         | `boolean`                                  | `text-transform: uppercase`                                               |
+| `smallCaps`       | `boolean`                                  | Small caps from `font-variant-caps` or `font-variant`                     |
+| `verticalAlign`   | `'baseline' \| 'sub' \| 'super' \| number` | A number is an offset in pixels. A positive offset raises the text        |
+| `fontStretch`     | `number`                                   | Percent. 100 is the normal width                                          |
+| `emphasisMark`    | `boolean`                                  | Any `text-emphasis-style` other than `none`                               |
+| `hidden`          | `boolean`                                  | `display: none`, or `visibility: hidden` or `collapse`                    |
+| `direction`       | `'ltr' \| 'rtl'`                           | The text direction                                                        |
+| `language`        | `string \| null`                           | The closest `lang` attribute                                              |
+| `textBorder`      | `BorderStyles`                             | One border around the text                                                |
+
+### `ElementStyles`
+
+`TextStyles` plus these fields:
+
+| Field           | Type                                         | Description                                       |
+| --------------- | -------------------------------------------- | ------------------------------------------------- |
+| `textAlign`     | `'left' \| 'center' \| 'right' \| 'justify'` | The side the text sits on                         |
+| `margin`        | `Sides<number>`                              | Pixels. An `auto` side margin reads as 0          |
+| `padding`       | `Sides<number>`                              | Pixels                                            |
+| `border`        | `Sides<BorderStyles>`                        | The four border sides                             |
+| `textIndent`    | `number`                                     | Pixels. A negative value moves the first line left |
+| `hangingIndent` | `boolean`                                    | `true` with the `hanging` keyword                 |
+| `breakBefore`   | `string`                                     | The browser value of `break-before`               |
+| `breakAfter`    | `string`                                     | The browser value of `break-after`                |
+| `breakInside`   | `string`                                     | The browser value of `break-inside`               |
+| `wordBreak`     | `string`                                     | The browser value of `word-break`                 |
+| `tabSize`       | `number`                                     | Pixels between tab stops                          |
+
+### `BlockStyles`
+
+`ElementStyles` plus `lineHeight`, the measured line height in pixels. The export measures it also when CSS says `normal`.
+
+### `ListStyles` and `TaskListStyles`
+
+`{ levels: ListLevelStyles[] }`, with the levels in order from 0. The export measures 9 levels. `TaskListStyles` is the same type.
+
+### `ListLevelStyles`
+
+| Field             | Type                       | Description                                                                |
+| ----------------- | -------------------------- | -------------------------------------------------------------------------- |
+| `textIndent`      | `number`                   | Pixels from the start of a top-level paragraph to the item text            |
+| `rightIndent`     | `number`                   | Pixels after the item text, measured against a top-level paragraph         |
+| `item`            | `BlockStyles`              | The paragraph inside the item                                              |
+| `listStyleType`   | `string`                   | The browser value of `list-style-type`, with any quotes                    |
+| `listStyleString` | `string \| null`           | The marker text of a string `list-style-type`, without quotes              |
+| `marker`          | `ListMarkerStyles \| null` | The `::marker` styles, or `null` when the browser can't read them          |
+
+### `ListMarkerStyles`
+
+| Field        | Type             | Description                                                                                                  |
+| ------------ | ---------------- | ------------------------------------------------------------------------------------------------------------ |
+| `fontFamily` | `string`         | The marker font                                                                                              |
+| `fontSize`   | `number`         | Pixels                                                                                                       |
+| `color`      | `HexColor`       | The marker color                                                                                             |
+| `bold`       | `boolean`        | Bold marker                                                                                                  |
+| `italic`     | `boolean`        | Italic marker                                                                                                |
+| `content`    | `string \| null` | The marker text without quotes, or `'normal'` or `'none'`. `null` for a counter, an attribute or an image |
+
+### `TableStyles`
+
+| Field            | Type                                              | Description                                                          |
+| ---------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| `margin`         | `Sides<number>`                                   | The margins of the table and of the element around it, in pixels     |
+| `width`          | `Length \| null`                                  | `null` when the width is automatic                                   |
+| `layout`         | `'fixed' \| 'auto'`                               | The column layout                                                    |
+| `border`         | `Sides<BorderStyles>`                             | The table borders                                                    |
+| `borderCollapse` | `boolean`                                         | `border-collapse: collapse`                                          |
+| `borderSpacing`  | `number`                                          | The horizontal `border-spacing` in pixels. 0 when borders collapse   |
+| `alignment`      | `'left' \| 'center' \| 'right'`                   | The side the table sits on                                           |
+| `direction`      | `'ltr' \| 'rtl'`                                  | The table direction                                                  |
+| `row`            | `{ height: number \| null, breakInside: string }` | The minimum row height in pixels, `null` when the content sets it    |
+| `cell`           | `CellStyles`                                      | The body cell                                                        |
+| `headerCell`     | `CellStyles`                                      | The header cell                                                      |
+
+### `CellStyles`
+
+| Field             | Type                                                                                  | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `padding`         | `Sides<number>`                                                                       | Pixels from the cell border to the text, with the wrappers in between    |
+| `border`          | `Sides<BorderStyles>`                                                                 | The cell borders                                                         |
+| `backgroundColor` | `HexColor \| null`                                                                    | The mixed background of the table, row group, row and cell               |
+| `verticalAlign`   | `'baseline' \| 'top' \| 'middle' \| 'bottom'`                                         | The vertical alignment                                                   |
+| `writingMode`     | `'horizontal-tb' \| 'vertical-rl' \| 'vertical-lr' \| 'sideways-rl' \| 'sideways-lr'` | The writing mode                                                         |
+| `paragraph`       | `BlockStyles`                                                                         | The paragraph inside the cell                                            |
+| `marks`           | `MarkStyles`, optional                                                                | The mark samples inside the cell paragraph                               |
+
+### `MarkStyles`
+
+One `TextStyles` object for each mark sample: `bold`, `italic`, `underline`, `strike`, `code`, `link`, `highlight`, `subscript` and `superscript`.
+
+### `RuleStyles`
+
+`{ margin: Sides<number> }`, the space around the `hr` in pixels.
+
+### `FirstBlockStyles`
+
+| Field         | Type     | Description                                                                                       |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `type`        | `string` | The Tiptap node type, such as `'heading'`                                                         |
+| `spaceBefore` | `number` | The space the editor shows above the block, in pixels. 0 when page layout already fills that space |
+
+`EditorStyles.firstBlock` is `null` when the document is empty, or when its first block has no DOM element.
+
+### Small types
+
+| Type             | Definition                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `HexColor`       | `string`, a solid color written as uppercase `#RRGGBB`                                                                           |
+| `Length`         | `{ value: number, unit: 'px' \| '%' }`                                                                                           |
+| `Sides<T>`       | `{ top: T, right: T, bottom: T, left: T }`                                                                                       |
+| `BorderStyles`   | `{ width: number, style: CssBorderStyle \| 'hidden', color: HexColor } \| null`. `null` when the side has no visible border |
+| `CssBorderStyle` | `'solid' \| 'dashed' \| 'dotted' \| 'double' \| 'groove' \| 'ridge' \| 'inset' \| 'outset'`                                      |
+
+### `DocxStyles`
+
+The result of `createDocxStyles` and `readEditorDocxStyles`. You can spread it into the options of `exportDocx`.
+
+| Field                | Type                                 | Unit or format              |
+| -------------------- | ------------------------------------ | --------------------------- |
+| `styleOverrides`     | `IStylesOptions` of `docx`           | `docx` units                |
+| `paragraphOverrides` | `ParagraphOverridesConfig`, optional | `docx` units                |
+| `textRunOverrides`   | `TextRunOverridesConfig`, optional   | `docx` units                |
+| `tableOverrides`     | `TableOverridesConfig`, optional     | `docx` units                |
+| `tableRowOverrides`  | `TableRowOverridesConfig`, optional  | `docx` units                |
+| `tableCellOverrides` | `TableCellOverridesConfig`, optional | `docx` units                |
+| `imageOverrides`     | `ImageOverridesConfig`, optional     | Pixels in `transformation`  |
+| `defaultTabStop`     | `number`, optional                   | Twips                       |
+| `listLevels`         | `ListLevels`, optional               | Twips                       |
+| `pageColor`          | `string`, optional                   | `#RRGGBB`                   |
+
+The functions in this object use data that only lives in memory, so `DocxStyles` can't go through `JSON.stringify`.
+
+### `DocxStylesOptions`
+
+The options that `createDocxStyles` and `readEditorDocxStyles` share.
+
+| Field              | Type                     | Description                                                                                                                                                                       |
+| ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cellParagraphIds` | `ReadonlySet<string>`    | The `id` attributes of paragraphs in table cells. When an override callback gets no `tableCell` in its context, a paragraph with one of these IDs gets the settings of `td p` |
+| `genericFonts`     | `Record<string, string>` | Word fonts for font names                                                                                                                                                         |
+
+The exporter passes the table cell context to the callbacks, so you rarely need `cellParagraphIds`.
+
+`genericFonts` maps a font name, written in lowercase, to a Word font. A key that you set replaces the default for that name. The defaults include Times New Roman for `serif`, Arial for `sans-serif` and Courier New for `monospace`. [Font lists](/conversion/export/docx/css-to-docx#font-lists) on the CSS to DOCX page lists every default. The export looks up the one font that it picked for the text:
+
+- `{ 'sans-serif': 'Calibri' }` changes text whose CSS picks `sans-serif`, such as `font-family: sans-serif`.
+- It does not change `font-family: Inter, sans-serif`, because the export picks `Inter` there.
+- A key can also be a normal font name. `{ georgia: 'Cambria' }` writes Cambria where the editor shows Georgia.
+
+The `exportDocx` command always uses the default fonts. `genericFonts` only works with `createDocxStyles` and `readEditorDocxStyles`.
+
+### `CssRulesOptions`
+
+The type of the `cssStyles` option and of the argument of `createDocxStylesFromRules`.
+
+| Field                 | Type       | Default     | Description                                               |
+| --------------------- | ---------- | ----------- | --------------------------------------------------------- |
+| `styles`              | `CssRules` | `undefined` | CSS properties for each supported selector               |
+| `readFromStylesheets` | `boolean`  | `false`     | Reads the `.tiptap` rules from the stylesheets of the page |
+| `baseFontSize`        | `number`   | `16`        | The pixel size for `rem` and `em` values                  |
+
+### `CssRules` and `SupportedSelector`
+
+`CssRules` is an object with one optional `CssProperties` entry for each `SupportedSelector`.
+
+`SupportedSelector` is one of `'p'`, `'h1'`, `'h2'`, `'h3'`, `'h4'`, `'h5'`, `'h6'`, `'blockquote'`, `'a'`, `'code'`, `'ul li'`, `'ol li'`, `'strong'`, `'em'`, `'u'` and `'s'`.
+
+### `CssProperties`
+
+Optional string values for 12 CSS properties. Each property accepts a hyphen name and a camel case name:
+
+| Hyphen name        | Camel case name   |
+| ------------------ | ----------------- |
+| `color`            | `color`           |
+| `font-size`        | `fontSize`        |
+| `font-family`      | `fontFamily`      |
+| `font-weight`      | `fontWeight`      |
+| `font-style`       | `fontStyle`       |
+| `line-height`      | `lineHeight`      |
+| `text-align`       | `textAlign`       |
+| `margin-top`       | `marginTop`       |
+| `margin-bottom`    | `marginBottom`    |
+| `background-color` | `backgroundColor` |
+| `text-decoration`  | `textDecoration`  |
+| `letter-spacing`   | `letterSpacing`   |
+
+### Warning types
+
+```ts
+type DocumentStylesWarningCode = 'document-styles-failed' | 'document-styles-dark-page'
+
+interface ExportDocxWarning {
+  code: ImageErrorCode | DocumentStylesWarningCode
+  message: string
+  src?: string
+  status?: number
+  contentType?: string
+}
+
+type OnExportDocxWarning = (warning: ExportDocxWarning) => void
+```
+
+Warnings of computed styles set only `code` and `message`. [Warnings](/conversion/export/docx/computed-styles#warnings) explains when each code arrives.
+
+## Renames and removals
+
+Up to 0.34.7, the package used other names for these functions, types and options. The old names have no alias, except the `documentStyles` option, which keeps working as a deprecated alias of `computedStyles`.
+
+| Old name                           | New name                        |
+| ---------------------------------- | ------------------------------- |
+| `documentStyles` option            | `computedStyles`                |
+| `cssStyles.extractFromDocument`    | `cssStyles.readFromStylesheets` |
+| `getDocumentCss`                   | `readEditorStyles`              |
+| `createExportStyles`               | `readEditorDocxStyles`          |
+| `exportStylesFromCss`              | `createDocxStyles`              |
+| `extractTiptapCssStyles`           | `readTiptapStylesheetRules`     |
+| `processCssStyles`                 | `createDocxStylesFromRules`     |
+| `css` option of `createDocxStyles` | `editorStyles`                  |
+| `ExportStyles`                     | `DocxStyles`                    |
+| `ExportStylesOptions`              | `DocxStylesOptions`             |
+| `DocumentCss`                      | `EditorStyles`                  |
+| `GetDocumentCssOptions`            | `ReadEditorStylesOptions`       |
+| `CssStylesOptions`                 | `CssRulesOptions`               |
+| `CssStylesInput`                   | `CssRules`                      |
+| `CssPropertyMap`                   | `CssProperties`                 |
+| `BlockCss`                         | `BlockStyles`                   |
+| `BorderCss`                        | `BorderStyles`                  |
+| `BorderStyleCss`                   | `CssBorderStyle`                |
+| `BoxCss`                           | `ElementStyles`                 |
+| `CellCss`                          | `CellStyles`                    |
+| `FirstBlockCss`                    | `FirstBlockStyles`              |
+| `ListCss`                          | `ListStyles`                    |
+| `ListLevelCss`                     | `ListLevelStyles`               |
+| `MarkerCss`                        | `ListMarkerStyles`              |
+| `PageCss`                          | `PageStyles`                    |
+| `RuleCss`                          | `RuleStyles`                    |
+| `TableCss`                         | `TableStyles`                   |
+| `TaskListCss`                      | `TaskListStyles`                |
+| `TextCss`                          | `TextStyles`                    |
+
+These options, types and fields are gone without a replacement:
+
+- The `listDepth` and `adjustProbe` options of `readEditorStyles` and `readEditorDocxStyles`. The export always measures 9 list levels.
+- The `DocumentCssOptions` type. Use `ReadEditorStylesOptions`.
+- `fontFamilies`, `fontWeight` and `kerning` of `TextStyles`. Use `bold` instead of `fontWeight`.
+- `widows`, `orphans`, `overflowWrap` and `float` of `ElementStyles`, and `float` of `TableStyles`. Use the table `alignment` instead of its `float`.
+- `margin` and `listStylePosition` of `ListLevelStyles`, and `checkbox` of `TaskListStyles`.
+- `width`, `padding`, `border`, `columns` and `direction` of `PageStyles`.
+- `border`, `height` and `backgroundColor` of `RuleStyles`.
+- `text`, `marginTop` and `marginAbsorbed` of `FirstBlockStyles`.
+- The `image` field of `EditorStyles`, and the `ImageCss` type.
+- The `BorderSpacingCss` type. `TableStyles.borderSpacing` is now one number, the horizontal `border-spacing` in pixels.
+
+Read the removed values from the editor DOM yourself if you need them.

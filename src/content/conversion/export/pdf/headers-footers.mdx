@@ -36,8 +36,8 @@ Each header and footer slot (`default`, `first`, `even`) accepts one of the shap
 | Plain text                       | `'Company name, 2026'`                           | Rendered as an unstyled header/footer.                                                                    |
 | Stringified Tiptap JSONContent   | `JSON.stringify(myHeaderDoc)`                    | Pre-serialized Tiptap node. Rich formatting (bold, italic, links, etc.) is preserved on render.           |
 | Tiptap JSONContent object        | `{ type: 'doc', content: [/* … */] }`            | A Tiptap node passed directly. Same fidelity as stringified JSONContent, but no `JSON.stringify` step.    |
-| `docx` `Header` / `Footer`       | `new Docx.Header({ children: [/* … */] })`       | Full DOCX-level control over paragraphs and runs. Requires `@tiptap-pro/extension-export-docx`.           |
-| Async factory returning `Header` / `Footer` | `() => convertHeader({ node })`       | Built on demand when the export runs. Typical use: `convertHeader` / `convertFooter` from the DOCX extension. |
+| `docx` `Header` / `Footer`       | `new Docx.Header({ children: [/* … */] })`       | Full DOCX-level control over paragraphs and runs. Requires `ExportDocx`. Build it with the `Docx` export of `@tiptap-pro/extension-export-docx`. |
+| Async factory returning `Header` / `Footer` | `() => convertHeader({ node })`       | Built on demand when the export runs. Typical use: `convertHeader` / `convertFooter` from the DOCX extension. Requires `ExportDocx`. |
 
 Tiptap JSONContent objects **must** include a `type` field. The extension uses it at runtime to distinguish a Tiptap node from a `docx` instance. Objects without `type` that aren't `Header` / `Footer` instances are dropped with a `console.warn` naming the offending value; they're never forwarded to the DOCX serializer.
 
@@ -53,7 +53,13 @@ type HeaderSlotValue = string | TiptapNodeContent | Header | (() => Promise<Head
 type FooterSlotValue = string | TiptapNodeContent | Footer | (() => Promise<Footer>)
 ```
 
-The first three shapes work on their own with `@tiptap-pro/extension-export-pdf`. The `Header` / `Footer` instance and async-factory shapes require `@tiptap-pro/extension-export-docx` to be installed; they take the DOCX-first export path, which is loaded on demand so PDF-only consumers aren't affected.
+The first three shapes work on their own with `@tiptap-pro/extension-export-pdf`. The export sends them to the convert service as JSON.
+
+The `Header` / `Footer` instance and async-factory shapes need `ExportDocx` from `@tiptap-pro/extension-export-docx`, registered in the same editor. The PDF package does not include the DOCX exporter, so install it yourself. With `ExportDocx` registered, the PDF export builds a DOCX file with it and accepts all five shapes: it turns text and JSON into headers and footers with the converters of that `ExportDocx`. Without it, the export drops instances and factories with a `console.warn`.
+
+A `Header` or `Footer` instance must come from the `Docx` export of `@tiptap-pro/extension-export-docx`. The export drops an instance from another copy of `docx`, such as your own `docx` dependency, with a `console.warn`.
+
+`ExportDocx` 0.34.7 and older do not provide header and footer converters. With one registered, the PDF export ignores text, JSON and instance slots and logs a `console.warn`, and the file gets no Pages header or footer for that part either. Factories still work. Update `@tiptap-pro/extension-export-docx` together with the PDF extension.
 
 ## Headers Configuration
 
@@ -166,32 +172,39 @@ ExportPdf.configure({
 
 ## Docx Header / Footer instances
 
-For full control over paragraph properties, alignment, and run styles you can pass a `docx` `Header` / `Footer` instance (or an async factory that returns one). This requires `@tiptap-pro/extension-export-docx` to be installed alongside the PDF extension:
+For full control over paragraph properties, alignment, and run styles you can pass a `docx` `Header` / `Footer` instance (or an async factory that returns one). This requires `ExportDocx` from `@tiptap-pro/extension-export-docx`, registered in the same editor as the PDF extension:
 
 ```ts
-import { Docx, convertHeader } from '@tiptap-pro/extension-export-docx'
+import { Docx, ExportDocx, convertHeader } from '@tiptap-pro/extension-export-docx'
+import { ExportPdf } from '@tiptap-pro/extension-export-pdf'
 
-ExportPdf.configure({
-  token: 'YOUR_TOKEN',
-  headers: {
-    // Direct Docx.Header instance
-    default: new Docx.Header({
-      children: [
-        new Docx.Paragraph({
-          children: [new Docx.TextRun({ text: 'My Document' })],
-        }),
-      ],
-    }),
-    // Async factory: convert a Tiptap node to a Docx.Header on demand
-    first: () =>
-      convertHeader({
-        node: {
-          type: 'doc',
-          content: [
-            { type: 'paragraph', content: [{ type: 'text', text: 'Welcome' }] },
+const editor = new Editor({
+  extensions: [
+    // Other extensions...
+    ExportDocx,
+    ExportPdf.configure({
+      token: 'YOUR_TOKEN',
+      headers: {
+        // Direct Docx.Header instance
+        default: new Docx.Header({
+          children: [
+            new Docx.Paragraph({
+              children: [new Docx.TextRun({ text: 'My Document' })],
+            }),
           ],
-        },
-      }),
-  },
+        }),
+        // Async factory: convert a Tiptap node to a Docx.Header on demand
+        first: () =>
+          convertHeader({
+            node: {
+              type: 'doc',
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'Welcome' }] },
+              ],
+            },
+          }),
+      },
+    }),
+  ],
 })
 ```

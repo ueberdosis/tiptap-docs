@@ -38,31 +38,33 @@ import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
 
 ## What this does
 
-Exporting from Tiptap to DOCX normally takes your document's **node and mark attributes** and writes them inline onto every paragraph, run, and cell. The result is a DOCX file where every element carries its own copy of `fontSize`, `color`, and spacing: verbose, redundant, and visually identical but structurally poor.
+The `cssStyles` option sets Word styles with CSS rules, such as `h1 { color: #12355B }`. The export converts each rule into a named Word style, for example `Heading1` for `h1`. The exported DOCX has a style catalog that Word users can edit once to change the look of every paragraph that uses the style.
 
-This feature lets you keep your editor's **stylesheet** as the source of truth. You provide CSS rules (either explicitly or by letting us extract them from the browser), and on export we compile those rules into DOCX **style definitions**: the named entries Word uses as its own source of truth. The exported DOCX has a proper style catalog that Word users can edit once to change the look of every paragraph that uses the style.
+You can pass the rules as an object, let the export read them from the stylesheets of the page, or both.
+
+By default, the export also reads the styles that the editor shows, see [Computed styles](/conversion/export/docx/computed-styles). For the styles that `cssStyles` sets, its values replace the values that the export read. `cssStyles` does not render anything, so the `styles` object also works with `computedStyles: false` and on a server.
 
 Paired with [CSS injection on import](/conversion/import/docx/css-injection), you get a round-trip path for the *style layer* of your document, separate from the *content layer*.
 
-A second demo shows the browser-extraction variant:
+A second demo reads the rules from the stylesheets of the page:
 
 <CodeDemo isPro path="/Extensions/ExportDocxCssStylesExtract" />
 
 ## Install
 
 ```bash
-npm i @tiptap-pro/extension-export-docx@^0.16.0
+npm i @tiptap-pro/extension-export-docx
 ```
 
 ## How it works
 
 Three steps:
 
-1. **Collect the CSS.** The exporter reads your styles from two possible sources (you can use either or both):
-   - an explicit `styles` object you pass to `configure()`
-   - the browser's live stylesheets (if `extractFromDocument: true`), scoped to your editor root
-2. **Compile each selector.** The compiler looks up each selector in a fixed map (the same 16 selectors as the import side), converts each CSS property to its DOCX equivalent, and drops properties it can't map.
-3. **Merge into the styles catalog.** The compiled DOCX style fragments are merged into the export options' styles catalog, then handed to the DOCX writer.
+1. The export collects the CSS from two sources. You can use either or both:
+   - the `styles` object you pass to `configure()` or to the `exportDocx` command
+   - with `readFromStylesheets: true`, the `.tiptap` rules in the stylesheets of the page. The export reads them each time it runs.
+2. The export converts each selector. Each supported selector sets one Word style. The export converts each supported CSS property and skips the others with a console warning.
+3. The export merges these Word styles into the styles of the document. `styleOverrides` wins over them.
 
 ```ts
 import { ExportDocx } from '@tiptap-pro/extension-export-docx'
@@ -71,42 +73,197 @@ ExportDocx.configure({
   cssStyles: {
     styles: {
       h1: { fontSize: '32px', fontWeight: 'bold', color: '#1a1a1a' },
-      p:  { fontSize: '16px', lineHeight: 1.5, marginTop: '0pt', marginBottom: '8pt' },
+      p: { fontSize: '16px', lineHeight: '1.5', marginTop: '0', marginBottom: '8pt' },
       blockquote: { fontStyle: 'italic', color: '#555' },
     },
-    // Optional: also pick up rules from the live browser stylesheets
-    extractFromDocument: true,
-    // Optional: base for rem/em resolution
+    // Optional: also read the .tiptap rules from the stylesheets of the page
+    readFromStylesheets: true,
+    // Optional: the pixel size for rem, and for em in font sizes
     baseFontSize: 16,
   },
 })
 ```
 
-When `extractFromDocument: true`, the exporter walks `document.styleSheets`, picks rules whose selectors match the 16-selector map scoped under your editor root, and merges them with any explicit `styles`. **Explicit styles win per-property.**
+A value in `styles` replaces the stylesheet value for the same selector and property.
+
+<Callout variant="hint" title="Stylesheet rules replace what the editor shows">
+  With `readFromStylesheets: true`, a broad reset such as `.tiptap p { margin-bottom: 0 }`
+  removes the paragraph spacing from the DOCX, even when a more specific rule shows spacing in
+  the editor. Computed styles read the spacing that the editor
+  shows, so while they are on, which is the default, you rarely need `readFromStylesheets`.
+</Callout>
+
+### Which value wins
+
+With the `exportDocx` command, the export combines the styles in this order, from lowest to highest priority:
+
+1. The default styles of the export.
+2. The computed styles that the export reads from the editor.
+3. The rules that `readFromStylesheets` reads.
+4. `cssStyles.styles`.
+5. `styleOverrides`, including its `default` entries. `styleOverrides.default.heading1` wins over an `h1` rule.
+6. The element overrides, such as `paragraphOverrides` and `textRunOverrides`.
+7. Formatting that the document stores, such as a `textStyle` color mark. `tableOverrides` and `imageOverrides` are the exception: they win over the borders and cell margins that a table node stores, and over the size that an image node stores.
+
+A higher level replaces a lower level only for the properties it sets. For example, `styleOverrides: { default: { heading1: { run: { color: '990000' } } } }` replaces the color of an `h1` rule and keeps its font size. [Which value wins](/conversion/export/docx/computed-styles#which-value-wins) on the computed styles page explains how deep each option merges.
+
+A `cssStyles` option on the `exportDocx` command replaces the whole `cssStyles` object of `ExportDocx.configure()`.
+
+When you call the `exportDocx` function yourself and pass it the result of `readEditorDocxStyles`, the styles that the export read are part of `styleOverrides`. They then win over `cssStyles`. See the [Computed styles API](/conversion/export/docx/computed-styles-api).
 
 ## What works
 
-**Selectors (16):** same as the import side.
+### Selectors
 
-`p`, `h1`–`h6`, `blockquote`, `ul li`, `ol li`, `strong`, `em`, `u`, `s`, `a`, `code`
+The keys of `styles` must be one of these 16 selectors, the same 16 as the import side. Each one sets one Word style:
 
-**CSS properties.** Each selector can carry any subset of the following. Unlisted properties are skipped with a `console.warn` during export.
+| Selector         | Word style ID            | Style kind |
+| ---------------- | ------------------------ | ---------- |
+| `p`              | `Normal`                 | Paragraph  |
+| `h1` to `h6`     | `Heading1` to `Heading6` | Paragraph  |
+| `blockquote`     | `Quote`                  | Paragraph  |
+| `ul li`, `ol li` | `ListParagraph`          | Paragraph  |
+| `a`              | `Hyperlink`              | Character  |
+| `code`           | `Code`                   | Character  |
+| `strong`         | `Strong`                 | Character  |
+| `em`             | `Emphasis`               | Character  |
+| `u`              | `UnderlineStyle`         | Character  |
+| `s`              | `Strikethrough`          | Character  |
 
-- `fontSize`: converted to half-points (DOCX `w:sz`)
-- `color`: mapped to DOCX `w:color` (hex)
-- `fontFamily`: mapped to DOCX `w:rFonts`
-- `fontWeight`: `bold` toggles `w:b`
-- `fontStyle`: `italic` toggles `w:i`
-- `textDecoration`: `underline` → `w:u`, `line-through` → `w:strike`
-- `backgroundColor`: mapped to DOCX `w:shd` fill
-- `letterSpacing`: supported on export (not extracted on import)
-- `textAlign`: mapped to DOCX `w:jc` (`justify` → DOCX `both`)
-- `marginTop` / `marginBottom`: mapped to `w:spacing` `before` / `after` (in twips)
-- `lineHeight`: unitless → auto line rule (proportional); `Npt` → exact; `Npx` → converted
+- Any other key, such as `ul > li`, `p.lead` or `td`, prints a console warning, and the export skips it.
+- `ul li` and `ol li` set the same `ListParagraph` style. When both set the same property, the key that comes later in the object wins.
+- `code` sets the style of inline code. Code blocks use the `CodeBlock` style, which `cssStyles` can't set.
+- Word allows one character style per text run. So the export copies the `strong`, `em`, `u` and `s` styles onto the text of `bold`, `italic`, `underline` and `strike` marks as direct formatting.
+- A character style holds only text properties. On `a`, `code`, `strong`, `em`, `u` and `s`, the export drops `margin-top`, `margin-bottom`, `line-height` and `text-align` without a warning.
 
-**Unit conversion.** The compiler accepts `px`, `pt`, `rem`, `em`. `rem` and `em` are resolved against `baseFontSize` (default `16`). Other units (`%`, `vh`, `ch`, etc.) are not recognised and the property is skipped.
+### Properties
 
-**List merging.** Both `ul li` and `ol li` map to the DOCX `ListParagraph` style. If both are defined, their properties are merged; per-property, the later entry wins.
+You can write each property name in camel case or with hyphens. `fontSize` and `'font-size'` are the same property. Every value is a string.
+
+| Property           | Accepted values                                                     | Word result                  |
+| ------------------ | ------------------------------------------------------------------- | ---------------------------- |
+| `color`            | CSS colors                                                          | Text color                   |
+| `background-color` | CSS colors                                                          | Text shading                 |
+| `font-size`        | A number with `px`, `pt`, `em` or `rem`                             | Font size                    |
+| `font-family`      | A font list                                                         | Font                         |
+| `font-weight`      | `bold`, `bolder`, `normal`, `lighter` or a number                   | Bold on or off               |
+| `font-style`       | `italic`, `oblique` or `normal`                                     | Italic on or off             |
+| `line-height`      | `normal`, a number, or a number with `%`, `em`, `rem`, `px` or `pt` | Line spacing                 |
+| `text-align`       | `left`, `center`, `right` or `justify`                              | Paragraph alignment          |
+| `margin-top`       | `0`, or a number with `px`, `pt`, `em` or `rem`                     | Spacing before the paragraph |
+| `margin-bottom`    | `0`, or a number with `px`, `pt`, `em` or `rem`                     | Spacing after the paragraph  |
+| `text-decoration`  | Values with the words `underline`, `line-through` or `none`         | Underline and strikethrough  |
+| `letter-spacing`   | `normal`, `0`, or a number with `px`, `pt`, `em` or `rem`           | Character spacing            |
+
+The export skips any other property, such as `margin`, `font` or `border`, with a console warning. Use `margin-top` and `margin-bottom` instead of `margin`. When the export can't convert a value, it warns and skips that property. The other properties of the rule still apply. The export skips an empty string or `undefined` without a warning.
+
+- `font-weight: bold` and `bolder` turn bold on. `normal` and `lighter` turn it off. A number above 500 turns bold on, and a number of 500 or below turns it off.
+- `font-style: italic` and `oblique` turn italics on, and `normal` turns them off. A value with an angle, such as `oblique 10deg`, prints a warning.
+- `text-align: justify` gives justified text. Other values, such as `start` or `end`, print a warning.
+- `line-height: normal` gives 1.15 lines, and a number such as `1.5` gives that many lines. A length or a percentage gives a minimum line height, so taller text and images in a line still fit.
+- `letter-spacing: normal` gives 0. A negative value makes the text tighter.
+
+### Units
+
+- `px` and `pt` are absolute. `16px` is 12pt.
+- `rem` multiplies `baseFontSize`, which is 16 by default. `2rem` is 32px, or 24pt.
+- In `font-size`, `em` multiplies `baseFontSize` too.
+- In `line-height`, `margin-top`, `margin-bottom` and `letter-spacing`, `em` uses the font size of the selector. A `%` in `line-height` does too.
+- `0` without a unit works for margins and letter spacing.
+- A negative margin becomes 0, because Word rejects negative spacing.
+- In `font-size`, a number without a unit, a percentage, a keyword such as `larger`, and a negative size print a warning. The export skips them and still finishes.
+- A `%` in margins or letter spacing, and other units such as `vh` or `ch`, print a warning.
+
+For `em` and `%`, the export takes the first font size it finds in this order:
+
+1. The `font-size` of the same selector in your rules.
+2. The size of the built-in Word style: 16pt for `Heading1`, 13pt for `Heading2` and 12pt for `Heading3`. The other styles have no built-in size.
+3. The `font-size` of `p` in your rules.
+4. `baseFontSize`.
+
+The font size that the editor shows does not count. So `h2: { marginTop: '1em' }` without a `font-size` uses 13pt, even when the editor shows `h2` at another size. Give the selector a `font-size` to control the result.
+
+The export works out two simple forms of `calc()`, such as the spacing values of Tailwind CSS v4:
+
+- One value multiplied or divided by a number: `calc(0.25rem * 4)`, `calc(4 * 2px)` or `calc(2 / 1.5)`.
+- Values with the same unit added or subtracted: `calc(10px + 4px - 2px)`.
+
+The function name must be lowercase. Any other `calc()`, such as `calc(100% - 2px)` or `calc(1rem + 2px)`, prints a warning.
+
+### Colors
+
+`color` and `background-color` read colors like the browser does: names such as `green` and `rebeccapurple`, hex with or without `#`, `rgb()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()` and `color()`. The export writes the color as six hex digits, so `green` gives `008000`.
+
+- The export converts colors from other color spaces, such as `oklch()`, to sRGB, and limits each channel to the sRGB range.
+- A partly transparent color, such as `oklch(69.6% 0.17 162.48 / 0.5)`, keeps its own color without the transparency. A CSS rule has no background to mix it with.
+- A fully transparent color, `currentcolor` and `var()` give no color. The export warns and skips the property.
+- `background-color` shades the text of the style, also for paragraph selectors such as `p`. It does not fill the paragraph box.
+
+### Font lists
+
+The export picks the first font in the list that is not a generic family, and removes its quotes. `'"Times New Roman", serif'` gives `Times New Roman`, and `system-ui, Inter` gives `Inter`.
+
+When the list holds only generic families, the export uses a Word font for the first one:
+
+| CSS generic family                                                                | Word font       |
+| --------------------------------------------------------------------------------- | --------------- |
+| `serif`, `ui-serif`, `-webkit-standard`                                           | Times New Roman |
+| `sans-serif`, `ui-sans-serif`, `system-ui`, `-apple-system`, `BlinkMacSystemFont` | Arial           |
+| `monospace`, `ui-monospace`                                                       | Courier New     |
+| `cursive`                                                                         | Comic Sans MS   |
+| `fantasy`                                                                         | Impact          |
+
+Other generic families, such as `emoji` or `math`, stay as they are.
+
+### Text decoration
+
+- A value with the word `none` removes the underline, the strikethrough and the double strikethrough. Use `a: { textDecoration: 'none' }` to remove the underline of Word's `Hyperlink` style.
+- A value with `underline` gives a single underline. The export ignores the line style and the color.
+- A value with `line-through` gives a strikethrough. A value with both words gives both.
+- Any other value, such as `overline`, prints a warning.
+
+An `a` rule without `text-decoration` keeps the underline that the `Hyperlink` style already has. With computed styles, the `Hyperlink` style holds the link color and underline that the export read from the editor, so a custom link color does not add back an underline that the editor does not show. With `computedStyles: false`, the rule keeps the underline of Word's `Hyperlink` style.
+
+### Reading stylesheets
+
+With `readFromStylesheets: true`, the export reads `document.styleSheets` each time it runs. It keeps a rule only when its selector is `.tiptap`, a space and one supported selector. It then removes `.tiptap ` from the selector.
+
+| Rule                             | Read? | Why                                                                     |
+| -------------------------------- | ----- | ----------------------------------------------------------------------- |
+| `.tiptap h1 { ... }`             | Yes   | Becomes `h1`.                                                           |
+| `.tiptap ul li { ... }`          | Yes   | Becomes `ul li`.                                                        |
+| `.tiptap { h1 { ... } }`         | Yes   | A nested rule counts as `.tiptap h1`.                                   |
+| `.tiptap > p { ... }`            | No    | `> p` is not a supported selector.                                      |
+| `.tiptap p.note { ... }`         | No    | `p.note` is not a supported selector.                                   |
+| `.page .tiptap p { ... }`        | No    | The selector does not start with `.tiptap`.                             |
+| `.tiptap h1, .tiptap h2 { ... }` | No    | The export skips selector lists. Write one rule per selector.           |
+| `.tiptaps { ... }`               | No    | The scope must be followed by a space, so this is not `.tiptap s`.      |
+
+For the rules it keeps, the reader follows the browser:
+
+- It asks the browser for each of the 12 supported properties, so a shorthand such as `margin: 0 0 12px` counts for `margin-bottom`.
+- A later rule replaces earlier values of the same property. The reader does not compare selector specificity.
+- An `!important` value wins over values without it.
+- Rules outside a `@layer` win over layered rules, and a later layer wins over an earlier one. For `!important` values, the order is reversed, like in the browser.
+- It reads `@media` and `@supports` blocks whose condition matches the page, `@layer` blocks, imported stylesheets and nested rules.
+- It skips a stylesheet, an `@import` or a `@media` block whose media does not match the page, such as `print`.
+- It skips `@container` and `@scope` blocks, because whether they apply depends on the element.
+- It skips stylesheets that a script turned off with `disabled`, because the browser does not apply them.
+- It skips stylesheets from another origin without a warning, because the browser blocks their rules.
+- It replaces `var(--name)` with the value of that custom property on the first element of the page that matches `.tiptap`. Without a value, it uses the fallback, such as `blue` in `var(--brand, blue)`. A `var()` with neither stays as written, and the property prints a warning.
+- It uses the custom property of that first element, even when a rule changes the property on a child element, such as `.tiptap h1 { --brand: red }`.
+
+The reader keeps the other parts of each value as the browser writes them.
+
+### Warnings
+
+The export reports `cssStyles` problems with `console.warn`, not with `onWarning`, and still finishes:
+
+| Message                                                                                                  | Cause                                         |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `[css-styles] Unknown CSS selector "<selector>". Supported selectors: p, h1, ...`                        | A key that is not in the selector table.      |
+| `[css-styles] Unsupported CSS property "<property>" on selector "<selector>". Supported properties: ...` | A property that is not in the property table. |
+| `[css-styles] Could not convert CSS property "<property>: <value>" on selector "<selector>"`             | A value that the export can't convert.        |
 
 ## What won't work
 
@@ -114,51 +271,87 @@ When `extractFromDocument: true`, the exporter walks `document.styleSheets`, pic
 These are not bugs. They are explicit, documented boundaries of the feature. If your workflow depends on any of the items below, this feature is not the right tool.
 </Callout>
 
-- **Cross-origin stylesheets.** Browser security blocks `.cssRules` access on any stylesheet served from a different origin. `extractFromDocument` silently skips those sheets. If your theme lives on a CDN, pass the rules explicitly via `styles` instead.
-- **Pseudo-classes, pseudo-elements, media queries.** `a:hover`, `p::first-line`, `@media (min-width: …)`: none of these map to DOCX. They're dropped.
-- **CSS variables and `calc()`.** The compiler reads declared values, not computed values, so `var(--brand)` or `calc(100% - 2rem)` are not resolved. Resolve them before passing the styles in.
-- **Arbitrary selectors.** The 16-selector map is the whole menu. Descendants like `.prose p` or `article h1` resolve only if they match the map exactly *after scope stripping*; otherwise they're dropped.
-- **Cascade and specificity.** The compiler flattens each selector to a single property set. If you have conflicting rules for the same selector at different specificities, only the compiled result lands in DOCX. The cascade is not preserved.
-- **Computed-style inheritance.** The browser extractor reads `document.styleSheets` directly. It does not walk the DOM or compute inherited values. If a property is inherited in the browser but not declared on the target selector, it will not be exported.
+- Cross-origin stylesheets don't work. The browser blocks access to the rules of a stylesheet from another origin, so `readFromStylesheets` skips it without a warning. If your theme lives on a CDN, pass the rules in `styles` instead.
+- Pseudo-classes and pseudo-elements, such as `a:hover` and `p::first-line`, have no DOCX equivalent. The export drops them. It also skips `@container` and `@scope` blocks.
+- Other selectors don't work. The 16 selectors in the table are the whole map. With `readFromStylesheets`, `.prose p`, `.page .tiptap p` and `.tiptap > p` are dropped.
+- The export does not replace `var()` in the `styles` object. Only `readFromStylesheets` replaces `var()`.
+- Other `calc()` values, such as `calc(100% - 2rem)`, are not converted. Only the two simple forms in [Units](#units) work.
+- The reader does not compare specificity. After it removes the `.tiptap` scope, the order of the rules and `!important` decide. A rule that loses in the browser because of a lower specificity can still win in the DOCX.
+- The stylesheet reader does not read inherited values. It reads `document.styleSheets`, not the rendered elements. A property that an element inherits in the browser, but that no rule declares on its selector, is not exported by `cssStyles`. [Computed styles](/conversion/export/docx/computed-styles) read the rendered values.
+- `cssStyles` has no properties for borders, padding, indents or tables.
 
 ## What to expect
 
-- A DOCX file with a proper `styles.xml` that a Word user can edit centrally.
-- Exactly one DOCX style entry per matched selector with exactly the properties that mapped cleanly. Everything else is either merged from an explicit `styles` override or skipped with a `console.warn`.
-- Deterministic behaviour: given the same inputs (`styles` object and DOM stylesheets), exports are byte-comparable.
-- Safe server-side usage: if `document` is undefined (Node, SSR), `extractFromDocument` is a no-op. No errors thrown, nothing injected.
+- A DOCX file with a `styles.xml` that a Word user can edit centrally.
+- One Word style for each selector with at least one property the export can convert. A character style selector, such as `strong`, with only `margin-top`, `margin-bottom`, `line-height` or `text-align` gives an empty character style. `ul li` and `ol li` share one `ListParagraph` style.
+- The same `styles` and stylesheets give the same Word styles.
+- Safe server-side usage. Without `document`, for example in Node or during server-side rendering, `readFromStylesheets` reads nothing and throws no error. The `styles` object still applies.
 
 ## What not to expect
 
-- **Round-trip identity with the import side.** Some CSS → DOCX conversions are lossy (for example: `line-height: 1.5` → auto line rule, but re-importing that DOCX will emit the line-height back as a unitless multiplier, which may not equal `1.5` exactly if Word normalised the stored value).
-- **Inline-mark properties surviving a round trip.** Export accepts all 12 properties on every selector, including `strong`, `em`, `u`, `s`, `a`, `code`. The matching [CSS injection](/conversion/import/docx/css-injection) on import filters those inline-mark selectors down to their identity properties only (e.g. `strong` keeps `fontWeight`, `em` keeps `fontStyle`, `code` keeps `fontFamily`/`color`/`fontSize`/`backgroundColor`). Anything you set beyond those is dropped on re-import to avoid overriding parent block styles via specificity. To round-trip, e.g., a colour on `strong`, set it on the parent selector (`p`, `h1`) instead.
-- **Media-query-aware exports.** DOCX has no media queries. If your responsive CSS differs between mobile and desktop, you get whatever rule matched when you called `configure()` (usually desktop).
-- **Visual fidelity against the browser render.** DOCX's rendering engine (Word, LibreOffice, Google Docs) interprets styles differently from a browser. Expect small differences in line spacing, kerning, and paragraph spacing.
-- **Automatic theme translation.** Colours, fonts, and sizes map 1:1. Word "themes" (accent colours, font pairings) do not. If you want a Word theme, you have to set one up on the export options directly.
+- A round trip through the import may not give back the same CSS, because some conversions lose detail. For example, the export writes `line-height: 1.5` as an auto line rule. A DOCX import gives the line height back as a unitless multiplier, which may not equal `1.5` exactly if Word normalised the stored value.
+- Properties on inline marks don't all survive a round trip. On export, the character style selectors `a`, `code`, `strong`, `em`, `u` and `s` keep only text properties. The matching [CSS injection](/conversion/import/docx/css-injection) on import keeps fewer: `strong` keeps `fontWeight`, `em` keeps `fontStyle`, and `code` keeps `fontFamily`, `color`, `fontSize` and `backgroundColor`. The import drops the others, so they don't override the block styles around them. To round-trip a color on bold text, set it on the parent selector, such as `p` or `h1`.
+- A responsive rule for another screen size does not reach the file. The export reads the `@media` rules that match the page when the export runs, and DOCX has no media queries.
+- The file does not look exactly like the browser render. Word, LibreOffice and Google Docs interpret styles differently from a browser. Expect small differences in line spacing, kerning and paragraph spacing.
+- The export does not create a Word theme with accent colors or font pairings. It writes colors, fonts and sizes into each style.
 
 ## Configuration reference
 
 ```ts
-ExportDocx.configure({
-  cssStyles: {
-    // Either: explicit object of selectors → CSS declarations
-    styles?: {
-      p?: { fontSize?: string; color?: string; /* … */ },
-      h1?: { /* … */ },
-      // …any of the 16 selectors
-    },
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import type { CssRulesOptions } from '@tiptap-pro/extension-export-docx'
 
-    // Or: extract from the browser's live stylesheets
-    extractFromDocument?: boolean,  // default: false
-
-    // Base size for resolving rem / em
-    baseFontSize?: number,  // default: 16
+const cssStyles: CssRulesOptions = {
+  // CSS properties for each of the 16 selectors. Each value is a string.
+  styles: {
+    p: { fontSize: '16px', color: '#333333' },
+    h1: { 'font-size': '2rem' },
   },
+
+  // Read the .tiptap rules from the stylesheets of the page
+  readFromStylesheets: false, // default: false
+
+  // The pixel size for rem, and for em in font sizes
+  baseFontSize: 16, // default: 16
+}
+
+ExportDocx.configure({ cssStyles })
+```
+
+The package exports the types `CssRulesOptions` for the option, `CssRules` for the `styles` object, `CssProperties` for the properties of one selector and `SupportedSelector` for the 16 selectors.
+
+### Use the rules without exporting
+
+The package exports two functions that work with the same rules:
+
+```ts
+import {
+  createDocxStylesFromRules,
+  readTiptapStylesheetRules,
+} from '@tiptap-pro/extension-export-docx'
+
+// The supported .tiptap rules of the page, with hyphenated property names
+const rules = readTiptapStylesheetRules()
+// For example rules.h1 holds the 'color' and 'font-size' of `.tiptap h1`
+
+// The Word styles that cssStyles creates, without exporting
+const docxStyles = createDocxStylesFromRules({ styles: { h1: { color: 'red' } } })
+// { paragraphStyles: [{ id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', quickFormat: true, run: { color: 'FF0000' } }] }
+```
+
+`readTiptapStylesheetRules` returns `{}` outside a browser. `createDocxStylesFromRules` prints the same console warnings as `cssStyles`.
+
+The `cssStyles` option always reads the `.tiptap` scope. To read another scope, read the rules yourself and pass them as `styles`:
+
+```ts
+editor.commands.exportDocx({
+  cssStyles: { styles: readTiptapStylesheetRules({ scope: '.sidebar-editor' }) },
 })
 ```
 
 ## Related
 
+- [Computed styles](/conversion/export/docx/computed-styles): the styles that the export reads from the editor.
 - [CSS injection (import)](/conversion/import/docx/css-injection): the reverse direction.
-- [Export styles](/conversion/export/docx/styles): the original DOCX export styles guide (manual style definitions, not CSS-based).
+- [Export styles](/conversion/export/docx/styles): `styleOverrides` and element overrides.
 - [REST API](/conversion/export/docx/rest-api): the DOCX export endpoint.
