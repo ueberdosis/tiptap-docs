@@ -89,4 +89,3 @@
 - Added Hocuspocus links to footer
 - Added missing extension pages
 - Added changesets for versioning & changelog generation
-

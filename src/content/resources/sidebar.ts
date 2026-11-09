@@ -9,10 +9,7 @@ function isSidebarItem(value: unknown): value is { href: string; title: string }
 
   const item = value as Record<string, unknown>
 
-  return (
-    typeof item.href === 'string' &&
-    typeof item.title === 'string'
-  )
+  return typeof item.href === 'string' && typeof item.title === 'string'
 }
 
 function loadChangelogSidebarItems(): Array<{ href: string; title: string }> {

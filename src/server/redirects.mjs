@@ -61,13 +61,34 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/editor/extensions/nodes/index',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
     source: '/editor/extensions/marks',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/marks/index',
     destination: '/editor/extensions/overview',
     permanent: true,
   },
   {
     source: '/editor/extensions/functionality',
     destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  {
+    source: '/editor/extensions/functionality/index',
+    destination: '/editor/extensions/overview',
+    permanent: true,
+  },
+  // The Diagrams live demo moved onto the overview
+  {
+    source: '/diagrams/getting-started/live-demo',
+    destination: '/diagrams/getting-started/overview',
     permanent: true,
   },
   {

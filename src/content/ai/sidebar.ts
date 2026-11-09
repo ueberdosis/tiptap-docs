@@ -9,7 +9,7 @@ export const sidebarConfig: SidebarConfig = {
       href: '/ai/ai-toolkit/getting-started/overview',
       title: 'AI Toolkit',
       type: 'group',
-      tags: ['Add-on'],
+      tags: ['Add-on', 'Beta'],
       children: [
         {
           title: 'Overview',

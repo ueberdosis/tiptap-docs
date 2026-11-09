@@ -164,6 +164,7 @@ export default async function MarkdownPage({ params }: Props) {
               ) : undefined
             }
             isLarge
+            height={headerDemo.height}
             view="preview"
           />
         </div>

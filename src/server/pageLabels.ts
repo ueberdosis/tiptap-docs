@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { readFrontmatterSync } from './readFrontmatter'
-import { Plan, planFromTags } from '@/content/plans'
+import { Plan, Status, planFromTags, statusFromTags } from '@/content/plans'
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
 
@@ -11,10 +11,10 @@ function fileForRoute(route: string): string | undefined {
   return [`${base}.mdx`, path.join(base, 'index.mdx')].find((file) => fs.existsSync(file))
 }
 
-/** The plan a page's own frontmatter tags name, if it names one. */
-export function pagePlan(route: string): Plan | undefined {
+/** The plan and status a page's own frontmatter tags name, if they name them. */
+export function pageLabels(route: string): { plan?: Plan; status?: Status } {
   const file = fileForRoute(route)
-  if (!file) return undefined
-  const tags = readFrontmatterSync(file).tags ?? []
-  return planFromTags(tags.map((tag) => tag.type))
+  if (!file) return {}
+  const types = (readFrontmatterSync(file).tags ?? []).map((tag) => tag.type)
+  return { plan: planFromTags(types), status: statusFromTags(types) }
 }

@@ -19,7 +19,7 @@ import { CATALOG_GROUPS, CatalogArea, catalogGroupUrl } from '@/content/catalog'
 import { planFromLabel } from '@/content/plans'
 import { getCatalog } from '@/server/getCatalog'
 import { legacyFeature } from '@/content/legacy'
-import { pagePlan } from '@/server/pagePlan'
+import { pageLabels } from '@/server/pageLabels'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 
@@ -87,20 +87,32 @@ function catalogTags(entry: { plan?: string; status?: string }): string[] | unde
   return tags.length ? tags : undefined
 }
 
-/** A feature's plan as a sidebar tag, from the frontmatter of its overview page. */
+/**
+ * A feature's plan and status as sidebar tags, from the frontmatter of its overview
+ * page, so the feature's pages inherit both. The sidebar itself shows no Alpha or Beta.
+ */
+function featureTags(overview: string): string[] | undefined {
+  const { plan, status } = pageLabels(overview)
+  const tags: string[] = []
+  if (plan && plan !== 'Open source') tags.push(plan)
+  if (status) tags.push(status)
+  return tags.length ? tags : undefined
+}
+
+/** Only a feature's plan, for its legacy pages: they don't take on its Alpha or Beta. */
 function planTags(overview: string): string[] | undefined {
-  const plan = pagePlan(overview)
+  const { plan } = pageLabels(overview)
   return plan && plan !== 'Open source' ? [plan] : undefined
 }
 
-/** A section as one feature entry, tagged with its plan. */
+/** A section as one feature entry, tagged with its plan and status. */
 function feature(
   title: string,
   config: SidebarConfig,
   overview: string,
   options: Parameters<typeof section>[2] = {},
 ): SidebarEntry {
-  return section(title, config, { ...options, tags: planTags(overview) })
+  return section(title, config, { ...options, tags: featureTags(overview) })
 }
 
 const isPaidPlan = (tag: string) => {
@@ -230,7 +242,7 @@ const items: SidebarGroup[] = [
       {
         ...link(editorSidebar, ['Whiteboard']),
         href: '',
-        tags: planTags('/editor/whiteboard/getting-started/overview'),
+        tags: featureTags('/editor/whiteboard/getting-started/overview'),
         // The AI agent guide has its place in the AI Toolkit
         children: childrenOf(editorSidebar, ['Whiteboard']).filter(
           (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
