@@ -1,0 +1,91 @@
+---
+title: Review an import before it applies
+intro: 'Pass <code>onImport</code> to the <code>importDocx</code> command to read or change an imported Word file before the editor shows it. This page builds on <a href="/docs/conversion/v3/docx/import">Import DOCX</a>, which sets up the editor.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Review an import before it applies | Tiptap Conversion
+  description: Read or change an imported .docx file in onImport before the editor shows it, write it with setEditorContent, and read its comment threads.
+  category: Conversion
+---
+
+## Change the document before the editor gets it
+
+`onImport` receives a context, and `context.content` holds the whole Word file as one JSON document, with the headers, footers and notes inside. Once you pass `onImport`, the import writes nothing until you call `context.setEditorContent()`.
+
+In this example, `editor` is an editor set up as in [Import DOCX](/conversion/v3/docx/import), and `file` is the `.docx` file the user picked. `context.error` is set when the import failed, so check it first:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    console.log(context.warnings)
+    context.setEditorContent()
+  },
+})
+```
+
+Without an argument, `setEditorContent()` writes `context.content` as the Conversion service returned it. Pass it a document to write your own version instead, such as one you changed or checked against your application's rules.
+
+Write the import with `setEditorContent()`, not with the `setContent` command. `setEditorContent()` fits the document to the editor's schema, writes into Page Layout when the editor has it, keeps tracked changes from recording the import, and applies the CSS styles. `setContent` alone does none of that.
+
+[Where the document goes](/conversion/v3/docx/import#where-the-document-goes) shows where it writes.
+
+## The onImport context
+
+`onImport` receives an `ImportContext`. Check `error` first: it is `null` when the import worked, and only then does the context have the other fields.
+
+When the import fails and you set `onError`, only `onError` runs. Without `onError`, `onImport` receives `{ content: null, error }`, with no other field.
+
+On success, the context has these fields:
+
+| Field              | Type                              | What it holds                                                                                                                                                                                             |
+| ------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`          | `JSONContent`                     | The document as the Conversion service returned it. It is a Page Layout document, so sections, headers, footers, page numbers, breaks and notes are inside it.                                            |
+| `error`            | `null`                            | Always `null` on success.                                                                                                                                                                                 |
+| `setEditorContent` | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when a newer import has started, or when Page Layout's engine, the part that lays out the pages, was destroyed before the write. |
+| `logs`             | `ImportLogs`                      | The entries the Conversion service logged, in `warn` and `error`, each an object with a `message`. `info` is always empty, and stays for code written for older versions.                                 |
+| `cssStyles`        | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on. See [Word styles as CSS](/conversion/v3/docx/import/word-styles).                                                                     |
+| `commentThreads`   | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments. See [Comment threads](#comment-threads).                                                                                                        |
+| `warnings`         | `ImportDocxWarning[]`             | The warnings the Conversion service sent. They reach `onWarning` before `onImport` runs.                                                                                                                  |
+
+For what the headers, footers, notes and comments look like in `content`, see [Word files with Page Layout](/conversion/v3/docx/page-layout), [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) and [Tracked changes and comments](/conversion/v3/docx/tracked-changes-and-comments).
+
+## Comment threads
+
+`commentThreads` holds the Word comments of the file as threads, each with its replies, and is empty when the file has no comments. A thread's `id` matches the `data-thread-id` of the text it marks in `content`.
+
+Whether the editor shows the threads depends on where they are. The Comments extension shows the threads it finds on the Document Server, the Tiptap server that stores collaborative documents:
+
+- **With [live threads](/conversion/v3/docx/tracked-changes-and-comments#live-threads)**, the import creates the threads on the Document Server, so the Comments extension shows them, and the IDs are the Document Server's. It does this when the editor has a collaboration provider and your Conversion token allows `Documents:Write` for that document.
+- **Without live threads**, the IDs come from the `.docx` file, and `commentThreads` is the only copy of the threads. Store it with the document, for a comments UI of your own or for a later export, as [Import comments](/conversion/v3/docx/tracked-changes-and-comments#import-comments) shows.
+
+Each `ImportedCommentThread` has these fields:
+
+| Field       | Type                       | What it holds                                              |
+| ----------- | -------------------------- | ---------------------------------------------------------- |
+| `id`        | `string`                   | The thread ID. It matches `data-thread-id` in the content. |
+| `durableId` | `string`                   | The durable ID from the file, when it has one.             |
+| `resolved`  | `boolean`                  | Whether the thread is resolved.                            |
+| `messages`  | `ImportedCommentMessage[]` | The root comment first, then the replies by date.          |
+
+Each `ImportedCommentMessage` has these fields:
+
+| Field  | Type          | What it holds                                                         |
+| ------ | ------------- | --------------------------------------------------------------------- |
+| `wId`  | `string`      | The ID of the comment in the `.docx` file.                            |
+| `id`   | `string`      | The ID of the comment on the Document Server, only with live threads. |
+| `body` | `JSONContent` | The message as Tiptap JSON.                                           |
+| `data` | `object`      | Who wrote the message, and when.                                      |
+
+`data` has these fields, all strings. Only `author` is always set, and the others are set when the file has them:
+
+| Field                  | What it holds                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `author`               | The reviewer's name, as Word shows it.                                                                                 |
+| `initials`             | The reviewer's initials.                                                                                               |
+| `providerId`, `userId` | The account Word knew the reviewer by: `providerId` names the account system, and `userId` is the reviewer's ID in it. |
+| `dateIso`              | The date Word saved with the comment, in the reviewer's local time.                                                    |
+| `dateUtc`              | The same date in UTC, so prefer it when it is set.                                                                     |

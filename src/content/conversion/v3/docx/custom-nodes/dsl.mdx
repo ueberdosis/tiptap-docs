@@ -5,7 +5,7 @@ tags:
   - type: restricted
 meta:
   title: Custom node DSL | Tiptap Conversion
-  description: Look up the functions that build customNodeDsl rules for Export DOCX, with their arguments, their builders and the properties of each Word element.
+  description: Look up the functions that build customNodeDsl rules for Export DOCX, and the marks, value expressions, element properties and limits of those rules.
   category: Conversion
 ---
 
@@ -105,13 +105,29 @@ const noticeRule = docxNode('notice')
 
 `switch_()` picks by a string instead. `on` must be a string, so give its `ref()` a `default`: `switch_({ on: ref('node.attrs.variant', { default: 'info' }), cases: { warning: ..., info: ... } })`.
 
+## Marks
+
+Marks, such as bold or a link, come from the text inside the custom node. A custom node that sits inside text carries marks of its own too, such as `bold` in bold text. These settings say which marks the written text gets:
+
+| Setting                                           | Values                                                                                                                            | Default                             |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `marks` on inline `$children`, `childrenInline()` | `'default'`: each piece of text keeps its own marks. `'none'`: no marks. `'node'`: the custom node's marks instead. Or an object. | `'default'`                         |
+| `marks` on `$text`, `textOp()`                    | `'default'`: the custom node's marks. `'none'`: no marks.                                                                         | `'default'`                         |
+| `applyMarks` on `TextRun` and `ExternalHyperlink` | `'node'`, or an object with `mode: 'node'`: the custom node's marks.                                                              | the custom node's marks are ignored |
+
+So `'default'` means the marks of the text for `$children`, and the marks of the custom node for `$text`, which writes a value and has no text of its own.
+
+Export writes the formatting of `bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `highlight` and `link`, and of `textStyle`, which holds text color and font. Other marks, such as a `strong` mark you renamed on import, add no formatting.
+
+An object in place of `'default'`, `'none'` or `'node'` leaves out some marks or changes their formatting, such as red text instead of bold. [Mark policies](#mark-policies) shows it in the builder and in JSON.
+
 ## Mark policies
 
-A mark policy object says which marks the text gets, and how they look. `marks(mode: 'default' | 'node')` builds one and returns a `MarkPolicyBuilder`, which you pass to `childrenInline({ marks })` or `applyMarks()`. [Marks](/conversion/v3/docx/custom-nodes#marks) explains the modes.
+A mark policy object says which marks the text gets, and how they look. `marks(mode: 'default' | 'node')` builds one and returns a `MarkPolicyBuilder`, which you pass to `childrenInline({ marks })` or `applyMarks()`. [Marks](#marks) explains the modes.
 
 The object starts from its `mode`, and two methods change it. Calling a method again adds to what earlier calls set, instead of replacing it:
 
-- `disable(...marks: MarkType[])` leaves marks out. A `MarkType` is one of the marks that [Marks](/conversion/v3/docx/custom-nodes#marks) says export formats.
+- `disable(...marks: MarkType[])` leaves marks out. A `MarkType` is one of the marks that [Marks](#marks) says export formats.
 - `overrides(overrides: { [mark]: { props, replace? } })` adds `TextRun` properties, in `props`, to text that has the mark. With `replace: true`, only these `props` apply, not the mark's own formatting.
 
 Here, bold text in a `pullQuote` turns red instead of bold, and highlights are left out:
@@ -135,9 +151,43 @@ const pullQuoteRule = docxNode('pullQuote')
 
 As JSON, this policy is `{ mode: 'default', disable: ['highlight'], overrides: { bold: { props: { color: 'C00000' }, replace: true } } }`.
 
+## Value expressions
+
+A property takes a fixed value, such as `'C00000'`, or an expression that the Conversion service works out from the node, such as the value of an attribute. An array or object value can hold expressions too.
+
+Numbers are in Word's units: half-points for a font size, so `24` is 12 pt, and twips, 1/20 of a point, for spacing and indents. [Properties](#properties) gives the unit of each property.
+
+These are the expressions, in JSON and in the builder:
+
+| JSON                                   | Builder                               | Result                                                                                                                 |
+| -------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `{ $ref: path, default?, transform? }` | `ref(path, { default, transform })`   | A value from the node. A number stays a number, unlike in a `$template`. `default` replaces a missing or `null` value. |
+| `{ $template: text }`                  | `template(text)`                      | A string with `{path}` slots, such as `'@{node.attrs.label}'`. `{{` and `}}` write a brace.                            |
+| `{ $op: name, args: [...] }`           | `op(name, ...args)`                   | A value computed from `args`, such as a sum or a comparison.                                                           |
+| `{ $unit: name, value }`               | `unit(name, value)`                   | A measurement or color converted for Word, such as centimeters to twips.                                               |
+| `{ $switch: { on, cases, default? } }` | `switchValue({ on, cases, default })` | The value in `cases` whose key equals `on`, otherwise `default` or `null`. An `on` that isn't a string fails.          |
+
+A path is usually `node.attrs.<key>`, one attribute, or `node.textContent`, all the text inside the node. A key can go deeper into an object attribute, such as `node.attrs.style.color`.
+
+`node.type` is the name of the node type, and `node.attrs` all its attributes as an object. Array indexes, wildcards, JavaScript, `node.content` and `node.marks` don't work in a path.
+
+A `transform`, such as `hexNoHash`, changes the value of a `$ref` or its `default`. [Value factories](#value-factories) lists the transforms, the operations of `$op` and the units of `$unit`.
+
+Most numeric properties take whole numbers only, and nothing rounds a number. A pixel is 0.75 pt, so `pixelsToHalfPoints` of `15` gives a font size of `22.5`, which fails with `DOCX_DSL_INVALID_PROP`. With `pixelsToHalfPoints`, only an even number of pixels gives a whole number.
+
+To set a font size from an attribute, store it in whole points and double it with `pointsToHalfPoints`. The `parseIntStrict` transform reads the whole number at the start of a string, so an attribute such as `'12pt'` gives `12`:
+
+```ts
+import { ref, textRun, unit } from '@tiptap-pro/extension-export-docx/dsl'
+
+textRun({
+  size: unit('pointsToHalfPoints', ref('node.attrs.fontSize', { transform: 'parseIntStrict' })),
+})
+```
+
 ## Value factories
 
-These functions return value expressions, which the Conversion service works out from the node. They return JSON, not builders, so their result goes anywhere a value goes, such as a property or the `test` of `iff()`. [Value expressions](/conversion/v3/docx/custom-nodes#value-expressions) explains paths and the units of numbers.
+These functions return value expressions, which the Conversion service works out from the node. They return JSON, not builders, so their result goes anywhere a value goes, such as a property or the `test` of `iff()`. [Value expressions](#value-expressions) explains paths and the units of numbers.
 
 | Function                                                                                          | Writes      | Returns           |
 | ------------------------------------------------------------------------------------------------- | ----------- | ----------------- |
@@ -186,7 +236,29 @@ TypeScript checks which children each element takes, that `externalHyperlink()` 
 - `toJSON()` on a rule before `emit()`, `emitNothing()` or `drop()`.
 - `applyMarks()` with `marks('default')`, because `applyMarks()` takes the custom node's own marks.
 
-The Conversion service checks everything else when it builds the file, such as paths, arguments, where each element and operation sits, and the limits. [Validation and limits](/conversion/v3/docx/custom-nodes#validation-and-limits) says what happens when a check fails.
+The Conversion service checks everything else when it builds the file, such as paths, arguments, where each element and operation sits, and the limits. [Validation and limits](#validation-and-limits) says what happens when a check fails.
+
+## Validation and limits
+
+The Conversion service checks the rules before it builds the file, and again while it writes each node. It also limits their size. Only on your own server, as [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint) explains, an environment variable with a positive whole number changes a limit:
+
+| Limit                                                    | Default | Environment variable               |
+| -------------------------------------------------------- | ------- | ---------------------------------- |
+| Rules in `customNodeDsl`                                 | 128     | `DOCX_DSL_MAX_RULES`               |
+| Nesting depth of the elements and operations in one rule | 32      | `DOCX_DSL_MAX_DEPTH`               |
+| Elements and operations in one rule                      | 1,024   | `DOCX_DSL_MAX_NODES`               |
+| Depth of one value expression                            | 16      | `DOCX_DSL_MAX_VALUE_DEPTH`         |
+| Characters in a string                                   | 10,000  | `DOCX_DSL_MAX_STRING_LEN`          |
+| Characters in the result of a `$template`                | 2,000   | `DOCX_DSL_MAX_TEMPLATE_LEN`        |
+| Arguments of one `$op`                                   | 32      | `DOCX_DSL_MAX_OP_ARGS`             |
+| Rows of one table                                        | 1,024   | `DOCX_DSL_MAX_TABLE_ROWS`          |
+| Cells of one table row                                   | 64      | `DOCX_DSL_MAX_TABLE_CELLS_PER_ROW` |
+
+Rules over a limit fail with `DOCX_DSL_RESOURCE_LIMIT`.
+
+When the Conversion service refuses the rules, no file arrives, and `onError` receives an `ExportDocxRequestError`. Its `status` is `400` for a rule that fails the check before the export starts, and `422` for one that fails while a node is written. Its `code` starts with `DOCX_DSL_`, and its `message` names the field that failed.
+
+The error doesn't say which rule failed, but the JSON response does, in `dslPath`. [Find the failing rule](/conversion/v3/reference/errors#find-the-failing-rule) shows where to read it. A server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx) gets this response itself.
 
 ## Builders
 

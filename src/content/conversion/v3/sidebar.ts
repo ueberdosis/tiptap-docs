@@ -21,6 +21,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Migrate from Conversion v2',
           href: '/conversion/v3/getting-started/migrate-from-v2',
+          children: [
+            {
+              title: 'Export',
+              href: '/conversion/v3/getting-started/migrate-from-v2/export',
+            },
+            {
+              title: 'Import',
+              href: '/conversion/v3/getting-started/migrate-from-v2/import',
+            },
+          ],
         },
       ],
     },
@@ -32,6 +42,20 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Import DOCX',
           href: '/conversion/v3/docx/import',
+          children: [
+            {
+              title: 'Review an import before it applies',
+              href: '/conversion/v3/docx/import/review',
+            },
+            {
+              title: 'Images in imported files',
+              href: '/conversion/v3/docx/import/images',
+            },
+            {
+              title: 'Word styles as CSS',
+              href: '/conversion/v3/docx/import/word-styles',
+            },
+          ],
         },
         {
           title: 'Export DOCX',
@@ -50,8 +74,12 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/v3/docx/elements/text-formatting',
             },
             {
-              title: 'Paragraphs and styles',
+              title: 'Paragraphs and alignment',
               href: '/conversion/v3/docx/elements/paragraphs',
+            },
+            {
+              title: 'Headings and Word styles',
+              href: '/conversion/v3/docx/elements/headings-and-styles',
             },
             {
               title: 'Lists and task lists',
@@ -78,6 +106,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Word files with Page Layout',
           href: '/conversion/v3/docx/page-layout',
+          children: [
+            {
+              title: 'Sections and page setup',
+              href: '/conversion/v3/docx/page-layout/sections',
+            },
+            {
+              title: 'Headers and footers',
+              href: '/conversion/v3/docx/page-layout/headers-and-footers',
+            },
+          ],
         },
         {
           title: 'Tracked changes and comments',
@@ -87,6 +125,10 @@ export const sidebarConfig: SidebarConfig = {
           title: 'Custom nodes in Word files',
           href: '/conversion/v3/docx/custom-nodes',
           children: [
+            {
+              title: 'Custom nodes on import',
+              href: '/conversion/v3/docx/custom-nodes/import',
+            },
             {
               title: 'Custom node DSL',
               href: '/conversion/v3/docx/custom-nodes/dsl',
@@ -143,8 +185,12 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/reference/commands',
         },
         {
-          title: 'Warnings and errors',
-          href: '/conversion/v3/reference/warnings-and-errors',
+          title: 'Warnings',
+          href: '/conversion/v3/reference/warnings',
+        },
+        {
+          title: 'Errors',
+          href: '/conversion/v3/reference/errors',
         },
         {
           title: 'Limitations',

@@ -5,13 +5,13 @@ tags:
   - type: restricted
 meta:
   title: Custom nodes in Word files | Tiptap Conversion
-  description: Write your own node types to a Word file with custom node rules, and give imported nodes and marks the names your schema uses.
+  description: Write your own node types to a Word file with custom node rules, as paragraphs, text or tables, or leave them out with their content.
   category: Conversion
 ---
 
 A custom node is a node type your application adds, such as a callout or a mention. Export DOCX leaves it out of the Word file, with its content, unless a custom node rule says what to write instead, such as a paragraph or a table.
 
-On import, Import DOCX creates nodes and marks with fixed names, such as `paragraph` and `bold`, and two options give them the names your schema uses.
+To give imported nodes and marks the names your schema uses, see [Custom nodes on import](/conversion/v3/docx/custom-nodes/import).
 
 ## Export a custom node
 
@@ -55,7 +55,7 @@ The calls in the rule do this:
 - `ref()` reads a value from the node, here the attribute `message` in `node.attrs`.
 - `toJSON()` returns the rule as JSON. It doesn't start an export.
 
-`dslVersion` must be `'1.0'`. [Custom node DSL](/conversion/v3/docx/custom-nodes/dsl) lists every function.
+`dslVersion` must be `'1.0'`. [Custom node DSL](/conversion/v3/docx/custom-nodes/dsl) lists every function, and says which marks the written text gets, how values are read from the node and how the rules are checked.
 
 Add `exportExtension` to the `extensions` array of the editor, next to the extension that defines `notice`. Then call `editor.commands.exportDocx()`, as [Export DOCX](/conversion/v3/docx/export#export-the-document) shows, and the file arrives in `onCompleteExport`. `exportDocx({ customNodeDsl })` replaces the configured rules for one export.
 
@@ -150,7 +150,7 @@ const customNodeDsl: CustomNodeDsl = {
 
 Each rule has a `type`, an optional `nodeKind`, and a `render` that holds `emit` or is `null`. `nodes` holds one rule per node type.
 
-These mistakes fail the export with status `400` and an error code, as [Validation and limits](#validation-and-limits) explains:
+These mistakes fail the export with status `400` and an error code, as [Validation and limits](/conversion/v3/docx/custom-nodes/dsl#validation-and-limits) explains:
 
 - A `dslVersion` other than `'1.0'` fails with `DOCX_DSL_UNKNOWN_VERSION`.
 - A second rule for the same type fails with `DOCX_DSL_DUPLICATE_NODE_TYPE`.
@@ -204,148 +204,10 @@ Every way of writing nothing for a node also leaves out the content inside it. T
 
 The builder's `emit()` doesn't take the children builders, so they go into `fragment()` as JSON.
 
-## Marks
-
-Marks, such as bold or a link, come from the text inside the custom node. A custom node that sits inside text carries marks of its own too, such as `bold` in bold text. These settings say which marks the written text gets:
-
-| Setting                                           | Values                                                                                                                            | Default                             |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `marks` on inline `$children`, `childrenInline()` | `'default'`: each piece of text keeps its own marks. `'none'`: no marks. `'node'`: the custom node's marks instead. Or an object. | `'default'`                         |
-| `marks` on `$text`, `textOp()`                    | `'default'`: the custom node's marks. `'none'`: no marks.                                                                         | `'default'`                         |
-| `applyMarks` on `TextRun` and `ExternalHyperlink` | `'node'`, or an object with `mode: 'node'`: the custom node's marks.                                                              | the custom node's marks are ignored |
-
-So `'default'` means the marks of the text for `$children`, and the marks of the custom node for `$text`, which writes a value and has no text of its own.
-
-Export writes the formatting of `bold`, `italic`, `underline`, `strike`, `code`, `subscript`, `superscript`, `highlight` and `link`, and of `textStyle`, which holds text color and font. Other marks, such as a `strong` mark you renamed on import, add no formatting.
-
-An object in place of `'default'`, `'none'` or `'node'` leaves out some marks or changes their formatting, such as red text instead of bold. [Mark policies](/conversion/v3/docx/custom-nodes/dsl#mark-policies) shows it in the builder and in JSON.
-
-## Value expressions
-
-A property takes a fixed value, such as `'C00000'`, or an expression that the Conversion service works out from the node, such as the value of an attribute. An array or object value can hold expressions too.
-
-Numbers are in Word's units: half-points for a font size, so `24` is 12 pt, and twips, 1/20 of a point, for spacing and indents. [Properties](/conversion/v3/docx/custom-nodes/dsl#properties) gives the unit of each property.
-
-These are the expressions, in JSON and in the builder:
-
-| JSON                                   | Builder                               | Result                                                                                                                 |
-| -------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `{ $ref: path, default?, transform? }` | `ref(path, { default, transform })`   | A value from the node. A number stays a number, unlike in a `$template`. `default` replaces a missing or `null` value. |
-| `{ $template: text }`                  | `template(text)`                      | A string with `{path}` slots, such as `'@{node.attrs.label}'`. `{{` and `}}` write a brace.                            |
-| `{ $op: name, args: [...] }`           | `op(name, ...args)`                   | A value computed from `args`, such as a sum or a comparison.                                                           |
-| `{ $unit: name, value }`               | `unit(name, value)`                   | A measurement or color converted for Word, such as centimeters to twips.                                               |
-| `{ $switch: { on, cases, default? } }` | `switchValue({ on, cases, default })` | The value in `cases` whose key equals `on`, otherwise `default` or `null`. An `on` that isn't a string fails.          |
-
-A path is usually `node.attrs.<key>`, one attribute, or `node.textContent`, all the text inside the node. A key can go deeper into an object attribute, such as `node.attrs.style.color`.
-
-`node.type` is the name of the node type, and `node.attrs` all its attributes as an object. Array indexes, wildcards, JavaScript, `node.content` and `node.marks` don't work in a path.
-
-A `transform`, such as `hexNoHash`, changes the value of a `$ref` or its `default`. [Value factories](/conversion/v3/docx/custom-nodes/dsl#value-factories) lists the transforms, the operations of `$op` and the units of `$unit`.
-
-Most numeric properties take whole numbers only, and nothing rounds a number. A pixel is 0.75 pt, so `pixelsToHalfPoints` of `15` gives a font size of `22.5`, which fails with `DOCX_DSL_INVALID_PROP`. With `pixelsToHalfPoints`, only an even number of pixels gives a whole number.
-
-To set a font size from an attribute, store it in whole points and double it with `pointsToHalfPoints`. The `parseIntStrict` transform reads the whole number at the start of a string, so an attribute such as `'12pt'` gives `12`:
-
-```ts
-import { ref, textRun, unit } from '@tiptap-pro/extension-export-docx/dsl'
-
-textRun({
-  size: unit('pointsToHalfPoints', ref('node.attrs.fontSize', { transform: 'parseIntStrict' })),
-})
-```
-
 ## Nodes without a rule
 
-When a node type has no rule and export can't convert it, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists every warning.
+When a node type has no rule and export can't convert it, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Warnings](/conversion/v3/reference/warnings) lists every warning.
 
 Export has no converter for the `crossReference` node of `@tiptap-pro/extension-cross-references` or the `bookmarkPoint` node of `@tiptap-pro/extension-bookmark`, so a rule can write them. The rules have no element for a Word field or bookmark, so a rule writes a cross-reference as fixed text that Word doesn't update.
 
 Rules apply only to nodes, so the `bookmark` mark stays left out. [Links and bookmarks](/conversion/v3/docx/elements/links-and-bookmarks) says what export writes for links and bookmarks.
-
-## Validation and limits
-
-The Conversion service checks the rules before it builds the file, and again while it writes each node. It also limits their size. Only on your own server, as [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint) explains, an environment variable with a positive whole number changes a limit:
-
-| Limit                                                    | Default | Environment variable               |
-| -------------------------------------------------------- | ------- | ---------------------------------- |
-| Rules in `customNodeDsl`                                 | 128     | `DOCX_DSL_MAX_RULES`               |
-| Nesting depth of the elements and operations in one rule | 32      | `DOCX_DSL_MAX_DEPTH`               |
-| Elements and operations in one rule                      | 1,024   | `DOCX_DSL_MAX_NODES`               |
-| Depth of one value expression                            | 16      | `DOCX_DSL_MAX_VALUE_DEPTH`         |
-| Characters in a string                                   | 10,000  | `DOCX_DSL_MAX_STRING_LEN`          |
-| Characters in the result of a `$template`                | 2,000   | `DOCX_DSL_MAX_TEMPLATE_LEN`        |
-| Arguments of one `$op`                                   | 32      | `DOCX_DSL_MAX_OP_ARGS`             |
-| Rows of one table                                        | 1,024   | `DOCX_DSL_MAX_TABLE_ROWS`          |
-| Cells of one table row                                   | 64      | `DOCX_DSL_MAX_TABLE_CELLS_PER_ROW` |
-
-Rules over a limit fail with `DOCX_DSL_RESOURCE_LIMIT`.
-
-When the Conversion service refuses the rules, no file arrives, and `onError` receives an `ExportDocxRequestError`. Its `status` is `400` for a rule that fails the check before the export starts, and `422` for one that fails while a node is written. Its `code` starts with `DOCX_DSL_`, and its `message` names the field that failed.
-
-The error doesn't say which rule failed, but the JSON response does, in `dslPath`. [Find the failing rule](/conversion/v3/reference/warnings-and-errors#find-the-failing-rule) shows where to read it. A server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx) gets this response itself.
-
-## Rename a node or a mark
-
-If your schema names a node or mark differently from import, such as `strong` for `bold`, map the names with the `prosemirrorNodes` and `prosemirrorMarks` options of `ImportDocx`.
-
-Export DOCX knows only the default names. So a renamed mark exports without its formatting, and a renamed node needs a [rule](#export-a-custom-node).
-
-Each option is an object. The key is the name import uses, and the value is the name in your schema. In this example, `CONVERSION_TOKEN` stands for your Conversion token:
-
-```ts
-import { ImportDocx } from '@tiptap-pro/extension-import-docx'
-
-ImportDocx.configure({
-  token: CONVERSION_TOKEN,
-  prosemirrorNodes: { blockquote: 'quote' },
-  prosemirrorMarks: { bold: 'strong' },
-})
-```
-
-With this setup, a paragraph in Word's Quote style becomes a `quote` node and bold text gets a `strong` mark. Your schema needs the node and the mark you name. A name your schema doesn't have is kept as preserved content, with a `preserved` warning, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
-
-### Node keys
-
-The keys of `prosemirrorNodes` are the default node names:
-
-- Blocks and breaks: `heading`, `blockquote`, `horizontalRule`, `hardBreak`.
-- Lists: `bulletList`, `orderedList`, `listItem`, `taskList`, `taskItem`.
-- Tables: `table`, `tableRow`, `tableCell`, `tableHeader`.
-- Other content: `image`.
-- Comments: `blockThread`.
-
-Import creates no code blocks, so `codeBlock` is not a node key: like any key not in this list, it names a [Word style](#map-a-word-style-to-a-node).
-
-You can't rename the nodes the document structure depends on: `doc`, `paragraph`, `sectionBreak`, `pageFurniture`, `pageBreak`, `columnBreak`, `pageNumber`, `footnoteReference`, `endnoteReference`, `footnote`, `footnoteCollection`, `bookmark`, `bookmarkPoint` and `crossReference`.
-
-The Conversion service refuses a request that renames one of them, with status `400` and the code `UNSUPPORTED_NODE_OVERRIDE`, which reaches the `onError` of `ImportDocx` as an `ImportDocxRequestError`.
-
-### Mark keys
-
-The keys of `prosemirrorMarks` are the mark names import creates:
-
-- Text formatting: `bold`, `italic`, `underline`, `strike`, `code`, `superscript`, `subscript`.
-- Other marks: `link`, `inlineThread`, `suggestion`.
-
-The `textStyle` and `highlight` marks, which hold color, font and highlight, keep their names.
-
-The `trackedChanges: 'auto'` option of `ImportDocx` looks for your renamed `suggestion` mark, so a rename doesn't break it. [Tracked changes and comments](/conversion/v3/docx/tracked-changes-and-comments) says what `'auto'` does.
-
-## Map a Word style to a node
-
-A key of `prosemirrorNodes` that isn't in [Node keys](#node-keys) is the name of a Word paragraph style. Every paragraph with that style becomes a node of the type you give, with its text and the attributes an imported paragraph gets, such as its alignment:
-
-```ts
-import { ImportDocx } from '@tiptap-pro/extension-import-docx'
-
-ImportDocx.configure({
-  token: CONVERSION_TOKEN,
-  prosemirrorNodes: { Hintbox: 'hintbox' },
-})
-```
-
-A paragraph in the Word style `Hintbox` now imports as a `hintbox` node. Your schema needs a node named `hintbox` that holds inline content.
-
-The key is the style's name as the file stores it, and it is case sensitive. For a style you created in Word, that is the name Word shows. A built-in style is stored under its English name, such as `Quote`, whatever the language of Word.
-
-When the schema has no `hintbox` node, the paragraph is kept as preserved content, with a `preserved` warning.

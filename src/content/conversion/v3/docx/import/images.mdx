@@ -1,0 +1,139 @@
+---
+title: Images in imported files
+intro: 'A <code>.docx</code> file holds its images inside the file, so they have no URL. The Conversion service uploads each image to an endpoint on your server and puts the URL you return into the <code>image</code> node. This page builds on <a href="/docs/conversion/v3/docx/import">Import DOCX</a>, which sets up the editor.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Images in imported files | Tiptap Conversion
+  description: Set up the upload endpoint that receives the images of an imported .docx file, return their URLs, and find out why an image was skipped.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="You need your own upload endpoint" variant="info">
+  Tiptap doesn't store images for you. Without `imageUploadConfig`, import skips every image.
+</Callout>
+
+[Images and math](/conversion/v3/docx/elements/images-and-math) shows the editor setup for images and what an image keeps.
+
+## Set the upload endpoint
+
+Pass `imageUploadConfig` to `ImportDocx.configure()`. In this example, `CONVERSION_TOKEN` stands for your Conversion token, and `UPLOAD_TOKEN` for a token your endpoint accepts:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  imageUploadConfig: {
+    url: 'https://example.com/upload',
+    headers: { Authorization: `Bearer ${UPLOAD_TOKEN}` },
+    method: 'PUT',
+    queryParams: { bucket: 'my-bucket' },
+  },
+})
+```
+
+`ImportDocx.configure()` runs in the browser, so the user can read `UPLOAD_TOKEN`. Use a token that allows uploads and nothing else.
+
+`url` is required. `headers` and `queryParams` are added to every upload, and `method` replaces `POST`, as [ImageUploadConfig](/conversion/v3/docx/import-options#imageuploadconfig) lists. When `url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings, the import fails with an `ImageUploadConfigValidationError` before it sends any request.
+
+## Handle the upload request
+
+The Conversion service sends one request for each image:
+
+| Part           | Value                                                                  |
+| -------------- | ---------------------------------------------------------------------- |
+| Method         | `POST`, or the `method` you set                                        |
+| Body           | The raw image bytes. It isn't `multipart/form-data`, and has no field. |
+| `Content-Type` | The type of the image, such as `image/png`                             |
+| `File-Name`    | The name of the image, such as `image1.png`                            |
+
+Your `headers` and `queryParams` come with it. The service sets `Content-Type` and `File-Name` itself, so you can't replace them.
+
+The service sets `Content-Type` from the file extension for `png`, `jpg`, `jpeg`, `gif`, `bmp`, `tiff`, `tif`, `emf`, `wmf`, `svg` and `webp`. It sends `application/octet-stream` for anything else, so decide on your side which types you keep.
+
+`File-Name` comes from inside the `.docx` file. Word numbers images `image1`, `image2` and so on, and starts at 1 in every file. So add something unique to your storage key, or two files will overwrite each other's images.
+
+By default, the service uploads up to three images at a time and waits 10 seconds for each response. A slower response counts as a failed upload, and the service doesn't retry it.
+
+The endpoint must be reachable from the internet. The service refuses addresses that aren't public, such as `localhost`, so to test with an endpoint on your machine, give it a public address, such as through a tunneling service.
+
+## Return the URL
+
+Respond with a `2xx` status and a JSON body that has a `url` string:
+
+```json
+{ "url": "https://example.com/images/photo.png" }
+```
+
+The `url` must be an absolute `http` or `https` address with a host. The service doesn't resolve relative URLs, because it has no page to resolve them against. It uses the URL as you return it, without re-encoding, so a signed URL stays valid. It trims whitespace around the value.
+
+This handler reads the request and returns the URL. `saveImage` stands for your own storage code:
+
+```ts
+export async function handleUpload(request: Request): Promise<Response> {
+  const fileName = request.headers.get('File-Name')
+  const contentType = request.headers.get('Content-Type')
+  if (!fileName || !contentType) return Response.json({ error: 'Missing headers' }, { status: 400 })
+
+  const image = await request.blob()
+  const url = await saveImage({ key: `${crypto.randomUUID()}-${fileName}`, image, contentType })
+
+  return Response.json({ url })
+}
+```
+
+The editor content stores the URL, and anyone who opens or exports the document loads the image again, so keep the images available.
+
+## When an image is skipped
+
+The Conversion service skips an image, and the rest of the document imports normally, in these cases:
+
+- You didn't set `imageUploadConfig`.
+- The endpoint returned a status that isn't `2xx`, took too long or couldn't be reached.
+- The response wasn't JSON, or `url` was missing or unusable.
+- The image sits behind the text, such as a watermark, and you didn't set `behindTextImages: 'import'`.
+
+When an import skips images, `onWarning` receives one `image-skipped` warning. The `logs.warn` field of the [onImport context](/conversion/v3/docx/import/review#the-onimport-context) names each skipped image and why.
+
+When an upload failed, `logs.error` has the cause and names the file. When your endpoint returned an unusable `url`, that entry also has a `reason` field:
+
+| Reason in `logs.error`                              | Typical cause                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| ``the response did not contain a `url` field``      | The JSON has no `url` key, or `url` is `null`.                |
+| ``the `url` field was not a string``                | `url` holds a number or an object.                            |
+| ``the `url` field was empty``                       | `url` is `""` or only whitespace.                             |
+| `the URL contains a space or a control character`   | An unencoded space or line break. Percent-encode it.          |
+| `the URL is relative`                               | A path such as `/uploads/image1.png`, or `//host/image1.png`. |
+| `the URL is not a well-formed absolute http(s) URL` | A missing slash, as in `https:/host/image1.png`, or no host.  |
+| `only http and https URLs can be used`              | A scheme such as `s3://` or `data:`.                          |
+
+The log cuts the URL before its query string, so it never holds the token of a signed URL. In this example, `editor` is an editor set up as in [Import DOCX](/conversion/v3/docx/import), and `file` is the `.docx` file the user picked. It prints both lists:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.logs.warn, context.logs.error)
+  },
+})
+```
+
+## Images behind the text
+
+Import skips images that sit behind the text, such as a watermark on every page. To keep them, set `behindTextImages` to `'import'`, on `ImportDocx.configure()` or on one `importDocx()` call, which wins:
+
+```ts
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  imageUploadConfig: { url: 'https://example.com/upload' },
+  behindTextImages: 'import',
+})
+```
+
+`behindTextImages` takes `'import'` or `'ignore'`, of the type `BehindTextImagesMode`. With `'ignore'`, or without the option, import skips these images, and `onWarning` receives an `image-skipped` warning when the file has one.
