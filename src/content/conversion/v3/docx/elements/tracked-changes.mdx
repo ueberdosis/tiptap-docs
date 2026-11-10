@@ -1,0 +1,129 @@
+---
+title: Tracked changes
+intro: 'A reviewed Word file records who inserted and deleted what. Insertions and deletions in the body convert in both directions as suggestions of the Tracked Changes extension. On import, you can also accept or reject every tracked change instead of keeping it as a suggestion.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Tracked changes | Tiptap Conversion
+  description: Check how Word's tracked changes become suggestions of the Tracked Changes extension on import, and how export writes them back to a .docx file.
+  category: Conversion
+---
+
+## What you need
+
+Tracked Changes, the extension from `@tiptap-pro/extension-tracked-changes`, holds the changes, as [Track changes in your editor](/tracked-changes/getting-started/overview) shows. It puts a `suggestion` mark on changed text, and node attributes on changed content without text, such as an image.
+
+Without the Tracked Changes extension, import accepts every change by default, as [Import](#import) explains.
+
+## Import
+
+The `trackedChanges` option decides what import does with each change. Set it in `ImportDocx.configure()` or on one `importDocx()` call, which wins. In this example, `CONVERSION_TOKEN` stands for your Conversion token, `editor` for your editor and `file` for a `.docx` file the user picked:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  trackedChanges: 'auto',
+})
+
+editor.commands.importDocx({ file, trackedChanges: 'preserve' })
+```
+
+The option takes these modes:
+
+| Mode         | What happens                                                                         |
+| ------------ | ------------------------------------------------------------------------------------ |
+| `'preserve'` | Insertions and deletions become suggestions, with their author and date              |
+| `'accept'`   | Insertions become ordinary text, and deletions are removed                           |
+| `'reject'`   | Deletions come back as ordinary text, and insertions are removed                     |
+| `'auto'`     | The default. `'preserve'` when the editor has the `suggestion` mark, else `'accept'` |
+
+An editor without the `suggestion` mark would show deleted text as ordinary text. In such an editor:
+
+- **`'auto'`** accepts the changes.
+- **`'preserve'`** keeps the suggestions as [preserved content](/conversion/v3/docx/preserved-content), with a `preserved` warning, until you add the extension.
+
+If you renamed the mark with `prosemirrorMarks`, as [Custom nodes on import](/conversion/v3/docx/custom-nodes/import) shows, `'auto'` looks for the new name.
+
+When the Tracked Changes extension is recording the user's edits, it doesn't record the import as one large suggestion, and one undo takes the import back.
+
+### Where suggestions are kept
+
+Import keeps suggestions in the body, table cells included. It accepts every change in headers, footers, comments, footnotes and endnotes, so an insertion in a header arrives as ordinary text, and a deletion there is gone.
+
+### What a suggestion looks like
+
+Text with a change carries a `suggestion` mark:
+
+```json
+{
+  "type": "text",
+  "text": "brave ",
+  "marks": [
+    {
+      "type": "suggestion",
+      "attrs": {
+        "id": "docx-suggestion-1",
+        "type": "add",
+        "userId": "ada lovelace",
+        "createdAt": "2026-07-27T10:00:00Z",
+        "updatedAt": "2026-07-27T10:00:00Z",
+        "userMetadata": { "name": "Ada Lovelace" }
+      }
+    }
+  ]
+}
+```
+
+`type` is `add` for an insertion and `delete` for a deletion. A replacement in Word imports as a deletion followed by an insertion. Neighboring changes of the same type by the same reviewer merge into one suggestion.
+
+Word knows a reviewer by display name only. `userMetadata.name` holds it, and `userId` is the name lowercased, trimmed and with single spaces. So two reviewers with one display name share a `userId`. A change without a name gets `anonymous` as `userId` and `null` as `userMetadata`.
+
+An inserted or deleted image, or other content without text, carries the change as node attributes instead of a mark: `suggestionId`, `suggestionType`, `suggestionUserId`, `suggestionCreatedAt`, `suggestionUpdatedAt` and `suggestionUserMetadata`.
+
+## Export
+
+Export writes text with a `suggestion` mark as a Word revision. `replaceInsertion` and `replaceDeletion` are the two halves of a replacement made in the editor:
+
+| Mark `type`                 | Word revision |
+| --------------------------- | ------------- |
+| `add`, `replaceInsertion`   | Insertion     |
+| `delete`, `replaceDeletion` | Deletion      |
+
+The revision's name is `userMetadata.name`, then `userId`, then `anonymous`. Its date is `createdAt`, and a missing or invalid date becomes `1970-01-01T00:00:00Z`.
+
+A change to a whole block, such as an image, is read from its `suggestionType`, `suggestionUserId`, `suggestionUserMetadata` and `suggestionCreatedAt` attributes. A table cell or row that carries these attributes itself exports as an inserted or deleted cell or row.
+
+Some suggestions don't become revisions:
+
+- **A `markChange` suggestion**, a formatting change, is skipped.
+- **An unknown `type`** is ignored.
+- **A pending node type change**, such as a paragraph suggested as a heading, fails the export before any request. Such a node has a `suggestionNodeTypeChange` attribute, so accept or reject that suggestion first, as [A pending node type change fails the export](/conversion/v3/reference/errors#a-pending-node-type-change-fails-the-export) shows.
+
+### Export a clean copy
+
+Export has no option that accepts or rejects the changes. To export a clean copy, run `acceptAllSuggestions()` or `rejectAllSuggestions()` before the export.
+
+These commands change the editor's document, not only the export. If the user should keep reviewing, undo them once `onCompleteExport`, the callback that receives the file, has it. In this example, `save` stands for your app's code that stores the file:
+
+```ts
+editor.commands.acceptAllSuggestions()
+editor.commands.exportDocx({
+  onCompleteExport: (file) => {
+    editor.commands.undo()
+    save(file)
+  },
+})
+```
+
+## Limits
+
+Tracked changes convert with these limits:
+
+- Formatting changes don't convert in either direction.
+- A paragraph split or joined while Word tracked changes imports in its final form, without a suggestion.
+- Import doesn't read Word's tracked moves, and gives no warning, so the moved text may be missing. Check a moved passage before you rely on it. This is a known limit that is being fixed.
+- Changes in headers, footers, comments, footnotes and endnotes import as accepted.
+- A pending node type change blocks the export.

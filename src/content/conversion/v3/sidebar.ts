@@ -107,25 +107,27 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Footnotes',
               href: '/conversion/v3/docx/elements/footnotes',
             },
+            {
+              title: 'Sections',
+              href: '/conversion/v3/docx/elements/sections',
+            },
+            {
+              title: 'Headers and footers',
+              href: '/conversion/v3/docx/elements/headers-and-footers',
+            },
+            {
+              title: 'Tracked changes',
+              href: '/conversion/v3/docx/elements/tracked-changes',
+            },
+            {
+              title: 'Comments',
+              href: '/conversion/v3/docx/elements/comments',
+            },
           ],
         },
         {
           title: 'Page Layout',
           href: '/conversion/v3/docx/page-layout',
-          children: [
-            {
-              title: 'Sections',
-              href: '/conversion/v3/docx/page-layout/sections',
-            },
-            {
-              title: 'Headers and footers',
-              href: '/conversion/v3/docx/page-layout/headers-and-footers',
-            },
-          ],
-        },
-        {
-          title: 'Tracked changes and comments',
-          href: '/conversion/v3/docx/tracked-changes-and-comments',
         },
         {
           title: 'Custom nodes',
