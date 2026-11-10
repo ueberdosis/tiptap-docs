@@ -19,12 +19,12 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/getting-started/install',
         },
         {
-          title: 'Migrate export from 0.x',
-          href: '/conversion/v3/getting-started/migrate-export-from-0x',
+          title: 'Migrate export from v2',
+          href: '/conversion/v3/getting-started/migrate-export-from-v2',
         },
         {
-          title: 'Migrate import from 0.x',
-          href: '/conversion/v3/getting-started/migrate-import-from-0x',
+          title: 'Migrate import from v2',
+          href: '/conversion/v3/getting-started/migrate-import-from-v2',
         },
       ],
     },
@@ -81,47 +81,59 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Tabs',
               href: '/conversion/v3/content-reference/text-and-formatting/tabs',
             },
+            {
+              title: 'Word styles',
+              href: '/conversion/v3/content-reference/text-and-formatting/word-styles',
+            },
           ],
         },
         {
-          title: 'Structures and media',
-          href: '/conversion/v3/content-reference/structures-and-media/tables',
+          title: 'Document structure',
+          href: '/conversion/v3/content-reference/document-structure/tables',
           children: [
             {
               title: 'Tables',
-              href: '/conversion/v3/content-reference/structures-and-media/tables',
-            },
-            {
-              title: 'Images',
-              href: '/conversion/v3/content-reference/structures-and-media/images',
-            },
-            {
-              title: 'Hyperlinks and bookmarks',
-              href: '/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks',
+              href: '/conversion/v3/content-reference/document-structure/tables',
             },
             {
               title: 'Block elements',
-              href: '/conversion/v3/content-reference/structures-and-media/block-elements',
-            },
-            {
-              title: 'Math and equations',
-              href: '/conversion/v3/content-reference/structures-and-media/math-equations',
+              href: '/conversion/v3/content-reference/document-structure/block-elements',
             },
             {
               title: 'Footnotes and endnotes',
-              href: '/conversion/v3/content-reference/structures-and-media/footnotes-endnotes',
+              href: '/conversion/v3/content-reference/document-structure/footnotes-endnotes',
             },
             {
+              title: 'Hyperlinks and bookmarks',
+              href: '/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks',
+            },
+          ],
+        },
+        {
+          title: 'Review',
+          href: '/conversion/v3/content-reference/review/comments',
+          children: [
+            {
               title: 'Comments',
-              href: '/conversion/v3/content-reference/structures-and-media/comments',
+              href: '/conversion/v3/content-reference/review/comments',
             },
             {
               title: 'Tracked changes',
-              href: '/conversion/v3/content-reference/structures-and-media/tracked-changes',
+              href: '/conversion/v3/content-reference/review/tracked-changes',
+            },
+          ],
+        },
+        {
+          title: 'Media',
+          href: '/conversion/v3/content-reference/media/images',
+          children: [
+            {
+              title: 'Images',
+              href: '/conversion/v3/content-reference/media/images',
             },
             {
-              title: 'Word styles',
-              href: '/conversion/v3/content-reference/structures-and-media/word-styles',
+              title: 'Math and equations',
+              href: '/conversion/v3/content-reference/media/math-equations',
             },
           ],
         },

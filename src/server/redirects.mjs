@@ -844,4 +844,60 @@ export const redirects = [
     permanent: true,
   },
   // End more SAIT launch redirects
+  // Conversion v3: the migration guides and the content reference groups moved before release
+  {
+    source: '/conversion/v3/getting-started/migrate-export-from-0x',
+    destination: '/conversion/v3/getting-started/migrate-export-from-v2',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/getting-started/migrate-import-from-0x',
+    destination: '/conversion/v3/getting-started/migrate-import-from-v2',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/tables',
+    destination: '/conversion/v3/content-reference/document-structure/tables',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/block-elements',
+    destination: '/conversion/v3/content-reference/document-structure/block-elements',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/footnotes-endnotes',
+    destination: '/conversion/v3/content-reference/document-structure/footnotes-endnotes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks',
+    destination: '/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/comments',
+    destination: '/conversion/v3/content-reference/review/comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/tracked-changes',
+    destination: '/conversion/v3/content-reference/review/tracked-changes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/images',
+    destination: '/conversion/v3/content-reference/media/images',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/math-equations',
+    destination: '/conversion/v3/content-reference/media/math-equations',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/word-styles',
+    destination: '/conversion/v3/content-reference/text-and-formatting/word-styles',
+    permanent: true,
+  },
 ]
