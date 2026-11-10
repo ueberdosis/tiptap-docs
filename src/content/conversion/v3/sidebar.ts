@@ -19,7 +19,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/getting-started/install',
         },
         {
-          title: 'Migrate from Conversion v2',
+          title: 'Migrate from v2',
           href: '/conversion/v3/getting-started/migrate-from-v2',
           children: [
             {
@@ -44,15 +44,15 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/docx/import',
           children: [
             {
-              title: 'Review an import before it applies',
+              title: 'Review the import',
               href: '/conversion/v3/docx/import/review',
             },
             {
-              title: 'Images in imported files',
+              title: 'Images',
               href: '/conversion/v3/docx/import/images',
             },
             {
-              title: 'Word styles as CSS',
+              title: 'Word styles',
               href: '/conversion/v3/docx/import/word-styles',
             },
           ],
@@ -62,11 +62,11 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/docx/export',
         },
         {
-          title: 'Export styles and fonts',
+          title: 'Styles and fonts',
           href: '/conversion/v3/docx/export-styles',
         },
         {
-          title: 'What Word elements become',
+          title: 'Word elements',
           href: '/conversion/v3/docx/elements',
           children: [
             {
@@ -74,15 +74,15 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/v3/docx/elements/text-formatting',
             },
             {
-              title: 'Paragraphs and alignment',
+              title: 'Paragraphs',
               href: '/conversion/v3/docx/elements/paragraphs',
             },
             {
-              title: 'Headings and Word styles',
+              title: 'Headings',
               href: '/conversion/v3/docx/elements/headings-and-styles',
             },
             {
-              title: 'Lists and task lists',
+              title: 'Lists',
               href: '/conversion/v3/docx/elements/lists',
             },
             {
@@ -98,17 +98,17 @@ export const sidebarConfig: SidebarConfig = {
               href: '/conversion/v3/docx/elements/links-and-bookmarks',
             },
             {
-              title: 'Footnotes and endnotes',
+              title: 'Footnotes',
               href: '/conversion/v3/docx/elements/footnotes',
             },
           ],
         },
         {
-          title: 'Word files with Page Layout',
+          title: 'Page Layout',
           href: '/conversion/v3/docx/page-layout',
           children: [
             {
-              title: 'Sections and page setup',
+              title: 'Sections',
               href: '/conversion/v3/docx/page-layout/sections',
             },
             {
@@ -122,21 +122,21 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/docx/tracked-changes-and-comments',
         },
         {
-          title: 'Custom nodes in Word files',
+          title: 'Custom nodes',
           href: '/conversion/v3/docx/custom-nodes',
           children: [
             {
-              title: 'Custom nodes on import',
+              title: 'On import',
               href: '/conversion/v3/docx/custom-nodes/import',
             },
             {
-              title: 'Custom node DSL',
+              title: 'DSL reference',
               href: '/conversion/v3/docx/custom-nodes/dsl',
             },
           ],
         },
         {
-          title: 'Content the editor cannot show',
+          title: 'Preserved content',
           href: '/conversion/v3/docx/preserved-content',
         },
         {
