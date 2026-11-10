@@ -58,11 +58,11 @@ The editor shows the nodes and marks its extensions define, so add the extension
 
 Content the editor has no extension for doesn't fail the import. The import keeps it as preserved content, which holds it in the document until you add the extension, and `onWarning` receives a `preserved` warning for each such type.
 
-So a Word table in an editor without the table extension keeps its text, and it shows as a table once you add the extension. [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains how preserved content looks and how it turns back.
+So a Word table in an editor without the table extension shows its cells' text as editable paragraphs, and it shows as a table once you add the extension. [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains how preserved content looks and how it turns back.
 
-The imported document is a Page Layout document: sections, page setup, headers, footers, page numbers, breaks and notes are inside it. With [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the editor as pages, all of it goes into the pages, as [Word files with Page Layout](/conversion/v3/docx/page-layout) shows.
+The imported document holds everything [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the editor as pages, can show: sections, page setup, headers, footers, page numbers, breaks and notes. With Page Layout, all of it goes into the pages, as [Word files with Page Layout](/conversion/v3/docx/page-layout) shows.
 
-In an editor without Page Layout, the body goes in with `setContent`. The parts only Page Layout shows, such as sections, headers and footers, are kept as preserved content, as [Without Page Layout](/conversion/v3/docx/preserved-content#without-page-layout) explains. `context.content` in `onImport` still holds the whole document, so you can read these parts yourself.
+An editor without Page Layout shows the body. The parts only Page Layout shows, such as sections, headers and footers, are kept as preserved content, as [Without Page Layout](/conversion/v3/docx/preserved-content#without-page-layout) explains. `context.content` in `onImport` still holds the whole document, so you can read these parts yourself.
 
 ## Change the document before the editor gets it
 
@@ -87,82 +87,32 @@ Write the import with `setEditorContent()`, not with the `setContent` command. `
 
 ### The onImport context
 
-`onImport` receives an `ImportContext`. Check `error` first: it is `null` when the import worked, and only then does the context have the other fields. When the import fails and no `onError` is set, the context is `{ content: null, error }` and has no other field.
+`onImport` receives an `ImportContext`. Check `error` first: it is `null` when the import worked, and only then does the context have the other fields.
+
+When the import fails and you set `onError`, only `onError` runs. Without `onError`, `onImport` receives `{ content: null, error }`, with no other field.
 
 On success, the context has these fields:
 
-| Field              | Type                              | What it holds                                                                                                                                                          |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`          | `JSONContent`                     | The document as the Conversion service returned it. It is a Page Layout document, so sections, headers, footers, page numbers, breaks and notes are inside it.         |
-| `error`            | `null`                            | Always `null` on success.                                                                                                                                              |
-| `setEditorContent` | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when a newer import has started, or when Page Layout's engine was destroyed before the write. |
-| `logs`             | `ImportLogs`                      | The entries the Conversion service logged, in `info`, `warn` and `error`. `info` is always empty.                                                                      |
-| `cssStyles`        | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on. See [CSS styles](#css-styles).                                                                     |
-| `commentThreads`   | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments. See [Comment threads](#comment-threads).                                                                     |
-| `warnings`         | `ImportDocxWarning[]`             | The warnings the Conversion service sent. They reach `onWarning` before `onImport` runs.                                                                               |
+| Field              | Type                              | What it holds                                                                                                                                                                                             |
+| ------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`          | `JSONContent`                     | The document as the Conversion service returned it. It is a Page Layout document, so sections, headers, footers, page numbers, breaks and notes are inside it.                                            |
+| `error`            | `null`                            | Always `null` on success.                                                                                                                                                                                 |
+| `setEditorContent` | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when a newer import has started, or when Page Layout's engine, the part that lays out the pages, was destroyed before the write. |
+| `logs`             | `ImportLogs`                      | The entries the Conversion service logged, in `warn` and `error`, each an object with a `message`. `info` is always empty, and stays for code written for older versions.                                 |
+| `cssStyles`        | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on. See [CSS styles](#css-styles).                                                                                                        |
+| `commentThreads`   | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments. See [Comment threads](#comment-threads).                                                                                                        |
+| `warnings`         | `ImportDocxWarning[]`             | The warnings the Conversion service sent. They reach `onWarning` before `onImport` runs.                                                                                                                  |
 
 For what the headers, footers, notes and comments look like in `content`, see [Word files with Page Layout](/conversion/v3/docx/page-layout), [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) and [Tracked changes and comments](/conversion/v3/docx/tracked-changes-and-comments).
 
-### Where the document goes
-
-`setEditorContent()` writes the document in the first of these ways that applies:
-
-1. An extension with an import handler writes it, as [Write the import yourself](#write-the-import-yourself) shows.
-2. With Page Layout on a mounted editor, it replaces the Source Document, the document Page Layout lays out into pages, in one step. The caret lands at the start of the body, and one undo takes the import back.
-3. Otherwise it writes into the editor's own document with `setContent`. A Page Layout editor that has not mounted, such as a headless one in a Node.js script, has no pages, so its own document is the Source Document. Sections, headers and notes land there as they do in a mounted editor.
-
-The import never records the write as tracked changes, even when the Tracked Changes extension is on the editor.
-
-Each write carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your plugins can tell an import apart. The constant holds the meta key `'docxImport'`.
-
-With Page Layout, read the meta in `onUpdate`, because the editor's `transaction` event carries the transactions of the pages, and only `update` carries the import's own transaction:
-
-```ts
-import { Extension } from '@tiptap/core'
-import { DOCX_IMPORT_META } from '@tiptap-pro/extension-import-docx'
-
-const LogImports = Extension.create({
-  name: 'logImports',
-  onUpdate({ transaction }) {
-    if (transaction.getMeta(DOCX_IMPORT_META)) console.log('DOCX imported')
-  },
-})
-```
-
-### Write the import yourself
-
-An extension can write the import itself, such as into a store of your own. Keep a function named `applyDocxImport` in its storage, and `setEditorContent()` calls it with `{ content }` instead of writing the document.
-
-Return `true` when you wrote the import, or `false` to let the import write it as usual. When several extensions have such a function, the first in the editor's extension order is called.
-
-```ts
-import { Extension } from '@tiptap/core'
-import type { DocxImport } from '@tiptap-pro/extension-import-docx'
-
-const ImportIntoMyStore = Extension.create({
-  name: 'importIntoMyStore',
-  addStorage() {
-    return {
-      applyDocxImport: ({ content }: DocxImport) => {
-        this.editor
-          .chain()
-          .setMeta('trackedChanges', { type: 'skipTracking' })
-          .setContent(content)
-          .run()
-        return true
-      },
-    }
-  },
-})
-```
-
-`content` is a copy of the document, not yet checked against any schema, so check it before you write it. Changing it doesn't change the `onImport` context. The `skipTracking` meta keeps tracked changes from recording the import as a suggestion. The import still applies the CSS styles.
-
-The function's type is `DocxImportHandler`, `(docxImport: DocxImport) => boolean`.
-
 ### Comment threads
 
-`commentThreads` holds the comment threads of the file, with their messages. The callback doesn't create your comments UI, so pass the threads to it yourself. When the import created the threads on the Document Server, the threads and messages carry its IDs. Otherwise the IDs come from the `.docx` file.
+`commentThreads` holds the Word comments of the file as threads, each with its replies, and is empty when the file has no comments. A thread's `id` matches the `data-thread-id` of the text it marks in `content`.
+
+Whether the editor shows the threads depends on where they are. The Comments extension shows the threads it finds on the Document Server, the Tiptap server that stores collaborative documents:
+
+- **With [live threads](/conversion/v3/docx/tracked-changes-and-comments#live-threads)**, the import creates the threads on the Document Server, so the Comments extension shows them, and the IDs are the Document Server's. It does this when the editor has a collaboration provider and your Conversion token allows `Documents:Write` for that document.
+- **Without live threads**, the IDs come from the `.docx` file, and `commentThreads` is the only copy of the threads. Store it with the document, for a comments UI of your own or for a later export, as [Import comments](/conversion/v3/docx/tracked-changes-and-comments#import-comments) shows.
 
 Each `ImportedCommentThread` has these fields:
 
@@ -175,12 +125,22 @@ Each `ImportedCommentThread` has these fields:
 
 Each `ImportedCommentMessage` has these fields:
 
-| Field  | Type          | What it holds                                                                                        |
-| ------ | ------------- | ---------------------------------------------------------------------------------------------------- |
-| `wId`  | `string`      | The ID of the comment in the `.docx` file.                                                           |
-| `id`   | `string`      | The ID from the Document Server. Set only when the import created the thread there.                  |
-| `body` | `JSONContent` | The message as Tiptap JSON.                                                                          |
-| `data` | `object`      | `author`, and when present `initials`, `providerId`, `userId`, `dateIso` and `dateUtc`, all strings. |
+| Field  | Type          | What it holds                                                         |
+| ------ | ------------- | --------------------------------------------------------------------- |
+| `wId`  | `string`      | The ID of the comment in the `.docx` file.                            |
+| `id`   | `string`      | The ID of the comment on the Document Server, only with live threads. |
+| `body` | `JSONContent` | The message as Tiptap JSON.                                           |
+| `data` | `object`      | Who wrote the message, and when.                                      |
+
+`data` has these fields, all strings. Only `author` is always set, and the others are set when the file has them:
+
+| Field                  | What it holds                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `author`               | The reviewer's name, as Word shows it.                                                                                 |
+| `initials`             | The reviewer's initials.                                                                                               |
+| `providerId`, `userId` | The account Word knew the reviewer by: `providerId` names the account system, and `userId` is the reviewer's ID in it. |
+| `dateIso`              | The date Word saved with the comment, in the reviewer's local time.                                                    |
+| `dateUtc`              | The same date in UTC, so prefer it when it is set.                                                                     |
 
 ## Images
 
@@ -210,6 +170,8 @@ ImportDocx.configure({
 })
 ```
 
+`ImportDocx.configure()` runs in the browser, so the user can read `UPLOAD_TOKEN`. Use a token that allows uploads and nothing else.
+
 `url` is required. `headers` and `queryParams` are added to every upload, and `method` replaces `POST`, as [ImageUploadConfig](/conversion/v3/docx/import-options#imageuploadconfig) lists. When `url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings, the import fails with an `ImageUploadConfigValidationError` before it sends any request.
 
 ### Handle the upload request
@@ -231,7 +193,7 @@ The service sets `Content-Type` from the file extension for `png`, `jpg`, `jpeg`
 
 By default, the service uploads up to three images at a time and waits 10 seconds for each response. A slower response counts as a failed upload, and the service doesn't retry it.
 
-The endpoint must be reachable from the internet. The service refuses addresses that aren't public, such as `localhost`.
+The endpoint must be reachable from the internet. The service refuses addresses that aren't public, such as `localhost`, so to test with an endpoint on your machine, give it a public address, such as through a tunneling service.
 
 ### Return the URL
 
@@ -308,7 +270,7 @@ ImportDocx.configure({
 })
 ```
 
-The type of the option is `BehindTextImagesMode`. Without `'import'`, `onWarning` receives an `image-skipped` warning when the file has such an image.
+`behindTextImages` takes `'import'` or `'ignore'`, of the type `BehindTextImagesMode`. With `'ignore'`, or without the option, import skips these images, and `onWarning` receives an `image-skipped` warning when the file has one.
 
 ## Checkbox lists
 
@@ -323,7 +285,7 @@ ImportDocx.configure({
 editor.commands.importDocx({ file, taskLists: 'ignore' })
 ```
 
-The default, `'auto'`, imports checkbox lists as task lists like `'import'`, whatever the editor's schema has. An editor without `taskList` and `taskItem` keeps them as preserved content, ticked states included, and they become task lists once you add the nodes. `'ignore'` imports checkbox lists as ordinary bullet or numbered lists.
+The default, `'auto'`, does the same as `'import'`: it imports checkbox lists as task lists, whatever the editor's schema has. An editor without `taskList` and `taskItem` keeps them as preserved content, ticked states included, and they become task lists once you add the nodes. `'ignore'` imports checkbox lists as ordinary bullet or numbered lists.
 
 [Lists and task lists](/conversion/v3/docx/elements/lists) shows the extensions a task list needs, and which Word checkboxes convert.
 
@@ -351,7 +313,7 @@ ImportDocx.configure({
 })
 ```
 
-Every rule sits under `selector`, as in `.tiptap h1 { ... }`, so set it to the class of your editor element. A selector such as `body` styles the whole page. [ImportCssStylesOptions](/conversion/v3/docx/import-options#importcssstylesoptions) lists the three options.
+Every rule sits under `selector`, as in `.tiptap h1 { ... }`. Tiptap gives every editor element the class `tiptap`, so the default, `'.tiptap'`, styles every editor on the page. A selector such as `body` styles the whole page. [ImportCssStylesOptions](/conversion/v3/docx/import-options#importcssstylesoptions) lists the three options.
 
 You can set the same keys for one import, and they merge over the configured ones:
 
@@ -371,29 +333,34 @@ editor.commands.importDocx({
 
 With `autoInject`, the import adds the rules after it writes the document. It keeps one `<style data-tiptap-style-import-docx>` tag for the whole page, and a later import with rules replaces the content of that tag. Destroying any editor with `ImportDocx` removes the tag.
 
-So for several editors on one page, each with its own styles, turn `autoInject` off and keep a separate stylesheet per editor, as [Apply the rules yourself](#apply-the-rules-yourself) does.
+So for several editors on one page, each with its own styles, turn `autoInject` off and give each editor a stylesheet of its own, as [Apply the rules yourself](#apply-the-rules-yourself) does.
 
 The import injects nothing outside a browser, or when the Conversion service finds no styles.
 
 ### Apply the rules yourself
 
-Without `autoInject`, the `onImport` context has the raw `cssStyles` object. It is `null` when you didn't turn extraction on. `buildCssRules` builds the CSS from it, and `injectCssStyles` adds that CSS to the page:
+Whenever extraction is on, the `onImport` context has the raw `cssStyles` object, and `buildCssRules` builds the CSS from it. Put that CSS into a `<style>` element of your own, with a selector for one editor, to keep the styles of several editors apart.
+
+In this example, `#editor` is the element the editor is mounted in:
 
 ```ts
-import { buildCssRules, injectCssStyles } from '@tiptap-pro/extension-import-docx'
+import { buildCssRules } from '@tiptap-pro/extension-import-docx'
+
+const style = document.createElement('style')
+document.head.append(style)
 
 editor.commands.importDocx({
   file,
-  cssStyles: { enabled: true },
+  cssStyles: { enabled: true, autoInject: false },
   onImport: (context) => {
     if (context.error) return
     context.setEditorContent()
-    if (context.cssStyles) injectCssStyles(buildCssRules(context.cssStyles, '.tiptap'))
+    if (context.cssStyles) style.textContent = buildCssRules(context.cssStyles, '#editor .tiptap')
   },
 })
 ```
 
-The package exports these helpers:
+For one editor, `injectCssStyles` adds the CSS to the shared tag that `autoInject` uses. The package exports these helpers:
 
 | Export                               | What it does                                                                     |
 | ------------------------------------ | -------------------------------------------------------------------------------- |
@@ -421,7 +388,7 @@ Each entry holds some of these properties, depending on what the style sets:
 | `fontSize`                  | Pixels, such as `16px`.                                      |
 | `marginTop`, `marginBottom` | Points, such as `12pt`.                                      |
 | `lineHeight`                | A multiplier, or points for an exact or minimum line height. |
-| `color`, `backgroundColor`  | A hex color. The service skips the automatic color.          |
+| `color`, `backgroundColor`  | A hex color. The service skips Word's Automatic color.       |
 | `fontFamily`                | The font name.                                               |
 | `fontWeight`, `fontStyle`   | `bold` or `normal`, and `italic` or `normal`.                |
 | `textDecoration`            | `underline`, `line-through` or both.                         |
@@ -441,6 +408,63 @@ Extraction covers only part of a file's formatting, and the rules don't follow t
 
 For the Word styles that decide headings and paragraphs, see [Paragraphs and styles](/conversion/v3/docx/elements/paragraphs).
 
+## Where the document goes
+
+`setEditorContent()` writes the document in the first of these ways that applies:
+
+1. An extension with an import handler writes it, as [Write the import yourself](#write-the-import-yourself) shows.
+2. With Page Layout on a mounted editor, one attached to an element on the web page, it replaces the Source Document, the document Page Layout lays out into pages, in one step. The caret lands at the start of the body, and one undo takes the import back.
+3. Otherwise it writes into the editor's own document with `setContent`. A Page Layout editor that has not mounted, such as a headless one in a Node.js script, has no pages, so its own document is the Source Document. Sections, headers and notes land there as they do in a mounted editor.
+
+The import never records the write as tracked changes, even when the Tracked Changes extension is on the editor.
+
+Each write carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your plugins can tell an import apart. The constant holds the meta key `'docxImport'`.
+
+Read the meta in `onUpdate`, which sees the import with and without Page Layout. With Page Layout, the editor's `transaction` event doesn't carry the import's own transaction, so `onTransaction` misses it:
+
+```ts
+import { Extension } from '@tiptap/core'
+import { DOCX_IMPORT_META } from '@tiptap-pro/extension-import-docx'
+
+const LogImports = Extension.create({
+  name: 'logImports',
+  onUpdate({ transaction }) {
+    if (transaction.getMeta(DOCX_IMPORT_META)) console.log('DOCX imported')
+  },
+})
+```
+
+### Write the import yourself
+
+An extension can replace the write with its own, such as one that puts the document into your app's state first. Keep a function named `applyDocxImport` in its storage, and `setEditorContent()` calls it with `{ content }` instead of writing the document.
+
+Return `true` when you wrote the import, or `false` to let the import write it as usual. When several extensions have such a function, the first in the editor's extension order is called. This example writes the document into the editor itself:
+
+```ts
+import { Extension } from '@tiptap/core'
+import type { DocxImport } from '@tiptap-pro/extension-import-docx'
+
+const WriteImport = Extension.create({
+  name: 'writeImport',
+  addStorage() {
+    return {
+      applyDocxImport: ({ content }: DocxImport) => {
+        this.editor
+          .chain()
+          .setMeta('trackedChanges', { type: 'skipTracking' })
+          .setContent(content)
+          .run()
+        return true
+      },
+    }
+  },
+})
+```
+
+`content` is a copy of the document, not yet checked against any schema, so check it before you write it. Changing it doesn't change the `onImport` context. The `skipTracking` meta keeps tracked changes from recording the import as a suggestion. The import still applies the CSS styles.
+
+The function's type is `DocxImportHandler`, `(docxImport: DocxImport) => boolean`.
+
 ## Warnings and errors
 
 A warning means the import left something out or changed it, and went on. An error means the import stopped and wrote nothing. [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists every warning code and every error.
@@ -449,13 +473,13 @@ A warning means the import left something out or changed it, and went on. An err
 
 Warnings from the Conversion service reach `onWarning` before `onImport` runs, and `context.warnings` lists them too. The editor's own warnings, such as `preserved`, arrive when `setEditorContent()` writes. The service's logs stay in `context.logs` and don't become warnings.
 
-An error goes to `onError`, from the command or from `ImportDocx.configure()`, and the command's wins. Without `onError`, `onImport` receives it as `{ content: null, error }`, if the import hadn't handed over the document yet. When neither handles it, the import logs it with `console.error`.
+An error goes to `onError`, from the command or from `ImportDocx.configure()`, and the command's wins. Without `onError`, a failed import calls `onImport` with `{ content: null, error }`. When neither is set, the import logs the error with `console.error`. An error thrown inside `onImport`, such as by `setEditorContent()`, goes to `onError`, or to the console without it.
 
 ### Overlapping imports
 
 When you start a second import before the first response arrives, the newest import wins: the first one writes nothing and reports an `ImportDocxSupersededError`. Calling `setEditorContent()` from the older import throws the same error.
 
-The import doesn't log an `ImportDocxSupersededError` that no callback handles, because the newer import answers it. With `onError`, skip it yourself:
+The import doesn't log an `ImportDocxSupersededError` that no callback handles, because the newer import replaces the older one. With `onError`, skip it yourself:
 
 ```ts
 import { ImportDocx, ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'

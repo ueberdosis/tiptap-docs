@@ -23,7 +23,7 @@ Each kind of review content needs its extension in the editor:
 | Tracked changes | Tracked Changes, `@tiptap-pro/extension-tracked-changes`, as [Track changes in your editor](/tracked-changes/getting-started/overview) shows | A `suggestion` mark on changed text, and node attributes on changed content without text, such as an image                           |
 | Comments        | Comments, `@tiptap-pro/extension-comments`, as [Integrate Comments into your app](/comments/getting-started/overview) shows                  | An `inlineThread` mark on commented text, or a `blockThread` node around several blocks, both with the thread id in `data-thread-id` |
 
-A comment whose range covers more than one block, such as several paragraphs, gets a `blockThread` node instead of the mark. Its `data-thread-id` attribute has that name in the JSON as in the HTML.
+A comment whose range covers more than one block, such as several paragraphs, gets a `blockThread` node instead of the mark. In the JSON, the attribute of both is named `data-thread-id`, as in the HTML, not `threadId`.
 
 Without the Tracked Changes extension, import accepts every change by default, as [Import tracked changes](#import-tracked-changes) explains.
 
@@ -85,7 +85,7 @@ Text with a change carries a `suggestion` mark:
 }
 ```
 
-`type` is `add` for an insertion and `delete` for a deletion. A replacement in Word imports as a deletion followed by an insertion. Word writes one record for each run of text, and neighboring changes of the same type by the same reviewer merge into one suggestion.
+`type` is `add` for an insertion and `delete` for a deletion. A replacement in Word imports as a deletion followed by an insertion. Neighboring changes of the same type by the same reviewer merge into one suggestion.
 
 Word knows a reviewer by display name only. `userMetadata.name` holds it, and `userId` is the name in lowercase, trimmed and with single spaces. So two reviewers with one display name share a `userId`. A change without a name gets `anonymous` as `userId` and `null` as `userMetadata`.
 
@@ -94,6 +94,10 @@ An inserted or deleted image, or other content without text, carries the change 
 ## Import comments
 
 Import turns Word comments into comment threads with their replies and resolved state, and marks the commented text. `onImport` receives the threads in `commentThreads`, which is empty when the file has no comments.
+
+The Comments extension keeps its threads on the Document Server, the Tiptap server that stores collaborative documents. So an editor shows the imported comments as threads only when import creates them there, which [Live threads](#live-threads) describes. The import doesn't build a comments UI.
+
+Without live threads, the text keeps its marks with the ids from the file, and `commentThreads` is the only copy of the threads. Store it with the document if you need the comments later, for example to write them into an export, as [Export comments](#export-comments) shows.
 
 In this example, `editor` is an editor set up as in [Import DOCX](/conversion/v3/docx/import), and `file` is a `.docx` file the user picked:
 
@@ -121,15 +125,11 @@ A message has these fields:
 
 [Import DOCX](/conversion/v3/docx/import) lists every field of `ImportedCommentThread`.
 
-The Comments extension keeps its threads on the Document Server, the Tiptap server that stores collaborative documents. So an editor shows the imported comments as threads only when import creates them there, which [Live threads](#live-threads) describes. The import doesn't build a comments UI.
-
-Without live threads, the text keeps its marks with the ids from the file, and `commentThreads` is the only copy of the threads. Store it with the document if you need the comments later, for example to write them into an export, as [Export comments](#export-comments) shows.
-
 ### Live threads
 
 Import creates the threads on the Document Server when all of these are true:
 
-- The editor has a collaboration provider with a document name, on the Comments, CollaborationCaret or CollaborationCursor extension.
+- The editor has a collaboration provider with a document name, passed as the `provider` option of the Comments, CollaborationCaret or CollaborationCursor extension.
 - Your Conversion token, the `token` of `ImportDocx.configure()`, also allows `Documents:Write` for that document.
 - The file has comments.
 
@@ -142,7 +142,9 @@ permissions: [
 ]
 ```
 
-Import then returns the Document Server's thread ids, and the content uses them. Otherwise the ids come from the file, and `context.logs.warn` says why when the token was the reason. The import succeeds either way.
+A `resource` of `'*'` allows every document, so one token covers all of them. Scope it to the documents a user may change, as [Authenticate and authorize in Collaboration](/collaboration/getting-started/authenticate) explains.
+
+Import then returns the Document Server's thread ids, and the content uses them. Otherwise the ids come from the file. When the token was the reason, `context.logs.warn`, the list of the service's warning messages in the `onImport` context, says so. The import succeeds either way.
 
 ### Import the same file again
 
@@ -172,14 +174,19 @@ A `markChange` suggestion, a formatting change, isn't written, and an unknown `t
 
 A pending node type change, such as a paragraph suggested as a heading, fails the export before any request. Such a node has a `suggestionNodeTypeChange` attribute. Accept or reject that suggestion first, as [A pending node type change fails the export](/conversion/v3/reference/warnings-and-errors#a-pending-node-type-change-fails-the-export) shows.
 
-Export has no option that accepts or rejects the changes. To export a clean copy, run `acceptAllSuggestions()` or `rejectAllSuggestions()` before the export:
+Export has no option that accepts or rejects the changes. To export a clean copy, run `acceptAllSuggestions()` or `rejectAllSuggestions()` before the export.
+
+These commands change the editor's document, not only the export. If the user should keep reviewing, undo them once `onCompleteExport`, the callback that receives the file, has it. In this example, `save` stands for your app's code that stores the file:
 
 ```ts
 editor.commands.acceptAllSuggestions()
-editor.commands.exportDocx()
+editor.commands.exportDocx({
+  onCompleteExport: (file) => {
+    editor.commands.undo()
+    save(file)
+  },
+})
 ```
-
-These commands change the editor's document, not only the export. Undo them once `onCompleteExport` has the file if the user should keep reviewing.
 
 ## Export comments
 
@@ -187,7 +194,7 @@ Export reads the threads from the Comments extension's provider, leaving out the
 
 Without a provider, and without the `comments` option, export writes no comments, and the text stays. A comment body converts like the document, so its formatting stays, but a table in it is left out.
 
-To send threads of your own, pass `comments: { threads }`, on the command or in `ExportDocx.configure()` of an editor set up as in [Export DOCX](/conversion/v3/docx/export). A thread there is a [`SourceThread`](/conversion/v3/docx/export-options/types#sourcethread). An empty list, `{ threads: [] }`, exports no comments.
+To send threads of your own, pass `comments: { threads }`, on the command or in `ExportDocx.configure()` of an editor set up as in [Export DOCX](/conversion/v3/docx/export). A thread there is a [`SourceThread`](/conversion/v3/docx/export-options/types#sourcethread). The `comments` option wins over the provider, so export then reads no threads from it. An empty list, `{ threads: [] }`, exports no comments.
 
 This example turns the `commentThreads` you stored after an import back into threads for the export, and `storedThreads` stands for them.
 

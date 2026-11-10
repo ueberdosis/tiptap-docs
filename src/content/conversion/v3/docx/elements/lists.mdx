@@ -41,7 +41,7 @@ Import turns Word's numbered paragraphs into lists, and its checkbox lists into 
 
 ### Bullet and ordered lists
 
-Import turns paragraphs that share a Word numbering into one list, and the level of each paragraph sets its nesting. A list stays one list when Word continues its count, even where the file stores the two parts under different numbering. Empty paragraphs between its items don't split it either.
+Import turns paragraphs that share a Word numbering into one list, and the level of each paragraph sets its nesting. A Word file can store two parts of a list as two numberings that continue one count. Import keeps them as one list, and empty paragraphs between its items don't split it either.
 
 The kind of list follows the marker:
 
@@ -58,7 +58,7 @@ The outermost list gets these attributes:
 
 `OrderedList` defines `start` and `type`, so the editor shows the first number and letter or Roman lists as Word does.
 
-Bullet lists and ordered lists both get `numberingFormat`. No Tiptap extension defines it, so import keeps it in the list's `preservedAttrs` attribute, which holds the attributes the editor's extensions don't define.
+Bullet lists and ordered lists both get `numberingFormat`. No Tiptap extension defines it, so import keeps it in the list's `preservedAttrs` attribute, which holds the attributes the editor's extensions don't define. Export uses the id to pick a numbering format you pass, as [Numbering formats](#numbering-formats) shows.
 
 ### Task lists
 
@@ -94,7 +94,7 @@ Word writes a checkbox in three ways, and import reads all of them:
 
 A content control or form field converts only when it is the only checkbox in the paragraph and comes before the text. So a row such as `Yes ☐ No ☐`, or a box after a sentence, imports as text.
 
-A checkbox in a paragraph without list numbering also imports as text, unless the paragraph has a hanging indent.
+A checkbox in a paragraph without list numbering also imports as text. A paragraph with a hanging indent is the exception: the indent puts the box where a list marker sits, so the paragraph becomes a task item.
 
 Checkmark characters, such as the Wingdings `✔`, don't convert, because Word uses them as decoration. They stay as text.
 
@@ -102,7 +102,7 @@ A numbered list item that starts with a single checkbox becomes a task item, and
 
 ### Numbered headings
 
-A numbered heading from Word, which is a heading style linked to Word's numbering, imports as a list item. When the list item has to start with a paragraph, as the `ListItem` of `StarterKit` does, the heading becomes that paragraph, with a `restructured` warning. Its text is kept.
+A numbered heading from Word, which is a heading style linked to Word's numbering, imports as a list item. When the list item has to start with a paragraph, as the `ListItem` of `StarterKit` does, the heading becomes that paragraph, with a `restructured` warning. Its text is kept, but it is no longer a heading.
 
 ## Export
 
@@ -113,8 +113,6 @@ Export writes each list as a Word list with its nesting, and each task item as a
 Word has nine list levels, so a list nested deeper exports on the ninth level.
 
 Each ordered list numbers on its own, so two lists in one document don't continue each other. To continue the count by hand, set `start` on the second list, because a list without a numbering format numbers from its `start` in Word's default style.
-
-Lists also continue when their numbering format has a level with `linkedStyle`, a field that links a Word paragraph style such as `Heading1`. All lists in that format then share one numbering.
 
 ### Numbering formats
 
@@ -154,11 +152,11 @@ editor.commands.exportDocx({
 })
 ```
 
-`updateAttributes` sets the attribute on the ordered list around the cursor. Export reads it only on the outermost list, so put the cursor in a top-level item.
+Export reads the attribute only on the outermost list. `updateAttributes` sets it on the ordered list around the cursor, so put the cursor in a top-level item. In stored JSON, set it in the list's `attrs`, such as `{ "type": "orderedList", "attrs": { "numberingFormat": "report" } }`.
 
 In `textTemplate`, `%1` to `%9` stand for the counter of that level. `baseStyle` is Word's counter format, such as `decimal`, `lowerLetter`, `lowerRoman` or `bullet`. A list deeper than the levels you define reuses them in order. [Export types](/conversion/v3/docx/export-options/types#numberingleveldefinition-and-numberingformatdefinition) lists every field of a level, such as `startAt` and `markerFont`.
 
-Formats you pass to the `exportDocx` command replace all formats from `ExportDocx.configure()`, instead of adding to them. The Conversion service, the server that builds the file, leaves out a format it can't build, with a `numbering-format-invalid` warning, and its lists get Word's default numbering.
+Formats you pass to the `exportDocx` command replace all formats from `ExportDocx.configure()`, instead of adding to them. The Conversion service, the server that builds the file, leaves out a format the Word file can't hold, and its lists get Word's default numbering. `onWarning` then receives a `numbering-format-invalid` warning, whose `formatId` names the format.
 
 An imported list exports with its `numberingFormat` id, but import doesn't return the format behind it, as [Limits](#limits) says. So the list gets Word's default numbering from its `start`. To give it a format, set its `numberingFormat` to the `id` of a format you pass.
 
@@ -193,9 +191,27 @@ Export writes every checkbox as a control, so a file that arrived with box-chara
 
 ### Outline numbering
 
-Numbered headings, such as `1`, `1.1` and `1.1.1`, arrive in Word without their numbers. They come from the [Outline Numbering](/features/outline-numbering) extension, which draws the numbers and doesn't store them on the headings.
+Numbered headings, such as `1`, `1.1` and `1.1.1`, arrive in Word without their numbers when the [Outline Numbering](/features/outline-numbering) extension numbers them. The extension draws the numbers and doesn't store them on the headings, and export doesn't write them.
 
-The `exportDocx` command sends the extension's data as the `outline` option, but the Conversion service doesn't write numbers from it.
+To number headings in Word, pass a numbering format whose levels have `linkedStyle`, the id of a Word paragraph style such as `Heading1`. Word then numbers every paragraph in that style at that level, so each `heading` of level 1 gets the first level's number. All lists in that format share the same count.
+
+This example numbers Heading 1 and Heading 2 as `1.` and `1.1`:
+
+```ts
+editor.commands.exportDocx({
+  numberingFormats: [
+    {
+      id: 'headings',
+      levels: [
+        { baseStyle: 'decimal', textTemplate: '%1.', linkedStyle: 'Heading1' },
+        { baseStyle: 'decimal', textTemplate: '%1.%2', linkedStyle: 'Heading2' },
+      ],
+    },
+  ],
+})
+```
+
+A style can link to one level of one format only. When such a file is imported again, its headings are numbered headings, which become list items, as [Numbered headings](#numbered-headings) says.
 
 ## Limits
 
@@ -203,4 +219,4 @@ Export doesn't read `type`, so a letter or Roman list without a numbering format
 
 Import doesn't return the definitions of the file's numbering formats, so imported lists show default numbering, apart from `start` and `type`. There is no warning. This is a known limit that is being fixed.
 
-Headings numbered by the Outline Numbering extension export without their numbers, as [Outline numbering](#outline-numbering) says.
+Headings numbered by the Outline Numbering extension export without their numbers. A numbering format with `linkedStyle` numbers them in Word instead, as [Outline numbering](#outline-numbering) shows.

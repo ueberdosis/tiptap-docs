@@ -58,11 +58,11 @@ curl -X POST https://api.tiptap.dev/v3/convert/export/pdf \
 
 The request takes these headers:
 
-| Header          | Value                                                                                                                 |
-| --------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `Authorization` | `Bearer <token>`.                                                                                                     |
-| `Content-Type`  | `multipart/form-data`, with its boundary. Any other type, such as JSON, fails with `400` and `INVALID_PRINT_OPTIONS`. |
-| `X-App-Id`      | Your app ID, only with a legacy token.                                                                                |
+| Header          | Value                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Authorization` | `Bearer <token>`.                                                                                                                                |
+| `Content-Type`  | `multipart/form-data`, with its boundary, which `fetch` sets for a `FormData` body. Any other type fails with `400` and `INVALID_PRINT_OPTIONS`. |
+| `X-App-Id`      | Your app ID, only with a legacy token.                                                                                                           |
 
 ## Options fields
 
@@ -79,15 +79,64 @@ Every field of `options` is optional except `document`. A field the endpoint doe
 
 The page print lays out only the node and mark types it knows, and leaves out the others with an `unsupported` warning. [What the page print renders](/conversion/v3/pdf#what-the-page-print-renders) lists them.
 
-A document from an import may hold preserved content, which keeps what the importing editor had no extension for. The page print doesn't know it, so turn it back first with `unpreservedContent(document)` from `@tiptap-pro/extension-preserved-content`.
+A document from an import may hold preserved content, the placeholder nodes and marks that keep what the importing editor had no extension for. The page print leaves it out.
+
+To print it, send `unpreservedContent(document)` from `@tiptap-pro/extension-preserved-content` instead, which returns a copy of the document with each preserved node and mark turned back into its original type.
 
 ### Page setup
 
-`pageSetup` sets the pages of a document that doesn't start with a section break. Send the JSON that Page Layout's `getSetup()` returns, such as `editor.storage.pageLayout.engine.getSetup()` in an editor with Page Layout.
+`pageSetup` sets the paper size, orientation and margins of the pages. Without it, the pages are A4 portrait. In an editor with Page Layout, send the setup the editor shows, `editor.storage.pageLayout.engine.getSetup()`.
 
-The page print uses `pageSetup` only when it has every key of that JSON: `format`, `orientation`, `margins`, `theme`, `columns`, `notePlacement`, `noteNumbering` and `pageNumbering`. Otherwise it prints A4 portrait pages, and a `PAGE_SETUP_DEFAULTED` warning names the missing keys.
+Without Page Layout, write the setup yourself. It needs all eight keys, with lengths in CSS pixels, 96 to the inch. This setup prints US Letter in landscape, with margins of one inch:
 
-A `sectionBreak` node at the start of `document` carries the setup of the first section, and wins over `pageSetup`. Then no warning comes. Every later section takes its page from its own `sectionBreak`, as [Sections and page setup](/conversion/v3/docx/page-layout#sections-and-page-setup) describes.
+```json
+{
+  "format": { "id": "Letter", "label": "US Letter", "width": 816, "height": 1056 },
+  "orientation": "landscape",
+  "margins": { "top": 96, "right": 96, "bottom": 96, "left": 96 },
+  "theme": { "page": null, "text": null, "accent": null },
+  "columns": { "count": 1, "gaps": null, "rule": false, "widths": null },
+  "notePlacement": "bottomOfPage",
+  "noteNumbering": {
+    "footnote": { "format": "decimal", "start": 1, "restart": "never" },
+    "endnote": { "format": "lowerRoman", "start": 1, "restart": "never" }
+  },
+  "pageNumbering": { "format": "decimal", "start": null, "chapter": null }
+}
+```
+
+Each key holds one part of the setup:
+
+| Key             | Shape                                                      | Description                                                                                                        |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `format`        | `{ id, label, width, height }`                             | The paper, with its portrait `width` and `height`. A4 is 793.7 × 1122.5 pixels. `id` and `label` only name it.     |
+| `orientation`   | `"portrait"` or `"landscape"`                              | `"landscape"` turns the paper, so `format` keeps its portrait size.                                                |
+| `margins`       | `{ top, right, bottom, left }`                             | The distance of the text from each page edge.                                                                      |
+| `theme`         | `{ page, text, accent }`                                   | Colors as `#rrggbb`, or `null` for none: the paper, the text that sets no color of its own, and an accent.         |
+| `columns`       | `{ count, gaps, rule, widths }`                            | Section columns. `count: 1` is one column. `null` gaps and widths give the default spacing and equal columns.      |
+| `notePlacement` | `"bottomOfPage"` or `"belowText"`                          | Where footnotes go: at the foot of the page, or right under the last line of text.                                 |
+| `noteNumbering` | `{ footnote, endnote }`, each `{ format, start, restart }` | How each kind of note counts. `restart` is `"never"`, `"section"` or `"page"`.                                     |
+| `pageNumbering` | `{ format, start, chapter }`                               | How the pages count. `start: null` continues from the section before, and `chapter: null` writes the number alone. |
+
+A `format` in `noteNumbering` and `pageNumbering` is the name of a number format, such as `decimal`, `lowerRoman` or `upperAlpha`. In code that has `@tiptap-pro/extension-page-layout` installed, `pageSetup('Letter', { orientation: 'landscape' })` from that package returns this setup.
+
+The service checks only that the eight keys are there. When one is missing, it ignores `pageSetup` and prints A4 portrait pages, and a `PAGE_SETUP_DEFAULTED` [warning](#warnings) names the missing keys. It doesn't check the values, so give each key the shape in the table.
+
+A shorter way is a `sectionBreak` node at the start of `document`, the node in which Page Layout stores the setup of a section. It needs only the settings you change, and the others keep their defaults, such as margins of one inch:
+
+```json
+{
+  "type": "sectionBreak",
+  "attrs": {
+    "formatId": "Letter",
+    "pageWidth": 816,
+    "pageHeight": 1056,
+    "orientation": "landscape"
+  }
+}
+```
+
+A `sectionBreak` at the start of `document` wins over `pageSetup`, and then no warning comes. A document from an editor with Page Layout, or from an import, often starts with one already. [Import sections](/conversion/v3/docx/page-layout#import-sections) lists its attributes.
 
 ### Stylesheets
 
@@ -98,14 +147,18 @@ A `sectionBreak` node at the start of `document` carries the setup of the first 
 | Text  | `{ text, baseUrl, media?, supports?, layer? }` | `baseUrl` is the URL that relative `url()` references in `text` resolve against, such as the stylesheet's own URL. |
 | URL   | `{ url, media?, supports?, layer? }`           | The service fetches the stylesheet, and the stylesheets its `@import` rules name, up to three levels deep.         |
 
+`baseUrl` is required. For CSS without relative `url()` references, give your app's URL, such as `https://app.example.com/`.
+
+The service can fetch only public URLs. So when your CSS is on `localhost` or behind a login, such as in development, read the file in your code and send its CSS as a text entry.
+
 `media`, `supports` and `layer` wrap the entry in `@media`, `@supports` and `@layer`. An entry whose `media` applies to print only is left out with a `STYLESHEET_DROPPED` warning.
 
 The service changes the CSS before it prints:
 
 - It removes `@page` and `@media print` rules, because Page Layout sets the pages. In a list such as `@media screen, print`, it removes only `print`.
 - It removes `@import` rules from text entries, with an `IMPORT_DROPPED` warning.
-- It evaluates every other media query once, for the [viewport](#editor-context) of the request, so the PDF gets the CSS the layout measured.
-- It loads each `url()` from the [assets](#fonts-and-images). A reference that no asset answers is removed, with an `ASSET_MISSING` warning.
+- It evaluates the other media queries for the [viewport](#editor-context) of the request.
+- It fetches the file of each `url()`, unless you [upload](#fonts-and-images) a file for that URL. A `url()` it can't load is removed, with an `ASSET_MISSING` warning.
 
 Before your CSS, the service applies default CSS: Times New Roman at 16 pixels, margins for paragraphs and headings, and table borders. Your stylesheets override it, and Page Layout adds its own CSS for the pages.
 
@@ -134,23 +187,34 @@ An ancestor whose `tag` is not `div`, `main`, `section`, `article`, `aside`, `he
 
 ## Fonts and images
 
-`assets` lists the fonts and images the print needs, so the service can load them. Each entry has an `id` of your choice, made of letters, digits, `_` and `-`:
+`assets` lists the fonts and images the print needs. Every image in `document` needs an entry, but a font needs one only when you upload its file. Each entry has an `id` of your choice, made of letters, digits, `_` and `-`:
 
 | Kind  | Entry                                   | Accepted files             |
 | ----- | --------------------------------------- | -------------------------- |
 | Font  | `{ id, url, family?, weight?, style? }` | TTF, OTF, WOFF or WOFF2    |
 | Image | `{ id, src }`                           | PNG, JPEG, GIF, BMP or SVG |
 
-An entry is uploaded or fetched:
+The service doesn't fetch the images of `document` on its own. An image prints when an entry has its exact `src`. An image whose `src` is a `data:` URL prints too. Any other image prints empty, with an `ASSET_MISSING` warning.
 
-- **With a file part named after its `id`**, the service uses the uploaded file.
-- **Without one**, the service fetches the file from the entry's `url` or `src`.
+For an image on a public URL, an entry with its `src` is enough, and the service fetches it:
 
-An image in `document` prints if an entry has its exact `src`, or if its `src` is a `data:` URL. Otherwise it prints empty, with an `ASSET_MISSING` warning. So write image sources as absolute URLs, because a relative one matches no entry.
+```js
+const options = {
+  document: {
+    type: 'doc',
+    content: [{ type: 'image', attrs: { src: 'https://app.example.com/logo.png' } }],
+  },
+  assets: { images: [{ id: 'logo', src: 'https://app.example.com/logo.png' }] },
+}
+```
 
-A font reaches the page through the `url()` of an `@font-face` rule in `stylesheets`, so give the entry that rule's URL, resolved to an absolute URL. The service fetches the files that `stylesheets` name on its own, so a font needs an entry only when you upload it.
+Write image sources as absolute URLs, in the document and in the entry. The service has no page URL to resolve a relative one against, so a relative `src` matches no entry.
 
-In this Node.js script, the document shows an image, and the request uploads it with the font of an `@font-face` rule. The `options` part is a string, which `FormData` sends as text:
+The service fetches the fonts that the `@font-face` rules of `stylesheets` name on its own, as it does every `url()`. A font needs an entry only when you upload the file, such as a font that isn't on a public URL.
+
+Give that entry the URL of the `@font-face` rule, resolved to an absolute URL.
+
+To upload a file, add a part named after the entry's `id`, and the service uses it instead of fetching the URL. In this Node.js script, the request uploads the image and the font of an `@font-face` rule. The `options` part is a string, which `FormData` sends as text:
 
 ```js
 import { readFile } from 'node:fs/promises'
@@ -269,17 +333,19 @@ These codes come from the print itself:
 
 ## Your own server
 
-The endpoint needs the Conversion service 2.50.0 or later on your own server, and an older service answers it with `404`. The printer runs inside the same Docker image, and needs the Chromium sandbox, so the host must allow user namespaces.
+The endpoint needs the Conversion service 2.50.0 or later on your own server, and an older service answers it with `404`. The printer runs inside the same Docker image.
+
+The printer needs the Chromium sandbox, which needs user namespaces on the host. Plain Docker allows them, so `docker run` needs no extra flag. On a host that blocks them, the printer doesn't start. Then `GET /v2/health/ready` reports the printer as `not_ready` with its `lastLaunchError`, and the endpoint answers `503` with `PRINTER_UNAVAILABLE`.
 
 These environment variables of the service change the print's limits:
 
-| Variable                 | What it sets                                                                                    | Default |
-| ------------------------ | ----------------------------------------------------------------------------------------------- | ------- |
-| `PDF_PRINT_QUEUE_SIZE`   | The prints the service takes at once, fetching included. One more fails with `503`.             | `5`     |
-| `PDF_PRINT_TIMEOUT_MS`   | The time for one print, fetching and printing together, in milliseconds.                        | `60000` |
-| `PDF_PRINT_RATE_LIMIT`   | The print requests one client may send in each rate limit window, when rate limits are on.      | `20`    |
-| `PRINT_MAX_PAGES`        | The most pages one print may have.                                                              | `2000`  |
-| `PRINT_POOL_SIZE`        | The browsers the printer keeps running, each printing one document at a time.                   | `1`     |
-| `PRINT_MEMORY_BUDGET_MB` | The memory the printer may use before it stops the youngest print with `PRINT_MEMORY_EXCEEDED`. | `1024`  |
+| Variable                 | What it sets                                                                                              | Default |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- | ------- |
+| `PDF_PRINT_QUEUE_SIZE`   | The prints the service accepts at once, fetching included. One more fails with `503`.                     | `5`     |
+| `PDF_PRINT_TIMEOUT_MS`   | The time for one print, fetching and printing together, in milliseconds.                                  | `60000` |
+| `PDF_PRINT_RATE_LIMIT`   | The print requests one client may send in each rate limit window, when rate limits are on.                | `20`    |
+| `PRINT_MAX_PAGES`        | The most pages one print may have.                                                                        | `2000`  |
+| `PRINT_POOL_SIZE`        | The browsers that print, each one document at a time. An accepted print waits for a free one.             | `1`     |
+| `PRINT_MEMORY_BUDGET_MB` | The memory the printer may use before it stops the print that started last, with `PRINT_MEMORY_EXCEEDED`. | `1024`  |
 
 The fetch limits, the upload limits and the guard on fetched addresses are fixed. `MAX_REQUEST_BODY_MB` changes the request body limit, as for the other endpoints.

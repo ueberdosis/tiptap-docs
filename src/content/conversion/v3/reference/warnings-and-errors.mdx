@@ -31,18 +31,18 @@ ImportDocx.configure({
 
 An import warning has these fields:
 
-| Field      | Type     | What it holds                                                                                      |
-| ---------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `code`     | `string` | The code, from the editor or from the Conversion service, as [Warning codes](#warning-codes) lists |
-| `message`  | `string` | A summary that is safe to log                                                                      |
-| `nodeType` | `string` | The node type that was preserved, changed or left out, on the editor's codes                       |
-| `markType` | `string` | The mark type that was preserved or left out, on the editor's codes                                |
+| Field      | Type     | What it holds                                                                                               |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `code`     | `string` | The code, from the editor or from the Conversion service, as [Warning codes](#warning-codes) lists          |
+| `message`  | `string` | A summary that is safe to log                                                                               |
+| `nodeType` | `string` | The node type that was preserved, changed or left out. Set on `preserved`, `restructured` and `unsupported` |
+| `markType` | `string` | The mark type that was preserved or left out. Set on `preserved`, `mark-excluded` and `unsupported`         |
 
-The warnings arrive at two times. The Conversion service's warnings reach `onWarning` before `onImport` runs, and `context.warnings` lists them too. Each of these codes arrives at most once per import.
+Some warnings arrive only when `setEditorContent()` writes the document. These are the editor's own warnings, such as `preserved`, and the editor sends one for each code and type, not one for each occurrence.
 
-The editor's own warnings, such as `preserved`, arrive when `setEditorContent()` writes the document. The editor sends one warning for each code and type, not one for each occurrence.
+The Conversion service's warnings reach `onWarning` earlier, before `onImport` runs, and `context.warnings` lists them too. Each of these codes arrives at most once per import.
 
-The entries the Conversion service logged are in `context.logs`. They don't become warnings. `logs.warn` names each image and table that an `image-skipped` or `table-skipped` warning stands for, and why it was left out.
+The entries the Conversion service logged are in `context.logs`, and they don't become warnings. `logs.warn` and `logs.error` are arrays of objects, each with a `message`. `logs.warn` names each image and table that an `image-skipped` or `table-skipped` warning stands for, and why it was left out. [When an image is skipped](/conversion/v3/docx/import#when-an-image-is-skipped) shows how to print them.
 
 ### Export warnings
 
@@ -56,7 +56,7 @@ editor.commands.exportDocx({
 
 Every export warning arrives before `onCompleteExport`. A warning has a `code`, a `message` that is safe to log, and the fields that fit its code. An image or font warning holds the file's URL in `src`. [ExportDocxWarning](/conversion/v3/docx/export-options/types#exportdocxwarning) lists every field.
 
-The Conversion service sends its export warnings in the `X-Export-Warnings` response header. A proxy in front of a Conversion service on your own server can remove that header, and the browser then gets none of these warnings.
+The Conversion service sends its export warnings in the `X-Export-Warnings` and `X-Export-Warnings-Truncated` response headers. The service lists both in `Access-Control-Expose-Headers`, because a browser reads a response header from another origin only when it is listed there. A proxy in front of a Conversion service you run yourself must pass on both headers and that list, or the browser gets none of these warnings.
 
 ## Warning codes
 
@@ -92,7 +92,7 @@ Each code says what the conversion changed or left out. `preserved`, `restructur
 
 `unsupported` means something was left out, and it means different things in the two directions.
 
-On import, the editor gives it only when its schema has no preserved content. Otherwise, content the editor has no extension for is kept, with a `preserved` warning.
+On import, content the editor has no extension for is kept as preserved content, with a `preserved` warning, because `ImportDocx` adds the `PreservedContent` extension to the editor. The editor gives `unsupported` only when the schema the import writes into has no preserved content types.
 
 On export, an `unsupported` warning covers these cases:
 
@@ -113,7 +113,7 @@ An import error goes to the first of these that you set:
 
 1. `onError`, from the `importDocx()` call or from `ImportDocx.configure()`. The call wins.
 2. `onImport`, as `{ content: null, error }`, when the error comes before the import hands over the document.
-3. Without either, the import logs the error with `console.error`. It doesn't log an `ImportDocxSupersededError`, because the newer import answers it.
+3. Without either, the import logs the error with `console.error`. It doesn't log an `ImportDocxSupersededError`, because the newer import replaces the older one.
 
 An error thrown inside `onImport`, including by `setEditorContent()`, goes to `onError`, and without `onError` to the console. This example handles errors in the configuration:
 
@@ -128,13 +128,13 @@ ImportDocx.configure({
 
 These errors stop an import:
 
-| Error                              | When                                                                                                      |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `Error`                            | The `token` or the `file` is missing. This fails before any request.                                      |
-| `ImageUploadConfigValidationError` | `imageUploadConfig.url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings. |
-| `ImportDocxRequestError`           | The Conversion service refused the import, or the request didn't reach it.                                |
-| `ImportDocxSupersededError`        | A newer import started before this one finished.                                                          |
-| `Error`                            | The editor didn't accept the document, or Page Layout's engine was destroyed before the write.            |
+| Error                              | When                                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Error`                            | The `token` or the `file` is missing. This fails before any request, and the message starts with "The [importDocx] command needs".                                    |
+| `ImageUploadConfigValidationError` | `imageUploadConfig.url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings.                                                             |
+| `ImportDocxRequestError`           | The Conversion service refused the import, or the request didn't reach it.                                                                                            |
+| `ImportDocxSupersededError`        | A newer import started before this one finished.                                                                                                                      |
+| `Error`                            | The editor didn't accept the document, or Page Layout's engine, the part that lays out the pages, was destroyed before the write. It comes from `setEditorContent()`. |
 
 #### Request errors
 
@@ -157,18 +157,20 @@ ImportDocx.configure({
 
 The `code` is `NETWORK_ERROR` when the request got no answer, so `status` is unset. It is `HTTP_ERROR` when the answer had no usable code or document. Otherwise it is the code from the Conversion service:
 
-| Code                                    | Status | When                                                                              |
-| --------------------------------------- | ------ | --------------------------------------------------------------------------------- |
-| `INVALID_DOCX_FILE`                     | 422    | The file is corrupt, or isn't a `.docx` file.                                     |
-| `DOCX_TOO_LARGE`                        | 422    | The file unpacks to more than the Conversion service accepts.                     |
-| `FAILED_TO_PARSE_DOCX_FILE`             | 422    | The Conversion service couldn't read the file.                                    |
-| `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON` | 500    | The Conversion service read the file but couldn't convert it.                     |
-| `REQUEST_BODY_TOO_LARGE`                | 413    | The request is larger than the Conversion service accepts.                        |
-| `RATE_LIMITED`                          | 429    | Too many requests. Retry after the number of seconds in the `Retry-After` header. |
-| `INVALID_IMPORT_OPTIONS`                | 400    | An import option is not valid, such as `imageUploadConfig`.                       |
-| `UNSUPPORTED_NODE_OVERRIDE`             | 400    | `prosemirrorNodes` renames a node the document structure depends on.              |
+| Code                                    | Status | When                                                                                                                                                                                               |
+| --------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_DOCX_FILE`                     | 422    | The file is corrupt, or isn't a `.docx` file.                                                                                                                                                      |
+| `DOCX_TOO_LARGE`                        | 422    | The file unpacks to more than the Conversion service accepts.                                                                                                                                      |
+| `FAILED_TO_PARSE_DOCX_FILE`             | 422    | The Conversion service couldn't read the file.                                                                                                                                                     |
+| `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON` | 500    | The Conversion service read the file but couldn't convert it.                                                                                                                                      |
+| `REQUEST_BODY_TOO_LARGE`                | 413    | The request is larger than the Conversion service accepts.                                                                                                                                         |
+| `RATE_LIMITED`                          | 429    | Too many requests in a short time. Wait before you retry, because the error doesn't carry the `Retry-After` header. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits.  |
+| `INVALID_IMPORT_OPTIONS`                | 400    | An import option is not valid, such as `imageUploadConfig`.                                                                                                                                        |
+| `UNSUPPORTED_NODE_OVERRIDE`             | 400    | `prosemirrorNodes`, the option that renames node types, renames a node the document structure depends on. See [Rename a node or a mark](/conversion/v3/docx/custom-nodes#rename-a-node-or-a-mark). |
 
-Authentication failures carry their own code and status, such as 401, 403, 429 or 503. A validation error without a code becomes `HTTP_ERROR` with the status.
+When the Conversion service refuses the token, the app ID or the page's origin, `code` holds the reason, such as `missing_app_id` or `permission_denied`, with the status 401 or 403. When the token check itself is rate limited or unavailable, the codes are `rate_limited` with 429 and `service_unavailable` with 503. [REST API overview](/conversion/v3/rest-api/overview) lists these codes.
+
+A validation error without a code becomes `HTTP_ERROR` with the status.
 
 #### Superseded imports
 
@@ -225,16 +227,16 @@ Besides `code`, the error carries these fields:
 
 The `code` says what happened:
 
-| `code`                                                                                       | `status`   | What happened                                                                                                                                                                                                                       |
-| -------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NETWORK_ERROR`                                                                              | None       | The request did not reach the Conversion service. `cause` holds the original error.                                                                                                                                                 |
-| `HTTP_ERROR`                                                                                 | Any        | A failure status without a JSON body or an error code, such as `404` from a Conversion service older than 2.48.0 on your own server. See [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint).         |
-| `INVALID_EXPORT_OPTIONS`                                                                     | 400        | An option, named in `path`, is not valid, such as a `px` page measure or a `defaultTabStop` of 0.                                                                                                                                   |
-| `DOCX_DSL_` and a name                                                                       | 400 or 422 | A custom node rule failed validation (400) or rendering (422). See [Find the failing rule](#find-the-failing-rule).                                                                                                                 |
-| `FAILED_TO_EXPORT_DOCX_FILE`                                                                 | 422        | The Conversion service could not build the file, such as for an image it downloads with `onImageError: 'throw'`.                                                                                                                    |
-| `REQUEST_BODY_TOO_LARGE`                                                                     | 413        | The request is over 100 MB.                                                                                                                                                                                                         |
-| `RATE_LIMITED`                                                                               | 429        | Too many requests in a short time. Wait before you retry, because a browser can't read the `Retry-After` and `RateLimit` headers. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits.                     |
-| Authentication and origin codes, such as `missing_app_id` for a legacy token without `appId` | 401, 403   | The token, the app ID or the page's origin was refused. `code` holds the code, and `message` only the status, such as "The export failed with status 401". [REST API overview](/conversion/v3/rest-api/overview) lists these codes. |
+| `code`                                                                                                                 | `status`   | What happened                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NETWORK_ERROR`                                                                                                        | None       | The request did not reach the Conversion service. `cause` holds the original error.                                                                                                                                                 |
+| `HTTP_ERROR`                                                                                                           | Any        | A failure status without a JSON body or an error code, such as `404` from a Conversion service older than 2.48.0 on your own server. See [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint).         |
+| `INVALID_EXPORT_OPTIONS`                                                                                               | 400        | An option, named in `path`, is not valid, such as a `px` page measure or a `defaultTabStop` of 0.                                                                                                                                   |
+| `DOCX_DSL_` and a name                                                                                                 | 400 or 422 | A custom node rule failed validation (400) or rendering (422). See [Find the failing rule](#find-the-failing-rule).                                                                                                                 |
+| `FAILED_TO_EXPORT_DOCX_FILE`                                                                                           | 422        | The Conversion service could not build the file, such as for an image it downloads with `onImageError: 'throw'`.                                                                                                                    |
+| `REQUEST_BODY_TOO_LARGE`                                                                                               | 413        | The request is over 100 MB.                                                                                                                                                                                                         |
+| `RATE_LIMITED`                                                                                                         | 429        | Too many requests in a short time. Wait before you retry, because a browser can't read the `Retry-After` and `RateLimit` headers. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits.                     |
+| Authentication and origin codes, such as `missing_app_id` for a [legacy token](/authentication/legacy) without `appId` | 401, 403   | The token, the app ID or the page's origin was refused. `code` holds the code, and `message` only the status, such as "The export failed with status 401". [REST API overview](/conversion/v3/rest-api/overview) lists these codes. |
 
 When `INVALID_EXPORT_OPTIONS` names `path: 'documentCss'`, the Conversion service could not read the measured CSS. Set `documentStyles: false` to export without it.
 
@@ -248,7 +250,7 @@ The names after the `DOCX_DSL_` prefix are `UNKNOWN_VERSION`, `INVALID_SHAPE`, `
 
 #### Image errors
 
-With `onImageError: 'throw'`, an image the browser can't use fails the export instead of being left out. The error class depends on whether the image host answered:
+With `onImageError: 'throw'`, an image the browser can't use fails the export instead of being left out, as it is with the default, `'skip'`. The error class depends on whether the image host answered:
 
 - **`ImageFetchError`**, code `image-fetch-failed`: the host answered with a failure, and `status` holds it.
 - **`ImageRequestError`**, code `image-request-failed`: the download did not complete, or the image is over 20 MB or past the limit of 64 files.

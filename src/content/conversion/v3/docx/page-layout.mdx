@@ -10,28 +10,11 @@ meta:
 
 With [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the document on pages, a Word file keeps its pages when it moves between Word and the editor. Its sections, page setup, headers, footers, page numbers and page breaks import into the document, and export writes them back to the `.docx` file.
 
-A section is a part of the document with its own page setup, as in Word: paper size, orientation, margins, section columns, page numbering, headers and footers. Section columns are Word's Layout > Columns, which flow a section's text through several columns.
-
-## How the document holds the pages
-
-Page Layout keeps the page setup of a Word file in the document, as nodes. So it is saved with the document, and export finds it there:
-
-| Node                       | What it holds                                                          |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `sectionBreak`             | The start of a section, with the section's page setup                  |
-| `pageFurniture`            | One header or footer of a section, inside the section's `sectionBreak` |
-| `pageNumber`               | A page number that keeps counting, in a header, a footer or the body   |
-| `pageBreak`, `columnBreak` | A break the user inserted, inside its paragraph                        |
-
-[Sections](/features/page-layout/sections), [Page format](/features/page-layout/page-format), [Section columns](/features/page-layout/section-columns), [Header and footer](/features/page-layout/header-and-footer), [Page numbers](/features/page-layout/page-numbers) and [Breaks](/features/page-layout/breaks) show how Page Layout uses these nodes.
-
-Footnotes and endnotes are notes of the Footnotes extension, with or without Page Layout. [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) says how they convert.
+A section is a part of the document with its own page setup, as in Word: paper size, orientation, margins, section columns, page numbering, headers and footers. Section columns flow a section's text through several columns side by side, as Word's Layout > Columns does.
 
 ## Import a Word file
 
-With Page Layout, the import writes the file into the Source Document, the document Page Layout lays out on pages. Its sections, page setup, headers, footers and notes go in with it.
-
-Without `onImport`, the import writes the document when it arrives. With `onImport`, it writes when you call `setEditorContent()`, as [Import DOCX](/conversion/v3/docx/import) shows:
+With Page Layout, the import writes the file into the document, with its sections, page setup, headers, footers and notes. Without `onImport`, the import writes the document when it arrives. With `onImport`, it writes when you call `setEditorContent()`, as [Import DOCX](/conversion/v3/docx/import) shows:
 
 ```ts
 editor.commands.importDocx({
@@ -45,15 +28,15 @@ editor.commands.importDocx({
 
 The write is one step, so one undo takes the import back. The caret lands at the start of the body. The Tracked Changes extension doesn't record the write as a suggestion, even while it records the user's edits.
 
-A Page Layout editor that has not mounted, such as a headless one in a Node.js script, has no pages. Its own document is then the Source Document, and the import writes the sections, headers and notes into it as it does in a mounted editor.
+You save the imported document as any Page Layout document: store what `editor.getJSON()` returns. It holds the sections, headers and notes, but no pages, because Page Layout draws the pages from it each time. Don't save `editor.state.doc`, which holds the pages the user sees.
 
-Before it writes, the import fits the document to the schema of the Source Document, so the schema can't make an import fail. Content that the editor has no extension for is kept, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
+A Page Layout editor that has not mounted, such as a headless one in a Node.js script, draws no pages. The import still writes the sections, headers and notes, and `editor.getJSON()` returns them.
+
+An import never fails because of your schema. Content that the editor has no extension for is kept, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
 
 ### Tell the import apart from an edit
 
-Each write of the import carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your extensions can tell an import apart from the user's edits.
-
-With Page Layout, read it in `onUpdate`. The editor's `transaction` event carries the transactions of the pages, and only `update` carries the import's own transaction:
+Each write of the import carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your extensions can tell an import apart from the user's edits. With Page Layout, read it in `onUpdate`, not in `onTransaction`, because only the `update` event carries the import's own transaction:
 
 ```ts
 import { Extension } from '@tiptap/core'
@@ -69,33 +52,73 @@ const LogImports = Extension.create({
 
 ### When the import fails
 
-`setEditorContent()` throws when Page Layout's engine was destroyed before the write. It also throws when a newer import has started. An error thrown inside `onImport`, including by `setEditorContent()`, reaches `onError`. [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists every error of an import.
+`setEditorContent()` throws when the editor was destroyed before the write, such as when its component unmounts during the import. It also throws when a newer import has started.
+
+You don't need to catch these errors yourself. An error thrown inside `onImport`, including by `setEditorContent()`, reaches `onError`, on the command or in `ImportDocx.configure()`. [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists every error of an import.
 
 ## Export a Page Layout document
 
-Export reads the page setup from the document, so the file gets each section's page, headers and footers without any export option. Export starts a Word section at each `sectionBreak`. [Sections and page setup](#sections-and-page-setup) and [Headers and footers](#headers-and-footers) say what Word gets for each of them.
+Export reads the page setup from the document, so the file gets each section's paper, headers and footers without any export option. Export starts a Word section at each `sectionBreak`, the node that starts a section and holds its page setup. [Sections and page setup](#sections-and-page-setup) and [Headers and footers](#headers-and-footers) say what Word gets.
 
-The `pageSize` and `pageMargins` options have no effect with Page Layout, because they set the page of an editor without it, as [Page size and margins](/conversion/v3/docx/export#page-size-and-margins) shows.
+### Export on other paper
 
-### Export the first section on other paper
+Each section exports on the paper its `sectionBreak` holds. An imported document starts with a `sectionBreak`, so no export option changes its paper, only a change to its sections does.
 
-The `pageSetup` option replaces the editor's page setup for one export. It takes the page setup in CSS pixels, as [Page format](/features/page-layout/page-format) describes, and its `format` needs the `id`, the `width` and the `height`. This example sets US Letter with one-inch margins:
+Page Layout's `setPageSections()` command replaces every section in one step, which one undo takes back. This example puts every section on US Letter, keeps its orientation and margins, and undoes the change once the file arrives, so the user's document keeps its paper. `PAGE_FORMATS` holds Page Layout's paper sizes, and `save` stands for your app's code that stores the file:
 
 ```ts
+import { PAGE_FORMATS } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+
+editor.commands.setPageSections(
+  engine.getSections().map((section) => ({
+    ...section,
+    setup: { ...section.setup, format: PAGE_FORMATS.Letter },
+  })),
+)
+
 editor.commands.exportDocx({
-  pageSetup: {
-    format: { id: 'Letter', width: 816, height: 1056 },
-    orientation: 'portrait',
-    margins: { top: 96, right: 96, bottom: 96, left: 96 },
+  onCompleteExport: (file) => {
+    editor.commands.undo()
+    save(file)
   },
+  onError: () => editor.commands.undo(),
 })
 ```
 
-The editor's page setup, and so `pageSetup`, applies only to the content before the first `sectionBreak`. An imported document starts with a `sectionBreak`. A document written in the editor may not, and its content before the first `sectionBreak` is its first section.
+Undo takes back the last step, so the user should not edit while the export runs. To keep Letter in the document, leave out the undo. In a pageless editor, `setPageSections()` returns `false`. [Sections](/features/page-layout/sections) and [Page format](/features/page-layout/page-format) describe the commands.
 
-Each later section keeps the page of the `sectionBreak` that starts it. To put the whole document on Letter, change every section in the editor with Page Layout's `setSectionSetup()` command, as [Sections](/features/page-layout/sections) shows.
+### A document that stores no paper
 
-A pageless document, which Page Layout shows as one continuous column, exports on A4 pages with one-inch margins and no warning, unless you pass `pageSetup`. This is a known limit that is being fixed.
+A document written in the editor may store no paper of its own, so its content before the first `sectionBreak` has none. Export gives that content the paper the editor shows, which the `setup` of `PageLayout.configure()` or the `setPageSetup()` command sets.
+
+The `pageSetup` option replaces that paper for one export. It changes nothing in a document that starts with a `sectionBreak`, such as an imported one. Build it with Page Layout's `pageSetup()` function. The `id` of its `format` can be any string, because the paper size in the file comes from the format's `width` and `height` in CSS pixels. This example sets US Letter with one-inch margins:
+
+```ts
+import { pageSetup } from '@tiptap-pro/extension-page-layout'
+
+editor.commands.exportDocx({ pageSetup: pageSetup('Letter') })
+```
+
+A pageless editor shows the document as one continuous column, without pages. An editor is pageless when `PageLayout` has no `setup`, or after `setPageSetup(null)`, as [Page format](/features/page-layout/page-format) describes.
+
+A pageless editor shows no paper, so the content before the first `sectionBreak` exports with the `pageSize` and `pageMargins` options, unless you pass `pageSetup`. Their default is A4 with margins of 2.54cm at the top and bottom and 3.17cm at the sides, as [Page size and margins](/conversion/v3/docx/export#page-size-and-margins) shows.
+
+## How the document holds the pages
+
+Page Layout keeps the page setup of a Word file in the document, as nodes, so it is saved with the document and export finds it there:
+
+| Node                       | What it holds                                                               |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `sectionBreak`             | The start of a section, with the section's page setup                       |
+| `pageFurniture`            | One header or footer of a section, inside the section's `sectionBreak`      |
+| `pageNumber`               | A page number field that Page Layout updates, in a header, a footer or text |
+| `pageBreak`, `columnBreak` | A break the user inserted, inside its paragraph                             |
+
+[Sections](/features/page-layout/sections), [Section columns](/features/page-layout/section-columns), [Header and footer](/features/page-layout/header-and-footer), [Page numbers](/features/page-layout/page-numbers) and [Breaks](/features/page-layout/breaks) show how Page Layout uses these nodes.
+
+Footnotes and endnotes come from the Footnotes extension, which works with or without Page Layout. [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) says how they convert.
 
 ## Sections and page setup
 
@@ -105,18 +128,21 @@ Each Word section becomes a Page Layout section with its own page setup, and exp
 
 Import puts a `sectionBreak` node in front of each section, the first at the very start of the document. Each one holds its section's setup in these attributes, with lengths in pixels:
 
-| Setting              | Attributes                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| Paper size           | `formatId`, `pageWidth`, `pageHeight`                                                        |
-| Orientation          | `orientation`                                                                                |
-| Margins              | `marginTop`, `marginRight`, `marginBottom`, `marginLeft`                                     |
-| Section break kind   | `kind`: `nextPage` or `continuous`                                                           |
-| Section columns      | `columnCount`, `columnGaps`, `columnWidths`, `columnRule` for the line between columns       |
-| Page numbering       | `pageNumbering`, an object with `format`, `start` and `chapter`                              |
-| Different first page | `differentFirstPage`                                                                         |
-| Note settings        | `notePlacement`, `footnoteNumbering`, `endnoteNumbering`: where notes go, format and restart |
-| Page color           | `themePage`, a hex color such as `#fff8e8`, on the first section only                        |
-| Header and footer    | See [Headers and footers](#headers-and-footers)                                              |
+| Setting              | Attributes                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| Paper size           | `formatId`, `pageWidth`, `pageHeight`                                                                     |
+| Orientation          | `orientation`                                                                                             |
+| Margins              | `marginTop`, `marginRight`, `marginBottom`, `marginLeft`                                                  |
+| Section break kind   | `kind`: `nextPage` or `continuous`                                                                        |
+| Section columns      | `columnCount`, `columnGaps`, `columnWidths`, `columnRule` for the line between columns                    |
+| Page numbering       | `pageNumbering`, an object with `format`, `start` and `chapter`                                           |
+| Different first page | `differentFirstPage`                                                                                      |
+| Note placement       | `notePlacement`: `bottomOfPage` or `belowText`                                                            |
+| Note numbering       | `footnoteNumbering` and `endnoteNumbering`, each `null` or an object with `format`, `start` and `restart` |
+| Page color           | `themePage`, a hex color such as `#fff8e8`, on the first section only                                     |
+| Header and footer    | See [Headers and footers](#headers-and-footers)                                                           |
+
+`formatId` is the id of a Page Layout paper size, such as `A4` or `Letter`, when the Word paper matches one. Other paper gets an id of its own. A `null` note numbering means Page Layout's default: `1, 2, 3` for footnotes and `i, ii, iii` for endnotes.
 
 `columnGaps` holds the space after each column but the last, in pixels. `columnWidths` holds one share of the text width for each column, such as `[0.6, 0.4]`, so the widths follow the paper size.
 
@@ -124,9 +150,9 @@ A section's columns are settings on its `sectionBreak`. Its blocks aren't wrappe
 
 `pageNumbering.format` is the number format, such as `decimal` or `lowerRoman`. `start` is the first page number, or `null` to continue from the section before.
 
-`pageNumbering.chapter` is Word's "Include chapter number": `null`, or an object with the heading `level` that starts a chapter and the `separator` between the chapter and page numbers, such as `hyphen` for `2-5`.
+`pageNumbering.chapter` is Word's "Include chapter number", which puts the number of the current chapter heading before the page number, such as `2-5` for page 5 of chapter 2. It is `null`, or an object with the heading `level` that starts a chapter and the `separator` between the two numbers: `hyphen`, `period`, `colon`, `emDash` or `enDash`.
 
-A body without a section setup imports as one US Letter section with 1-inch margins. An "at least" top or bottom margin imports as a fixed margin of the same size.
+A Word file that sets no section properties, so no paper or margins, imports as one US Letter section with 1-inch margins. An "at least" top or bottom margin imports as a fixed margin of the same size.
 
 Some settings change to ones Page Layout has, each with a warning:
 
@@ -143,7 +169,7 @@ Two more settings change without a warning, which is a known limit that is being
 
 Export writes the settings of the [Import sections](#import-sections) table back, with two exceptions. The note settings don't export, and the page color follows the rules in [Page color](#page-color).
 
-The paper size comes from the format's width and height, and the chapter number keeps its `separator`. A `nextPage` section starts a new page. A `continuous` one stays on the sheet and takes the paper of the section before it, because paper can't change halfway down a sheet.
+Export writes the paper size from `pageWidth` and `pageHeight`, so it doesn't need `formatId`. The chapter number exports with its `separator`. A `nextPage` section starts a new page. A `continuous` one stays on the sheet and takes the paper of the section before it, because paper can't change halfway down a sheet.
 
 Page numbers use the section's number format, such as `decimal` or `lowerRoman`. A format without an exact Word match is written as the closest one, with an `unsupported` warning.
 
@@ -181,15 +207,15 @@ Word's page number fields, `PAGE`, `NUMPAGES` and `SECTIONPAGES`, become `pageNu
 
 ### Export headers and footers
 
-Export reads the headers and footers from the `pageFurniture` nodes of each section's `sectionBreak`. Headers and footers hold rich content, such as tables and images, and convert like the body. Their content comes from the page setup, so no export option sets it.
+Export reads the headers and footers from the `pageFurniture` nodes of each section's `sectionBreak`. Headers and footers hold rich content, such as tables and images, and convert like the body. Their content comes from the document, so no export option sets it. To format them differently from the body, use `headerFooterOverrides`, as [Header and footer formatting](/conversion/v3/docx/export-styles#header-and-footer-formatting) shows.
 
 - A section can have a `default`, `first` and `even` version of its header and of its footer.
 - A section without its own version uses the previous section's.
-- A section can use another section's version instead. Its `headerDefaultLink`, `headerFirstLink`, `headerEvenLink` or matching `footer…Link` attribute then holds the `id` of that section's `sectionBreak`, such as `sec-1`.
+- A section can use another section's version instead. One of its link attributes then holds the `id` of that section's `sectionBreak`, such as `sec-1`: `headerDefaultLink`, `headerFirstLink`, `headerEvenLink`, `footerDefaultLink`, `footerFirstLink` or `footerEvenLink`.
 - `differentFirstPage` exports for each section on its own.
 - Word has one odd and even switch for the whole file. Export turns it on when any section has `differentOddEven`. A section without it then gets its `default` version on the even pages too.
 
-The header and footer distance comes from each section, 1.25cm by default. A `pageFurniture` node can set a distance of its own in `offset`. When the versions a section shows have different distances, export uses the section's distance, with an `unsupported` warning, because Word keeps one per section.
+The distance of the header and footer from the page edge comes from the section's `headerOffset` and `footerOffset`, 1.25cm by default. One header or footer can set its own distance in the `offset` attribute of its `pageFurniture` node. Word keeps one distance per section, so when the versions a section shows have different distances, export uses the section's, with an `unsupported` warning.
 
 A `pageNumber` node exports as a live Word field, which its `kind` picks. [Page numbers](/features/page-layout/page-numbers#a-page-number-in-a-header-or-footer) shows how to add one:
 
@@ -199,19 +225,9 @@ A `pageNumber` node exports as a live Word field, which its `kind` picks. [Page 
 | `pages`        | The number of pages                |
 | `sectionPages` | The number of pages in the section |
 
-### Format headers and footers
-
-`headerFooterOverrides` formats headers and footers differently from the body, with the same override fields, such as `paragraphOverrides`. A field you leave out uses the body's value. [Export styles and fonts](/conversion/v3/docx/export-styles#header-and-footer-formatting) lists the fields. The example runs on an editor set up as in [Export DOCX](/conversion/v3/docx/export):
-
-```ts
-editor.commands.exportDocx({
-  headerFooterOverrides: { paragraphOverrides: { spacing: { after: 0 } } },
-})
-```
-
 ## Page breaks and column breaks
 
-A page break the user inserted in Word imports as a `pageBreak` node and exports back as a Word page break. A column break converts the same way, as a `columnBreak` node. Page Layout has both as inline nodes, with the `insertPageBreak` command, as [Breaks](/features/page-layout/breaks) shows.
+A page break the user inserted in Word imports as a `pageBreak` node and exports back as a Word page break. A column break converts the same way, as a `columnBreak` node. Page Layout has both as inline nodes, with the `insertPageBreak()` and `insertColumnBreak()` commands, as [Breaks](/features/page-layout/breaks) shows.
 
 Import keeps a page break inside its paragraph, where Word has it:
 
@@ -230,7 +246,7 @@ On export, a `pageBreak` inside a paragraph writes the break at that place. A `p
 
 ## Without Page Layout
 
-An editor without Page Layout has no pages, so import keeps the page setup as [preserved content](/conversion/v3/docx/preserved-content), with a `preserved` warning for each type.
+An editor without Page Layout has no pages, so import keeps the page setup as [preserved content](/conversion/v3/docx/preserved-content), with a `preserved` warning for each type. Preserved content holds what the editor has no extension for, so export can write it back and Page Layout can show it later.
 
 Each `sectionBreak` keeps its setup, headers and footers, and sits in the text where its Word section starts, the first one at the start of the document. Page numbers and note references stay in the text.
 
@@ -238,11 +254,9 @@ When you add Page Layout and load the saved document, it opens with its pages, h
 
 ### Page breaks without Page Layout
 
-`@tiptap-pro/extension-pagebreak` has a block `pageBreak` node, which import and export both use. A page break inside a paragraph then splits it, with the `pageBreak` between the halves.
+`@tiptap-pro/extension-pagebreak`, which you install and add to the editor yourself, has a block `pageBreak` node, which import and export both use. A page break inside a paragraph then splits it, with the `pageBreak` between the halves.
 
-An editor with no `pageBreak` or `columnBreak` node keeps each break in the text as preserved content, with a `preserved` warning.
-
-The preserved break is visible only with CSS of your own, such as the CSS in [Content the editor cannot show](/conversion/v3/docx/preserved-content). `editor.getText()` returns a space for it, so the words around it stay apart.
+An editor with no `pageBreak` or `columnBreak` node keeps each break in the text as preserved content, with a `preserved` warning. The preserved break is visible only with CSS of your own, such as the CSS in [Show preserved content](/conversion/v3/docx/preserved-content#show-preserved-content).
 
 ### Export without Page Layout
 
@@ -260,4 +274,4 @@ These page settings don't convert, or change on the way:
 - Fields other than page numbers import as plain text.
 - Word keeps one header and footer distance per section, and one odd and even switch per file.
 - Soft page breaks don't import, because they are Word's layout, not content.
-- A pageless document exports on A4 pages with one-inch margins, unless you pass `pageSetup`.
+- No export option changes the paper of a document that starts with a `sectionBreak`, such as an imported one.

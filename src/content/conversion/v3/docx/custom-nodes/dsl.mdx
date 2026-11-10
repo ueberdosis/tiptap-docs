@@ -37,10 +37,12 @@ const rule: CustomNodeRule = docxNode('caption')
 | `auto()`                                               | no `nodeKind`            | Export works out the kind from what the rule emits. This is the default.          |
 | `emit(node: RenderNodeBuilder \| RenderNodeBuilder[])` | `render: { emit }`       | What export writes in place of the node.                                          |
 | `emitNothing()`                                        | `render: { emit: null }` | Leaves the node and its content out, the same as `drop()`.                        |
-| `drop()`                                               | `render: null`           | Leaves the node and its content out. There are two names for the two JSON forms.  |
+| `drop()`                                               | `render: null`           | Leaves the node and its content out.                                              |
 | `toJSON(): CustomNodeRule`                             |                          | Returns the rule. Throws unless `emit()`, `emitNothing()` or `drop()` came first. |
 
-`emit()` takes the builder of an element, or of `fragment()`, `iff()`, `switch_()` or `textOp()`. It doesn't take the children builders, which go inside an element. To write only the content of the node, pass their JSON in a fragment. [Keep or drop the content](/conversion/v3/docx/custom-nodes#keep-or-drop-the-content) shows the cases:
+`emit()` takes a render node builder, which is the builder of an element, such as `paragraph()`, or of `fragment()`, `iff()`, `switch_()`, `textOp()` or `pageBreak()`.
+
+`emit()` doesn't take the children builders, which go inside an element. To write only the content of the node, pass their JSON in a fragment. [Keep or drop the content](/conversion/v3/docx/custom-nodes#keep-or-drop-the-content) shows the cases:
 
 ```ts
 emit(fragment(childrenBlock().toJSON()))
@@ -106,10 +108,10 @@ const noticeRule = docxNode('notice')
 
 A mark policy object says which marks the text gets, and how they look. `marks(mode: 'default' | 'node')` builds one and returns a `MarkPolicyBuilder`, which you pass to `childrenInline({ marks })` or `applyMarks()`. [Marks](/conversion/v3/docx/custom-nodes#marks) explains the modes.
 
-The object starts from its `mode`, and two methods change it. Both add to earlier calls:
+The object starts from its `mode`, and two methods change it. Calling a method again adds to what earlier calls set, instead of replacing it:
 
 - `disable(...marks: MarkType[])` leaves marks out. A `MarkType` is one of the marks that [Marks](/conversion/v3/docx/custom-nodes#marks) says export formats.
-- `overrides()` adds `TextRun` properties, in `props`, to text that has a given mark. With `replace: true`, only these `props` apply, not the mark's own formatting.
+- `overrides(overrides: { [mark]: { props, replace? } })` adds `TextRun` properties, in `props`, to text that has the mark. With `replace: true`, only these `props` apply, not the mark's own formatting.
 
 Here, bold text in a `pullQuote` turns red instead of bold, and highlights are left out:
 
@@ -146,35 +148,35 @@ These functions return value expressions, which the Conversion service works out
 
 A `transform` changes a `$ref` value, or its `default`, and several in an array run in order. A value a transform can't convert fails with `DOCX_DSL_INVALID_TRANSFORM`.
 
-| Transform                | Result                                                                 |
-| ------------------------ | ---------------------------------------------------------------------- |
-| `hexNoHash`              | A color of six hex digits, without its `#`.                            |
-| `lower`, `upper`, `trim` | The string in lowercase, in uppercase, or without outer spaces.        |
-| `parseIntStrict`         | A whole number from a string or number.                                |
-| `parseFloatStrict`       | A number from a string or number.                                      |
-| `boolean`                | `true` or `false`, from a boolean or the string `"true"` or `"false"`. |
-| `nullableString`         | The string without outer spaces, or `null` when that is empty.         |
+| Transform                | Result                                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `hexNoHash`              | Six hex digits, with or without `#`, returned without it. For other CSS colors, use the `normalizeColor` unit. |
+| `lower`, `upper`, `trim` | The string in lowercase, in uppercase, or without outer spaces.                                                |
+| `parseIntStrict`         | The whole number at the start of a string, such as `12` from `'12pt'`, or a number without its decimals.       |
+| `parseFloatStrict`       | A number from a string or number.                                                                              |
+| `boolean`                | `true` or `false`, from a boolean or the string `"true"` or `"false"`.                                         |
+| `nullableString`         | The string without outer spaces, or `null` when that is empty.                                                 |
 
 `op()` takes these operations:
 
-| Operation                          | Arguments                  | Result                                                   |
-| ---------------------------------- | -------------------------- | -------------------------------------------------------- |
-| `add`, `mul`                       | two or more numbers        | The sum or the product.                                  |
-| `sub`, `div`                       | two numbers                | The difference or the quotient.                          |
-| `eq`, `ne`, `lt`, `le`, `gt`, `ge` | two numbers or two strings | `true` or `false`.                                       |
-| `and`, `or`                        | two or more values         | The first falsy or truthy value, or the last value.      |
-| `not`                              | one value                  | `true` for a falsy value, `false` otherwise.             |
-| `coalesce`                         | two or more values         | The first value that isn't missing or `null`, or `null`. |
+| Operation                          | Arguments                  | Result                                                                               |
+| ---------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| `add`, `mul`                       | two or more numbers        | The sum or the product.                                                              |
+| `sub`, `div`                       | two numbers                | The difference or the quotient.                                                      |
+| `eq`, `ne`, `lt`, `le`, `gt`, `ge` | two numbers or two strings | `true` or `false`.                                                                   |
+| `and`, `or`                        | two or more values         | As JavaScript's `&&` and `\|\|`: the first falsy or truthy value, or the last value. |
+| `not`                              | one value                  | `true` for a falsy value, `false` otherwise.                                         |
+| `coalesce`                         | two or more values         | The first value that isn't missing or `null`, or `null`.                             |
 
 `unit()` takes these units. The pixel and point units don't round:
 
-| Unit                                                                          | Converts                                                                           |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips` | From pixels or points to the unit in the name. A pixel is 0.75 pt.                 |
-| `inchesToTwips`, `cmToTwips`, `mmToTwips`                                     | Inches, centimeters or millimeters to whole twips.                                 |
-| `universalMeasureToTwips`                                                     | A measurement such as `'2.54cm'` in `cm`, `mm`, `in`, `pt`, `pc` or `px` to twips. |
-| `lineHeightToDocx`                                                            | A line height such as `1.5` to 240ths of a line, for `spacing.line`.               |
-| `normalizeColor`                                                              | A CSS color to six hex digits without `#`, or `null`.                              |
+| Unit                                                                          | Converts                                                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips` | From pixels or points to the unit in the name. A pixel is 0.75 pt.                            |
+| `inchesToTwips`, `cmToTwips`, `mmToTwips`                                     | Inches, centimeters or millimeters to whole twips.                                            |
+| `universalMeasureToTwips`                                                     | A measurement such as `'2.54cm'` in `cm`, `mm`, `in`, `pt`, `pc` or `px` to twips.            |
+| `lineHeightToDocx`                                                            | A line height such as `1.5` to 240ths of a line, for `spacing.line`.                          |
+| `normalizeColor`                                                              | A CSS color, such as `'red'` or `'rgb(192, 0, 0)'`, to six hex digits without `#`, or `null`. |
 
 ## What the builders check
 
@@ -187,19 +189,19 @@ The Conversion service checks everything else when it builds the file, such as p
 
 ## Builders
 
+The override options are options of `ExportDocx` that format every paragraph, text run, table or table cell in the file, as [Set default formatting](/conversion/v3/docx/export-styles#set-default-formatting) shows. Properties set on an element win over them.
+
 The element builders, such as `ParagraphBuilder`, have these methods. Every method except `toJSON()` returns a new builder and leaves its own unchanged, so one partial chain, such as a `paragraph()` with its properties, can start several rules:
 
-| Method                                                      | On                                           | What it does                                                                                                                                                                                                                       |
-| ----------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `children(spec)`                                            | every element with children                  | Sets the children, replacing earlier ones. [Element factories](#element-factories) lists what each element takes.                                                                                                                  |
-| `rows(...rows: TableRowBuilder[])`                          | `TableBuilder`                               | Sets the rows of a table. `rows(a, b)` is short for `children([a, b])`.                                                                                                                                                            |
-| `applyMarks(policy: ApplyMarksPolicy \| MarkPolicyBuilder)` | `TextRunBuilder`, `ExternalHyperlinkBuilder` | Puts the custom node's own marks on the element. Takes `'node'`, an object with `mode: 'node'`, or `marks('node')`.                                                                                                                |
-| `inheritOverrides(value: boolean)`                          | every element except `TableRowBuilder`       | With `false`, the element skips the `ExportDocx` option that formats every element of its kind: `paragraphOverrides`, `textRunOverrides`, `tableOverrides` or `tableCellOverrides`. Defaults to `true`. Links have no such option. |
-| `toJSON()`                                                  | every builder                                | Returns the JSON, an `ElementNode` for an element.                                                                                                                                                                                 |
+| Method                                                      | On                                           | What it does                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `children(spec)`                                            | every element with children                  | Sets the children, replacing earlier ones. [Element factories](#element-factories) lists what each element takes.                                                                                                                              |
+| `rows(...rows: TableRowBuilder[])`                          | `TableBuilder`                               | Sets the rows of a table. `rows(a, b)` is short for `children([a, b])`.                                                                                                                                                                        |
+| `applyMarks(policy: ApplyMarksPolicy \| MarkPolicyBuilder)` | `TextRunBuilder`, `ExternalHyperlinkBuilder` | Puts the custom node's own marks on the element. Takes `'node'`, an object with `mode: 'node'`, or `marks('node')`.                                                                                                                            |
+| `inheritOverrides(value: boolean)`                          | every element except `TableRowBuilder`       | With `false`, the element skips its override option: `paragraphOverrides`, `textRunOverrides`, `tableOverrides` or `tableCellOverrides`. Defaults to `true`. A row or a link a rule writes gets no overrides, so on a link it changes nothing. |
+| `toJSON()`                                                  | every builder                                | Returns the JSON, an `ElementNode` for an element.                                                                                                                                                                                             |
 
-The builders of `fragment()`, `iff()`, `switch_()`, `textOp()` and `pageBreak()` are `RenderNodeBuilder`s, with only `toJSON(): RenderNode`. The children builders have only `toJSON(): ChildrenOp`.
-
-The override options are options of `ExportDocx` that format every paragraph, text run, table or table cell in the file, as [Set default formatting](/conversion/v3/docx/export-styles#set-default-formatting) shows. Properties set on an element win over them.
+The builders of `fragment()`, `iff()`, `switch_()`, `textOp()` and `pageBreak()` have only `toJSON(): RenderNode`. The children builders have only `toJSON(): ChildrenOp`.
 
 ## Properties
 
@@ -224,7 +226,7 @@ A color is six hex digits without `#`, such as `'C00000'`. The property names fo
 | `heading`         | `'heading1'` to `'heading6'`                            | The Word heading style of that level.                                                                                                                   |
 | `spacing`         | `{ before?, after?, line?, lineRule? }`                 | Space before and after. `line` is in 240ths of a line with `lineRule: 'auto'`, otherwise in twips. `lineRule` is `'auto'`, `'exact'` or `'atLeast'`.    |
 | `indent`          | `{ left?, right?, firstLine?, hanging? }`               | The indents.                                                                                                                                            |
-| `numbering`       | `{ reference, level, instance? }`                       | A list item. `reference` is `'bullet-list'` or `'ordered-list'`, `level` is 0 to 8, and `instance` gives the list its own count.                        |
+| `numbering`       | `{ reference, level, instance? }`                       | A list item. `reference` is `'bullet-list'` or `'ordered-list'`, `level` is 0 to 8. `instance`, a whole number, starts a count of its own.              |
 | `pageBreakBefore` | `boolean`                                               | Starts the paragraph on a new page.                                                                                                                     |
 | `border`          | `{ top?, bottom?, left?, right? }`, each a `BorderSide` | The borders. See [Borders](#borders).                                                                                                                   |
 | `shading`         | `{ type?, fill, color? }`                               | The background. See [Shading](#shading).                                                                                                                |
