@@ -60,10 +60,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Export DOCX',
           href: '/conversion/v3/docx/export',
-        },
-        {
-          title: 'Styles and fonts',
-          href: '/conversion/v3/docx/export-styles',
+          children: [
+            {
+              title: 'Styles and fonts',
+              href: '/conversion/v3/docx/export/styles-and-fonts',
+            },
+            {
+              title: 'Page size and margins',
+              href: '/conversion/v3/docx/export/page-size-and-margins',
+            },
+          ],
         },
         {
           title: 'Word elements',
