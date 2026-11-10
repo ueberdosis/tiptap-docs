@@ -12,24 +12,24 @@ meta:
 
 ## 1. Set up the registry
 
-The two packages are Tiptap Pro packages, so npm installs them from Tiptap's private registry. Point your project at the registry once, in an `.npmrc` file:
+Both packages are Tiptap Pro packages, so npm installs them from Tiptap's private registry. Point your project at it once, in an `.npmrc` file:
 
 ```ini
 @tiptap-pro:registry=https://registry.tiptap.dev/
 //registry.tiptap.dev/:_authToken=${TIPTAP_PRO_TOKEN}
 ```
 
-`TIPTAP_PRO_TOKEN` is an environment variable that holds your registry token, and npm reads it from the environment when it installs. [How to integrate Tiptap Pro extensions](/guides/pro-extensions) says where to get it. Keep the token out of source control, and set `TIPTAP_PRO_TOKEN` in your CI environment too.
+`TIPTAP_PRO_TOKEN` is an environment variable with your registry token, which npm reads when it installs. [How to integrate Tiptap Pro extensions](/guides/pro-extensions) says where to get it. Keep the token out of source control, and set it in your CI environment too.
 
 ## 2. Install the packages
 
-Install Export DOCX to save Word files and Import DOCX to open them. This command installs both:
+Install Export DOCX, which saves Word files, and Import DOCX, which opens them:
 
 ```bash
 npm install @tiptap-pro/extension-export-docx @tiptap-pro/extension-import-docx
 ```
 
-The complete example in step 4 also needs Tiptap itself. An existing Tiptap editor already has it, and a new project installs it:
+The example in step 4 also needs Tiptap itself. A new project installs it:
 
 ```bash
 npm install @tiptap/core @tiptap/pm @tiptap/starter-kit
@@ -37,20 +37,13 @@ npm install @tiptap/core @tiptap/pm @tiptap/starter-kit
 
 ## 3. Get a Conversion token
 
-A Conversion token is a JWT, a signed token, that lets the editor call the Conversion service. The registry token from step 1 only installs the packages. Without a Conversion token, every export and import fails.
+Every export and import needs a Conversion token: a JWT, a signed token, that lets the editor call the Conversion service. The registry token from step 1 only installs the packages.
 
 Your server signs the token with a private key from the Tiptap dashboard. When you create a secret there, you get an ECDSA (P-256) private key as a PEM file, as [Authentication](/authentication) shows.
 
-The token names `Convert` as its audience (`aud`), the service it is for, and lists the actions it allows:
+The token names `Convert`, the service it is for, as its audience (`aud`). It lists the actions it allows: `Convert:Export:Docx` for the export and `Convert:Import:Docx` for the import. An editor that only exports needs only the first.
 
-- `Convert:Export:Docx` for the export.
-- `Convert:Import:Docx` for the import.
-
-A token with one action does not allow the other. The example allows both, for an editor that exports and imports, and an editor that only exports needs only `Convert:Export:Docx`.
-
-This example signs the token with `jose`, a JWT library for Node.js. `TIPTAP_PRIVATE_KEY` holds the PEM text of the private key, and `TIPTAP_ENVIRONMENT_ID` the ID of your Tiptap environment from the dashboard, which the token names as its issuer (`iss`).
-
-The Conversion service doesn't scope its actions by resource, so the permissions use `resource: '*'`:
+This example signs a token for both with `jose`, a JWT library for Node.js. `TIPTAP_PRIVATE_KEY` holds the PEM text of the private key, and `TIPTAP_ENVIRONMENT_ID` your Tiptap environment's ID from the dashboard, the token's issuer (`iss`). The Conversion service doesn't scope actions by resource, so the permissions use `resource: '*'`:
 
 ```js
 import { SignJWT, importPKCS8 } from 'jose'
@@ -73,9 +66,9 @@ export async function createConversionToken() {
 }
 ```
 
-A token written into your frontend code is visible to everyone who opens the page, so the browser fetches it at runtime instead. Return it as plain text from a route of your own server, behind your app's login.
+A token in your frontend code is visible to everyone who opens the page, so the browser fetches it at runtime instead. Return it as plain text from a route of your server, behind your app's login.
 
-This route uses Express, a Node.js web framework. `app` stands for your Express app, and `requireLogin` for your login check:
+This route uses Express, a Node.js web framework. `app` is your Express app, and `requireLogin` your login check:
 
 ```js
 app.get('/api/conversion-token', requireLogin, async (req, res) => {
@@ -83,10 +76,10 @@ app.get('/api/conversion-token', requireLogin, async (req, res) => {
 })
 ```
 
-The two extensions read the token at different times, which decides how long it should live:
+How long the token should live depends on when each extension reads it:
 
 - **Export.** `exportDocx()` takes `token` per call, so the example in step 4 fetches a fresh token for each export.
-- **Import.** `importDocx()` has no `token` option and reads it from `ImportDocx.configure()`, which is set when you create the editor. So sign the token with an expiry longer than an editing session, such as the `12h` in the example. After it expires, the import fails with a `401` error until you create the editor again with a new token.
+- **Import.** `importDocx()` reads the token only from `ImportDocx.configure()`, when you create the editor. So sign it with an expiry longer than an editing session, such as the example's `12h`. After it expires, the import fails with a `401` error until you create the editor again with a new token.
 
 ## 4. Build a first editor
 
@@ -98,7 +91,7 @@ This editor saves its document as a `.docx` file when the user clicks a button, 
 <input id="import" type="file" accept=".docx" />
 ```
 
-The script fetches a Conversion token from the route of step 3, `/api/conversion-token`, and gives it to both extensions. It uses `await` at the top level, so load it as an ES module, as a bundler such as Vite does:
+The script fetches a token from `/api/conversion-token`, the route of step 3, and gives it to both extensions. It uses `await` at the top level, so load it as an ES module, as a bundler such as Vite does:
 
 ```ts
 import { Editor } from '@tiptap/core'
@@ -151,17 +144,15 @@ document.querySelector('#import')?.addEventListener('change', (event) => {
 })
 ```
 
-`onCompleteExport` receives a `Blob`, because the default `exportType` is `'blob'`. Its type also allows a string or a `Uint8Array` for the other export types, so the `instanceof` check narrows it.
+`onCompleteExport` is required, because without it the finished export throws an error. It receives a `Blob`, because the default `exportType` is `'blob'`. The `instanceof` check narrows its type, which also allows a string or a `Uint8Array` for the other export types.
 
-`onCompleteExport` is required, because without it the finished export throws an error. The [Export DOCX](/conversion/v3/docx/export) and [Import DOCX](/conversion/v3/docx/import) pages explain the other options.
+The [Export DOCX](/conversion/v3/docx/export) and [Import DOCX](/conversion/v3/docx/import) pages explain the other options.
 
 ## What you see when it works
 
-A click on Export downloads `report.docx`, which opens in Word with the heading and the paragraph. A `.docx` file picked in the file input replaces the editor's content with the content of the file.
+A click on Export downloads `report.docx`, which opens in Word with the heading and the paragraph. A `.docx` file picked in the file input replaces the editor's content.
 
-Export hands the file to `onCompleteExport` as a `Blob`, and import writes the document into the editor. A missing token, a refused request or a network failure goes to `onError`.
-
-[Errors](/conversion/v3/reference/errors) lists what it receives.
+A missing token, a refused request or a network failure goes to `onError` instead. [Errors](/conversion/v3/reference/errors) lists what it receives.
 
 A Word table in this StarterKit editor keeps its text as preserved content, because the editor has no table extension. [Content the editor cannot show](/conversion/v3/docx/preserved-content) shows how to style it and how it turns back into a table.
 
@@ -169,12 +160,14 @@ A Word table in this StarterKit editor keeps its text as preserved content, beca
 
 Both extensions take the same four connection options in `configure()`. `exportDocx()` also takes them per call, and its values win over the configured ones. `importDocx()` takes them only from `configure()`:
 
-| Option     | Type           | Default     | Description                                                                                                                                                                                                                                           |
-| ---------- | -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `token`    | `string`       | Required    | The Conversion token. Export takes it in the `exportDocx()` call, as step 4 does, or in `configure()`. Import takes it in `configure()`. Export needs `Convert:Export:Docx`, and import `Convert:Import:Docx`.                                        |
-| `appId`    | `string`       | `undefined` | Your app ID, only for a token from [Legacy authentication](/authentication/legacy), signed with an App ID's secret. The extensions send it in the `X-App-Id` header. Tiptap Cloud refuses a legacy token without it, with `401` and `missing_app_id`. |
-| `region`   | `'eu' \| 'us'` | `'eu'`      | The Tiptap Cloud region. See [Region and endpoint](#region-and-endpoint).                                                                                                                                                                             |
-| `endpoint` | `string`       | `undefined` | The base URL of your own Conversion service. It wins over `region`.                                                                                                                                                                                   |
+| Option     | Type           | Default     | Description                                                                    |
+| ---------- | -------------- | ----------- | ------------------------------------------------------------------------------ |
+| `token`    | `string`       | Required    | The Conversion token. See [Get a Conversion token](#3-get-a-conversion-token). |
+| `appId`    | `string`       | `undefined` | Your app ID, only for a legacy token.                                          |
+| `region`   | `'eu' \| 'us'` | `'eu'`      | The Tiptap Cloud region. See [Region and endpoint](#region-and-endpoint).      |
+| `endpoint` | `string`       | `undefined` | The base URL of your own Conversion service. It wins over `region`.            |
+
+Set `appId` only for a token from [Legacy authentication](/authentication/legacy), signed with an App ID's secret. The extensions send it in the `X-App-Id` header, and Tiptap Cloud refuses a legacy token without it, with `401` and `missing_app_id`.
 
 ## Region and endpoint
 
@@ -185,19 +178,21 @@ The extensions call Tiptap Cloud in the EU unless you set `region` or `endpoint`
 | `'eu'`   | `https://api.tiptap.dev/v3/convert/export/docx`    | `https://api.tiptap.dev/v3/convert/import/docx`    |
 | `'us'`   | `https://api-us.tiptap.dev/v3/convert/export/docx` | `https://api-us.tiptap.dev/v3/convert/import/docx` |
 
-Set `endpoint` to the base URL of a Conversion service on your own server, such as `https://convert.example.com/v3`. `endpoint` wins over `region`. Export then calls `<endpoint>/export/docx` and import `<endpoint>/import/docx`, so one `endpoint` serves both extensions.
+To use a Conversion service on your own server, set `endpoint` to its base URL, such as `https://convert.example.com/v3`. Export then calls `<endpoint>/export/docx` and import `<endpoint>/import/docx`.
 
-A Conversion service you run yourself serves the same endpoints under `/v3` and `/v3/convert`, so either works as the base. [REST API overview](/conversion/v3/rest-api/overview#your-own-server) shows how to run it.
+Your own service serves the same endpoints under `/v3` and `/v3/convert`, so either works as the base. [REST API overview](/conversion/v3/rest-api/overview#your-own-server) shows how to run it.
 
-Export DOCX needs a Conversion service of version 2.50.0 or later, because the extension sends the `repeatTableHeaderRows` option with every export. Versions 2.48 and 2.49 refuse the export with `400` and `INVALID_EXPORT_OPTIONS`. An older service has no v3 export endpoint and answers `404`, which reaches `onError` as an `HTTP_ERROR` with `status` 404.
+Export DOCX needs a Conversion service of version 2.50.0 or later, because it sends the `repeatTableHeaderRows` option with every export. Versions 2.48 and 2.49 refuse the export with `400` and `INVALID_EXPORT_OPTIONS`.
+
+An older service has no v3 export endpoint, so `onError` receives an `HTTP_ERROR` with `status` 404.
 
 A base URL from a v2 setup, ending in `/v2` or `/v2/convert`, works unchanged, because the extensions call the v3 endpoints of the same server.
 
-Any other base URL, such as a path on a proxy, is used as it is, and the extensions still add `/export/docx` or `/import/docx` to it. Each extension then logs a console warning once, saying it could not derive a v3 endpoint from it. The calls go to that URL all the same.
+Any other base URL, such as a path on a proxy, is used as it is, with `/export/docx` or `/import/docx` added. Each extension logs a console warning once that it could not derive a v3 endpoint, and calls that URL all the same.
 
 ## Packages
 
-The table lists what the two extensions need, with the kind of dependency and the version:
+The two extensions need these packages:
 
 | Package                                   | Kind                                      | Version             |
 | ----------------------------------------- | ----------------------------------------- | ------------------- |
@@ -207,9 +202,11 @@ The table lists what the two extensions need, with the kind of dependency and th
 | `@tiptap/core`                            | Peer dependency                           | `^3.0.7`            |
 | `@tiptap/pm`                              | Peer dependency                           | `^3.0.7`            |
 
-Import DOCX adds the `PreservedContent` extension to the editor, which keeps imported content the editor has no extension for. Export DOCX doesn't add it, but turns preserved content back before it sends the document, so the `.docx` file keeps it.
+Import DOCX adds the `PreservedContent` extension, which keeps imported content the editor has no extension for. Export DOCX doesn't add it, but turns preserved content back before it sends the document, so the `.docx` file keeps it.
 
-**An editor that loads imported documents without Import DOCX needs `PreservedContent`**, such as an export-only editor or a read-only viewer. Without it, the editor replaces such a document with an empty one. Your code then imports the package itself, so add `@tiptap-pro/extension-preserved-content` to your own dependencies with `npm install`, and add the extension:
+**An editor that loads imported documents without Import DOCX needs `PreservedContent`**, such as an export-only editor or a read-only viewer. Without it, the editor replaces such a document with an empty one.
+
+Your code then imports the package itself, so install `@tiptap-pro/extension-preserved-content` as your own dependency and add the extension:
 
 ```ts
 import { PreservedContent } from '@tiptap-pro/extension-preserved-content'
