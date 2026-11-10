@@ -34,8 +34,8 @@ const rule: CustomNodeRule = docxNode('caption')
 | `inline()`                                             | `nodeKind: 'inline'`     | The node sits inside text. Emitting block content fails validation.               |
 | `auto()`                                               | no `nodeKind`            | Export works out the kind from what the rule emits. This is the default.          |
 | `emit(node: RenderNodeBuilder \| RenderNodeBuilder[])` | `render: { emit }`       | What export writes in place of the node.                                          |
-| `emitNothing()`                                        | `render: { emit: null }` | Writes nothing for the node, and leaves its content out.                          |
-| `drop()`                                               | `render: null`           | Leaves the node and its content out.                                              |
+| `emitNothing()`                                        | `render: { emit: null }` | Leaves the node and its content out, the same as `drop()`.                        |
+| `drop()`                                               | `render: null`           | Leaves the node and its content out. There are two names for the two JSON forms.  |
 | `toJSON(): CustomNodeRule`                             |                          | Returns the rule. Throws unless `emit()`, `emitNothing()` or `drop()` came first. |
 
 `emit()` takes the builder of an element, or of `fragment()`, `iff()`, `switch_()` or `textOp()`. It doesn't take the children builders, which go inside an element. To write only the content of the node, pass their JSON in a fragment. [Keep or drop the content](/conversion/v3/export/docx/custom-nodes#keep-or-drop-the-content) shows the cases:
@@ -75,11 +75,39 @@ TypeScript tells the four children builders apart, so a paragraph only takes `ch
 | `switch_(opts: { on: ValueExpr; cases: Record<string, T>; default?: T })`, `T` a render node or its builder     | `$switch`                   | `RenderNodeBuilder`        |
 | `textOp(value: ValueExpr, opts?: { marks?: 'default' \| 'none'; default?: string })`                            | `$text`                     | `RenderNodeBuilder`        |
 
+This rule shades a `notice` red when its `important` attribute is truthy, and writes a plain paragraph otherwise:
+
+```ts
+import {
+  childrenInline,
+  docxNode,
+  iff,
+  paragraph,
+  ref,
+} from '@tiptap-pro/extension-export-docx/dsl'
+
+const noticeRule = docxNode('notice')
+  .block()
+  .emit(
+    iff({
+      test: ref('node.attrs.important'),
+      then: paragraph({ shading: { fill: 'FDE9E7' } }).children(childrenInline()),
+      else: paragraph().children(childrenInline()),
+    }),
+  )
+  .toJSON()
+```
+
+`switch_()` picks by a string instead. `on` must be a string, so give its `ref()` a `default`: `switch_({ on: ref('node.attrs.variant', { default: 'info' }), cases: { warning: ..., info: ... } })`.
+
 ## Mark policies
 
 A mark policy object says which marks the text gets, and how they look. `marks(mode: 'default' | 'node')` builds one and returns a `MarkPolicyBuilder`, which you pass to `childrenInline({ marks })` or `applyMarks()`. [Marks](/conversion/v3/export/docx/custom-nodes#marks) explains the modes.
 
-The object starts from its `mode`. `disable(...marks: MarkType[])` adds marks to leave out. `overrides()` adds `TextRun` properties, in `props`, to text that has a given mark. With `replace: true`, the mark's own formatting is left out and only its `props` apply. Both methods add to earlier calls.
+The object starts from its `mode`, and two methods change it. Both add to earlier calls:
+
+- `disable(...marks: MarkType[])` leaves marks out. A `MarkType` is one of the marks that [Marks](/conversion/v3/export/docx/custom-nodes#marks) says export formats.
+- `overrides()` adds `TextRun` properties, in `props`, to text that has a given mark. With `replace: true`, only these `props` apply, not the mark's own formatting.
 
 Here, bold text in a `pullQuote` turns red instead of bold, and highlights are left out:
 
@@ -140,7 +168,7 @@ A `transform` changes a `$ref` value, or its `default`, and several in an array 
 
 | Unit                                                                          | Converts                                                                           |
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips` | From pixels or points to the unit in the name.                                     |
+| `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips` | From pixels or points to the unit in the name. A pixel is 0.75 pt.                 |
 | `inchesToTwips`, `cmToTwips`, `mmToTwips`                                     | Inches, centimeters or millimeters to whole twips.                                 |
 | `universalMeasureToTwips`                                                     | A measurement such as `'2.54cm'` in `cm`, `mm`, `in`, `pt`, `pc` or `px` to twips. |
 | `lineHeightToDocx`                                                            | A line height such as `1.5` to 240ths of a line, for `spacing.line`.               |
@@ -159,13 +187,13 @@ The Conversion service checks everything else when it builds the file, such as p
 
 The element builders, such as `ParagraphBuilder`, have these methods. Every method except `toJSON()` returns a new builder and leaves its own unchanged, so one partial chain, such as a `paragraph()` with its properties, can start several rules:
 
-| Method                                                      | On                                           | What it does                                                                                                                                                                                            |
-| ----------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `children(spec)`                                            | every element with children                  | Sets the children, replacing earlier ones. [Element factories](#element-factories) lists what each element takes.                                                                                       |
-| `rows(...rows: TableRowBuilder[])`                          | `TableBuilder`                               | Sets the rows of a table, each row as its own argument.                                                                                                                                                 |
-| `applyMarks(policy: ApplyMarksPolicy \| MarkPolicyBuilder)` | `TextRunBuilder`, `ExternalHyperlinkBuilder` | Puts the custom node's own marks on the element. Takes `'node'`, an object with `mode: 'node'`, or `marks('node')`.                                                                                     |
-| `inheritOverrides(value: boolean)`                          | every element except `TableRowBuilder`       | With `false`, the element skips the override option of its kind: `paragraphOverrides`, `textRunOverrides`, `tableOverrides` or `tableCellOverrides`. Defaults to `true`. Links have no override option. |
-| `toJSON()`                                                  | every builder                                | Returns the JSON, an `ElementNode` for an element.                                                                                                                                                      |
+| Method                                                      | On                                           | What it does                                                                                                                                                                                                                       |
+| ----------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `children(spec)`                                            | every element with children                  | Sets the children, replacing earlier ones. [Element factories](#element-factories) lists what each element takes.                                                                                                                  |
+| `rows(...rows: TableRowBuilder[])`                          | `TableBuilder`                               | Sets the rows of a table. `rows(a, b)` is short for `children([a, b])`.                                                                                                                                                            |
+| `applyMarks(policy: ApplyMarksPolicy \| MarkPolicyBuilder)` | `TextRunBuilder`, `ExternalHyperlinkBuilder` | Puts the custom node's own marks on the element. Takes `'node'`, an object with `mode: 'node'`, or `marks('node')`.                                                                                                                |
+| `inheritOverrides(value: boolean)`                          | every element except `TableRowBuilder`       | With `false`, the element skips the `ExportDocx` option that formats every element of its kind: `paragraphOverrides`, `textRunOverrides`, `tableOverrides` or `tableCellOverrides`. Defaults to `true`. Links have no such option. |
+| `toJSON()`                                                  | every builder                                | Returns the JSON, an `ElementNode` for an element.                                                                                                                                                                                 |
 
 The builders of `fragment()`, `iff()`, `switch_()`, `textOp()` and `pageBreak()` are `RenderNodeBuilder`s, with only `toJSON(): RenderNode`. The children builders have only `toJSON(): ChildrenOp`.
 

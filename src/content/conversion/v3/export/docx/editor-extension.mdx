@@ -16,9 +16,7 @@ meta:
 
 ## Set up the editor
 
-Add `ExportDocx` from `@tiptap-pro/extension-export-docx` with a Conversion token, a JWT that lets the editor call the Conversion service. Your server creates the token and the browser fetches it at runtime, as [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows.
-
-In this example, `CONVERSION_TOKEN` stands for your token. `download` is a function that saves the file, which [Save the file](#save-the-file) defines:
+Add `ExportDocx` from `@tiptap-pro/extension-export-docx` to the editor. In this example, `download` is a function that saves the file, which [Save the file](#save-the-file) defines:
 
 ```ts
 import { Editor } from '@tiptap/core'
@@ -30,7 +28,6 @@ const editor = new Editor({
   extensions: [
     StarterKit,
     ExportDocx.configure({
-      token: CONVERSION_TOKEN,
       onCompleteExport: (result) => download(result, 'report.docx'),
       onError: (error) => console.error(error),
     }),
@@ -39,25 +36,25 @@ const editor = new Editor({
 })
 ```
 
-For Tiptap Cloud, the token is the only connection option you need. Only a token from the legacy authentication also needs `appId`, as [Connection options](/conversion/v3/getting-started/install#connection-options) explains.
-
 Always set `onCompleteExport`, because it receives the file. Without it, the export throws an error when the file arrives, and `onError` does not catch that error.
 
-Every export calls the Conversion service over the network with `fetch`, `Blob` and `FormData`, which a browser has.
-
-Every option of `ExportDocx.configure()` also works on the `exportDocx` command. There it replaces the configured value as a whole for that export, so a `pageMargins` object does not merge with the configured one.
+The export runs in a browser, because it sends the document with `fetch`, `Blob` and `FormData`.
 
 ## Export the document
 
-To export, call `exportDocx()`, for example from a button:
+To export, call `exportDocx()` with a Conversion token, a JWT that lets the editor call the Conversion service. Your server creates the token, and the browser fetches a fresh one for each export, as [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows. Here, `getConversionToken()` stands for your function that fetches it:
 
 ```ts
-document.querySelector('#export').addEventListener('click', () => {
-  editor.commands.exportDocx()
+document.querySelector('#export').addEventListener('click', async () => {
+  editor.commands.exportDocx({ token: await getConversionToken() })
 })
 ```
 
-The command returns `true` right away, because the Conversion service builds the file over the network. The file arrives later in `onCompleteExport`.
+You can set `token` in `ExportDocx.configure()` instead, when you fetch it before you create the editor. For Tiptap Cloud, the token is the only connection option you need. Only a legacy token, one signed with an App ID's secret, also needs `appId`, as [Connection options](/conversion/v3/getting-started/install#connection-options) explains.
+
+Every option of `ExportDocx.configure()` also works on the command, as `token` does here. There it replaces the configured value as a whole for that export. So an object, such as `pageMargins` in [Page size and margins](#page-size-and-margins), does not merge with the configured one.
+
+The command returns `true` right away, because the Conversion service builds the file over the network. The file arrives later in `onCompleteExport`. Every export needs a connection to the Conversion service, so an editor that is offline can't export.
 
 When the export fails, `onError` receives the error instead, and no file arrives. Without `onError`, the command rethrows the error as an unhandled promise rejection, so set `onError` wherever you export. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors#errors) lists the errors.
 
@@ -89,11 +86,11 @@ function download(result: Blob | string | Uint8Array, filename: string) {
 
 ## With Page Layout
 
-When the editor uses [Page Layout](/features/page-layout/getting-started/overview), the file gets the page setup without any export option. The page setup is what Page Layout keeps for each section, a part of the document with its own page. It holds the page size, orientation, margins, section columns, page numbering, headers and footers.
+When the editor uses [Page Layout](/features/page-layout/getting-started/overview), the file gets the page setup without any export option, and the `pageSize` and `pageMargins` options have no effect.
 
-With Page Layout, the `pageSize` and `pageMargins` options have no effect. The command sends the first section's setup as `pageSetup`, and each later section takes its page from the section break that starts it.
+Page Layout keeps a page setup for each section, a part of the document with its own page size, orientation, margins, section columns, page numbering, headers and footers.
 
-To give the first section another page, pass your own `pageSetup`, in CSS pixels, with the fields [Page format](/features/page-layout/page-format) describes. This example sets US Letter with one-inch margins:
+To export the first section on other paper, pass your own `pageSetup`, in CSS pixels, as [Page format](/features/page-layout/page-format) describes. Its `format` needs the `id`, the `width` and the `height`. This example sets US Letter with one-inch margins:
 
 ```ts
 editor.commands.exportDocx({
@@ -104,6 +101,8 @@ editor.commands.exportDocx({
   },
 })
 ```
+
+The `pageSetup` option changes only the first section. Each later section keeps the page of the section break that starts it, the node that begins a new section. To put the whole document on Letter, change every section in the editor with Page Layout's `setSectionSetup()` command, as [Sections](/features/page-layout/sections) shows.
 
 A pageless document, which Page Layout shows as one continuous column, gets A4 pages with one-inch margins and no warning, unless you pass `pageSetup`. This is a known limit that is being fixed.
 
@@ -127,25 +126,27 @@ editor.commands.exportDocx({
 })
 ```
 
-Without them, the page is A4 with margins of 2.54 cm at the top and bottom and 3.17 cm at the sides.
+Without them, the page is A4 with margins of 2.54 cm at the top and bottom and 3.17 cm at the sides. A size or margin you leave out keeps its default, so `pageSize: { width: '8.5in' }` keeps the A4 height of 29.7 cm.
 
 `header` and `footer` set how far the header and footer sit from the edge of the page. Without them, the file sets no distance, and Word uses its own default.
 
 A measure is a string with the unit `mm`, `cm`, `in`, `pt` or `pc`, such as `'2cm'`. A number is twips, which are 1/1440 inch, and so is a numeric string such as `'1134'`. A `px` measure fails the export with 400 `INVALID_EXPORT_OPTIONS`.
 
-Only `top` and `bottom` may be negative. In Word, a negative top or bottom margin keeps the body text at that distance even when the header or footer is taller, so the two can overlap. A negative `left`, `right`, `header` or `footer` fails the export with 400 `INVALID_EXPORT_OPTIONS`.
+Only `top` and `bottom` may be negative. A negative `left`, `right`, `header` or `footer` fails the export with 400 `INVALID_EXPORT_OPTIONS`.
+
+A negative top margin tells Word to start the body text at that distance even when the header is taller. The header and the text can then overlap, and the same goes for the bottom margin and the footer.
 
 A number `0` means the default, without a warning, so write `'0cm'` for a margin of zero. This is a known limit that is being fixed.
 
 ## Images
 
-The Conversion service downloads most images itself, from their URL. The browser uploads the images only it can reach, in the document, its footnotes and endnotes, and comments:
+The Conversion service downloads most images itself, from their URL. The browser uploads the images the Conversion service can't reach, from the document, its footnotes and endnotes, and its comments:
 
 - Images with a `blob:` URL, such as a pasted screenshot.
 - Images with a `data:` URL longer than 64 KB. A shorter one stays in the document JSON.
-- Images on the page's own origin.
+- Images on your app's own origin, because the browser loads them with the user's session and the Conversion service has no login. A public image there is uploaded too.
 
-The Conversion service has no user login, and refuses private network addresses such as `10.0.0.1`. So give an image on a private host of another origin a URL on the page's own origin, such as a route of your server.
+The Conversion service also refuses private network addresses, such as `10.0.0.1`. To export an image from a private host on another origin, serve it through a route of your own server, and use that route's URL as the image's `src`.
 
 An uploaded image must be PNG, JPEG, GIF, BMP or SVG. Another format, such as a pasted WebP image, fails the whole export with 400 `INVALID_EXPORT_OPTIONS`, whatever `onImageError` says. The same image by a public URL is left out instead. This is a known limit that is being fixed.
 
@@ -163,9 +164,9 @@ Word gets only what the document holds, so each kind of content needs its extens
 
 A node type of your own needs a rule, as [Render custom nodes](/conversion/v3/export/docx/custom-nodes) explains. Without one, export leaves out the node together with its content, and reports an `unsupported` warning.
 
-A document filled by an import can hold preserved content: nodes and attributes the editor has no extension for, which the import kept. Export sends that content in its original form, so a table the editor kept without the table extension is a table in the `.docx` file.
+A document filled by an import can hold preserved content, the nodes and attributes the import kept although the editor has no extension for them. Export sends them in their original form, so a table kept without the table extension is a table in the `.docx` file.
 
-`ExportDocx` doesn't add the `PreservedContent` extension that holds this content. The editor has it from Import DOCX, or adds it itself, as [Packages](/conversion/v3/getting-started/install#packages) explains.
+`ExportDocx` doesn't add the `PreservedContent` extension that holds this content. An editor with Import DOCX has it. Without Import DOCX, you add it yourself only when your documents hold preserved content, as [Packages](/conversion/v3/getting-started/install#packages) explains.
 
 A pending node type change from tracked changes fails the export, as [A pending node type change fails the export](/conversion/v3/export/docx/warnings-and-errors#a-pending-node-type-change-fails-the-export) explains.
 

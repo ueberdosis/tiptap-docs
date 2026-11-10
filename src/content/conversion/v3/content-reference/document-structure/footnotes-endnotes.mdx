@@ -12,7 +12,7 @@ Word's footnotes and endnotes import as notes of the Footnotes extension, and ex
 
 ## What you need
 
-[Footnotes and endnotes](/features/footnotes), the `Footnotes` extension from `@tiptap-pro/extension-footnotes`, holds the notes. Add it to the editor's extensions next to Import DOCX and Export DOCX:
+[Footnotes and endnotes](/features/footnotes), the `Footnotes` extension from `@tiptap-pro/extension-footnotes`, holds the notes. Add it to an editor set up with [Import DOCX](/conversion/v3/import/docx/editor-extension) or [Export DOCX](/conversion/v3/export/docx/editor-extension):
 
 ```ts
 import { Footnotes } from '@tiptap-pro/extension-footnotes'
@@ -31,25 +31,35 @@ The `importDocx()` command of [Import DOCX](/conversion/v3/import/docx/editor-ex
 
 - Each reference, to a footnote or an endnote, becomes a `footnoteReference` node.
 - Each note becomes a `footnote` node. The notes sit at the end of the document, in one `footnoteCollection` node for each placement, footnotes first.
-- An endnote whose id a footnote already has gets a new id that ends in `-endnote`, and its reference gets the same new id.
+- When a footnote and an endnote have the same id in the file, the endnote gets the id `<id>-endnote`, and so does its reference.
 
-To change the notes before they reach the editor, pass `onImport`. `context.content` is the document as Tiptap JSON, and `context.setEditorContent()` writes it into the editor, or writes the document you pass it instead. This example leaves out the endnotes. `editor` is an editor set up as in [Import DOCX](/conversion/v3/import/docx/editor-extension#set-up-the-editor), and `file` is a `.docx` file the user picked:
+To change the notes before they reach the editor, pass `onImport`. `context.content` is the document as Tiptap JSON, and `context.setEditorContent()` writes it into the editor, or writes the document you pass it instead. `context.error` is set when the import failed, and then there is no content to write.
+
+This example leaves out the endnotes, both the notes and their references in the text. `editor` is an editor set up as in [Import DOCX](/conversion/v3/import/docx/editor-extension#set-up-the-editor), and `file` is a `.docx` file the user picked:
 
 ```ts
+import type { JSONContent } from '@tiptap/core'
+
 editor.commands.importDocx({
   file,
   onImport: (context) => {
     if (context.error) return
 
-    const content = (context.content.content ?? []).filter(
-      (node) => !(node.type === 'footnoteCollection' && node.attrs?.placement === 'endnote'),
+    const endnotes = context.content.content?.find(
+      (node) => node.type === 'footnoteCollection' && node.attrs?.placement === 'endnote',
     )
-    context.setEditorContent({ ...context.content, content })
+    const endnoteIds = new Set(endnotes?.content?.map((note) => note.attrs?.footnoteId))
+
+    const keep = (node: JSONContent) =>
+      node !== endnotes &&
+      !(node.type === 'footnoteReference' && endnoteIds.has(node.attrs?.footnoteId))
+    const withoutEndnotes = (node: JSONContent): JSONContent =>
+      node.content ? { ...node, content: node.content.filter(keep).map(withoutEndnotes) } : node
+
+    context.setEditorContent(withoutEndnotes(context.content))
   },
 })
 ```
-
-`context.error` is set when the import failed, and then there is no content to write.
 
 A note without a reference, and a reference without a note, are left out with one `notes-dropped` warning. Word doesn't show either of them. The warning goes to the `onWarning` option of Import DOCX, as [Import warnings and errors](/conversion/v3/import/docx/warnings-and-errors) shows.
 
@@ -61,11 +71,11 @@ The `exportDocx()` command of [Export DOCX](/conversion/v3/export/docx/editor-ex
 
 A note no reference points at is left out, and the `onWarning` option of Export DOCX receives an `unsupported` warning. A reference to a missing note is left out without a warning.
 
-When the notes come from the document, the `footnotes` and `endnotes` options of `exportDocx()` are ignored, with an `unsupported` warning for each. With Page Layout, the notes come from the document even when it holds none.
+`exportDocx()` also has `footnotes` and `endnotes` options, for notes your app keeps outside the editor's document. The command uses them only when the editor has no Page Layout and its document holds no notes. It then sends them as they are, in the shape the [Export DOCX REST API](/conversion/v3/rest-api/export-docx#notes-and-comments) describes.
 
-Without Page Layout and without notes in the document, the command sends the two options as they are, in the shape the [Export DOCX REST API](/conversion/v3/rest-api/export-docx#notes-and-comments) describes.
+With Page Layout, or with notes in the document, the notes come from the document. Each of the two options you pass is then ignored with an `unsupported` warning.
 
 ## Limits
 
 - Export doesn't write a section's note settings, such as the number format or restart.
-- A note without a reference, and a reference without a note, are left out, on import and on export.
+- A note without a reference, and a reference without a note, are left out, on import and on export. Import reports them with `notes-dropped`. Export reports only the note without a reference.

@@ -12,7 +12,7 @@ Export writes Word styles, such as Normal and Heading 1, so the `.docx` file loo
 
 ## Match your editor's formatting
 
-By default, `exportDocx()` measures the CSS of the editor as the browser shows it, after the page's web fonts have loaded, and the file gets Word styles from it.
+By default, `exportDocx()` measures the CSS of the editor as the browser shows it, and the file gets Word styles from it.
 
 The measurement covers the page, text, paragraphs, headings, blockquotes, code blocks, lists, task lists, tables, horizontal rules, images and marks.
 
@@ -28,7 +28,9 @@ Browser layout and Word layout differ, so the file comes close to the editor but
 
 The `styleOverrides` option sets Word style definitions directly, such as the font of the whole document or of Heading 1. It takes the `IStylesOptions` object of [`docx`](https://docx.js.org/#/usage/styling-with-js), the library that writes the Word file.
 
-The `default` field of `IStylesOptions` holds `document`, `title`, `heading1` to `heading6`, `listParagraph` and other built-in styles, and `paragraphStyles` adds styles of your own. Font sizes in Word styles are half-points, so `24` is 12 pt:
+The `default` field of `IStylesOptions` holds `document`, the formatting that Normal and every other style start from, such as the body font. It also holds `title`, `heading1` to `heading6`, `listParagraph` and other built-in styles. `paragraphStyles` adds styles of your own.
+
+Font sizes in Word styles are half-points, so `24` is 12 pt:
 
 ```ts
 editor.commands.exportDocx({
@@ -41,7 +43,15 @@ editor.commands.exportDocx({
 })
 ```
 
-`IStylesOptions` has no named export, so type a variable that holds it as `ExportDocxOptions['styleOverrides']`.
+`IStylesOptions` has no named export, so type a variable that holds it with the options type of the extension:
+
+```ts
+import type { ExportDocxOptions } from '@tiptap-pro/extension-export-docx'
+
+const styles: ExportDocxOptions['styleOverrides'] = {
+  default: { document: { run: { font: 'Arial' } } },
+}
+```
 
 ## Set default formatting
 
@@ -87,7 +97,9 @@ A function in a field is left out with an `unsupported` warning.
 
 ## Describe styles with CSS
 
-The experimental `cssStyles` option describes styles with CSS properties for a fixed set of selectors, instead of Word's style objects. Use it when your styles already exist as CSS. `styleOverrides` reaches more styles and properties, and wins over `cssStyles`. Property names may be camelCase or kebab-case:
+The `cssStyles` option describes styles with CSS properties for a fixed set of selectors, instead of Word's style objects. It is experimental, so its shape may change in a later version.
+
+`cssStyles` doesn't need the measurement. Use it when the measurement can't run, such as for an editor that isn't mounted, or with `documentStyles: false`, and your styles exist as CSS. `styleOverrides` reaches more styles and properties, and wins over `cssStyles`. Property names may be camelCase or kebab-case:
 
 ```ts
 editor.commands.exportDocx({
@@ -102,11 +114,11 @@ editor.commands.exportDocx({
 
 `cssStyles` takes these fields:
 
-| Field                 | Default | What it does                                                                                                      |
-| --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| `styles`              | None    | The properties for each selector.                                                                                 |
-| `extractFromDocument` | `false` | Also reads the rules for these selectors under `.tiptap` from the page's stylesheets. `styles` wins per property. |
-| `baseFontSize`        | `16`    | The size in pixels that `rem` and `em` resolve against. It must be greater than 0.                                |
+| Field                 | Default | What it does                                                                                                                                          |
+| --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `styles`              | None    | The properties for each selector.                                                                                                                     |
+| `extractFromDocument` | `false` | Also reads the rules for these selectors under `.tiptap` from the page's stylesheets, as `extractTiptapCssStyles()` does. `styles` wins per property. |
+| `baseFontSize`        | `16`    | The size in pixels that `rem` and `em` resolve against. It must be greater than 0.                                                                    |
 
 [SupportedSelector](/conversion/v3/export/docx/types#supportedselector) lists the selectors, such as `p`, `h1` to `h6` and `blockquote`. [CssPropertyMap](/conversion/v3/export/docx/types#csspropertymap) lists the properties, such as `color`, `font-size` and `margin-top`.
 
@@ -134,14 +146,20 @@ editor.commands.exportDocx({
 })
 ```
 
-`name` must match the family name the document uses. `data` holds TTF, OTF or WOFF2 bytes, as a `Uint8Array` or an `ArrayBuffer`. Word embeds the regular variant and synthesizes bold and italic from it.
+`name` must match the family name the document uses. `data` holds TTF, OTF or WOFF2 bytes, as a `Uint8Array` or an `ArrayBuffer`. A font has no field for a weight or a style, so pass the regular file. Word embeds it and synthesizes bold and italic from it.
 
 To embed the fonts you don't pass in `fonts`, set `embedFonts: true`. It is `false` by default. Export then looks for each family:
 
-- **In the browser**, the command uploads the `@font-face` file of each family set in the document and its notes, or in `cssStyles`, `styleOverrides` and `textRunOverrides`. A family in the document is the `fontFamily` of a `textStyle` mark. Generic families such as `serif` are skipped.
-- **On Google Fonts**, the Conversion service looks up the families still missing, at most 20. This lookup also finds the editor's body font in the measured CSS.
+- **In the browser**, the command uploads the `@font-face` file of each family that a `textStyle` mark sets in the document or its notes. It does the same for each family in `cssStyles` and `textRunOverrides`, and in the `document` style and your own styles of `styleOverrides`. Generic families such as `serif` are skipped.
+- **On Google Fonts**, the Conversion service looks up the families still missing, at most 20, including the editor's body font from the measured CSS.
 
-A family found in neither place is not embedded, without a warning.
+When a family has several `@font-face` rules, the command uploads the regular one, whose style is normal and whose weight covers 400. When the font comes in subsets, as from Google Fonts, it takes the rule whose `unicode-range` best covers the characters the document uses.
+
+A family you pass in `fonts` isn't looked up, so your file wins.
+
+A family found in neither place is not embedded, without a warning. So a self-hosted body font that only your CSS sets is embedded only when Google Fonts has it.
+
+To embed it from your own file, pass it in `fonts`, or set it as the `font` of `default.document` in `styleOverrides`, as in [Set Word styles](#set-word-styles).
 
 A font file that is unreadable, not TTF, OTF or WOFF2, over 25 MB or past the limit of 64 files is left out with a `font-fetch-failed` warning. Word then shows another font.
 
@@ -158,4 +176,4 @@ console.log(css.paragraph, css.headings[1])
 
 `getDocumentCss()` throws outside a browser, and when the editor is destroyed, not mounted or not laid out. Its options are in [CSS helpers](/conversion/v3/export/docx/api#css-helpers).
 
-To change what export writes, set `styleOverrides` or the override options, or set `documentStyles: false`. The `adjustProbe` option of `getDocumentCss()` changes only what that one call measures, not what the command sends.
+To change what export writes, set `styleOverrides` or the override options, or set `documentStyles: false`.

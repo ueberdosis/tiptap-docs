@@ -10,13 +10,13 @@ meta:
 
 A custom node is a node type your application adds, such as a callout or a mention. Export DOCX leaves it out of the Word file, with its content, unless a custom node rule says what to write instead, such as a paragraph or a table.
 
-The rules go into the `customNodeDsl` option of `ExportDocx`, named after the rule language (DSL) they use. They are JSON, not functions, because the Conversion service, the server that builds the Word file, applies them.
+The rules go into the `customNodeDsl` option of `ExportDocx`. DSL stands for the rule language they are written in. The rules are plain JSON, because the Conversion service, the server that builds the Word file, applies them.
 
-Export converts the node types in [Node types](/conversion/v3/export/docx/api#node-types) itself, so a rule for one of them is ignored.
+Export converts the node types in [Node types](/conversion/v3/export/docx/api#node-types) itself, so a rule for one of them is ignored, without a warning.
 
 ## Describe a node with the builder
 
-The custom node builder from `@tiptap-pro/extension-export-docx/dsl` creates the rules, and TypeScript checks their shape. This rule writes each `notice` node as a paragraph with the text of its `message` attribute, or "Notice" when it has none.
+The custom node builder from `@tiptap-pro/extension-export-docx/dsl` creates the rules, and TypeScript checks their shape. This rule writes each `notice` node as a paragraph with the text of its `message` attribute, or "Notice" when the attribute is empty or missing.
 
 `CONVERSION_TOKEN` stands for your Conversion token, which [Install Tiptap Conversion](/conversion/v3/getting-started/install) says how to get, and `download` for your own function that saves the file:
 
@@ -30,7 +30,7 @@ const customNodeDsl: CustomNodeDsl = {
   nodes: [
     docxNode('notice')
       .block()
-      .emit(paragraph().children(textOp(ref('node.attrs.message', { default: 'Notice' }))))
+      .emit(paragraph().children(textOp(ref('node.attrs.message'), { default: 'Notice' })))
       .toJSON(),
   ],
 }
@@ -44,11 +44,11 @@ const exportExtension = ExportDocx.configure({
 
 The calls in the rule do this:
 
-- `docxNode('notice').block()` starts the rule for a block node.
+- `docxNode('notice').block()` starts the rule for a block node. `'notice'` is the `name` of the node type in your schema.
 - `emit()` gives what export writes, a `paragraph()` with `children()`.
-- `textOp()` writes a value as text, with the marks of the custom node.
-- `ref()` reads an attribute. Its `default` replaces a missing or `null` value.
-- `toJSON()` returns the rule as JSON, and exports nothing.
+- `textOp()` writes a value as text, with the marks of the custom node. A block node such as `notice` usually has none, so the text is plain. Its `default` replaces an empty, missing or `null` value.
+- `ref()` reads a value from the node, here the attribute `message` in `node.attrs`.
+- `toJSON()` returns the rule as JSON. It doesn't start an export.
 
 `dslVersion` must be `'1.0'`. [Custom node builder](/conversion/v3/export/docx/custom-node-builder) lists every function.
 
@@ -111,7 +111,7 @@ docxNode('mention')
 
 ## Write the JSON by hand
 
-Without the builder, you write the rules as objects, for example on a server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx). This is the `notice` rule from [Describe a node with the builder](#describe-a-node-with-the-builder) as its `toJSON()` returns it:
+Without the builder, you write the rules as objects, for example on a server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx). It takes them in the `customNodeDsl` field of the request body. This is the `notice` rule from [Describe a node with the builder](#describe-a-node-with-the-builder) as its `toJSON()` returns it:
 
 ```ts
 import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
@@ -126,7 +126,8 @@ const customNodeDsl: CustomNodeDsl = {
         emit: {
           element: 'Paragraph',
           children: {
-            $text: { $ref: 'node.attrs.message', default: 'Notice' },
+            $text: { $ref: 'node.attrs.message' },
+            default: 'Notice',
           },
         },
       },
@@ -149,7 +150,7 @@ The types of a rule and everything inside it are exported from `@tiptap-pro/exte
 
 The `emit` of a rule holds an element, an operation, an array of them, or `null`. An array writes its items one after the other.
 
-An element is one piece of the Word file, such as a paragraph. Its `props` set its formatting, and [Properties](/conversion/v3/export/docx/custom-node-builder#properties) lists them. These are the elements:
+An element is one piece of the Word file, such as a paragraph. Its `props` set its formatting, as in `{ element: 'Paragraph', props: { alignment: 'center' }, children: ... }`, and [Properties](/conversion/v3/export/docx/custom-node-builder#properties) lists them. These are the elements:
 
 | Element             | Kind       | Children                                             |
 | ------------------- | ---------- | ---------------------------------------------------- |
@@ -166,7 +167,7 @@ An operation writes something from the node, such as its content. These are the 
 | JSON                                                    | Builder                                                                            | What it writes                                                                                                                  |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `{ $children: { as, marks?, wrapInlineInParagraph? } }` | `childrenInline()`, `childrenBlock()`, `childrenTableRow()`, `childrenTableCell()` | The content of the node, `as` `inline`, `block`, `table-row` or `table-cell`. Each child converts as usual, or by its own rule. |
-| `{ $text, marks?, default? }`                           | `textOp()`                                                                         | One text run from the value in `$text`. Its `default` replaces an empty, missing or `null` value.                               |
+| `{ $text, marks?, default? }`                           | `textOp()`                                                                         | One text run from the value in `$text`. Its `default` replaces an empty, missing or `null` value, so use it for text.           |
 | `{ $fragment: [...] }`                                  | `fragment()`                                                                       | Its items, the same as an array.                                                                                                |
 | `{ $if: { test, then, else? } }`                        | `iff()`                                                                            | `then` when `test` is truthy, otherwise `else` or nothing. `false`, `null`, `0`, `''` and a missing value are falsy.            |
 | `{ $switch: { on, cases, default? } }`                  | `switch_()`                                                                        | The branch in `cases` whose key equals `on`, otherwise `default` or nothing. An `on` that isn't a string fails.                 |
@@ -181,11 +182,11 @@ Without `nodeKind`, or with `'auto'`, export works out the kind from what the ru
 
 Every way of writing nothing for a node also leaves out the content inside it. To leave out only the node, emit its children:
 
-| Rule                                                | Builder                                     | Result                                                    |
-| --------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------- |
-| `render: null` or `render: { emit: null }`          | `drop()` or `emitNothing()`, the same       | The node and its content are left out, without a warning. |
-| `render: { emit: { $children: { as: 'block' } } }`  | `emit(fragment(childrenBlock().toJSON()))`  | The blocks inside the node are written without the node.  |
-| `render: { emit: { $children: { as: 'inline' } } }` | `emit(fragment(childrenInline().toJSON()))` | The text inside an inline node is written without it.     |
+| Rule                                                | Builder                                               | Result                                                    |
+| --------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+| `render: null` or `render: { emit: null }`          | `drop()` writes the first, `emitNothing()` the second | The node and its content are left out, without a warning. |
+| `render: { emit: { $children: { as: 'block' } } }`  | `emit(fragment(childrenBlock().toJSON()))`            | The blocks inside the node are written without the node.  |
+| `render: { emit: { $children: { as: 'inline' } } }` | `emit(fragment(childrenInline().toJSON()))`           | The text inside an inline node is written without it.     |
 
 The builder's `emit()` doesn't take the children builders, so they go into `fragment()` as JSON.
 
@@ -211,25 +212,35 @@ Numbers are in Word's units: half-points for a font size, so `24` is 12 pt, and 
 
 These are the expressions, in JSON and in the builder:
 
-| JSON                                   | Builder                               | Result                                                                                                        |
-| -------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `{ $ref: path, default?, transform? }` | `ref(path, { default, transform })`   | A value from the node, so a number stays a number. `default` replaces a missing or `null` value.              |
-| `{ $template: text }`                  | `template(text)`                      | A string with `{path}` slots, such as `'@{node.attrs.label}'`. `{{` and `}}` write a brace.                   |
-| `{ $op: name, args: [...] }`           | `op(name, ...args)`                   | A value computed from `args`, such as a sum or a comparison.                                                  |
-| `{ $unit: name, value }`               | `unit(name, value)`                   | A measurement or color converted for Word, such as centimeters to twips.                                      |
-| `{ $switch: { on, cases, default? } }` | `switchValue({ on, cases, default })` | The value in `cases` whose key equals `on`, otherwise `default` or `null`. An `on` that isn't a string fails. |
+| JSON                                   | Builder                               | Result                                                                                                                 |
+| -------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `{ $ref: path, default?, transform? }` | `ref(path, { default, transform })`   | A value from the node. A number stays a number, unlike in a `$template`. `default` replaces a missing or `null` value. |
+| `{ $template: text }`                  | `template(text)`                      | A string with `{path}` slots, such as `'@{node.attrs.label}'`. `{{` and `}}` write a brace.                            |
+| `{ $op: name, args: [...] }`           | `op(name, ...args)`                   | A value computed from `args`, such as a sum or a comparison.                                                           |
+| `{ $unit: name, value }`               | `unit(name, value)`                   | A measurement or color converted for Word, such as centimeters to twips.                                               |
+| `{ $switch: { on, cases, default? } }` | `switchValue({ on, cases, default })` | The value in `cases` whose key equals `on`, otherwise `default` or `null`. An `on` that isn't a string fails.          |
 
-A path is usually `node.attrs.<key>`, one attribute, or `node.textContent`, all the text inside the node. A key can go deeper into an object attribute, such as `node.attrs.style.color`. `node`, `node.type`, `node.attrs` and `node.text` work too, but array indexes, wildcards, JavaScript, `node.content` and `node.marks` don't.
+A path is usually `node.attrs.<key>`, one attribute, or `node.textContent`, all the text inside the node. A key can go deeper into an object attribute, such as `node.attrs.style.color`.
+
+`node.type` is the name of the node type. `node`, `node.attrs` and `node.text`, the text of a text node, work too, but array indexes, wildcards, JavaScript, `node.content` and `node.marks` don't.
 
 A `transform`, such as `hexNoHash`, changes the value of a `$ref` or its `default`. [Value factories](/conversion/v3/export/docx/custom-node-builder#value-factories) lists the transforms, the operations of `$op` and the units of `$unit`.
 
-Most numeric properties take whole numbers only, and nothing rounds a number. So `pixelsToHalfPoints` of `15` gives a font size of `22.5`, which fails with `DOCX_DSL_INVALID_PROP`. To set a font size from an attribute, store it in whole points and double it with `unit('pointsToHalfPoints', ref('node.attrs.fontSize'))`.
+Most numeric properties take whole numbers only, and nothing rounds a number. A pixel is 0.75 pt, so `pixelsToHalfPoints` of `15` gives a font size of `22.5`, which fails with `DOCX_DSL_INVALID_PROP`. Only an even number of pixels gives a whole number.
+
+To set a font size from an attribute, store it in whole points and double it with `pointsToHalfPoints`. The `parseIntStrict` transform reads the number at the start of a string, so an attribute such as `'12pt'` works too:
+
+```ts
+import { ref, textRun, unit } from '@tiptap-pro/extension-export-docx/dsl'
+
+textRun({
+  size: unit('pointsToHalfPoints', ref('node.attrs.fontSize', { transform: 'parseIntStrict' })),
+})
+```
 
 ## Nodes without a rule
 
-When a node type has no rule and export can't convert it, export leaves the node out of the file, with all of its content. A rule that writes nothing does the same without a warning.
-
-Without a rule, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors) lists every warning.
+When a node type has no rule and export can't convert it, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors) lists every warning.
 
 Export has no converter for the `crossReference` node of `@tiptap-pro/extension-cross-references` or the `bookmarkPoint` node of `@tiptap-pro/extension-bookmark`, so a rule can write them. Rules apply only to nodes, so the `bookmark` mark stays left out. [Hyperlinks and bookmarks](/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks) says what export writes for links and bookmarks.
 
@@ -257,4 +268,4 @@ When the Conversion service refuses the rules, no file arrives, and `onError` re
 
 The `code` of the error starts with `DOCX_DSL_`, as [Export warnings and errors](/conversion/v3/export/docx/warnings-and-errors#errors) lists, and its `message` names the field that failed.
 
-`ExportDocxRequestError` doesn't say where in the rules the error is. The response of the [Export DOCX REST API](/conversion/v3/rest-api/export-docx) does, and for a `422` it also names the node that failed.
+`ExportDocxRequestError` doesn't say where in the rules the error is, but the response of the Conversion service does. [Find the failing rule](/conversion/v3/export/docx/warnings-and-errors#find-the-failing-rule) shows where to read it.
