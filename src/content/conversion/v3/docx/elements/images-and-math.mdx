@@ -1,0 +1,159 @@
+---
+title: Images and math
+tags:
+  - type: beta
+meta:
+  title: Images and math | Tiptap Conversion
+  description: Check how images in a .docx file reach the editor through your upload endpoint, how export embeds them, and how LaTeX formulas export as Word equations.
+  category: Conversion
+---
+
+Import sends each image in the `.docx` file to an upload endpoint on your server and returns an `image` node with the URL the endpoint gives back. Export downloads the image of each `image` node and embeds it in the file. Images sit inline in the text in both directions.
+
+Formulas of the Mathematics extension export as Word equations, which stay editable in Word. Equations in a `.docx` file don't import.
+
+## What you need
+
+Neither extension is part of `StarterKit`:
+
+| Element | Extension                                                               | Node                                       |
+| ------- | ----------------------------------------------------------------------- | ------------------------------------------ |
+| Images  | `Image` from `@tiptap/extension-image`, with `inline: true`             | `image`                                    |
+| Math    | `Mathematics` from `@tiptap/extension-mathematics`, which needs `katex` | `inlineMath` and `blockMath`, with `latex` |
+
+Without `Image`, import keeps each image as preserved content and reports a `preserved` warning. The image comes back once you add `Image`, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
+
+### Images
+
+Import puts images inside paragraphs, so set `inline` to `true`. A block `Image` splits the paragraph instead and stands between its two halves:
+
+```ts
+import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
+
+const extensions = [StarterKit, Image.configure({ inline: true })]
+```
+
+Import sets these attributes:
+
+| Attribute                                        | From Word                                |
+| ------------------------------------------------ | ---------------------------------------- |
+| `src`                                            | The URL your upload endpoint returns     |
+| `alt` and `title`                                | The image's description and title        |
+| `width` and `height`                             | The image's size, in pixels              |
+| `cropTop`, `cropBottom`, `cropLeft`, `cropRight` | Word's cropping, only on a cropped image |
+
+`Image` defines all but the crop attributes, which no Tiptap extension defines. The editor keeps them in the node's `preservedAttrs` attribute, which holds attributes the editor's extensions don't define, so they come back once you add an extension that defines them.
+
+### Math
+
+The Mathematics extension draws formulas with KaTeX, a LaTeX library for the browser, so install `katex` too:
+
+```bash
+npm install @tiptap/extension-mathematics katex
+```
+
+```ts
+import StarterKit from '@tiptap/starter-kit'
+import { Mathematics } from '@tiptap/extension-mathematics'
+import 'katex/dist/katex.min.css'
+
+const extensions = [StarterKit, Mathematics]
+```
+
+Both nodes keep the formula in a `latex` attribute. `inlineMath` sits in a paragraph, and `blockMath` is a block. [Mathematics extension](/editor/extensions/nodes/mathematics) describes them.
+
+## Import
+
+Import needs an upload endpoint for images, and leaves equations out.
+
+### Images
+
+Word stores images inside the file, so they have no URL. Without `imageUploadConfig`, import skips every image, and `onWarning` receives one `image-skipped` warning. With it, the Conversion service, which converts the file, sends each image to your endpoint and uses the returned URL as `src`.
+
+In this example, `CONVERSION_TOKEN` stands for your Conversion token, which [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows how to get, and `UPLOAD_TOKEN` for a token your endpoint accepts:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  imageUploadConfig: {
+    url: 'https://example.com/upload',
+    headers: { Authorization: `Bearer ${UPLOAD_TOKEN}` },
+  },
+})
+```
+
+The service sends one `POST` request for each image, with the raw image bytes as the body and `Content-Type` and `File-Name` headers. `method` and `queryParams` in `imageUploadConfig` change the method and add query parameters. The endpoint responds with an absolute `http` or `https` address in `url`:
+
+```json
+{ "url": "https://example.com/images/photo.png" }
+```
+
+[Import DOCX](/conversion/v3/docx/import) shows a complete endpoint.
+
+When the `url` in `imageUploadConfig` isn't an `http` or `https` address, or `headers` isn't a plain object of strings, the import fails before it sends anything, with an `ImageUploadConfigValidationError`.
+
+Import also skips an image when the endpoint fails, doesn't answer within 10 seconds, or returns no usable `url`. Each case gives the same single `image-skipped` warning, and `context.logs.warn` in `onImport` names each image and the reason.
+
+Images behind the text, such as watermarks, are skipped the same way. To keep them, set the `behindTextImages` option of `ImportDocx.configure()`, or of one `importDocx()` call, to `'import'`, as [Import DOCX](/conversion/v3/docx/import) shows. A floating image imports inline, without its position and wrapping.
+
+### Math
+
+Import leaves Word equations out completely, their text included, and gives no warning. No `inlineMath` or `blockMath` node comes back. This is a known limit that is being fixed.
+
+## Export
+
+Export embeds each image in the file, and converts each formula to a Word equation.
+
+### Images
+
+Export embeds the image each `src` points to. The Conversion service fetches public URLs itself. The browser uploads the images the service can't reach: `blob:` URLs, `data:` URLs over 64 KB and images on your app's own origin. A smaller `data:` URL goes with the document as it is.
+
+Word holds PNG, JPEG, GIF, BMP and SVG. `width` and `height` set the size in pixels, or else the file's own size counts. A `transformation` in `imageOverrides` wins over both and sets the size of every image.
+
+An image with a side longer than 225,457 pixels, the largest Word opens, is scaled down with an `image-resized` warning.
+
+`alt` becomes the alt text. Export writes every image inline, without its cropping, as [Limits](#limits) lists.
+
+An image export can't use, such as one that failed to download, is in EMF or has no `src`, is left out and reported to `onWarning`. Its paragraph goes too when the image was its only content. `onImageError: 'throw'` fails the export instead. Image warnings carry the image's `src`:
+
+```ts
+editor.commands.exportDocx({
+  onImageError: 'throw',
+  onWarning: (warning) => console.warn(warning.code, warning.src),
+})
+```
+
+The browser uploads at most 64 files for one export, counting the images it uploads and the [fonts it embeds](/conversion/v3/docx/export-styles#embed-fonts), each image up to 20 MB. Images the service fetches don't count. The [Export DOCX REST API](/conversion/v3/rest-api/export-docx) lists the limits for images the service downloads, and [Export DOCX](/conversion/v3/docx/export#images) has more on images.
+
+### Math
+
+Export converts the `latex` attribute to a Word equation. A `blockMath` node becomes a paragraph that holds the equation, and an `inlineMath` node an equation inside its paragraph. Export converts these parts of LaTeX:
+
+| LaTeX                               | Word equation             |
+| ----------------------------------- | ------------------------- |
+| `\frac{a}{b}`                       | Fraction                  |
+| `\binom{n}{k}`                      | Binomial                  |
+| `\sqrt{x}` and `\sqrt[n]{x}`        | Root                      |
+| `x^{2}`, `x_{i}` and `x_{i}^{2}`    | Superscript and subscript |
+| `\begin{matrix} ... \end{matrix}`   | Matrix                    |
+| `\text{...}`                        | Plain text                |
+| Greek letters, operators and arrows | The matching symbol       |
+
+Export keeps the bracket after `\left` and `\right` as a plain character, so it doesn't grow with its content in Word. It writes a command it doesn't know as its name without the backslash. When it can't convert a formula at all, it writes the raw LaTeX as text in the equation, so check formulas in Word before you rely on them.
+
+## Limits
+
+Images have these limits:
+
+- An image import skips is left out of the document, with an `image-skipped` warning.
+- Floating images lose their position on import, and export writes every image inline.
+- Export doesn't write cropping.
+- A WebP image, or another format Word can't hold, fails the whole export when the browser uploads it, such as from a `blob:` URL. `onError` then receives an `ExportDocxRequestError` with `status` `400`, whatever `onImageError` says. The same image at a public URL is left out with a warning.
+
+Math has these limits:
+
+- Equations don't import, and import gives no warning for them.
+- Export builds no environment other than `matrix`, so `pmatrix` and the like don't convert.

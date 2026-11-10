@@ -1,0 +1,470 @@
+---
+title: Import DOCX
+intro: 'The <code>ImportDocx</code> extension opens a Word (<code>.docx</code>) file in the editor. Its <code>importDocx</code> command sends the file to the Conversion service and writes the result into your editor. To set it up, start with <a href="/docs/conversion/v3/getting-started/install">Install Tiptap Conversion</a>.'
+headerDemo:
+  path: '/Extensions/ImportDocx'
+  isPro: true
+  code: false
+  caption: '<strong>Import DOCX:</strong> pick a <code>.docx</code> file and see it in the editor.'
+tags:
+  - type: beta
+meta:
+  title: Import DOCX | Tiptap Conversion
+  description: Open a .docx file in the editor with the importDocx command, change the document before the editor gets it, and set up image uploads, checkbox lists and Word's styles as CSS.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+## Import a file
+
+`importDocx()` replaces the editor's content with the content of a `.docx` file. Add `ImportDocx` with your Conversion token to the editor, as [Install Tiptap Conversion](/conversion/v3/getting-started/install#4-build-a-first-editor) builds it, and pass the `File` the user picked to the command.
+
+In this example, `CONVERSION_TOKEN` stands for your Conversion token, the JWT that lets the editor call the Conversion service, and `#import` for a file input on the page:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ImportDocx.configure({
+      token: CONVERSION_TOKEN,
+      onWarning: (warning) => console.warn(warning.code, warning.message),
+      onError: (error) => console.error(error),
+    }),
+  ],
+})
+
+document.querySelector('#import')?.addEventListener('change', (event) => {
+  if (!(event.target instanceof HTMLInputElement)) return
+  const file = event.target.files?.[0]
+  if (file) editor.commands.importDocx({ file })
+})
+```
+
+`token` is required, and every other option is optional, as [Import options](/conversion/v3/docx/import-options) lists. Without a `token` or a `file`, the import fails before it sends a request.
+
+The command returns `true` right away, because the Conversion service converts the file over the network. The import runs in the background and replaces the whole document when it finishes.
+
+Without `onImport`, the import writes the document when it arrives. Problems reach `onWarning` and `onError`, as [Warnings and errors](#warnings-and-errors) shows.
+
+## What the editor keeps
+
+The editor shows the nodes and marks its extensions define, so add the extensions for the content you expect, such as tables and images. [What Word elements become](/conversion/v3/docx/elements) names the extension each kind of Word content needs.
+
+Content the editor has no extension for doesn't fail the import. The import keeps it as preserved content, which holds it in the document until you add the extension, and `onWarning` receives a `preserved` warning for each such type.
+
+So a Word table in an editor without the table extension keeps its text, and it shows as a table once you add the extension. [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains how preserved content looks and how it turns back.
+
+The imported document is a Page Layout document: sections, page setup, headers, footers, page numbers, breaks and notes are inside it. With [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the editor as pages, all of it goes into the pages, as [Word files with Page Layout](/conversion/v3/docx/page-layout) shows.
+
+In an editor without Page Layout, the body goes in with `setContent`. The parts only Page Layout shows, such as sections, headers and footers, are kept as preserved content, as [Without Page Layout](/conversion/v3/docx/preserved-content#without-page-layout) explains. `context.content` in `onImport` still holds the whole document, so you can read these parts yourself.
+
+## Change the document before the editor gets it
+
+Pass `onImport` to read or change the document before the editor shows it. `onImport` receives a context, and `context.content` holds the whole Word file as one JSON document, with the headers, footers and notes inside. Once you pass `onImport`, the import writes nothing until you call `context.setEditorContent()`.
+
+In this example, `file` is the `.docx` file the user picked. `context.error` is set when the import failed, so check it first:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    console.log(context.warnings)
+    context.setEditorContent()
+  },
+})
+```
+
+Without an argument, `setEditorContent()` writes `context.content` as the Conversion service returned it. Pass it a document to write your own version instead, such as one you changed or checked against your application's rules.
+
+Write the import with `setEditorContent()`, not with the `setContent` command. `setEditorContent()` fits the document to the editor's schema, writes into Page Layout when the editor has it, keeps tracked changes from recording the import, and applies the CSS styles. `setContent` alone does none of that.
+
+### The onImport context
+
+`onImport` receives an `ImportContext`. Check `error` first: it is `null` when the import worked, and only then does the context have the other fields. When the import fails and no `onError` is set, the context is `{ content: null, error }` and has no other field.
+
+On success, the context has these fields:
+
+| Field              | Type                              | What it holds                                                                                                                                                          |
+| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`          | `JSONContent`                     | The document as the Conversion service returned it. It is a Page Layout document, so sections, headers, footers, page numbers, breaks and notes are inside it.         |
+| `error`            | `null`                            | Always `null` on success.                                                                                                                                              |
+| `setEditorContent` | `(content?: JSONContent) => void` | Writes the document. Without an argument, it writes `content`. It throws when a newer import has started, or when Page Layout's engine was destroyed before the write. |
+| `logs`             | `ImportLogs`                      | The entries the Conversion service logged, in `info`, `warn` and `error`. `info` is always empty.                                                                      |
+| `cssStyles`        | `DocxCssStylesOutput \| null`     | The extracted styles, or `null` when you didn't turn extraction on. See [CSS styles](#css-styles).                                                                     |
+| `commentThreads`   | `ImportedCommentThread[]`         | The comment threads. Empty when the file has no comments. See [Comment threads](#comment-threads).                                                                     |
+| `warnings`         | `ImportDocxWarning[]`             | The warnings the Conversion service sent. They reach `onWarning` before `onImport` runs.                                                                               |
+
+For what the headers, footers, notes and comments look like in `content`, see [Word files with Page Layout](/conversion/v3/docx/page-layout), [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) and [Tracked changes and comments](/conversion/v3/docx/tracked-changes-and-comments).
+
+### Where the document goes
+
+`setEditorContent()` writes the document in the first of these ways that applies:
+
+1. An extension with an import handler writes it, as [Write the import yourself](#write-the-import-yourself) shows.
+2. With Page Layout on a mounted editor, it replaces the Source Document, the document Page Layout lays out into pages, in one step. The caret lands at the start of the body, and one undo takes the import back.
+3. Otherwise it writes into the editor's own document with `setContent`. A Page Layout editor that has not mounted, such as a headless one in a Node.js script, has no pages, so its own document is the Source Document. Sections, headers and notes land there as they do in a mounted editor.
+
+The import never records the write as tracked changes, even when the Tracked Changes extension is on the editor.
+
+Each write carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your plugins can tell an import apart. The constant holds the meta key `'docxImport'`.
+
+With Page Layout, read the meta in `onUpdate`, because the editor's `transaction` event carries the transactions of the pages, and only `update` carries the import's own transaction:
+
+```ts
+import { Extension } from '@tiptap/core'
+import { DOCX_IMPORT_META } from '@tiptap-pro/extension-import-docx'
+
+const LogImports = Extension.create({
+  name: 'logImports',
+  onUpdate({ transaction }) {
+    if (transaction.getMeta(DOCX_IMPORT_META)) console.log('DOCX imported')
+  },
+})
+```
+
+### Write the import yourself
+
+An extension can write the import itself, such as into a store of your own. Keep a function named `applyDocxImport` in its storage, and `setEditorContent()` calls it with `{ content }` instead of writing the document.
+
+Return `true` when you wrote the import, or `false` to let the import write it as usual. When several extensions have such a function, the first in the editor's extension order is called.
+
+```ts
+import { Extension } from '@tiptap/core'
+import type { DocxImport } from '@tiptap-pro/extension-import-docx'
+
+const ImportIntoMyStore = Extension.create({
+  name: 'importIntoMyStore',
+  addStorage() {
+    return {
+      applyDocxImport: ({ content }: DocxImport) => {
+        this.editor
+          .chain()
+          .setMeta('trackedChanges', { type: 'skipTracking' })
+          .setContent(content)
+          .run()
+        return true
+      },
+    }
+  },
+})
+```
+
+`content` is a copy of the document, not yet checked against any schema, so check it before you write it. Changing it doesn't change the `onImport` context. The `skipTracking` meta keeps tracked changes from recording the import as a suggestion. The import still applies the CSS styles.
+
+The function's type is `DocxImportHandler`, `(docxImport: DocxImport) => boolean`.
+
+### Comment threads
+
+`commentThreads` holds the comment threads of the file, with their messages. The callback doesn't create your comments UI, so pass the threads to it yourself. When the import created the threads on the Document Server, the threads and messages carry its IDs. Otherwise the IDs come from the `.docx` file.
+
+Each `ImportedCommentThread` has these fields:
+
+| Field       | Type                       | What it holds                                              |
+| ----------- | -------------------------- | ---------------------------------------------------------- |
+| `id`        | `string`                   | The thread ID. It matches `data-thread-id` in the content. |
+| `durableId` | `string`                   | The durable ID from the file, when it has one.             |
+| `resolved`  | `boolean`                  | Whether the thread is resolved.                            |
+| `messages`  | `ImportedCommentMessage[]` | The root comment first, then the replies by date.          |
+
+Each `ImportedCommentMessage` has these fields:
+
+| Field  | Type          | What it holds                                                                                        |
+| ------ | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `wId`  | `string`      | The ID of the comment in the `.docx` file.                                                           |
+| `id`   | `string`      | The ID from the Document Server. Set only when the import created the thread there.                  |
+| `body` | `JSONContent` | The message as Tiptap JSON.                                                                          |
+| `data` | `object`      | `author`, and when present `initials`, `providerId`, `userId`, `dateIso` and `dateUtc`, all strings. |
+
+## Images
+
+A `.docx` file holds its images inside the file, so they have no URL. The Conversion service uploads each image to an endpoint on your server and puts the URL you return into the `image` node.
+
+<Callout title="You need your own upload endpoint" variant="info">
+  Tiptap doesn't store images for you. Without `imageUploadConfig`, import skips every image.
+</Callout>
+
+[Images and math](/conversion/v3/docx/elements/images-and-math) shows the editor setup for images and what an image keeps.
+
+### Set the upload endpoint
+
+Pass `imageUploadConfig` to `ImportDocx.configure()`. In this example, `UPLOAD_TOKEN` stands for a token your endpoint accepts:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  imageUploadConfig: {
+    url: 'https://example.com/upload',
+    headers: { Authorization: `Bearer ${UPLOAD_TOKEN}` },
+    method: 'PUT',
+    queryParams: { bucket: 'my-bucket' },
+  },
+})
+```
+
+`url` is required. `headers` and `queryParams` are added to every upload, and `method` replaces `POST`, as [ImageUploadConfig](/conversion/v3/docx/import-options#imageuploadconfig) lists. When `url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings, the import fails with an `ImageUploadConfigValidationError` before it sends any request.
+
+### Handle the upload request
+
+The Conversion service sends one request for each image:
+
+| Part           | Value                                                                  |
+| -------------- | ---------------------------------------------------------------------- |
+| Method         | `POST`, or the `method` you set                                        |
+| Body           | The raw image bytes. It isn't `multipart/form-data`, and has no field. |
+| `Content-Type` | The type of the image, such as `image/png`                             |
+| `File-Name`    | The name of the image, such as `image1.png`                            |
+
+Your `headers` and `queryParams` come with it. The service sets `Content-Type` and `File-Name` itself, so you can't replace them.
+
+The service sets `Content-Type` from the file extension for `png`, `jpg`, `jpeg`, `gif`, `bmp`, `tiff`, `tif`, `emf`, `wmf`, `svg` and `webp`. It sends `application/octet-stream` for anything else, so decide on your side which types you keep.
+
+`File-Name` comes from inside the `.docx` file. Word numbers images `image1`, `image2` and so on, and starts at 1 in every file. So add something unique to your storage key, or two files will overwrite each other's images.
+
+By default, the service uploads up to three images at a time and waits 10 seconds for each response. A slower response counts as a failed upload, and the service doesn't retry it.
+
+The endpoint must be reachable from the internet. The service refuses addresses that aren't public, such as `localhost`.
+
+### Return the URL
+
+Respond with a `2xx` status and a JSON body that has a `url` string:
+
+```json
+{ "url": "https://example.com/images/photo.png" }
+```
+
+The `url` must be an absolute `http` or `https` address with a host. The service doesn't resolve relative URLs, because it has no page to resolve them against. It uses the URL as you return it, without re-encoding, so a signed URL stays valid. It trims whitespace around the value.
+
+This handler reads the request and returns the URL. `saveImage` stands for your own storage code:
+
+```ts
+export async function handleUpload(request: Request): Promise<Response> {
+  const fileName = request.headers.get('File-Name')
+  const contentType = request.headers.get('Content-Type')
+  if (!fileName || !contentType) return Response.json({ error: 'Missing headers' }, { status: 400 })
+
+  const image = await request.blob()
+  const url = await saveImage({ key: `${crypto.randomUUID()}-${fileName}`, image, contentType })
+
+  return Response.json({ url })
+}
+```
+
+The editor content stores the URL, and anyone who opens or exports the document loads the image again, so keep the images available.
+
+### When an image is skipped
+
+The Conversion service skips an image, and the rest of the document imports normally, in these cases:
+
+- You didn't set `imageUploadConfig`.
+- The endpoint returned a status that isn't `2xx`, took too long or couldn't be reached.
+- The response wasn't JSON, or `url` was missing or unusable.
+- The image sits behind the text, such as a watermark, and you didn't set `behindTextImages: 'import'`.
+
+When an import skips images, `onWarning` receives one `image-skipped` warning. The `logs.warn` field of the `onImport` context names each skipped image and why.
+
+When an upload failed, `logs.error` has the cause and names the file. When your endpoint returned an unusable `url`, that entry also has a `reason` field:
+
+| Reason in `logs.error`                              | Typical cause                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| ``the response did not contain a `url` field``      | The JSON has no `url` key, or `url` is `null`.                |
+| ``the `url` field was not a string``                | `url` holds a number or an object.                            |
+| ``the `url` field was empty``                       | `url` is `""` or only whitespace.                             |
+| `the URL contains a space or a control character`   | An unencoded space or line break. Percent-encode it.          |
+| `the URL is relative`                               | A path such as `/uploads/image1.png`, or `//host/image1.png`. |
+| `the URL is not a well-formed absolute http(s) URL` | A missing slash, as in `https:/host/image1.png`, or no host.  |
+| `only http and https URLs can be used`              | A scheme such as `s3://` or `data:`.                          |
+
+The log cuts the URL before its query string, so it never holds the token of a signed URL. This example prints both lists:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.logs.warn, context.logs.error)
+  },
+})
+```
+
+### Images behind the text
+
+Import skips images that sit behind the text, such as a watermark on every page. To keep them, set `behindTextImages` to `'import'`, on `ImportDocx.configure()` or on one `importDocx()` call, which wins:
+
+```ts
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  imageUploadConfig: { url: 'https://example.com/upload' },
+  behindTextImages: 'import',
+})
+```
+
+The type of the option is `BehindTextImagesMode`. Without `'import'`, `onWarning` receives an `image-skipped` warning when the file has such an image.
+
+## Checkbox lists
+
+The `taskLists` option decides whether a Word checkbox list imports as a task list, the `taskList` and `taskItem` nodes with the ticked state kept. Set it on `ImportDocx.configure()`, or on one `importDocx()` call, which wins:
+
+```ts
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  taskLists: 'auto',
+})
+
+editor.commands.importDocx({ file, taskLists: 'ignore' })
+```
+
+The default, `'auto'`, imports checkbox lists as task lists like `'import'`, whatever the editor's schema has. An editor without `taskList` and `taskItem` keeps them as preserved content, ticked states included, and they become task lists once you add the nodes. `'ignore'` imports checkbox lists as ordinary bullet or numbered lists.
+
+[Lists and task lists](/conversion/v3/docx/elements/lists) shows the extensions a task list needs, and which Word checkboxes convert.
+
+## CSS styles
+
+A `.docx` file has named styles, such as Heading 1 and Normal. The `cssStyles` option extracts them as CSS rules, so imported text looks like the original without inline formatting on every node.
+
+<Callout title="Experimental" variant="info">
+  The extracted selectors and properties may change between releases. Pin the package version if you
+  depend on them.
+</Callout>
+
+### Turn on extraction
+
+Set `enabled` to `true`. With `autoInject`, the import adds the rules to the page in a `<style>` tag:
+
+```ts
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  cssStyles: {
+    enabled: true,
+    autoInject: true,
+    selector: '.tiptap',
+  },
+})
+```
+
+Every rule sits under `selector`, as in `.tiptap h1 { ... }`, so set it to the class of your editor element. A selector such as `body` styles the whole page. [ImportCssStylesOptions](/conversion/v3/docx/import-options#importcssstylesoptions) lists the three options.
+
+You can set the same keys for one import, and they merge over the configured ones:
+
+```ts
+editor.commands.importDocx({
+  file,
+  cssStyles: { enabled: true, autoInject: false },
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.cssStyles)
+  },
+})
+```
+
+### Inject the rules
+
+With `autoInject`, the import adds the rules after it writes the document. It keeps one `<style data-tiptap-style-import-docx>` tag for the whole page, and a later import with rules replaces the content of that tag. Destroying any editor with `ImportDocx` removes the tag.
+
+So for several editors on one page, each with its own styles, turn `autoInject` off and keep a separate stylesheet per editor, as [Apply the rules yourself](#apply-the-rules-yourself) does.
+
+The import injects nothing outside a browser, or when the Conversion service finds no styles.
+
+### Apply the rules yourself
+
+Without `autoInject`, the `onImport` context has the raw `cssStyles` object. It is `null` when you didn't turn extraction on. `buildCssRules` builds the CSS from it, and `injectCssStyles` adds that CSS to the page:
+
+```ts
+import { buildCssRules, injectCssStyles } from '@tiptap-pro/extension-import-docx'
+
+editor.commands.importDocx({
+  file,
+  cssStyles: { enabled: true },
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    if (context.cssStyles) injectCssStyles(buildCssRules(context.cssStyles, '.tiptap'))
+  },
+})
+```
+
+The package exports these helpers:
+
+| Export                               | What it does                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `buildCssRules(cssStyles, selector)` | Builds a CSS string from a `cssStyles` object, with every rule under `selector`. |
+| `injectCssStyles(css)`               | Adds the CSS to the one `<style data-tiptap-style-import-docx>` tag in the head. |
+| `removeCssStyles()`                  | Removes that tag. It does nothing when there is none.                            |
+
+`injectCssStyles` and `removeCssStyles` do nothing where there is no `document`, such as in Node.js.
+
+`buildCssRules` also drops the properties a mark shouldn't carry, so a mark doesn't override the font or spacing of its block. `strong` keeps `fontWeight`, `em` keeps `fontStyle`, and `u` and `s` keep `textDecoration`. `a` keeps `color` and `textDecoration`. `code` keeps `fontFamily`, `color`, `fontSize` and `backgroundColor`.
+
+### What is extracted
+
+The `cssStyles` object, of type `DocxCssStylesOutput`, has one entry for each of these selectors:
+
+| Kind   | Selectors                                         |
+| ------ | ------------------------------------------------- |
+| Blocks | `p`, `h1` to `h6`, `blockquote`, `ul li`, `ol li` |
+| Marks  | `strong`, `em`, `u`, `s`, `a`, `code`             |
+
+Each entry holds some of these properties, depending on what the style sets:
+
+| Property                    | Value                                                        |
+| --------------------------- | ------------------------------------------------------------ |
+| `fontSize`                  | Pixels, such as `16px`.                                      |
+| `marginTop`, `marginBottom` | Points, such as `12pt`.                                      |
+| `lineHeight`                | A multiplier, or points for an exact or minimum line height. |
+| `color`, `backgroundColor`  | A hex color. The service skips the automatic color.          |
+| `fontFamily`                | The font name.                                               |
+| `fontWeight`, `fontStyle`   | `bold` or `normal`, and `italic` or `normal`.                |
+| `textDecoration`            | `underline`, `line-through` or both.                         |
+| `textAlign`                 | `left`, `center`, `right` or `justify`.                      |
+
+A style that is based on another style includes what it inherits. Files written in other languages work too, because the Conversion service matches the styles by their built-in names.
+
+### What extraction doesn't do
+
+Extraction covers only part of a file's formatting, and the rules don't follow the document:
+
+- The Conversion service extracts only the 16 selectors in [What is extracted](#what-is-extracted). It skips table, numbering and custom styles, and it doesn't extract letter spacing.
+- Extraction never fails the import. If the service can't read the styles, the object comes back empty.
+- Formatting set directly on a paragraph or run in Word stays on the node as attributes and marks, and the rules don't override it.
+- The rules describe the imported file. They don't change when the user edits the document.
+- The rules can clash with your own stylesheet, so check the cascade order.
+
+For the Word styles that decide headings and paragraphs, see [Paragraphs and styles](/conversion/v3/docx/elements/paragraphs).
+
+## Warnings and errors
+
+A warning means the import left something out or changed it, and went on. An error means the import stopped and wrote nothing. [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists every warning code and every error.
+
+`onWarning` receives every warning. Set it on `ImportDocx.configure()` or on one `importDocx()` call, which wins. Without `onWarning`, each warning goes to `console.warn`, and an error thrown inside `onWarning` is ignored.
+
+Warnings from the Conversion service reach `onWarning` before `onImport` runs, and `context.warnings` lists them too. The editor's own warnings, such as `preserved`, arrive when `setEditorContent()` writes. The service's logs stay in `context.logs` and don't become warnings.
+
+An error goes to `onError`, from the command or from `ImportDocx.configure()`, and the command's wins. Without `onError`, `onImport` receives it as `{ content: null, error }`, if the import hadn't handed over the document yet. When neither handles it, the import logs it with `console.error`.
+
+### Overlapping imports
+
+When you start a second import before the first response arrives, the newest import wins: the first one writes nothing and reports an `ImportDocxSupersededError`. Calling `setEditorContent()` from the older import throws the same error.
+
+The import doesn't log an `ImportDocxSupersededError` that no callback handles, because the newer import answers it. With `onError`, skip it yourself:
+
+```ts
+import { ImportDocx, ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  onError(error) {
+    if (error instanceof ImportDocxSupersededError) return
+    console.error(error)
+  },
+})
+```

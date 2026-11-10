@@ -1,0 +1,303 @@
+---
+title: Custom node DSL
+tags:
+  - type: beta
+meta:
+  title: Custom node DSL | Tiptap Conversion
+  description: Look up the functions that build customNodeDsl rules for Export DOCX, with their arguments, their builders and the properties of each Word element.
+  category: Conversion
+---
+
+The custom node DSL is the rule language of the `customNodeDsl` option of Export DOCX, and its builder is a set of functions that create the rules.
+
+The functions only create JSON, so they don't call the Conversion service or create a file. [Custom nodes in Word files](/conversion/v3/docx/custom-nodes) explains the rules, with complete examples.
+
+The functions and their types, such as `ParagraphProps`, come from `@tiptap-pro/extension-export-docx/dsl`. The JSON types the functions return, such as `CustomNodeRule`, come from `@tiptap-pro/extension-export-docx`. This rule writes a `caption` node as a centered paragraph:
+
+```ts
+import { childrenInline, docxNode, paragraph } from '@tiptap-pro/extension-export-docx/dsl'
+import type { ParagraphProps } from '@tiptap-pro/extension-export-docx/dsl'
+import type { CustomNodeRule } from '@tiptap-pro/extension-export-docx'
+
+const props: ParagraphProps = { alignment: 'center' }
+const rule: CustomNodeRule = docxNode('caption')
+  .block()
+  .emit(paragraph(props).children(childrenInline()))
+  .toJSON()
+```
+
+## Rule factories
+
+`docxNode(type: string)` starts the rule for one node type and returns a `CustomNodeRuleBuilder` with these methods:
+
+| Method                                                 | Sets in the rule         | What it does                                                                      |
+| ------------------------------------------------------ | ------------------------ | --------------------------------------------------------------------------------- |
+| `block()`                                              | `nodeKind: 'block'`      | The node is a block. Emitting inline content fails validation.                    |
+| `inline()`                                             | `nodeKind: 'inline'`     | The node sits inside text. Emitting block content fails validation.               |
+| `auto()`                                               | no `nodeKind`            | Export works out the kind from what the rule emits. This is the default.          |
+| `emit(node: RenderNodeBuilder \| RenderNodeBuilder[])` | `render: { emit }`       | What export writes in place of the node.                                          |
+| `emitNothing()`                                        | `render: { emit: null }` | Leaves the node and its content out, the same as `drop()`.                        |
+| `drop()`                                               | `render: null`           | Leaves the node and its content out. There are two names for the two JSON forms.  |
+| `toJSON(): CustomNodeRule`                             |                          | Returns the rule. Throws unless `emit()`, `emitNothing()` or `drop()` came first. |
+
+`emit()` takes the builder of an element, or of `fragment()`, `iff()`, `switch_()` or `textOp()`. It doesn't take the children builders, which go inside an element. To write only the content of the node, pass their JSON in a fragment. [Keep or drop the content](/conversion/v3/docx/custom-nodes#keep-or-drop-the-content) shows the cases:
+
+```ts
+emit(fragment(childrenBlock().toJSON()))
+```
+
+## Element factories
+
+Each element function takes the properties listed in [Properties](#properties) and returns the builder of its element. The children column is the type that builder's `children()` takes:
+
+| Function                                           | Returns                    | Children                                                                             |
+| -------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| `paragraph(props?: ParagraphProps)`                | `ParagraphBuilder`         | `ParagraphChildSpec`: `childrenInline()`, a render node builder, or an array of them |
+| `textRun(props?: TextRunProps)`                    | `TextRunBuilder`           | none                                                                                 |
+| `externalHyperlink(props: ExternalHyperlinkProps)` | `ExternalHyperlinkBuilder` | `ExternalHyperlinkChildSpec`, the same as for a paragraph                            |
+| `table(props?: TableProps)`                        | `TableBuilder`             | `TableChildSpec`: an array of `tableRow()` builders, or `childrenTableRow()`         |
+| `tableRow(props?: TableRowProps)`                  | `TableRowBuilder`          | `TableRowChildSpec`: an array of `tableCell()` builders, or `childrenTableCell()`    |
+| `tableCell(props?: TableCellProps)`                | `TableCellBuilder`         | `TableCellChildSpec`: `childrenBlock()`, a render node builder, or an array of them  |
+| `pageBreak()`                                      | `RenderNodeBuilder`        | none. It writes a paragraph that holds a page break                                  |
+
+## Children and conditional factories
+
+These functions create the operations that write the content of the node or pick what to write. [Choose the output shape](/conversion/v3/docx/custom-nodes#choose-the-output-shape) says what each operation writes.
+
+TypeScript tells the four children builders apart, so a paragraph only takes `childrenInline()`. `iff` and `switch_` have these names because `if` and `switch` are JavaScript keywords.
+
+| Function                                                                                                        | Writes                      | Returns                    |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------- |
+| `childrenInline(opts?: { marks?: 'default' \| 'none' \| 'node' \| MarkPolicyObject \| MarkPolicyBuilder })`     | `$children` as `inline`     | `ChildrenInlineBuilder`    |
+| `childrenBlock(opts?: { wrapInlineInParagraph?: boolean })`                                                     | `$children` as `block`      | `ChildrenBlockBuilder`     |
+| `childrenTableRow()`                                                                                            | `$children` as `table-row`  | `ChildrenTableRowBuilder`  |
+| `childrenTableCell()`                                                                                           | `$children` as `table-cell` | `ChildrenTableCellBuilder` |
+| `fragment(...children: (RenderNodeBuilder \| RenderNode)[])`                                                    | `$fragment`                 | `RenderNodeBuilder`        |
+| `iff(opts: { test: ValueExpr; then: RenderNodeBuilder \| RenderNode; else?: RenderNodeBuilder \| RenderNode })` | `$if`                       | `RenderNodeBuilder`        |
+| `switch_(opts: { on: ValueExpr; cases: Record<string, T>; default?: T })`, `T` a render node or its builder     | `$switch`                   | `RenderNodeBuilder`        |
+| `textOp(value: ValueExpr, opts?: { marks?: 'default' \| 'none'; default?: string })`                            | `$text`                     | `RenderNodeBuilder`        |
+
+This rule shades a `notice` red when its `important` attribute is truthy, and writes a plain paragraph otherwise:
+
+```ts
+import {
+  childrenInline,
+  docxNode,
+  iff,
+  paragraph,
+  ref,
+} from '@tiptap-pro/extension-export-docx/dsl'
+
+const noticeRule = docxNode('notice')
+  .block()
+  .emit(
+    iff({
+      test: ref('node.attrs.important'),
+      then: paragraph({ shading: { fill: 'FDE9E7' } }).children(childrenInline()),
+      else: paragraph().children(childrenInline()),
+    }),
+  )
+  .toJSON()
+```
+
+`switch_()` picks by a string instead. `on` must be a string, so give its `ref()` a `default`: `switch_({ on: ref('node.attrs.variant', { default: 'info' }), cases: { warning: ..., info: ... } })`.
+
+## Mark policies
+
+A mark policy object says which marks the text gets, and how they look. `marks(mode: 'default' | 'node')` builds one and returns a `MarkPolicyBuilder`, which you pass to `childrenInline({ marks })` or `applyMarks()`. [Marks](/conversion/v3/docx/custom-nodes#marks) explains the modes.
+
+The object starts from its `mode`, and two methods change it. Both add to earlier calls:
+
+- `disable(...marks: MarkType[])` leaves marks out. A `MarkType` is one of the marks that [Marks](/conversion/v3/docx/custom-nodes#marks) says export formats.
+- `overrides()` adds `TextRun` properties, in `props`, to text that has a given mark. With `replace: true`, only these `props` apply, not the mark's own formatting.
+
+Here, bold text in a `pullQuote` turns red instead of bold, and highlights are left out:
+
+```ts
+import { childrenInline, docxNode, marks, paragraph } from '@tiptap-pro/extension-export-docx/dsl'
+
+const pullQuoteRule = docxNode('pullQuote')
+  .block()
+  .emit(
+    paragraph().children(
+      childrenInline({
+        marks: marks('default')
+          .disable('highlight')
+          .overrides({ bold: { props: { color: 'C00000' }, replace: true } }),
+      }),
+    ),
+  )
+  .toJSON()
+```
+
+As JSON, this policy is `{ mode: 'default', disable: ['highlight'], overrides: { bold: { props: { color: 'C00000' }, replace: true } } }`.
+
+## Value factories
+
+These functions return value expressions, which the Conversion service works out from the node. They return JSON, not builders, so their result goes anywhere a value goes, such as a property or the `test` of `iff()`. [Value expressions](/conversion/v3/docx/custom-nodes#value-expressions) explains paths and the units of numbers.
+
+| Function                                                                                          | Writes      | Returns           |
+| ------------------------------------------------------------------------------------------------- | ----------- | ----------------- |
+| `ref(path: string, opts?: { default?: ValueExpr; transform?: TransformName \| TransformName[] })` | `$ref`      | `RefExpr`         |
+| `template(s: string)`                                                                             | `$template` | `TemplateExpr`    |
+| `op(name: OpName, ...args: ValueExpr[])`                                                          | `$op`       | `OpExpr`          |
+| `unit(name: UnitName, value: ValueExpr)`                                                          | `$unit`     | `UnitExpr`        |
+| `switchValue(opts: { on: ValueExpr; cases: Record<string, T>; default?: T })`, `T` a `ValueExpr`  | `$switch`   | `ValueSwitchExpr` |
+
+A `transform` changes a `$ref` value, or its `default`, and several in an array run in order. A value a transform can't convert fails with `DOCX_DSL_INVALID_TRANSFORM`.
+
+| Transform                | Result                                                                 |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `hexNoHash`              | A color of six hex digits, without its `#`.                            |
+| `lower`, `upper`, `trim` | The string in lowercase, in uppercase, or without outer spaces.        |
+| `parseIntStrict`         | A whole number from a string or number.                                |
+| `parseFloatStrict`       | A number from a string or number.                                      |
+| `boolean`                | `true` or `false`, from a boolean or the string `"true"` or `"false"`. |
+| `nullableString`         | The string without outer spaces, or `null` when that is empty.         |
+
+`op()` takes these operations:
+
+| Operation                          | Arguments                  | Result                                                   |
+| ---------------------------------- | -------------------------- | -------------------------------------------------------- |
+| `add`, `mul`                       | two or more numbers        | The sum or the product.                                  |
+| `sub`, `div`                       | two numbers                | The difference or the quotient.                          |
+| `eq`, `ne`, `lt`, `le`, `gt`, `ge` | two numbers or two strings | `true` or `false`.                                       |
+| `and`, `or`                        | two or more values         | The first falsy or truthy value, or the last value.      |
+| `not`                              | one value                  | `true` for a falsy value, `false` otherwise.             |
+| `coalesce`                         | two or more values         | The first value that isn't missing or `null`, or `null`. |
+
+`unit()` takes these units. The pixel and point units don't round:
+
+| Unit                                                                          | Converts                                                                           |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `pixelsToHalfPoints`, `pixelsToPoints`, `pointsToHalfPoints`, `pointsToTwips` | From pixels or points to the unit in the name. A pixel is 0.75 pt.                 |
+| `inchesToTwips`, `cmToTwips`, `mmToTwips`                                     | Inches, centimeters or millimeters to whole twips.                                 |
+| `universalMeasureToTwips`                                                     | A measurement such as `'2.54cm'` in `cm`, `mm`, `in`, `pt`, `pc` or `px` to twips. |
+| `lineHeightToDocx`                                                            | A line height such as `1.5` to 240ths of a line, for `spacing.line`.               |
+| `normalizeColor`                                                              | A CSS color to six hex digits without `#`, or `null`.                              |
+
+## What the builders check
+
+TypeScript checks which children each element takes, that `externalHyperlink()` has a `link`, and the type and allowed values of every property. When the code runs, the builders throw an error for:
+
+- `toJSON()` on a rule before `emit()`, `emitNothing()` or `drop()`.
+- `applyMarks()` with `marks('default')`, because `applyMarks()` takes the custom node's own marks.
+
+The Conversion service checks everything else when it builds the file, such as paths, arguments, where each element and operation sits, and the limits. [Validation and limits](/conversion/v3/docx/custom-nodes#validation-and-limits) says what happens when a check fails.
+
+## Builders
+
+The element builders, such as `ParagraphBuilder`, have these methods. Every method except `toJSON()` returns a new builder and leaves its own unchanged, so one partial chain, such as a `paragraph()` with its properties, can start several rules:
+
+| Method                                                      | On                                           | What it does                                                                                                                                                                                                                       |
+| ----------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `children(spec)`                                            | every element with children                  | Sets the children, replacing earlier ones. [Element factories](#element-factories) lists what each element takes.                                                                                                                  |
+| `rows(...rows: TableRowBuilder[])`                          | `TableBuilder`                               | Sets the rows of a table. `rows(a, b)` is short for `children([a, b])`.                                                                                                                                                            |
+| `applyMarks(policy: ApplyMarksPolicy \| MarkPolicyBuilder)` | `TextRunBuilder`, `ExternalHyperlinkBuilder` | Puts the custom node's own marks on the element. Takes `'node'`, an object with `mode: 'node'`, or `marks('node')`.                                                                                                                |
+| `inheritOverrides(value: boolean)`                          | every element except `TableRowBuilder`       | With `false`, the element skips the `ExportDocx` option that formats every element of its kind: `paragraphOverrides`, `textRunOverrides`, `tableOverrides` or `tableCellOverrides`. Defaults to `true`. Links have no such option. |
+| `toJSON()`                                                  | every builder                                | Returns the JSON, an `ElementNode` for an element.                                                                                                                                                                                 |
+
+The builders of `fragment()`, `iff()`, `switch_()`, `textOp()` and `pageBreak()` are `RenderNodeBuilder`s, with only `toJSON(): RenderNode`. The children builders have only `toJSON(): ChildrenOp`.
+
+The override options are options of `ExportDocx` that format every paragraph, text run, table or table cell in the file, as [Set default formatting](/conversion/v3/docx/export-styles#set-default-formatting) shows. Properties set on an element win over them.
+
+## Properties
+
+Every property takes a literal value or a value expression, as the type `Prop<T> = T | ValueExpr` says. A property the element doesn't know, or a value it doesn't accept, fails the export.
+
+Numbers must be whole, except the `size` in a `width`, which can have decimals. They are in Word's units:
+
+- Font sizes are in half-points, so `24` is 12 pt.
+- Spacing, indents, margins, widths and heights are in twips, 20 to a point.
+- Border sizes are in eighth-points.
+
+A color is six hex digits without `#`, such as `'C00000'`. The property names follow `docx`, the library that writes the Word file, so some differ from the mark names: `italics`, `superScript` and `subScript`.
+
+### Paragraph
+
+`paragraph()` takes `ParagraphProps`:
+
+| Property          | Type                                                    | What it sets                                                                                                                                            |
+| ----------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `style`           | `string`                                                | The ID of a Word paragraph style, such as one you define with `styleOverrides` in [Set Word styles](/conversion/v3/docx/export-styles#set-word-styles). |
+| `alignment`       | `'left'`, `'center'`, `'right'`, `'justified'`          | The alignment. `'justify'` and `'both'` also mean justified.                                                                                            |
+| `heading`         | `'heading1'` to `'heading6'`                            | The Word heading style of that level.                                                                                                                   |
+| `spacing`         | `{ before?, after?, line?, lineRule? }`                 | Space before and after. `line` is in 240ths of a line with `lineRule: 'auto'`, otherwise in twips. `lineRule` is `'auto'`, `'exact'` or `'atLeast'`.    |
+| `indent`          | `{ left?, right?, firstLine?, hanging? }`               | The indents.                                                                                                                                            |
+| `numbering`       | `{ reference, level, instance? }`                       | A list item. `reference` is `'bullet-list'` or `'ordered-list'`, `level` is 0 to 8, and `instance` gives the list its own count.                        |
+| `pageBreakBefore` | `boolean`                                               | Starts the paragraph on a new page.                                                                                                                     |
+| `border`          | `{ top?, bottom?, left?, right? }`, each a `BorderSide` | The borders. See [Borders](#borders).                                                                                                                   |
+| `shading`         | `{ type?, fill, color? }`                               | The background. See [Shading](#shading).                                                                                                                |
+
+### Text run
+
+`textRun()` takes `TextRunProps`:
+
+| Property                   | Type                             | What it sets                                                                                 |
+| -------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
+| `text`                     | `string`                         | The text.                                                                                    |
+| `bold`, `italics`          | `boolean`                        | Bold or italic.                                                                              |
+| `underline`                | `boolean` or `{ type?, color? }` | An underline. `type` is `'single'`, `'double'`, `'thick'`, `'dotted'`, `'dash'` or `'wave'`. |
+| `strike`, `doubleStrike`   | `boolean`                        | A single or double strikethrough.                                                            |
+| `superScript`, `subScript` | `boolean`                        | Superscript or subscript.                                                                    |
+| `size`                     | `number`                         | The font size, in half-points.                                                               |
+| `color`                    | `string`                         | The text color.                                                                              |
+| `font`                     | `string`                         | The font family, such as `'Arial'`.                                                          |
+| `highlight`                | `string`                         | A Word highlight color by name, such as `'yellow'`.                                          |
+| `shading`                  | `{ type?, fill, color? }`        | The background. See [Shading](#shading).                                                     |
+| `break`                    | `number`                         | Line breaks before the text.                                                                 |
+| `style`                    | `string`                         | The Word character style, by its ID.                                                         |
+
+### External hyperlink
+
+`externalHyperlink()` takes `ExternalHyperlinkProps`, with one required property: `link`, the address as a `string`.
+
+### Table
+
+`table()` takes `TableProps`. Without `borders`, a table gets the borders of the tables export writes itself: single lines, 4 eighth-points wide, around and between all cells.
+
+| Property       | Type                                                                                        | What it sets                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `width`        | `{ size, type }`                                                                            | The width. `size` is in twips with `type: 'dxa'`, and a percentage of the available width with `'pct'`. `'auto'` lets Word decide, and `'nil'` sets no width. |
+| `layout`       | `'fixed'` or `'autofit'`                                                                    | Whether Word keeps the column widths or fits them to the content.                                                                                             |
+| `columnWidths` | `number[]`                                                                                  | The width of each column.                                                                                                                                     |
+| `margins`      | `{ top?, bottom?, left?, right? }`                                                          | The space inside each cell.                                                                                                                                   |
+| `borders`      | `{ top?, bottom?, left?, right?, insideHorizontal?, insideVertical? }`, each a `BorderSide` | The borders around the table and between its rows and columns.                                                                                                |
+
+### Table row
+
+`tableRow()` takes `TableRowProps`:
+
+| Property      | Type              | What it sets                                              |
+| ------------- | ----------------- | --------------------------------------------------------- |
+| `tableHeader` | `boolean`         | Repeats the row at the top of the table on every page.    |
+| `cantSplit`   | `boolean`         | Keeps the row on one page.                                |
+| `height`      | `{ value, rule }` | The height. `rule` is `'auto'`, `'exact'` or `'atLeast'`. |
+
+### Table cell
+
+`tableCell()` takes `TableCellProps`:
+
+| Property                | Type                                                    | What it sets                             |
+| ----------------------- | ------------------------------------------------------- | ---------------------------------------- |
+| `width`                 | `{ size, type }`                                        | The width, as for a table.               |
+| `columnSpan`, `rowSpan` | `number`                                                | The columns or rows the cell spans.      |
+| `verticalAlign`         | `'top'`, `'center'` or `'bottom'`                       | Where the content sits in the cell.      |
+| `margins`               | `{ top?, bottom?, left?, right? }`                      | The space inside the cell.               |
+| `borders`               | `{ top?, bottom?, left?, right? }`, each a `BorderSide` | The borders. See [Borders](#borders).    |
+| `shading`               | `{ type?, fill, color? }`                               | The background. See [Shading](#shading). |
+
+### Borders
+
+A `BorderSide` is one side of a border. The type has no named export, so write the object inline:
+
+| Property | Type                                                                  | What it sets                                           |
+| -------- | --------------------------------------------------------------------- | ------------------------------------------------------ |
+| `style`  | `'single'`, `'double'`, `'dashed'`, `'dotted'`, `'thick'` or `'none'` | The line. A side without `style` is a single line.     |
+| `size`   | `number`                                                              | The line width, in eighth-points.                      |
+| `color`  | `string`                                                              | The line color.                                        |
+| `space`  | `number`                                                              | The gap between the border and the content, in points. |
+
+### Shading
+
+The `shading` of a paragraph, text run or table cell needs `fill`, the background color. `type` is `'clear'` or `'solid'`. The default, `'clear'`, shows `fill`. With `'solid'`, Word covers the background with `color` instead.

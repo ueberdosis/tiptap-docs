@@ -1,0 +1,128 @@
+---
+title: Tables
+tags:
+  - type: beta
+meta:
+  title: Tables | Tiptap Conversion
+  description: Check how Word tables, merged cells, header rows, widths, borders and cell styling convert between a .docx file and the editor.
+  category: Conversion
+---
+
+A Word table imports as a `table` node with rows and cells, and exports back as a Word table. Merged cells, header rows, column widths, borders, cell backgrounds and row heights convert in both directions.
+
+## What you need
+
+`TableKit` from `@tiptap/extension-table` registers `Table`, `TableRow`, `TableCell` and `TableHeader`, which `StarterKit` doesn't include:
+
+| Extension     | Node          |
+| ------------- | ------------- |
+| `Table`       | `table`       |
+| `TableRow`    | `tableRow`    |
+| `TableCell`   | `tableCell`   |
+| `TableHeader` | `tableHeader` |
+
+The two cell nodes define `colspan`, `rowspan` and `colwidth`. This editor has all four extensions:
+
+```ts
+import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
+
+const extensions = [StarterKit, TableKit]
+```
+
+Without them, import keeps each table as preserved content, whose cell text stays editable, and reports a `preserved` warning. The table comes back once you add `TableKit`, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
+
+Import also sets the attributes in this table, which no Tiptap extension defines:
+
+| Node                          | Attributes import adds                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `table`                       | `width`, `indent`, the borders of each side and of the inside grid, the cell margins of each side |
+| `tableRow`                    | `height` and `heightRule`                                                                         |
+| `tableCell` and `tableHeader` | `background`, `verticalAlign`, the borders of each side, the cell margins of each side            |
+
+A border is three attributes for each side, such as `borderTopWidth`, `borderTopStyle` and `borderTopColor`, with the width in points.
+
+The sides are `Top`, `Bottom`, `Left` and `Right`, and on a `table` also `InsideHorizontal` and `InsideVertical` for the grid. Cell margins are `cellMarginTop`, `cellMarginBottom`, `cellMarginLeft` and `cellMarginRight`, in pixels.
+
+Import DOCX keeps these attributes in each node's `preservedAttrs` attribute, which holds the attributes the editor's extensions don't define. You don't need to touch it, because export writes them back.
+
+To use one in the editor, such as `background`, define it in an extension of your own, as [Show spacing and indents](/conversion/v3/docx/elements/paragraphs#show-spacing-and-indents) does for paragraphs. The node then holds it as a real attribute.
+
+## Import
+
+Import returns `tableCell` nodes, and `tableHeader` nodes for header rows:
+
+- `colspan` comes from cells merged across columns, and `rowspan` from cells merged across rows.
+- `colwidth` is an array of pixel widths, one for each column the cell covers.
+- `background` is the cell shading as a hex color, and `verticalAlign` is `top`, `middle` or `bottom`. Both sit in `preservedAttrs`.
+- `width` on the `table` is its fixed width in pixels, also in `preservedAttrs`. A table with a percentage width imports without one, so it stays fluid.
+
+This shaded cell shows where each attribute sits, in an editor with `TableKit`:
+
+```json
+{
+  "type": "tableCell",
+  "attrs": {
+    "colspan": 2,
+    "rowspan": 1,
+    "colwidth": [120, 80],
+    "preservedAttrs": { "attrs": { "background": "#D9E2F3", "verticalAlign": "middle" } }
+  },
+  "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Total" }] }]
+}
+```
+
+A page break in a cell stays in the cell's paragraph, as [Word files with Page Layout](/conversion/v3/docx/page-layout) describes.
+
+When the Conversion service, which converts the file, can read none of a table's rows, it leaves the table out. `onWarning` then receives one `table-skipped` warning for all such tables, and `context.logs.warn` in `onImport` names each table and the reason.
+
+### Header rows
+
+A row is a header row only when Word's "Repeat as header row at the top of each page" is on for it. A first row that is only bold or shaded imports as ordinary cells.
+
+To make such a row a header row, change its cells' `type` in `onImport`, the callback of the `importDocx()` command that receives the converted document as `context.content`. `context.setEditorContent()` then writes it, as [Import DOCX](/conversion/v3/docx/import) explains.
+
+`context.error` is set when the import failed, and then there is no document. This example does it for the first table, with `file` as a `.docx` file the user picked:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    const table = context.content.content?.find((node) => node.type === 'table')
+    table?.content?.[0]?.content?.forEach((cell) => {
+      cell.type = 'tableHeader'
+    })
+    context.setEditorContent()
+  },
+})
+```
+
+## Export
+
+A table with a `width` exports at that width. Without one, it takes the width the editor shows, or the page width when nothing was measured. Column widths come from `colwidth`, or are shared evenly.
+
+Export writes merged cells, borders, cell margins, backgrounds, vertical alignment and row heights from the attributes. `heightRule: 'exact'` writes an exact height, any other value a minimum.
+
+A table without border or margin attributes gets the borders and cell padding the user sees, and header cells get the look your CSS gives them. Export reads them from the styles the browser computes for the mounted editor. A headless editor has nothing to read, so such a table exports without borders and with Word's default cell margins.
+
+A row whose CSS has `break-inside: avoid`, such as `.tiptap tr { break-inside: avoid; }`, stays on one page in Word.
+
+`tableOverrides`, `tableRowOverrides` and `tableCellOverrides` set defaults for every table, as plain objects in twips, a twentieth of a point. The example runs on an editor set up as in [Export DOCX](/conversion/v3/docx/export), and [Export styles and fonts](/conversion/v3/docx/export-styles#set-default-formatting) lists the fields:
+
+```ts
+editor.commands.exportDocx({
+  tableCellOverrides: { margins: { top: 80, bottom: 80 } },
+})
+```
+
+### Header rows on export
+
+Rows of `tableHeader` cells at the top of a table export as Word header rows, which Word repeats on each page the table runs onto. An import reads them back as header rows. To write them as ordinary rows, set the `repeatTableHeaderRows` option of `exportDocx()` to `false`.
+
+## Limits
+
+Borders and Page Layout's table settings have these limits:
+
+- A table from a headless editor, without border attributes, exports without borders.
+- Neither import nor export reads the two table settings of [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the document on pages: a table's `repeatHeaderRow` and a row's `breakAcrossPages: false`. Neither gives a warning. To keep a row on one page in Word, use the `break-inside: avoid` CSS from [Export](#export). This is a known limit that is being fixed.

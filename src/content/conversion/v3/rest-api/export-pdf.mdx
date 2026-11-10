@@ -1,0 +1,285 @@
+---
+title: Export PDF REST API
+tags:
+  - type: beta
+meta:
+  title: Export PDF REST API | Tiptap Conversion
+  description: Send a Tiptap document with your editor's CSS to the Conversion service and get a PDF of its pages back, laid out by Page Layout in Chromium.
+  category: Conversion
+---
+
+`POST /v3/convert/export/pdf` prints a Tiptap document to a PDF file. The Conversion service lays the document out on pages with [Page Layout](/features/page-layout/getting-started/overview) in Chromium, a browser on the server, and prints them, without a Word file in between. This is the page print that [PDF](/conversion/v3/pdf) compares with the `exportPdf()` command.
+
+No editor command calls this endpoint, so call it from your backend or from the browser. The [REST API overview](/conversion/v3/rest-api/overview) explains the base URLs, the token and the errors every call shares.
+
+## Send a document
+
+The request is a `multipart/form-data` form with one `options` part, which holds the request's fields as JSON text. The smallest request has only the Tiptap document in `document`.
+
+This Node.js script prints a heading and a paragraph with a line of CSS and saves the file. `CONVERSION_TOKEN` is an environment variable with a token that allows `Convert:Export:Pdf`, as [Get a token](/conversion/v3/rest-api/overview#get-a-token) explains:
+
+```js
+import { writeFile } from 'node:fs/promises'
+
+const options = {
+  document: {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'My report' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Hello from Tiptap.' }] },
+    ],
+  },
+  stylesheets: [{ text: '.tiptap { font-size: 12pt; }', baseUrl: 'https://app.example.com/' }],
+}
+
+const form = new FormData()
+form.append('options', JSON.stringify(options))
+
+const response = await fetch('https://api.tiptap.dev/v3/convert/export/pdf', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${process.env.CONVERSION_TOKEN}` },
+  body: form,
+})
+
+if (!response.ok) throw new Error(`Export failed: ${response.status} ${await response.text()}`)
+await writeFile('report.pdf', new Uint8Array(await response.arrayBuffer()))
+```
+
+The file has A4 pages in portrait, because the request has no page setup. The response says so in a `PAGE_SETUP_DEFAULTED` [warning](#warnings).
+
+With `curl`, put the JSON into a file, here `options.json`, and send it as `-F 'options=<options.json'`. The `<` sends the file's text, and `@` would send it as a file, which fails. `-D` saves the response headers:
+
+```bash
+curl -X POST https://api.tiptap.dev/v3/convert/export/pdf \
+  -H "Authorization: Bearer $CONVERSION_TOKEN" \
+  -F 'options=<options.json' \
+  -o report.pdf -D headers.txt
+```
+
+The request takes these headers:
+
+| Header          | Value                                                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Authorization` | `Bearer <token>`.                                                                                                     |
+| `Content-Type`  | `multipart/form-data`, with its boundary. Any other type, such as JSON, fails with `400` and `INVALID_PRINT_OPTIONS`. |
+| `X-App-Id`      | Your app ID, only with a legacy token.                                                                                |
+
+## Options fields
+
+Every field of `options` is optional except `document`. A field the endpoint doesn't know is ignored:
+
+| Field         | Type       | Description                                                                                                          |
+| ------------- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `document`    | `object`   | Required. The Tiptap document as JSON, with `type: "doc"`, as `editor.getJSON()` returns it.                         |
+| `pageSetup`   | `object`   | The page setup of Page Layout. See [Page setup](#page-setup).                                                        |
+| `stylesheets` | `object[]` | Your editor's CSS, in cascade order. See [Stylesheets](#stylesheets).                                                |
+| `editor`      | `object`   | The elements and attributes around your editor, which your CSS may select on. See [Editor context](#editor-context). |
+| `print`       | `object`   | Scale and background. See [Print settings](#print-settings).                                                         |
+| `assets`      | `object`   | Fonts and images, uploaded or named by URL. See [Fonts and images](#fonts-and-images).                               |
+
+The page print lays out only the node and mark types it knows, and leaves out the others with an `unsupported` warning. [What the page print renders](/conversion/v3/pdf#what-the-page-print-renders) lists them.
+
+A document from an import may hold preserved content, which keeps what the importing editor had no extension for. The page print doesn't know it, so turn it back first with `unpreservedContent(document)` from `@tiptap-pro/extension-preserved-content`.
+
+### Page setup
+
+`pageSetup` sets the pages of a document that doesn't start with a section break. Send the JSON that Page Layout's `getSetup()` returns, such as `editor.storage.pageLayout.engine.getSetup()` in an editor with Page Layout.
+
+The page print uses `pageSetup` only when it has every key of that JSON: `format`, `orientation`, `margins`, `theme`, `columns`, `notePlacement`, `noteNumbering` and `pageNumbering`. Otherwise it prints A4 portrait pages, and a `PAGE_SETUP_DEFAULTED` warning names the missing keys.
+
+A `sectionBreak` node at the start of `document` carries the setup of the first section, and wins over `pageSetup`. Then no warning comes. Every later section takes its page from its own `sectionBreak`, as [Sections and page setup](/conversion/v3/docx/page-layout#sections-and-page-setup) describes.
+
+### Stylesheets
+
+`stylesheets` holds the CSS that makes the PDF look like your editor, in the order the browser applies it. Each entry is either CSS text or a URL that the service fetches:
+
+| Entry | Fields                                         | Description                                                                                                        |
+| ----- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Text  | `{ text, baseUrl, media?, supports?, layer? }` | `baseUrl` is the URL that relative `url()` references in `text` resolve against, such as the stylesheet's own URL. |
+| URL   | `{ url, media?, supports?, layer? }`           | The service fetches the stylesheet, and the stylesheets its `@import` rules name, up to three levels deep.         |
+
+`media`, `supports` and `layer` wrap the entry in `@media`, `@supports` and `@layer`. An entry whose `media` applies to print only is left out with a `STYLESHEET_DROPPED` warning.
+
+The service changes the CSS before it prints:
+
+- It removes `@page` and `@media print` rules, because Page Layout sets the pages. In a list such as `@media screen, print`, it removes only `print`.
+- It removes `@import` rules from text entries, with an `IMPORT_DROPPED` warning.
+- It evaluates every other media query once, for the [viewport](#editor-context) of the request, so the PDF gets the CSS the layout measured.
+- It loads each `url()` from the [assets](#fonts-and-images). A reference that no asset answers is removed, with an `ASSET_MISSING` warning.
+
+Before your CSS, the service applies default CSS: Times New Roman at 16 pixels, margins for paragraphs and headings, and table borders. Your stylesheets override it, and Page Layout adds its own CSS for the pages.
+
+### Editor context
+
+`editor` rebuilds the page around your editor, so CSS that selects on an ancestor or a theme attribute still matches:
+
+| Field              | Type                     | Description                                                                                                              |
+| ------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `attributes`       | `Record<string, string>` | Attributes of the element the editor is mounted in. Only `class`, `lang`, `dir` and `data-*` attributes apply.           |
+| `ancestors`        | `{ tag, attributes }[]`  | The elements around it, from the outside in, at most 64. `html` and `body` entries set the attributes of those elements. |
+| `customProperties` | `Record<string, string>` | CSS custom properties, such as `--editor-width`, set on the element the editor is mounted in.                            |
+| `viewport`         | `object`                 | `{ width?, height?, devicePixelRatio?, colorScheme? }`. Defaults to 1280 × 900 pixels and `light`.                       |
+
+An ancestor whose `tag` is not `div`, `main`, `section`, `article`, `aside`, `header`, `footer`, `nav` or `form` becomes a `div`. `width` and `height` of `viewport` are kept between 320 and 4096 pixels. The print uses a device pixel ratio of 1, whatever `devicePixelRatio` says.
+
+### Print settings
+
+`print` changes how Chromium prints the pages:
+
+| Field             | Type      | Default | Description                                                                                        |
+| ----------------- | --------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `scale`           | `number`  | `1`     | Scales the content of each page, from `0.5` to `2`.                                                |
+| `printBackground` | `boolean` | `true`  | Prints background colors and images.                                                               |
+| `filename`        | `string`  | None    | Accepted, at most 255 characters, but not used. The file is always named `export-<timestamp>.pdf`. |
+
+## Fonts and images
+
+`assets` lists the fonts and images the print needs, so the service can load them. Each entry has an `id` of your choice, made of letters, digits, `_` and `-`:
+
+| Kind  | Entry                                   | Accepted files             |
+| ----- | --------------------------------------- | -------------------------- |
+| Font  | `{ id, url, family?, weight?, style? }` | TTF, OTF, WOFF or WOFF2    |
+| Image | `{ id, src }`                           | PNG, JPEG, GIF, BMP or SVG |
+
+An entry is uploaded or fetched:
+
+- **With a file part named after its `id`**, the service uses the uploaded file.
+- **Without one**, the service fetches the file from the entry's `url` or `src`.
+
+An image in `document` prints if an entry has its exact `src`, or if its `src` is a `data:` URL. Otherwise it prints empty, with an `ASSET_MISSING` warning. So write image sources as absolute URLs, because a relative one matches no entry.
+
+A font reaches the page through the `url()` of an `@font-face` rule in `stylesheets`, so give the entry that rule's URL, resolved to an absolute URL. The service fetches the files that `stylesheets` name on its own, so a font needs an entry only when you upload it.
+
+In this Node.js script, the document shows an image, and the request uploads it with the font of an `@font-face` rule. The `options` part is a string, which `FormData` sends as text:
+
+```js
+import { readFile } from 'node:fs/promises'
+
+const options = {
+  document: {
+    type: 'doc',
+    content: [{ type: 'image', attrs: { src: 'https://app.example.com/logo.png' } }],
+  },
+  stylesheets: [
+    {
+      text: "@font-face { font-family: Inter; src: url('fonts/inter.woff2'); } .tiptap { font-family: Inter; }",
+      baseUrl: 'https://app.example.com/',
+    },
+  ],
+  assets: {
+    fonts: [{ id: 'inter', url: 'https://app.example.com/fonts/inter.woff2' }],
+    images: [{ id: 'logo', src: 'https://app.example.com/logo.png' }],
+  },
+}
+
+const form = new FormData()
+form.append('options', JSON.stringify(options))
+form.append('inter', new Blob([await readFile('inter.woff2')]), 'inter.woff2')
+form.append('logo', new Blob([await readFile('logo.png')]), 'logo.png')
+
+const response = await fetch('https://api.tiptap.dev/v3/convert/export/pdf', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${process.env.CONVERSION_TOKEN}` },
+  body: form,
+})
+```
+
+The service checks the entries and the parts before it prints. Each `id` comes once, every part is named after an entry, and each part comes once. Any other part fails the request with `400`, and so does an uploaded file of another type.
+
+### Fetched files
+
+The service fetches stylesheets, fonts and images only over `http` and `https`, and only from public addresses, not from a private network. Unlike the other endpoints, this guard can't be turned off on your own server.
+
+A fetched file must have a matching `Content-Type`, such as `text/css` for a stylesheet, and its content must be what that type says. A file that breaks a rule or a [limit](#limits) is left out with an `ASSET_FETCH_FAILED` warning, and the print goes on.
+
+## Limits
+
+One print takes at most these sizes and counts:
+
+| Limit                                 | Value                                              |
+| ------------------------------------- | -------------------------------------------------- |
+| Request body                          | 100 MB.                                            |
+| `options` part                        | 10 MB.                                             |
+| Text of all text stylesheets          | 2 MB.                                              |
+| Stylesheet entries                    | 200, of which 20 URL entries.                      |
+| Font entries, image entries           | 64 each.                                           |
+| Uploaded parts                        | 64.                                                |
+| One uploaded font                     | 25 MB.                                             |
+| One uploaded image                    | 20 MB.                                             |
+| Files the service fetches             | 50 requests and 50 MB in total, within 20 seconds. |
+| Redirects of one fetched file         | 3.                                                 |
+| Pages                                 | 2,000.                                             |
+| Time for one print, fetching included | 60 seconds.                                        |
+
+The service takes five prints at once by default, fetching included. A request that comes while all five run fails with `503` and a `Retry-After` header.
+
+This endpoint also has a rate limit of its own, on top of the [shared rate limits](/conversion/v3/rest-api/overview#rate-limits). Unless the server sets another value, one client may send 20 print requests in each rate limit window.
+
+## Response
+
+A successful print returns `200` with the PDF as the body, and these headers:
+
+| Header                        | Value                                                                 |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `Content-Type`                | `application/pdf`                                                     |
+| `Content-Disposition`         | `attachment; filename=export-<timestamp>.pdf`                         |
+| `X-Page-Layout-Sheets`        | The number of pages.                                                  |
+| `X-Export-Warnings`           | The warnings, as Base64 of a JSON array. Missing when there are none. |
+| `X-Export-Warnings-Truncated` | `true` when some warnings did not fit into `X-Export-Warnings`.       |
+
+A browser can read `X-Page-Layout-Sheets` and the two warning headers too, because the service exposes them to other origins.
+
+### Warnings
+
+A warning says what the print left out or changed, while the print still succeeds. The header holds about 8 KB and is cut only between warnings, as on the [Export DOCX REST API](/conversion/v3/rest-api/export-docx#warnings), which shows how to decode it.
+
+Each warning has a `code` and a `message`, and some name a `url`, a `nodeType` or a `path`:
+
+| `code`                 | When                                                                                                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unsupported`          | A node or mark type the page print doesn't know was left out. `nodeType` names the type, and `path` its place, such as `/3/0`.                                                                           |
+| `PAGE_SETUP_DEFAULTED` | The request has no complete `pageSetup` and the document starts with no section break, so the pages are A4 portrait.                                                                                     |
+| `ASSET_MISSING`        | An image in `document` or a `url()` in a stylesheet has no asset. `url` names it.                                                                                                                        |
+| `ASSET_FETCH_FAILED`   | A file the service fetched couldn't be used. `url` names it, and `message` the reason: `blocked`, `timeout`, `bad-type`, `too-big` or `failed`.                                                          |
+| `STYLESHEET_DROPPED`   | A stylesheet was left out. Its `media` applies to print only, its `media`, `supports` or `layer` can't be read, or it came after the first 200 stylesheets, counted with the ones `@import` rules added. |
+| `IMPORT_DROPPED`       | An `@import` rule in a text stylesheet was removed.                                                                                                                                                      |
+
+The warning codes of this endpoint are its own, apart from `unsupported`. A later version of the Conversion service may send codes that this list lacks, so handle an unknown code.
+
+## Errors
+
+A failed print returns the [request error](/conversion/v3/rest-api/overview#request-errors) shape: `success: false`, a `code`, an `error` text and, for an invalid field, its `path`. The [REST API overview](/conversion/v3/rest-api/overview#errors) lists the authentication, size and rate limit errors.
+
+These codes come from the print itself:
+
+| Status | `code`                   | When                                                                                                                       |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `INVALID_PRINT_OPTIONS`  | The body isn't a form, `options` is missing, comes twice or isn't valid JSON, a field is invalid, or a part breaks a rule. |
+| 400    | `TOO_MANY_STYLESHEETS`   | `stylesheets` has more than 20 URL entries.                                                                                |
+| 400    | `NO_PAGES`               | The layout has no pages.                                                                                                   |
+| 413    | `OPTIONS_TOO_LARGE`      | The `options` part is over 10 MB.                                                                                          |
+| 413    | `CSS_TOO_LARGE`          | The text stylesheets are over 2 MB together.                                                                               |
+| 413    | `REQUEST_BODY_TOO_LARGE` | The body is over 100 MB, it has more than 64 parts, or an uploaded font or image is over its limit.                        |
+| 422    | `TOO_MANY_PAGES`         | The document has more than 2,000 pages.                                                                                    |
+| 500    | `FAILED_TO_PRINT_PDF`    | The print failed.                                                                                                          |
+| 503    | `PRINT_POOL_SATURATED`   | The service runs as many prints as it takes. Retry after the seconds in the `Retry-After` header, 30.                      |
+| 503    | `PRINTER_UNAVAILABLE`    | The printer isn't available.                                                                                               |
+| 503    | `PRINT_MEMORY_EXCEEDED`  | The print ran out of memory.                                                                                               |
+| 504    | `PRINT_TIMEOUT`          | The PDF wasn't ready within 60 seconds.                                                                                    |
+
+## Your own server
+
+The endpoint needs the Conversion service 2.50.0 or later on your own server, and an older service answers it with `404`. The printer runs inside the same Docker image, and needs the Chromium sandbox, so the host must allow user namespaces.
+
+These environment variables of the service change the print's limits:
+
+| Variable                 | What it sets                                                                                    | Default |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ------- |
+| `PDF_PRINT_QUEUE_SIZE`   | The prints the service takes at once, fetching included. One more fails with `503`.             | `5`     |
+| `PDF_PRINT_TIMEOUT_MS`   | The time for one print, fetching and printing together, in milliseconds.                        | `60000` |
+| `PDF_PRINT_RATE_LIMIT`   | The print requests one client may send in each rate limit window, when rate limits are on.      | `20`    |
+| `PRINT_MAX_PAGES`        | The most pages one print may have.                                                              | `2000`  |
+| `PRINT_POOL_SIZE`        | The browsers the printer keeps running, each printing one document at a time.                   | `1`     |
+| `PRINT_MEMORY_BUDGET_MB` | The memory the printer may use before it stops the youngest print with `PRINT_MEMORY_EXCEEDED`. | `1024`  |
+
+The fetch limits, the upload limits and the guard on fetched addresses are fixed. `MAX_REQUEST_BODY_MB` changes the request body limit, as for the other endpoints.

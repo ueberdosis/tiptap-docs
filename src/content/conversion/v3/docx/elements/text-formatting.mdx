@@ -1,0 +1,229 @@
+---
+title: Text formatting
+tags:
+  - type: beta
+meta:
+  title: Text formatting | Tiptap Conversion
+  description: See how bold, italic, underline, strikethrough, subscript, superscript, text color, highlight, fonts and font sizes convert on DOCX import and export.
+  category: Conversion
+---
+
+Bold, italic, underline, strikethrough, subscript, superscript, text color, highlight, font family and font size are run formatting in Word and marks in the editor. A run is a stretch of text with the same formatting. All of them convert in both directions, and export converts font sizes between the editor's pixels and Word's points.
+
+## What you need
+
+Each kind of formatting needs the extension that defines its mark:
+
+| Formatting                             | Extension                                                                              | Mark                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Bold, italic, underline, strikethrough | `Bold`, `Italic`, `Underline` and `Strike` from `StarterKit` (`@tiptap/starter-kit`)   | `bold`, `italic`, `underline`, `strike`                            |
+| Subscript, superscript                 | `Subscript` and `Superscript`, which aren't part of `StarterKit`                       | `subscript`, `superscript`                                         |
+| Text color                             | `TextStyle` and `Color` from `@tiptap/extension-text-style`                            | `textStyle` with `color`                                           |
+| Highlight and character shading        | `Highlight` from `@tiptap/extension-highlight`, with `multicolor: true`                | `highlight` with `color`                                           |
+| Font family and font size              | `TextStyle`, `FontFamily` and `FontSize` from `@tiptap/extension-text-style`           | `textStyle` with `fontFamily` and `fontSize`                       |
+| Background color, on export            | `BackgroundColor` from `@tiptap/extension-text-style`                                  | `textStyle` with `backgroundColor`                                 |
+| Underline styles, letter spacing       | No Tiptap extension. The editor keeps them in `preservedAttrs`, as explained after it. | `underline` with `underlineType`, `textStyle` with `letterSpacing` |
+
+`TextStyleKit` from `@tiptap/extension-text-style` adds `TextStyle`, `Color`, `BackgroundColor`, `FontFamily`, `FontSize` and `LineHeight` in one step. This editor has the marks of the table:
+
+```ts
+import StarterKit from '@tiptap/starter-kit'
+import Highlight from '@tiptap/extension-highlight'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
+import { TextStyleKit } from '@tiptap/extension-text-style'
+
+const extensions = [
+  StarterKit,
+  Subscript,
+  Superscript,
+  TextStyleKit,
+  Highlight.configure({ multicolor: true }),
+]
+```
+
+Without one of these marks, import keeps it as preserved content, with a `preserved` warning, and the text shows without that formatting until you add the extension. [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains preserved content, and [Warnings and errors](/conversion/v3/reference/warnings-and-errors) lists the warning.
+
+An attribute that the mark's extension doesn't define is kept in the mark's `preservedAttrs` attribute. The editor stores it without showing it, and export still writes it. That happens in these cases:
+
+- **Without `Color`**, text shows in the editor's text color.
+- **Without `multicolor`**, `Highlight` has no `color` attribute, so every highlight shows in its default color.
+- **An underline style**, such as double or wavy, is the `underlineType` attribute of the `underline` mark. No Tiptap extension defines it, so the editor shows a plain underline.
+- **Letter spacing** is the `letterSpacing` attribute of `textStyle`. No extension defines it, so the editor doesn't show it. Unlike other kept attributes, `letterSpacing` doesn't reach the exported file, whether it is kept or defined, as [Export](#export) says.
+
+The color comes back when you add `Color` or turn on `multicolor`. To show `letterSpacing`, define it on `textStyle` in an extension of your own, as [Show spacing and indents](/conversion/v3/docx/elements/paragraphs#show-spacing-and-indents) does for paragraph spacing.
+
+### Show underline styles
+
+To show an underline style, define `underlineType` on the `underline` mark in an extension of your own. CSS has fewer line styles than Word, so this one draws each Word style with the closest CSS `text-decoration-style`. [Bold, italic, underline and strikethrough](#bold-italic-underline-and-strikethrough) under Import lists the values:
+
+```ts
+import { Extension } from '@tiptap/core'
+
+function cssUnderlineStyle(type: string) {
+  if (type === 'double' || type === 'wavyDouble') return 'double'
+  if (type.startsWith('dotted')) return 'dotted'
+  if (type.startsWith('dash') || type.startsWith('dot')) return 'dashed'
+  if (type.startsWith('wav')) return 'wavy'
+  return 'solid'
+}
+
+const UnderlineStyle = Extension.create({
+  name: 'underlineStyle',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['underline'],
+        attributes: {
+          underlineType: {
+            default: null,
+            renderHTML: ({ underlineType }) =>
+              underlineType
+                ? { style: `text-decoration-style: ${cssUnderlineStyle(underlineType)}` }
+                : {},
+          },
+        },
+      },
+    ]
+  },
+})
+```
+
+## Import
+
+Import turns Word's run formatting into marks. When a run doesn't set a format, a color or a font, the paragraph's style and the document defaults fill it in.
+
+### Bold, italic, underline and strikethrough
+
+Import turns these formats into marks:
+
+| Word formatting | Mark        |
+| --------------- | ----------- |
+| Bold            | `bold`      |
+| Italic          | `italic`    |
+| Underline       | `underline` |
+| Strikethrough   | `strike`    |
+
+A format Word switches off, such as bold turned off inside a bold paragraph style, gives no mark.
+
+A plain underline gives an `underline` mark without `underlineType`, and an underline set to none gives no mark. Word's 16 other underline styles set `underlineType` to the style's name: `words`, `double`, `thick`, `dotted`, `dottedHeavy`, `dash`, `dashedHeavy`, `dashLong`, `dashLongHeavy`, `dotDash`, `dashDotHeavy`, `dotDotDash`, `dashDotDotHeavy`, `wave`, `wavyHeavy` or `wavyDouble`.
+
+### Subscript and superscript
+
+Import reads the vertical position of each Word run, such as H₂O or x²:
+
+| Word setting | Mark          |
+| ------------ | ------------- |
+| Subscript    | `subscript`   |
+| Superscript  | `superscript` |
+
+Any other position, such as baseline, gives no mark.
+
+### Text color and highlight
+
+Text color imports as the `color` attribute of the `textStyle` mark. Word's highlight and its character shading, a background color behind text, both import as the `highlight` mark:
+
+| Word setting               | Result                                   |
+| -------------------------- | ---------------------------------------- |
+| Font color `FF0000`        | `textStyle` mark with `color: "#FF0000"` |
+| Highlight `yellow`         | `highlight` mark with `color: "yellow"`  |
+| Shading with fill `00FFFF` | `highlight` mark with `color: "#00FFFF"` |
+
+Import skips the font color `auto`, and shading with a fill of `auto` or white. A highlight Word switches off (`w:highlight="none"`) gives no `highlight` mark.
+
+### Font family and size
+
+Import reads the font and size of each run:
+
+- The font family is the run's font for Latin text, or, when the run sets none, its font for other Western characters such as accented letters. Import stores the name as written, such as `Courier New`.
+- The font size is in half-points in Word. Import converts it to whole pixels and stores a string such as `16px`.
+- Letter spacing becomes `letterSpacing` in pixels, such as `0.67px`. Import leaves it out when it is 0.
+
+These are some sizes and what they import as:
+
+| Word size | Import |
+| --------- | ------ |
+| 12pt      | `16px` |
+| 14pt      | `19px` |
+| 18pt      | `24px` |
+
+### Character styles
+
+A Word character style, such as Strong, is a named set of run formatting. Word's Code style imports as the `code` mark. The formatting of other character styles doesn't reach the text, as [Limits](#limits) says.
+
+To turn a character style into a mark, map its style id in the `prosemirrorMarks` option of `ImportDocx.configure()`. Word shows a style's name, and the file stores an id for it. For Word's built-in styles, the id is the English name without spaces, such as `Strong` or `IntenseEmphasis`.
+
+In this example, every run in the style Strong gets the `bold` mark, and `CONVERSION_TOKEN` stands for your Conversion token:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const importExtension = ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  prosemirrorMarks: { Strong: 'bold' },
+})
+```
+
+[Custom nodes in Word files](/conversion/v3/docx/custom-nodes) explains the option.
+
+## Export
+
+Export writes each mark back as Word run formatting.
+
+### Bold, italic, underline and strikethrough
+
+Export writes each of the four marks as the Word formatting in the [Import](#bold-italic-underline-and-strikethrough) table. An `underline` mark with one of the `underlineType` values exports in that style. Without one, or with a value Word doesn't know, it exports as a single underline.
+
+### Subscript and superscript
+
+Export writes `subscript` as Word's subscript and `superscript` as Word's superscript.
+
+### Text color and highlight
+
+Export turns a color into six hex digits, and reads these forms:
+
+- Hex, such as `#FF0000`, `#F00` or `#FF0000AA`
+- `rgb()` and `rgba()`
+- One of these 20 color names: `black`, `blue`, `brown`, `cyan`, `gray`, `green`, `indigo`, `lime`, `magenta`, `maroon`, `navy`, `olive`, `orange`, `pink`, `purple`, `red`, `teal`, `violet`, `white` and `yellow`
+
+Export skips a fully transparent color, and leaves out a color it can't read.
+
+A `highlight` mark exports by its color:
+
+- A color that is a Word highlight name, such as `yellow` or `cyan`, becomes that highlight.
+- Any other readable color becomes character shading with that fill.
+- A mark without a color, or with a color export can't read, becomes a yellow highlight.
+
+The `backgroundColor` attribute of `textStyle`, from `BackgroundColor`, also exports as character shading. When a highlight becomes shading and the same text has a `backgroundColor`, the highlight's shading wins.
+
+### Font family and size
+
+Export reads `fontFamily` and `fontSize` from the `textStyle` mark:
+
+- The font family keeps the first name of a comma-separated list, without quotes. Word has no fallback fonts, so `"Arial, Helvetica, sans-serif"` exports as `Arial`.
+- A size without a unit, or in `px`, is pixels. `pt` is points. `rem` and `em` use a 16px base.
+- Export leaves out a size it can't read.
+
+Text without a font or size mark gets the font and size your editor renders, because export reads the styles the browser computes for your mounted editor, as [Paragraphs and styles](/conversion/v3/docx/elements/paragraphs#word-styles-from-your-editors-css) explains.
+
+Export doesn't read `letterSpacing` from the `textStyle` mark. It writes the letter spacing of your editor's CSS into the Word styles instead, so letter spacing on a single run doesn't reach the file.
+
+To embed a font Word may not have, use the `fonts` or `embedFonts` option, as [Embed fonts](/conversion/v3/docx/export-styles#embed-fonts) shows.
+
+## Limits
+
+Import doesn't apply the formatting of a Word character style, such as Strong or Emphasis, so its bold, italic, color and shading are lost, without a warning. This is a known limit that is being fixed. Until then, map the style to a mark with `prosemirrorMarks`, as [Character styles](#character-styles) shows.
+
+Import doesn't read double strikethrough. A `strike` mark exports as a single line, unless your editor's CSS draws struck text with a double line, which export measures and writes into the Word style.
+
+A highlight in a color that isn't a Word highlight name, such as `#FFC0CB`, is shading in Word. It imports again as a `highlight` mark with the hex color. A `backgroundColor` is shading in Word too, so it also imports again as a `highlight` mark, not as `backgroundColor`.
+
+A font color set only as a theme color, without a hex value, is skipped, without a warning. This is a known limit that is being fixed.
+
+Import rounds sizes to whole pixels. A size such as 14pt, which is 18.66px, comes in a little larger, so a round trip can change a size by a fraction of a point.
+
+Import doesn't read a font set through the document's theme, which is how Word's default template sets the body font. Those runs get no `fontFamily`, without a warning. This is a known limit that is being fixed.
+
+A symbol inserted with Word's Insert Symbol (`w:sym`), such as a Wingdings arrow, imports as its character with the symbol's font as the `fontFamily` of a `textStyle` mark. Symbol fonts put their characters at `U+F000` to `U+F0FF`, so the symbol shows correctly only where that font is installed.
+
+Equations don't use the `subscript` and `superscript` marks. [Images and math](/conversion/v3/docx/elements/images-and-math) covers them.

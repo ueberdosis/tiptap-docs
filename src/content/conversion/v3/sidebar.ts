@@ -7,7 +7,7 @@ export const sidebarConfig: SidebarConfig = {
   items: [
     {
       type: 'group',
-      href: '/conversion/v3/getting-started',
+      href: '/conversion/v3/getting-started/overview',
       title: 'Get started',
       children: [
         {
@@ -19,223 +19,136 @@ export const sidebarConfig: SidebarConfig = {
           href: '/conversion/v3/getting-started/install',
         },
         {
-          title: 'Migrate export from v2',
-          href: '/conversion/v3/getting-started/migrate-export-from-v2',
-        },
-        {
-          title: 'Migrate import from v2',
-          href: '/conversion/v3/getting-started/migrate-import-from-v2',
+          title: 'Migrate from Conversion v2',
+          href: '/conversion/v3/getting-started/migrate-from-v2',
         },
       ],
     },
     {
       type: 'group',
-      href: '/conversion/v3/content-reference/overview',
-      title: 'Content reference',
+      href: '/conversion/v3/docx/import',
+      title: 'Word files (DOCX)',
       children: [
         {
-          title: 'What converts',
-          href: '/conversion/v3/content-reference/overview',
+          title: 'Import DOCX',
+          href: '/conversion/v3/docx/import',
         },
         {
-          title: 'Text and formatting',
-          href: '/conversion/v3/content-reference/text-and-formatting/paragraphs',
-          children: [
-            {
-              title: 'Paragraphs',
-              href: '/conversion/v3/content-reference/text-and-formatting/paragraphs',
-            },
-            {
-              title: 'Headings',
-              href: '/conversion/v3/content-reference/text-and-formatting/headings',
-            },
-            {
-              title: 'Text alignment',
-              href: '/conversion/v3/content-reference/text-and-formatting/text-alignment',
-            },
-            {
-              title: 'Bold, italic, underline, strike',
-              href: '/conversion/v3/content-reference/text-and-formatting/bold-italic-underline-strike',
-            },
-            {
-              title: 'Subscript and superscript',
-              href: '/conversion/v3/content-reference/text-and-formatting/subscript-superscript',
-            },
-            {
-              title: 'Text color and highlight',
-              href: '/conversion/v3/content-reference/text-and-formatting/text-color-highlight',
-            },
-            {
-              title: 'Font family and size',
-              href: '/conversion/v3/content-reference/text-and-formatting/font-family-size',
-            },
-            {
-              title: 'Lists',
-              href: '/conversion/v3/content-reference/text-and-formatting/lists',
-            },
-            {
-              title: 'Task lists',
-              href: '/conversion/v3/content-reference/text-and-formatting/task-lists',
-            },
-            {
-              title: 'Tabs',
-              href: '/conversion/v3/content-reference/text-and-formatting/tabs',
-            },
-            {
-              title: 'Word styles',
-              href: '/conversion/v3/content-reference/text-and-formatting/word-styles',
-            },
-          ],
+          title: 'Export DOCX',
+          href: '/conversion/v3/docx/export',
         },
         {
-          title: 'Document structure',
-          href: '/conversion/v3/content-reference/document-structure/tables',
+          title: 'Export styles and fonts',
+          href: '/conversion/v3/docx/export-styles',
+        },
+        {
+          title: 'What Word elements become',
+          href: '/conversion/v3/docx/elements',
           children: [
+            {
+              title: 'Text formatting',
+              href: '/conversion/v3/docx/elements/text-formatting',
+            },
+            {
+              title: 'Paragraphs and styles',
+              href: '/conversion/v3/docx/elements/paragraphs',
+            },
+            {
+              title: 'Lists and task lists',
+              href: '/conversion/v3/docx/elements/lists',
+            },
             {
               title: 'Tables',
-              href: '/conversion/v3/content-reference/document-structure/tables',
+              href: '/conversion/v3/docx/elements/tables',
             },
             {
-              title: 'Block elements',
-              href: '/conversion/v3/content-reference/document-structure/block-elements',
+              title: 'Images and math',
+              href: '/conversion/v3/docx/elements/images-and-math',
+            },
+            {
+              title: 'Links and bookmarks',
+              href: '/conversion/v3/docx/elements/links-and-bookmarks',
             },
             {
               title: 'Footnotes and endnotes',
-              href: '/conversion/v3/content-reference/document-structure/footnotes-endnotes',
-            },
-            {
-              title: 'Hyperlinks and bookmarks',
-              href: '/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks',
+              href: '/conversion/v3/docx/elements/footnotes',
             },
           ],
         },
         {
-          title: 'Review',
-          href: '/conversion/v3/content-reference/review/comments',
+          title: 'Word files with Page Layout',
+          href: '/conversion/v3/docx/page-layout',
+        },
+        {
+          title: 'Tracked changes and comments',
+          href: '/conversion/v3/docx/tracked-changes-and-comments',
+        },
+        {
+          title: 'Custom nodes in Word files',
+          href: '/conversion/v3/docx/custom-nodes',
           children: [
             {
-              title: 'Comments',
-              href: '/conversion/v3/content-reference/review/comments',
-            },
-            {
-              title: 'Tracked changes',
-              href: '/conversion/v3/content-reference/review/tracked-changes',
+              title: 'Custom node DSL',
+              href: '/conversion/v3/docx/custom-nodes/dsl',
             },
           ],
         },
         {
-          title: 'Media',
-          href: '/conversion/v3/content-reference/media/images',
-          children: [
-            {
-              title: 'Images',
-              href: '/conversion/v3/content-reference/media/images',
-            },
-            {
-              title: 'Math and equations',
-              href: '/conversion/v3/content-reference/media/math-equations',
-            },
-          ],
+          title: 'Content the editor cannot show',
+          href: '/conversion/v3/docx/preserved-content',
         },
         {
-          title: 'Page layout',
-          href: '/conversion/v3/content-reference/page-layout/headers-footers',
+          title: 'Import options',
+          href: '/conversion/v3/docx/import-options',
+        },
+        {
+          title: 'Export options',
+          href: '/conversion/v3/docx/export-options',
           children: [
             {
-              title: 'Headers and footers',
-              href: '/conversion/v3/content-reference/page-layout/headers-footers',
-            },
-            {
-              title: 'Page breaks',
-              href: '/conversion/v3/content-reference/page-layout/page-breaks',
-            },
-            {
-              title: 'Page structure',
-              href: '/conversion/v3/content-reference/page-layout/page-structure',
+              title: 'Export types',
+              href: '/conversion/v3/docx/export-options/types',
             },
           ],
         },
       ],
     },
     {
+      type: 'link',
+      href: '/conversion/v3/pdf',
+      title: 'PDF',
+    },
+    {
       type: 'group',
-      href: '/conversion/v3/import/docx/editor-extension',
-      title: 'Import DOCX',
+      href: '/conversion/v3/doc-odt-epub',
+      title: 'Other formats',
       children: [
         {
-          title: 'Editor extension',
-          href: '/conversion/v3/import/docx/editor-extension',
+          title: 'DOC, ODT and EPUB',
+          href: '/conversion/v3/doc-odt-epub',
         },
         {
-          title: 'Import with Page Layout',
-          href: '/conversion/v3/import/docx/page-layout',
-        },
-        {
-          title: 'Import without Page Layout',
-          href: '/conversion/v3/import/docx/without-page-layout',
-        },
-        {
-          title: 'CSS styles',
-          href: '/conversion/v3/import/docx/css-styles',
-        },
-        {
-          title: 'Image handling',
-          href: '/conversion/v3/import/docx/image-handling',
-        },
-        {
-          title: 'Custom node mapping',
-          href: '/conversion/v3/import/docx/custom-node-mapping',
-        },
-        {
-          title: 'Tracked changes',
-          href: '/conversion/v3/import/docx/tracked-changes',
-        },
-        {
-          title: 'Task lists',
-          href: '/conversion/v3/import/docx/task-lists',
-        },
-        {
-          title: 'Warnings and errors',
-          href: '/conversion/v3/import/docx/warnings-and-errors',
-        },
-        {
-          title: 'API',
-          href: '/conversion/v3/import/docx/api',
+          title: 'Markdown',
+          href: '/conversion/v3/markdown',
         },
       ],
     },
     {
       type: 'group',
-      href: '/conversion/v3/export/docx/editor-extension',
-      title: 'Export DOCX',
+      href: '/conversion/v3/reference/commands',
+      title: 'Reference',
       children: [
         {
-          title: 'Editor extension',
-          href: '/conversion/v3/export/docx/editor-extension',
-        },
-        {
-          title: 'Styles and fonts',
-          href: '/conversion/v3/export/docx/styles',
-        },
-        {
-          title: 'Render custom nodes',
-          href: '/conversion/v3/export/docx/custom-nodes',
-        },
-        {
-          title: 'Custom node builder',
-          href: '/conversion/v3/export/docx/custom-node-builder',
+          title: 'Commands',
+          href: '/conversion/v3/reference/commands',
         },
         {
           title: 'Warnings and errors',
-          href: '/conversion/v3/export/docx/warnings-and-errors',
+          href: '/conversion/v3/reference/warnings-and-errors',
         },
         {
-          title: 'API',
-          href: '/conversion/v3/export/docx/api',
-        },
-        {
-          title: 'Types',
-          href: '/conversion/v3/export/docx/types',
+          title: 'Limitations',
+          href: '/conversion/v3/reference/limitations',
         },
       ],
     },
@@ -255,6 +168,10 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Export DOCX',
           href: '/conversion/v3/rest-api/export-docx',
+        },
+        {
+          title: 'Export PDF',
+          href: '/conversion/v3/rest-api/export-pdf',
         },
       ],
     },

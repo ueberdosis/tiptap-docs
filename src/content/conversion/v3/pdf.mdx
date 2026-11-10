@@ -1,0 +1,191 @@
+---
+title: PDF
+intro: 'Tiptap Conversion makes a PDF of a Tiptap document in two ways. The <code>exportPdf</code> command builds a Word file in the editor and has the Conversion service turn it into a PDF. The page print, a REST endpoint, lays the document out on pages with <a href="/docs/features/page-layout/getting-started/overview">Page Layout</a> on the server and prints them, without a Word file in between.'
+tags:
+  - type: beta
+meta:
+  title: PDF | Tiptap Conversion
+  description: Export a Tiptap document as a PDF file, through a Word file with the exportPdf command, or as printed pages with the Export PDF REST API.
+  category: Conversion
+---
+
+## Choose a way
+
+The two ways differ in where you call them and in what the PDF looks like:
+
+|                                | `exportPdf()`                                                                                               | Page print                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Where you call it              | In the editor, as a command                                                                                 | In your code, as the REST request `POST /v3/convert/export/pdf`                                       |
+| How the PDF is made            | Export DOCX builds a `.docx` file, and the Conversion service converts it with LibreOffice, an office suite | Page Layout lays the document out in Chromium, a browser on the server, and Chromium prints the pages |
+| What the PDF looks like        | The Word file                                                                                               | The editor's pages, styled by the stylesheets you send                                                |
+| Custom nodes                   | Written by the `customNodeDsl` rules of Export DOCX                                                         | Left out                                                                                              |
+| Page setup without Page Layout | The `pageSize` and `pageMargins` options                                                                    | A4 portrait                                                                                           |
+| Token permissions              | `Convert:Export:Docx` and `Convert:Export:Pdf`                                                              | `Convert:Export:Pdf`                                                                                  |
+| On your own server             | An `endpoint` that ends in `/v2`, as [Region and endpoint](#region-and-endpoint) explains                   | The Conversion service 2.50.0 or later                                                                |
+
+Use `exportPdf()` for an export button in the editor without code of your own on the server. Use the page print for a PDF that shows the pages the way the editor shows them, or to export stored documents on your server.
+
+## Export from the editor
+
+The `ExportPdf` extension adds the `exportPdf()` command, which saves the editor's document as a PDF file. It builds a Word file with [Export DOCX](/conversion/v3/docx/export) first, so keep `ExportDocx` in the editor.
+
+Install the package next to the ones from [Install Tiptap Conversion](/conversion/v3/getting-started/install):
+
+```bash
+npm install @tiptap-pro/extension-export-pdf
+```
+
+Add `ExportPdf` to the editor with a Conversion token. In this example, `CONVERSION_TOKEN` stands for a token your server signed, which the page fetched at runtime, and `download` for your own function that saves a `Blob`:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { ExportPdf } from '@tiptap-pro/extension-export-pdf'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ExportDocx,
+    ExportPdf.configure({
+      token: CONVERSION_TOKEN,
+      onCompleteExport: (blob) => download(blob),
+      onExportError: (error) => console.error(error),
+    }),
+  ],
+})
+
+editor.commands.exportPdf()
+```
+
+The command returns `true` right away. When the Conversion service answers, `onCompleteExport` receives the PDF as a `Blob`.
+
+The token needs both `Convert:Export:Docx` and `Convert:Export:Pdf`, because the export calls the service twice. [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows how to sign it.
+
+`ExportDocx` needs no options here, because `exportPdf()` hands it its own token and callbacks. In development, `ExportPdf` logs a console warning when the editor has no ConvertKit extension from `@tiptap-pro/extension-convert-kit`.
+
+{/* TODO(never-loses): ExportPdf, ExportDoc, ExportOdt, ExportEpub and ExportMarkdown log a development warning without ConvertKit. What does the developer do about it at release? Same question as on getting-started/install. */}
+
+### How the export runs
+
+With `ExportDocx` in the editor, `exportPdf()` runs `exportDocx()` and sends the `.docx` file to the Conversion service, which converts it. So the PDF has what the Word file has, such as page setup, headers and footers from Page Layout, footnotes, and your custom nodes.
+
+The `exportDocx()` call gets these options of `ExportPdf`: `styleOverrides`, `pageSize`, `pageMargins`, `pageColor`, `token`, `appId`, `endpoint` and `region`. Every other option, such as `customNodeDsl` or `fonts`, comes from `ExportDocx.configure()`. Warnings of the Word step go to the `onWarning` callback of `ExportDocx`.
+
+Without `ExportDocx`, `exportPdf()` sends the editor's JSON instead, with `styleOverrides`, `pageSize`, `pageMargins` and `customFonts`. The Conversion service then builds the Word file itself, so the PDF has no headers, footers, custom nodes or page color.
+
+### Options
+
+`ExportPdf.configure()` takes these options. `exportPdf()` takes the same options for one call, and a value you pass there wins over the configured one. A value of `undefined` doesn't override.
+
+| Option             | Type                         | Default         | Description                                                                                                                                                   |
+| ------------------ | ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `token`            | `string`                     | `''`            | The Conversion token. It also goes to the Word step, so the `token` of `ExportDocx` doesn't apply.                                                            |
+| `appId`            | `string`                     | `''`            | Your app ID, only for a token from [Legacy authentication](/authentication/legacy). Sent in the `X-App-Id` header.                                            |
+| `region`           | `'eu' \| 'us'`               | `undefined`     | The Tiptap Cloud region, the EU when not set. See [Region and endpoint](#region-and-endpoint).                                                                |
+| `endpoint`         | `string`                     | `undefined`     | The base URL of your own Conversion service. It wins over `region`, and an empty string counts as not set.                                                    |
+| `onCompleteExport` | `(result: Blob) => void`     | Throws an error | Receives the PDF. Required, because without it the finished export throws an error.                                                                           |
+| `onExportError`    | `(error: Error) => void`     | `undefined`     | Receives the error when the export fails. Without it, the extension logs the error to the console.                                                            |
+| `styleOverrides`   | `IStylesOptions` from `docx` | `undefined`     | Word styles. When not set, the Word step uses the `styleOverrides` of `ExportDocx`. See [Set Word styles](/conversion/v3/docx/export-styles#set-word-styles). |
+| `pageSize`         | `PageSize`                   | `undefined`     | `{ width?, height? }`. When not set, the Word step uses the value of `ExportDocx`.                                                                            |
+| `pageMargins`      | `PageMargins`                | `undefined`     | `{ top?, bottom?, left?, right?, header?, footer? }`. When not set, the Word step uses the value of `ExportDocx`.                                             |
+| `pageColor`        | `string`                     | `undefined`     | The page background, as hex, `rgb()` or a color name. When not set, the Word step uses the value of `ExportDocx`. Needs `ExportDocx`.                         |
+| `customFonts`      | `CustomFont[]`               | `undefined`     | Font files for the conversion, each `{ url, fontFamily }`. Only on your own server.                                                                           |
+
+A measure in `pageSize` and `pageMargins` is a string of a number and a unit: `mm`, `cm`, `in`, `pt`, `pc` or `pi`, such as `'21cm'`. `top` and `bottom` may be negative. `header` and `footer` are the distances of the header and the footer from the page edge.
+
+`customFonts` gives the Conversion service fonts to convert with. Each `url` is an HTTPS URL of a `.ttf` or `.woff2` file, and `fontFamily` is the font name the document uses. Tiptap Cloud refuses a request with `customFonts` with `403`, which reaches `onExportError`.
+
+### Region and endpoint
+
+`exportPdf()` sends the file to `<base>/export/pdf`, on the Conversion service's v2 endpoints. Without `endpoint`, the base depends on `region`:
+
+| `region` | Base                                   |
+| -------- | -------------------------------------- |
+| `'eu'`   | `https://api.tiptap.dev/v2/convert`    |
+| `'us'`   | `https://api-us.tiptap.dev/v2/convert` |
+
+The Word step turns a base that ends in `/v2` or `/v2/convert` into its v3 form. So on your own server, set `endpoint` to the v2 base, such as `https://convert.example.com/v2`. The Word step then calls `/v3/export/docx`, and the PDF step `/v2/export/pdf`.
+
+A base that ends in `/v3` sends the Word file to the page print, which refuses it with `400`. A base without a version, such as a path on a proxy, is used as it is for both steps, and the Word step logs a console warning.
+
+Set `endpoint` or `region` on `ExportPdf`, not only on `ExportDocx`. When `ExportPdf` has neither, the Word step uses the value of `ExportDocx`, but the PDF step uses the EU region.
+
+### Errors
+
+A failed export calls `onExportError` with an `Error`. When the Conversion service answers with an error status, the message is the response's status text, such as `Forbidden`. A failure of the Word step, such as a missing token, reaches `onExportError` with the error of `exportDocx()`.
+
+There is no way to cancel an export once it started.
+
+## Print the pages
+
+The page print lays the document out with Page Layout in Chromium, a browser on the server, and prints the pages to PDF. It takes Tiptap JSON and your editor's CSS, and makes no Word file, so the PDF looks like the editor's pages.
+
+The editor doesn't need Page Layout. The page print lays out any Tiptap document, on A4 portrait pages unless the request sends a page setup or the document starts with a section break. With Page Layout in the editor, send its page setup to get the same pages.
+
+{/* TODO(pdf-print): client command from the page-print stage B */}
+
+No command calls the page print, so call the REST endpoint from your code. This browser code sends the editor's document, the page setup of Page Layout, and the URL of your editor's stylesheet.
+
+`CONVERSION_TOKEN` stands for a token with `Convert:Export:Pdf`, and `download` for your own function that saves a `Blob`:
+
+```ts
+const options = {
+  document: editor.getJSON(),
+  pageSetup: editor.storage.pageLayout?.engine?.getSetup(),
+  stylesheets: [{ url: 'https://app.example.com/assets/editor.css' }],
+}
+
+const form = new FormData()
+form.append('options', JSON.stringify(options))
+
+const response = await fetch('https://api.tiptap.dev/v3/convert/export/pdf', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${CONVERSION_TOKEN}` },
+  body: form,
+})
+
+if (response.ok) download(await response.blob())
+```
+
+The service fetches the stylesheet itself, so its URL must be public. Without stylesheets, the PDF uses the service's default CSS, which sets Times New Roman at 16 pixels. The [Export PDF REST API](/conversion/v3/rest-api/export-pdf) describes every field, how to send fonts and images, the warnings and the errors.
+
+An imported document may hold preserved content, which keeps what the importing editor had no extension for. The page print leaves it out, so turn it back first with `unpreservedContent(document)` from `@tiptap-pro/extension-preserved-content`. Then a table kept as preserved content prints as a table.
+
+### What the page print renders
+
+The page print knows the node and mark types of a fixed list of extensions. Their options are fixed too, so a request can't change how they render:
+
+| Extension                                                     | Package                                                        | Fixed setting                |
+| ------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------- |
+| StarterKit                                                    | `@tiptap/starter-kit`                                          |                              |
+| TableKit                                                      | `@tiptap/extension-table`                                      |                              |
+| Image                                                         | `@tiptap/extension-image`                                      |                              |
+| TaskList, TaskItem                                            | `@tiptap/extension-list`                                       | `nested: true`               |
+| Highlight                                                     | `@tiptap/extension-highlight`                                  | `multicolor: true`           |
+| Subscript, Superscript                                        | `@tiptap/extension-subscript`, `@tiptap/extension-superscript` |                              |
+| TextAlign                                                     | `@tiptap/extension-text-align`                                 | Headings and paragraphs      |
+| TextStyleKit                                                  | `@tiptap/extension-text-style`                                 |                              |
+| [Page Layout](/features/page-layout/getting-started/overview) | `@tiptap-pro/extension-page-layout`                            |                              |
+| [Footnotes](/features/footnotes)                              | `@tiptap-pro/extension-footnotes`                              |                              |
+| [Bookmark](/features/bookmark)                                | `@tiptap-pro/extension-bookmark`                               |                              |
+| Columns, which places containers side by side                 | `@tiptap-pro/extension-columns`                                |                              |
+| Whole Blocks                                                  | `@tiptap-pro/extension-whole-blocks`                           |                              |
+| Number Formats                                                | `@tiptap-pro/extension-number-formats`                         |                              |
+| Document Styles                                               | `@tiptap-pro/extension-document-styles`                        |                              |
+| [Outline Numbering](/features/outline-numbering)              | `@tiptap-pro/extension-outline-numbering`                      | The decimal numbering preset |
+| Cross References                                              | `@tiptap-pro/extension-cross-references`                       | Headings as the only targets |
+
+So a document's sections with their page setup, headers, footers, page numbers, breaks, footnotes and endnotes print as Page Layout lays them out.
+
+### What the page print leaves out
+
+The page print removes every node type outside the list, together with its content, and every mark type outside it. A removed mark's text still prints, without the mark. Each removal adds an `unsupported` warning with the type and its place in the document. These are left out, among others:
+
+- Node types of your own, because the page print has no rules like `customNodeDsl`.
+- Preserved content, unless you turn it back first.
+- Comments and tracked changes, which are marks. Their text prints as ordinary text, so a suggested deletion prints too.
+- The nodes and marks of every other extension, such as Mention or Mathematics.
+
+An image prints if the request uploads it or names it for the service to fetch, or if its `src` is a `data:` URL. Otherwise it prints empty, with a warning. [Fonts and images](/conversion/v3/rest-api/export-pdf#fonts-and-images) explains how.

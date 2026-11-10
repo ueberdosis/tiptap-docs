@@ -1,0 +1,121 @@
+---
+title: DOC, ODT and EPUB
+tags:
+  - type: beta
+meta:
+  title: DOC, ODT and EPUB | Tiptap Conversion
+  description: Export a Tiptap document as a DOC, ODT or EPUB file with the exportDoc, exportOdt and exportEpub commands, which build a Word file with Export DOCX first.
+  category: Conversion
+---
+
+Three extensions save the editor's document in other file formats: DOC, the older Word format, ODT, the OpenDocument text format of LibreOffice, and EPUB, an ebook format. Each one builds a Word file with [Export DOCX](/conversion/v3/docx/export) first, and has the Conversion service convert it.
+
+The three work the same way and take the same options, apart from the [EPUB differences](#epub-differences):
+
+| Format | Extension    | Package                             | Command        | Token permission      |
+| ------ | ------------ | ----------------------------------- | -------------- | --------------------- |
+| DOC    | `ExportDoc`  | `@tiptap-pro/extension-export-doc`  | `exportDoc()`  | `Convert:Export:Doc`  |
+| ODT    | `ExportOdt`  | `@tiptap-pro/extension-export-odt`  | `exportOdt()`  | `Convert:Export:Odt`  |
+| EPUB   | `ExportEpub` | `@tiptap-pro/extension-export-epub` | `exportEpub()` | `Convert:Export:Epub` |
+
+## Export a file
+
+Each extension needs `ExportDocx` in the editor. Install the package of the format next to the ones from [Install Tiptap Conversion](/conversion/v3/getting-started/install), such as this one for DOC:
+
+```bash
+npm install @tiptap-pro/extension-export-doc
+```
+
+Add the extension with a Conversion token. In this example, `CONVERSION_TOKEN` stands for a token your server signed, which the page fetched at runtime, and `download` for your own function that saves a `Blob`:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import { ExportDoc } from '@tiptap-pro/extension-export-doc'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ExportDocx,
+    ExportDoc.configure({
+      token: CONVERSION_TOKEN,
+      onCompleteExport: (blob) => download(blob),
+    }),
+  ],
+})
+
+editor.commands.exportDoc()
+```
+
+When the Conversion service answers, `onCompleteExport` receives the file as a `Blob`. ODT and EPUB work the same way with `ExportOdt` and `exportOdt()`, or `ExportEpub` and `exportEpub()`.
+
+The token needs `Convert:Export:Docx` and the permission of the format, because the export calls the Conversion service twice. [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows how to sign it.
+
+`ExportDocx` needs no options here, because the command hands it its own token and callbacks. In development, each of the three extensions logs a console warning when the editor has no ConvertKit extension from `@tiptap-pro/extension-convert-kit`.
+
+{/* TODO(never-loses): same question as on pdf.mdx and getting-started/install: what does the developer do about the ConvertKit warning at release? */}
+
+### How the export runs
+
+The command runs `exportDocx()` and sends the `.docx` file to the Conversion service, which converts it. So the file has what the Word file has: page setup, headers, footers and notes from Page Layout, and your custom nodes.
+
+The `exportDocx()` call gets the command's `styleOverrides`, `pageSize`, `pageMargins`, `pageColor`, `token`, `appId`, `endpoint` and `region`. Every other option, such as `customNodeDsl` or `fonts`, comes from `ExportDocx.configure()`. Warnings of the Word step go to the `onWarning` callback of `ExportDocx`.
+
+Without `ExportDocx`, the commands export nothing. They send no request, call no callback, and the promise they return resolves to `false`.
+
+### The command returns a promise
+
+`exportDoc()`, `exportOdt()` and `exportEpub()` run asynchronously. Their type says `boolean`, but each one returns the promise of its work, which resolves to `true` after `onCompleteExport` ran. So the return value says nothing about the export when you read it right away.
+
+The extensions have no error callback. A failed request or a failed Word step rejects that promise, which the browser reports as an unhandled rejection. To handle the error, catch it on the promise:
+
+```ts
+Promise.resolve(editor.commands.exportDoc()).catch((error) => console.error(error))
+```
+
+The error is an `Error`. When the Conversion service answers with an error status, its message is the response's status text, such as `Forbidden`. There is no way to cancel an export once it started.
+
+## Options
+
+`ExportDoc.configure()`, `ExportOdt.configure()` and `ExportEpub.configure()` take these options. The commands take the same options for one call, and a value you pass there wins over the configured one. A value of `undefined` doesn't override.
+
+| Option             | Type                         | Default         | Description                                                                                                                                                   |
+| ------------------ | ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `token`            | `string`                     | `''`            | The Conversion token. It also goes to the Word step, so the `token` of `ExportDocx` doesn't apply.                                                            |
+| `appId`            | `string`                     | `''`            | Your app ID, only for a token from [Legacy authentication](/authentication/legacy). Sent in the `X-App-Id` header.                                            |
+| `region`           | `'eu' \| 'us'`               | `undefined`     | The Tiptap Cloud region, the EU when not set. See [Region and endpoint](#region-and-endpoint).                                                                |
+| `endpoint`         | `string`                     | `undefined`     | The base URL of your own Conversion service. It wins over `region`, and an empty string counts as not set.                                                    |
+| `onCompleteExport` | `(result: Blob) => void`     | Throws an error | Receives the file. Required, because without it the finished export throws an error.                                                                          |
+| `styleOverrides`   | `IStylesOptions` from `docx` | `undefined`     | Word styles. When not set, the Word step uses the `styleOverrides` of `ExportDocx`. See [Set Word styles](/conversion/v3/docx/export-styles#set-word-styles). |
+| `pageSize`         | `PageSize`                   | `undefined`     | `{ width?, height? }`. When not set, the Word step uses the value of `ExportDocx`.                                                                            |
+| `pageMargins`      | `PageMargins`                | `undefined`     | `{ top?, bottom?, left?, right?, header?, footer? }`. When not set, the Word step uses the value of `ExportDocx`.                                             |
+| `pageColor`        | `string`                     | `undefined`     | DOC and ODT only. The page background, as hex, `rgb()` or a color name. When not set, the Word step uses the value of `ExportDocx`.                           |
+
+A measure in `pageSize` and `pageMargins` is a string of a number and a unit: `mm`, `cm`, `in`, `pt`, `pc` or `pi`, such as `'21cm'`. `top` and `bottom` may be negative. `header` and `footer` are the distances of the header and the footer from the page edge.
+
+### EPUB differences
+
+`ExportEpub` differs from the other two in its options, and in how the file shows on screen:
+
+- It has no `pageColor` option, so the Word step uses the `pageColor` of `ExportDocx`.
+- Its `pageMargins` has no `header` and `footer`.
+- EPUB readers reflow the text to fit their screen, so the page size and margins may not survive.
+
+## Region and endpoint
+
+Each command sends the Word file to `<base>/export/doc`, `<base>/export/odt` or `<base>/export/epub`, on the Conversion service's v2 endpoints. Without `endpoint`, the base depends on `region`:
+
+| `region` | Base                                   |
+| -------- | -------------------------------------- |
+| `'eu'`   | `https://api.tiptap.dev/v2/convert`    |
+| `'us'`   | `https://api-us.tiptap.dev/v2/convert` |
+
+The Word step turns a base that ends in `/v2` or `/v2/convert` into its v3 form. So on your own server, set `endpoint` to the v2 base, such as `https://convert.example.com/v2`. The Word step then calls `/v3/export/docx`, and the conversion `/v2/export/doc`.
+
+A base that ends in `/v3` fails, because the service has no v3 endpoint for these formats. A base without a version, such as a path on a proxy, is used as it is for both steps, and the Word step logs a console warning.
+
+Set `endpoint` or `region` on the extension of the format, not only on `ExportDocx`. When the extension has neither, the Word step uses the value of `ExportDocx`, but the conversion uses the EU region.
+
+For PDF, which also has a way without a Word file, see [PDF](/conversion/v3/pdf).

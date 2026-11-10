@@ -844,60 +844,280 @@ export const redirects = [
     permanent: true,
   },
   // End more SAIT launch redirects
-  // Conversion v3: the migration guides and the content reference groups moved before release
+  // Conversion v3: pages that moved before release. Each goes straight to its final page.
   {
     source: '/conversion/v3/getting-started/migrate-export-from-0x',
-    destination: '/conversion/v3/getting-started/migrate-export-from-v2',
+    destination: '/conversion/v3/getting-started/migrate-from-v2',
     permanent: true,
   },
   {
     source: '/conversion/v3/getting-started/migrate-import-from-0x',
-    destination: '/conversion/v3/getting-started/migrate-import-from-v2',
+    destination: '/conversion/v3/getting-started/migrate-from-v2',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/tables',
-    destination: '/conversion/v3/content-reference/document-structure/tables',
+    source: '/conversion/v3/getting-started/migrate-export-from-v2',
+    destination: '/conversion/v3/getting-started/migrate-from-v2',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/block-elements',
-    destination: '/conversion/v3/content-reference/document-structure/block-elements',
+    source: '/conversion/v3/getting-started/migrate-import-from-v2',
+    destination: '/conversion/v3/getting-started/migrate-from-v2',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/footnotes-endnotes',
-    destination: '/conversion/v3/content-reference/document-structure/footnotes-endnotes',
+    source: '/conversion/v3/getting-started/feature-support-matrix',
+    destination: '/conversion/v3/docx/elements',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks',
-    destination: '/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks',
+    source: '/conversion/v3/import/docx/editor-extension',
+    destination: '/conversion/v3/docx/import',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/comments',
-    destination: '/conversion/v3/content-reference/review/comments',
+    source: '/conversion/v3/import/docx/without-page-layout',
+    destination: '/conversion/v3/docx/import',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/tracked-changes',
-    destination: '/conversion/v3/content-reference/review/tracked-changes',
+    source: '/conversion/v3/import/docx/css-styles',
+    destination: '/conversion/v3/docx/import',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/images',
-    destination: '/conversion/v3/content-reference/media/images',
+    source: '/conversion/v3/import/docx/task-lists',
+    destination: '/conversion/v3/docx/elements/lists',
     permanent: true,
   },
   {
-    source: '/conversion/v3/content-reference/structures-and-media/math-equations',
-    destination: '/conversion/v3/content-reference/media/math-equations',
+    source: '/conversion/v3/import/docx/image-handling',
+    destination: '/conversion/v3/docx/import',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/import/docx/page-layout',
+    destination: '/conversion/v3/docx/page-layout',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/import/docx/custom-node-mapping',
+    destination: '/conversion/v3/docx/custom-nodes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/import/docx/tracked-changes',
+    destination: '/conversion/v3/docx/tracked-changes-and-comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/import/docx/warnings-and-errors',
+    destination: '/conversion/v3/reference/warnings-and-errors',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/import/docx/api',
+    destination: '/conversion/v3/docx/import-options',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/editor-extension',
+    destination: '/conversion/v3/docx/export',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/usage',
+    destination: '/conversion/v3/docx/export',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/styles',
+    destination: '/conversion/v3/docx/export-styles',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/warnings-and-errors',
+    destination: '/conversion/v3/reference/warnings-and-errors',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/custom-nodes',
+    destination: '/conversion/v3/docx/custom-nodes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/custom-node-builder',
+    destination: '/conversion/v3/docx/custom-nodes/dsl',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/api',
+    destination: '/conversion/v3/docx/export-options',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/export/docx/types',
+    destination: '/conversion/v3/docx/export-options/types',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/overview',
+    destination: '/conversion/v3/docx/elements',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/bold-italic-underline-strike',
+    destination: '/conversion/v3/docx/elements/text-formatting',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/subscript-superscript',
+    destination: '/conversion/v3/docx/elements/text-formatting',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/text-color-highlight',
+    destination: '/conversion/v3/docx/elements/text-formatting',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/font-family-size',
+    destination: '/conversion/v3/docx/elements/text-formatting',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/paragraphs',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/headings',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/text-alignment',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/tabs',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/word-styles',
+    destination: '/conversion/v3/docx/elements/paragraphs',
     permanent: true,
   },
   {
     source: '/conversion/v3/content-reference/structures-and-media/word-styles',
-    destination: '/conversion/v3/content-reference/text-and-formatting/word-styles',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/lists',
+    destination: '/conversion/v3/docx/elements/lists',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/text-and-formatting/task-lists',
+    destination: '/conversion/v3/docx/elements/lists',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/document-structure/block-elements',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/document-structure/tables',
+    destination: '/conversion/v3/docx/elements/tables',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/document-structure/hyperlinks-bookmarks',
+    destination: '/conversion/v3/docx/elements/links-and-bookmarks',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/document-structure/footnotes-endnotes',
+    destination: '/conversion/v3/docx/elements/footnotes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/block-elements',
+    destination: '/conversion/v3/docx/elements/paragraphs',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/tables',
+    destination: '/conversion/v3/docx/elements/tables',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/hyperlinks-bookmarks',
+    destination: '/conversion/v3/docx/elements/links-and-bookmarks',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/footnotes-endnotes',
+    destination: '/conversion/v3/docx/elements/footnotes',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/review/comments',
+    destination: '/conversion/v3/docx/tracked-changes-and-comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/review/tracked-changes',
+    destination: '/conversion/v3/docx/tracked-changes-and-comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/comments',
+    destination: '/conversion/v3/docx/tracked-changes-and-comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/tracked-changes',
+    destination: '/conversion/v3/docx/tracked-changes-and-comments',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/media/images',
+    destination: '/conversion/v3/docx/elements/images-and-math',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/media/math-equations',
+    destination: '/conversion/v3/docx/elements/images-and-math',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/images',
+    destination: '/conversion/v3/docx/elements/images-and-math',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/structures-and-media/math-equations',
+    destination: '/conversion/v3/docx/elements/images-and-math',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/page-layout/headers-footers',
+    destination: '/conversion/v3/docx/page-layout',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/page-layout/page-breaks',
+    destination: '/conversion/v3/docx/page-layout',
+    permanent: true,
+  },
+  {
+    source: '/conversion/v3/content-reference/page-layout/page-structure',
+    destination: '/conversion/v3/docx/page-layout',
     permanent: true,
   },
 ]
