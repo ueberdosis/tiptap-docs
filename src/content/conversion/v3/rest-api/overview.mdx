@@ -48,7 +48,15 @@ const token = await new SignJWT({
 
 `TIPTAP_ENVIRONMENT_ID` is the ID the dashboard shows for your Tiptap environment, which holds your keys, plan and settings. The token names it as its issuer (`iss`). The audience (`aud`) `Convert` names the service the token is for, which makes it a Conversion token.
 
-Each entry in `permissions` allows one endpoint. For this API, `Convert:Export:Docx` allows the export, `Convert:Import:Docx` the import, and `Convert:Export:Pdf` the PDF print. The Conversion service doesn't scope its actions by resource, so use `resource: '*'`. [Authentication](/authentication) explains each claim.
+Each entry in `permissions` allows one endpoint:
+
+| `action`              | Allows        |
+| --------------------- | ------------- |
+| `Convert:Export:Docx` | The export    |
+| `Convert:Import:Docx` | The import    |
+| `Convert:Export:Pdf`  | The PDF print |
+
+The Conversion service doesn't scope its actions by resource, so use `resource: '*'`. [Authentication](/authentication) explains each claim.
 
 ## Authenticate
 
@@ -70,7 +78,15 @@ A token from [Legacy authentication](/authentication/legacy), the older setup wi
 
 ## Rate limits
 
-Tiptap Cloud limits how many requests one client sends in a time window. The client is your Tiptap environment for a token with `aud: "Convert"`, and the app ID for a legacy token. A request that names neither counts against its IP address.
+Tiptap Cloud limits how many requests one client sends in a time window. The client is:
+
+- your Tiptap environment, for a token with `aud: "Convert"`,
+- the app ID, for a legacy token,
+- the IP address, for a request that names neither.
+
+On your own server, rate limits are off until you turn them on, as [Your own server](#your-own-server) shows.
+
+### Over the limit
 
 A request over the limit gets `429` and this body:
 
@@ -85,11 +101,16 @@ Wait for the number of seconds in the `Retry-After` header before you retry.
 
 Tiptap Cloud's check of the token has a limit of its own. Its `429` has the code `rate_limited` in lowercase and no `Retry-After` header, as [Authentication errors](#authentication-errors) lists.
 
-When rate limits are on, as they are in Tiptap Cloud, every export, import and PDF print response carries your limit in the `RateLimit` and `RateLimit-Policy` headers.
+### Rate limit headers
 
-The service's default is 100 requests in 10 seconds, and with it they read `RateLimit: limit=100, remaining=99, reset=10` and `RateLimit-Policy: 100;w=10`. Only a backend caller can read them, because the service doesn't expose them to browsers.
+When rate limits are on, as they are in Tiptap Cloud, every export, import and PDF print response carries your limit in two headers. With the service's default of 100 requests in 10 seconds, they read:
 
-On your own server, rate limits are off until you turn them on, as [Your own server](#your-own-server) shows.
+| Header             | Value                               |
+| ------------------ | ----------------------------------- |
+| `RateLimit`        | `limit=100, remaining=99, reset=10` |
+| `RateLimit-Policy` | `100;w=10`                          |
+
+Only a backend caller can read them, because the service doesn't expose them to browsers.
 
 ## Errors
 
@@ -166,6 +187,8 @@ The Conversion service also runs on your own server, as a Docker image from Tipt
 
 {/* TODO(own-server): Where does a customer get the image and its name, and which plan includes it? The convert repository publishes it only to an internal registry variable. */}
 
+### Start the service
+
 This command starts it with a license key and the public key of an ES256 key pair you created. `<conversion-image>` stands for the image name Tiptap gives you:
 
 ```bash
@@ -176,15 +199,26 @@ docker run -p 3000:3000 \
   <conversion-image>
 ```
 
-Once it runs, the base URL of this API is `http://localhost:3000/v3`. The health check is `GET http://localhost:3000/v2/health`, under `/v2`, and answers `ok`. Without a license key or a verification key, every call fails with `500` and `auth_not_configured`.
+Once it runs, the base URL of this API is `http://localhost:3000/v3`. The health check is `GET http://localhost:3000/v2/health`, under `/v2`, and answers `ok`.
+
+The service checks the license key with Tiptap Cloud, so it needs to reach `cloud.tiptap.dev`. Every call fails in these cases:
+
+| Cause                                      | Status | `code`                |
+| ------------------------------------------ | ------ | --------------------- |
+| No license key or verification key         | `500`  | `auth_not_configured` |
+| The license is invalid or can't be checked | `503`  | `license_invalid`     |
+
+### Service versions
 
 The [Export DOCX REST API](/conversion/v3/rest-api/export-docx) needs the Conversion service 2.48.0 or later, and an older service answers it with `404`. Its `repeatTableHeaderRows` field needs 2.50.0, because 2.48 and 2.49 refuse a field they don't know with `400`.
 
-The service checks the license key with Tiptap Cloud, so it needs to reach `cloud.tiptap.dev`. While the license is invalid or can't be checked, every call fails with `503` and `license_invalid`.
+### Token checks
 
 Sign tokens as [Get a token](#get-a-token) shows, with your own private key and an `iss` of your choice.
 
 The service checks the permissions of a token with `aud: "Convert"`, like Tiptap Cloud. It checks any other token only for a valid signature, so that token can call every endpoint. It doesn't read `X-App-Id`.
+
+### Environment variables
 
 These environment variables of the service set up the license, authentication, origins and limits:
 
@@ -202,7 +236,7 @@ These environment variables of the service set up the license, authentication, o
 | `RATE_LIMIT_OVERRIDES`                                        | Limits for single clients, as `key=max,key=max` with the keys `env:<id>`, `app:<id>` or `ip:<address>`.                                                                                             |
 | `TRUST_PROXY_HEADERS`                                         | `true` reads the client's IP address from `x-real-ip` and `x-forwarded-for`. Only safe behind a proxy that sets them.                                                                               |
 
-On your own server, a client is the `iss` of a token with `aud: "Convert"`, and the IP address otherwise. Each replica of the service counts on its own, so behind a load balancer the limit applies per replica.
+A rate limit client is the `iss` of a token with `aud: "Convert"`, and the IP address otherwise. Each replica of the service counts on its own, so behind a load balancer the limit applies per replica.
 
 ## Next steps
 

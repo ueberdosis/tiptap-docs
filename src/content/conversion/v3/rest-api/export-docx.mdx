@@ -96,11 +96,16 @@ The editor extension sends a few more fields, which [Fields the editor extension
 }
 ```
 
-Each value is a number in twips, or a string with `mm`, `cm`, `in`, `pt` or `pc`, such as `"2.5cm"`. A string of digits is twips too, and `px` is refused.
+Each value is a number in twips, or a string with `mm`, `cm`, `in`, `pt` or `pc`, such as `"2.5cm"`. A string of digits is twips too, and `px` is refused. A value left out keeps its default:
 
-`pageSize` takes `width` and `height`. `pageMargins` takes `top`, `bottom`, `left` and `right`, and `header` and `footer`, the distances of the header and footer from the page edge. Every value is 0 or more, except `top` and `bottom`, which may be negative.
+| Field         | Values                                                                        | Default |
+| ------------- | ----------------------------------------------------------------------------- | ------- |
+| `pageSize`    | `width`, `height`                                                             | A4      |
+| `pageMargins` | `top`, `bottom`                                                               | 2.54 cm |
+| `pageMargins` | `left`, `right`                                                               | 3.17 cm |
+| `pageMargins` | `header`, `footer`, the distances of the header and footer from the page edge | None    |
 
-A value left out keeps the default: A4, with margins of 2.54 cm at the top and bottom and 3.17 cm left and right. `header` and `footer` have no default. The number `0` gives the default too, so write a margin of 0 as `"0cm"`.
+Every value is 0 or more, except `top` and `bottom`, which may be negative. The number `0` gives the default too, so write a margin of 0 as `"0cm"`.
 
 The page of the first section comes from the first of these that the request has:
 
@@ -276,7 +281,9 @@ const response = await fetch('https://api.tiptap.dev/v3/convert/export/docx', {
 
 With `curl`, send the JSON from a file as `-F 'options=<options.json'`. The `<` sends the file's text, and `@` would send it as a file, which fails.
 
-Each kind of entry has its own fields and accepted files. `id` is a name of your choice:
+### Asset entries
+
+Each kind of entry in `assets` has its own fields and accepted files. `id` is a name of your choice:
 
 | Kind  | Entry                                             | Accepted files             |
 | ----- | ------------------------------------------------- | -------------------------- |
@@ -286,30 +293,31 @@ Each kind of entry has its own fields and accepted files. `id` is a name of your
 The service checks the entries and files before it exports:
 
 - `id` and `part` are unique across the entries. Every part has an entry, every entry has its file, and each part comes once.
-- A font's `name` matches a font family the document uses, such as the `fontFamily` of a `textStyle` mark or a font in `styleOverrides`. The optional `characterSet` takes one of Word's character set values, such as `"00"` for ANSI, which [`DocxFontCharacterSet`](/conversion/v3/docx/export-options/types#docxfontcharacterset) lists. An unknown value fails the request with `400`.
+- A font's `name` matches a font family the document uses, such as the `fontFamily` of a `textStyle` mark or a font in `styleOverrides`.
+- A font's optional `characterSet` is one of Word's character set values, such as `"00"` for ANSI, which [`DocxFontCharacterSet`](/conversion/v3/docx/export-options/types#docxfontcharacterset) lists. An unknown value fails the request with `400`.
 - An image entry takes the place of the image whose `src` it names, so use the same `src` as the document. The service compares them as text, so an image with no URL can use any name, such as `logo.png`.
-- The service checks each file's content. An uploaded image of another type, such as WebP, fails the whole request with `400`, whatever `onImageError` says. The same image as a URL in the document is skipped instead.
+- The service checks each file's content, so an uploaded image of another type, such as WebP, fails the whole request with `400`, whatever `onImageError` says. The same image as a URL in the document is skipped instead.
 - A JSON request with entries in `assets` fails, because it has no files.
+
+### Embedded fonts
 
 Uploaded fonts are embedded with or without `embedFonts`. `embedFonts: true` also embeds the fonts you don't upload. The service looks them up on Google Fonts, up to 20 families in their regular weight, and leaves out a family it can't find, without a warning.
 
 ## Limits
 
-One export takes at most these sizes and counts:
+One export takes at most these sizes and counts. On your own server, the environment variable in the last column changes a limit, and the other limits are fixed:
 
-| Limit                         | Value                                                                                           |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Request body                  | 100 MB.                                                                                         |
-| `options` part                | 10 MB.                                                                                          |
-| Entries in `assets`           | 64, fonts and images together.                                                                  |
-| One uploaded font             | 25 MB.                                                                                          |
-| One uploaded image            | 20 MB.                                                                                          |
-| One `data:` image in the JSON | About 5 MB. A larger one fails with `400`, and `path` points at its `src`. Upload it as a part. |
-| Images the service downloads  | 200, and 100 MB in total. Each download may take 15 seconds.                                    |
+| Limit                         | Value                                                                                           | Variable on your own server                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Request body                  | 100 MB.                                                                                         | `MAX_REQUEST_BODY_MB`                                                 |
+| `options` part                | 10 MB.                                                                                          | None                                                                  |
+| Entries in `assets`           | 64, fonts and images together.                                                                  | None                                                                  |
+| One uploaded font             | 25 MB.                                                                                          | None                                                                  |
+| One uploaded image            | 20 MB.                                                                                          | `EXPORT_MAX_IMAGE_PART_MB`                                            |
+| One `data:` image in the JSON | About 5 MB. A larger one fails with `400`, and `path` points at its `src`. Upload it as a part. | None                                                                  |
+| Images the service downloads  | 200, and 100 MB in total. Each download may take 15 seconds.                                    | `EXPORT_MAX_IMAGES`, `EXPORT_MAX_IMAGE_MB`, `EXPORT_FETCH_TIMEOUT_MS` |
 
 The service downloads images only from public addresses, not from a private network. An image over a download limit is skipped with an `image-request-failed` warning, or fails the export with `422` when `onImageError` is `"throw"`.
-
-On your own server, environment variables change some limits: `MAX_REQUEST_BODY_MB` for the body, `EXPORT_MAX_IMAGE_PART_MB` for an uploaded image, and `EXPORT_MAX_IMAGES`, `EXPORT_MAX_IMAGE_MB` and `EXPORT_FETCH_TIMEOUT_MS` for downloads. The other limits are fixed.
 
 `EGRESS_GUARD=off` allows downloads from private addresses, and `EGRESS_ALLOWED_HOSTS` allows single private hosts, addresses or CIDR blocks. The limits of `customNodeDsl` are in [Validation and limits](/conversion/v3/docx/custom-nodes/dsl#validation-and-limits).
 
