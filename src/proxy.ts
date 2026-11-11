@@ -21,6 +21,7 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
 
   const endsWithMd = pathname.endsWith('.md')
   const accept = request.headers.get('accept') ?? ''
+  // A `.md` URL, or a doc URL (not a static asset) negotiated via `Accept`.
   const wantsMarkdown =
     endsWithMd || (!NON_MD_EXTENSION.test(pathname) && MARKDOWN_ACCEPT.test(accept))
 
@@ -30,11 +31,7 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
     event.waitUntil(captureHttpLog(request, { markdown_requested: wantsMarkdown }))
   }
 
-  // Bail for static assets (anything with a non-.md extension).
-  if (!endsWithMd && NON_MD_EXTENSION.test(pathname)) {
-    return NextResponse.next()
-  }
-
+  // Static assets and regular HTML page requests pass through untouched.
   if (!wantsMarkdown) {
     return NextResponse.next()
   }
