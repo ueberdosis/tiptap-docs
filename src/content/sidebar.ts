@@ -7,6 +7,7 @@ import { sidebarConfig as commentsSidebar } from './comments/sidebar'
 import { sidebarConfig as compareSidebar } from './compare/sidebar'
 import { sidebarConfig as composableDocsSidebar } from './composable-docs/sidebar'
 import { sidebarConfig as conversionSidebar } from './conversion/sidebar'
+import { sidebarConfig as conversionV3Sidebar } from './conversion/v3/sidebar'
 import { sidebarConfig as diagramsSidebar } from './diagrams/sidebar'
 import { sidebarConfig as editorSidebar } from './editor/sidebar'
 import { sidebarConfig as examplesSidebar } from './examples/sidebar'
@@ -109,7 +110,19 @@ const items: SidebarGroup[] = [
           },
         ],
       },
-      section('Conversion', conversionSidebar, { inline: ['Get started'] }),
+      {
+        // Conversion v3 is the current one; the v2 API and the 0.x packages stay, labeled Legacy
+        title: 'Conversion',
+        href: '',
+        children: [
+          section('Conversion', conversionV3Sidebar, { inline: ['Get started'] }),
+          section('Conversion v2', conversionSidebar, {
+            inline: ['Get started'],
+            omit: ['Legacy'],
+            tags: ['Legacy'],
+          }),
+        ],
+      },
       section('Composable Docs', composableDocsSidebar),
       section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
       section('Pages', pagesSidebar, { inline: ['Getting started'] }),
