@@ -1,30 +1,38 @@
 ---
 title: 'Register your own chart type'
-intro: 'A chart type is the id a chart stores in <code>spec.type</code>, such as <code>bar</code>. To add a type of your own, register it with the <code>chartTypes</code> option. Then list it in the <code>types</code> of the Renderer that draws it.'
+intro: 'A chart type is the id a chart stores in <code>spec.type</code>, such as <code>bar</code>. To add a type of your own, register it with the <code>chartTypes</code> option, and list it in the <code>types</code> of the Renderer that draws it.'
 tags:
   - type: alpha
   - type: restricted
 meta:
   title: 'Register your own chart type | Tiptap Diagrams Docs'
-  description: 'A chart type is the id a chart stores in spec.type, such as bar.'
+  description: 'Register a chart type of your own, such as a waterfall chart.'
   category: Diagrams
 ---
 
 ## Quick start
 
+This adds a chord chart, drawn by a Renderer of your own. `chordSvg(input)` stands for your code
+that draws `chartLinks(input.data)` as standalone SVG markup:
+
 ```ts
-import { Diagrams, chartLinks, type ChartRenderer } from '@tiptap-pro/extension-diagrams'
+import { Diagrams, type ChartRenderer, type ChartRenderInput } from '@tiptap-pro/extension-diagrams'
+import { echartsRenderer } from '@tiptap-pro/extension-diagrams/echarts'
 
 const chordRenderer: ChartRenderer = {
   id: 'chord',
   label: 'Chord',
   types: ['chord'],
   mount(target, input) {
-    // chartLinks(input.data) gives { nodes, links }, read the way sankey and network read them.
-    // Draw into target, then return { update, destroy }.
+    const draw = (next: ChartRenderInput) => {
+      const svg = new DOMParser().parseFromString(chordSvg(next), 'image/svg+xml').documentElement
+      target.replaceChildren(target.ownerDocument.importNode(svg, true))
+    }
+    draw(input)
+    return { update: draw, destroy: () => target.replaceChildren() }
   },
   async toSVG(input) {
-    // ...
+    return chordSvg(input)
   },
 }
 
@@ -46,13 +54,15 @@ Diagrams.configure({
 
 ## Fields of a chart type
 
-| Field         | Type                                                                        | Description                                                                                                                |
-| ------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `id`          | `string`                                                                    | What the chart stores in `spec.type`: letters, digits, `_` and `-`, at most 64 characters                                  |
-| `label`       | `string`                                                                    | For a menu                                                                                                                 |
-| `shape`       | `'cartesian' \| 'radial' \| 'single' \| 'hierarchy' \| 'matrix' \| 'graph'` | The data layout: how the type reads its columns and rows. The Quick Input shows example rows in that layout                |
-| `word`        | `'chart' \| 'table' \| 'image'`                                             | How a Word document holds a chart of this type: as a Word chart, as a Word table, or as an image. Use `'image'`, see below |
-| `description` | `string`                                                                    | Optional. One sentence for an AI model that chooses a type                                                                 |
+`chartTypes` takes an array of these objects, and defaults to `[]`:
+
+| Field         | Type                                                                        | Description                                                                                      |
+| ------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `id`          | `string`                                                                    | Stored in `spec.type`: up to 64 letters, digits, `_` and `-`. Other ids are left out             |
+| `label`       | `string`                                                                    | For a menu                                                                                       |
+| `shape`       | `'cartesian' \| 'radial' \| 'single' \| 'hierarchy' \| 'matrix' \| 'graph'` | The data layout, also of the example rows in the [Quick Input](/diagrams/data/quick-input)        |
+| `word`        | `'chart' \| 'table' \| 'image'`                                             | Required. Its form in Word. Use `'image'`, see [Word charts and tables](/diagrams/renderers/custom-chart-types#word-charts-and-tables) |
+| `description` | `string`                                                                    | Optional. One sentence for an AI model                                                           |
 
 The data layouts of `shape`:
 
@@ -62,26 +72,32 @@ The data layouts of `shape`:
 | `radial`    | A label column and one series, the parts of a whole    | pie, funnel                 |
 | `single`    | One value                                              | gauge                       |
 | `hierarchy` | Labels as paths, such as `A / B`, and a value per leaf | treemap, tree               |
-| `matrix`    | Words in a grid                                        | matrix (RACI)               |
+| `matrix`    | Words in a grid, such as who does what                 | matrix                      |
 | `graph`     | A source column, a target column and a value per link  | sankey, network             |
+
+A document keeps a type that no editor registered, and reads it as `cartesian`.
 
 ### Word charts and tables
 
-The extension writes a Word chart or a Word table only for built-in types. A type of your own
-becomes an image in Word, even with `word: 'chart'` or `word: 'table'`. So give it
-`word: 'image'`. See [Export](/diagrams/export) for what Word gets.
+Word charts and tables exist only for built-in types. A type of your own becomes an image in Word,
+even with `word: 'chart'` or `'table'`, see [Export](/diagrams/export).
 
 ## Where a registered type appears
 
-- **The Quick Input.** You can type it after `:::`.
-- **`setDiagramInputType`** can choose it.
-- **AI models.** The tools and `describeCapabilities()` offer it to an AI model.
-- **A built-in type id.** An entry with the id of a built-in type replaces that type's definition,
-  such as its label and description.
+A registered type is offered like a built-in one:
+
+- after `:::` in the [Quick Input](/diagrams/data/quick-input), the text field for chart rows,
+- by the command [`setDiagramInputType`](/diagrams/data/quick-input#setdiagraminputtype),
+- to AI models, through the [tools](/diagrams/guides/ai) and
+  [`editor.storage.diagrams.describeCapabilities()`](/diagrams/api-reference/storage), with its `id`, `label`,
+  `shape` and `description`. An entry
+  with a built-in id replaces that type's definition, such as its label.
 
 ## Reading rows like the built-in types
 
-| Function               | Reads rows the way                | Returns                                                                                   |
-| ---------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- |
-| `chartHierarchy(data)` | the built-in `hierarchy` types do | A tree of `{ name, path, value, total, children }`, from paths such as `Europe / Germany` |
-| `chartLinks(data)`     | the built-in `graph` types do     | `{ nodes, links }`, one link per row                                                      |
+These functions from `@tiptap-pro/extension-diagrams` read `input.data` like the built-in types:
+
+| Function               | Reads rows like | Returns                                                                               |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| `chartHierarchy(data)` | `hierarchy`     | A tree of `{ name, path, value, total, children }` from paths like `Europe / Germany` |
+| `chartLinks(data)`     | `graph`         | `{ nodes, links }`, a link per row with two different ends, value 1 by default        |
