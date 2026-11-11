@@ -94,7 +94,16 @@ Pages.configure({
 When you rename a built-in, the original token name stops being recognized. Substitution only ever runs on header/footer content; body text containing `{page}` / `{total}` is always left literal.
 
 <Callout title="DOCX import" variant="info">
-  When importing a Word file, `PAGE` and `NUMPAGES` fields come back as text tokens that match your active `placeholders` config: `{page}` / `{total}` by default, or whatever you renamed them to. The import-side wiring forwards your registry to the convert service, so a Word document with live page numbers round-trips back to live fields on re-export with no extra config. See [DOCX import → page-number fields](/conversion/import/docx/editor-extension#page-number-fields) for the full picture.
+  When `importDocx` translates Word's `PAGE` and `NUMPAGES` fields into text tokens, the token names depend on your Pages config:
+
+- **Default config.** The import sends no names, so the fields come back as `{page}` and `{numpages}`. Pages renders `{page}`, but `{numpages}` stays literal text in the editor and in exports from the `ExportDocx` extension. Set `placeholders: { total: 'numpages' }` to render and export it. The REST DOCX export already treats `{numpages}` as the total page count.
+- **A rename.** The import forwards your `placeholders` map, so `{ total: 'pages' }` brings `NUMPAGES` back as `{pages}`, which renders live and exports as a live field. A key you leave out keeps its import default, so rename `total` to get a live total page count.
+- **`placeholders: false`.** The import keeps Word's cached numbers as plain text.
+
+Passing `placeholders: true` to `importDocx` forces translation on, even when Pages sets `placeholders: false`. It uses your Pages rename when there is one, and the import defaults otherwise.
+
+A page number written as a simple `w:fldSimple` field is never translated, whatever the `placeholders` setting, and the import drops its cached number. See [the REST import page](/conversion/import/docx/rest-api#page-number-fields) for the field layouts the import recognizes, and [DOCX import → page-number fields](/conversion/import/docx/editor-extension#page-number-fields) for the full picture.
+
 </Callout>
 
 ### JSONContent
@@ -395,10 +404,10 @@ When a user double-clicks a header or footer to edit it, the extension exposes t
 - `activeEditor` – The Tiptap Editor instance for the currently open header or footer editor (or `null`)
 - `activeEditorType` – `'header'`, `'footer'`, or `null`
 - `activePageNumber` – The page number being edited (or `null`)
-- `headerEditorOn` / `headerEditorOff` – Subscribe/unsubscribe to events on the header overlay's inner Tiptap editor
-- `footerEditorOn` / `footerEditorOff` – Subscribe/unsubscribe to events on the footer overlay's inner Tiptap editor
+- `headerEditorOn` / `headerEditorOff` – Subscribe/unsubscribe to events on the default header editor (`null` without collaboration)
+- `footerEditorOn` / `footerEditorOff` – Subscribe/unsubscribe to events on the default footer editor (`null` without collaboration)
 
-The extension also listens to `focus` events from the header and footer inner editors. When the user focuses an open header or footer editor, `activeEditor`, `activeEditorType`, and `activePageNumber` are refreshed from the active overlay.
+The extension also listens to `focus` events from the header and footer inner editors, including the first page, odd page, and even page variants. When the user focuses another open header or footer editor, `activeEditor`, `activeEditorType`, and `activePageNumber` are refreshed from the active overlay, and the main editor emits `update`. A toolbar that reads `editor.storage.pages` on `update` follows the focused editor.
 
 ### Locking the header or footer
 
@@ -427,7 +436,9 @@ editor.commands.setFooterEditable(true)
 
 ### Listening to header/footer editor events
 
-Headers and footers have their own editors. You can subscribe to events from these editors via `editor.storage.pages`.
+Headers and footers have their own editors.
+
+To show which header or footer is being edited, read the storage on the main editor's `update` event. It also fires when focus moves between header and footer variants, which the default editors do not see:
 
 ```tsx
 import { useEffect, useState } from 'react'
@@ -445,12 +456,10 @@ function HeaderFooterStatus({ editor }) {
       setActivePageNumber(activePageNumber)
     }
 
-    editor.storage.pages.headerEditorOn?.('focus', syncActiveEditorState)
-    editor.storage.pages.footerEditorOn?.('focus', syncActiveEditorState)
+    editor.on('update', syncActiveEditorState)
 
     return () => {
-      editor.storage.pages.headerEditorOff?.('focus', syncActiveEditorState)
-      editor.storage.pages.footerEditorOff?.('focus', syncActiveEditorState)
+      editor.off('update', syncActiveEditorState)
     }
   }, [editor])
 
@@ -466,7 +475,7 @@ function HeaderFooterStatus({ editor }) {
 }
 ```
 
-You can use the same helpers for other Tiptap editor events, such as `update`, `selectionUpdate`, `blur`, or `transaction`.
+When collaboration is on, use `headerEditorOn` and `footerEditorOn` to listen to the default header or footer editor itself, with any Tiptap editor event, such as `focus`, `update`, `selectionUpdate`, `blur`, or `transaction`. Without collaboration they are `null`, because Pages binds them when the editor is created and creates the header and footer editors only when one first opens.
 
 ### Building a custom toolbar
 
@@ -504,13 +513,9 @@ function DocumentEditor() {
     }
 
     editor.on('update', syncActiveHeaderFooterEditor)
-    editor.storage.pages.headerEditorOn?.('focus', syncActiveHeaderFooterEditor)
-    editor.storage.pages.footerEditorOn?.('focus', syncActiveHeaderFooterEditor)
 
     return () => {
       editor.off('update', syncActiveHeaderFooterEditor)
-      editor.storage.pages.headerEditorOff?.('focus', syncActiveHeaderFooterEditor)
-      editor.storage.pages.footerEditorOff?.('focus', syncActiveHeaderFooterEditor)
     }
   }, [editor])
 
@@ -589,6 +594,8 @@ Pages.configure({
   },
 })
 ```
+
+Footnote and endnote markers in the body get their screen reader names from a separate option, `noteReferenceLabel`. See [Screen reader names](/pages/core-concepts/footnotes#screen-reader-names).
 
 ## Accessing header and footer content
 
@@ -860,11 +867,39 @@ Pages.configure({
 
 This is a single, document-wide setting: it applies to the header, footer, [footnotes](/pages/core-concepts/footnotes), and [endnotes](/pages/core-concepts/endnotes) editor toolbars alike, so they stay visually consistent.
 
+## Overlay background and z-index
+
+The header, footer, footnotes and endnotes overlays are white and sit at `z-index: 1000` by default. Two options change that:
+
+- `overlayBackgroundColor` sets the background of the overlays and the color their toolbar fade starts from. Use it when your pages have a color, so an open overlay matches the page instead of showing a white box.
+- `overlayZIndex` sets their stacking order. Lower it when your own menus or popovers sit below 1000 and must show above an open overlay.
+
+```js
+Pages.configure({
+  header: 'My Header',
+  footer: 'Page {page}',
+  overlayBackgroundColor: 'var(--page-color)',
+  overlayZIndex: 50,
+})
+```
+
+`overlayBackgroundColor` accepts any CSS color, also a CSS variable. The overlays are added to `document.body`, outside the editor, so define the variable where `body` inherits it, for example on `:root`. A variable keeps the overlay in sync when the page color changes while it is open:
+
+```css
+:root {
+  --page-color: #fffbeb;
+  /* Pages also paints the pages with this color. */
+  --pages-page-background-color: var(--page-color);
+}
+```
+
+Like `toolbarGradient`, both options apply to the header, footer, footnotes and endnotes overlays alike.
+
 ## Limitations
 
 ### Header & Footer editor styling
 
-The header/footer editor uses built-in styles. However, you can customize the accent color using the `accentColor`, `headerAccentColor`, and `footerAccentColor` options.
+The header/footer editor uses built-in styles. However, you can customize the accent color using the `accentColor`, `headerAccentColor`, and `footerAccentColor` options, and the overlay background and stacking order with `overlayBackgroundColor` and `overlayZIndex`.
 
 ### Collaboration
 
@@ -902,6 +937,8 @@ Header and footer editors participate in collaboration alongside the main docume
 | `headerAccentColor`                  | `string`                         | `accentColor` value  | Accent color for header editor overlay                                    |
 | `footerAccentColor`                  | `string`                         | `accentColor` value  | Accent color for footer editor overlay                                    |
 | `toolbarGradient`                    | `boolean`                        | `true`               | Show the white fade gradient behind the edit-overlay toolbars (header, footer, footnotes, endnotes). `false` for flat toolbars. |
+| `overlayBackgroundColor`             | `string`                         | `undefined` (white)  | Background of the header, footer, footnotes and endnotes overlays and of their toolbar fade. Any CSS color, also a CSS variable. See [Overlay background and z-index](/pages/core-concepts/page-header-footer#overlay-background-and-z-index). |
+| `overlayZIndex`                      | `number`                         | `undefined` (1000)   | Stacking order of the header, footer, footnotes and endnotes overlays. Lower it to show your own menus above an open overlay. |
 | `placeholders`                       | `false \| { page?, total? }`     | `undefined`          | Rename the built-in `{page}` / `{total}` tokens or disable substitution.   |
 
 ## Commands reference

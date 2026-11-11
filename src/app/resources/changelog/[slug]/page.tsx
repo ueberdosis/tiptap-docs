@@ -82,8 +82,8 @@ export default async function ChangelogPage({ params }: Props) {
         <Layout.Content>
           <PageHeader.Wrapper>
             {sidebar.sidebarConfig ? (
-              <div className="flex items-start justify-between flex-wrap gap-y-2 mb-4">
-                <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} />
+              <div className="flex items-start justify-between flex-wrap gap-y-2 mb-1">
+                <PageHeaderBreadcrumbs config={sidebar.sidebarConfig} className="mb-0" />
                 <div className="flex items-center gap-2">
                   <AskAi />
                 </div>

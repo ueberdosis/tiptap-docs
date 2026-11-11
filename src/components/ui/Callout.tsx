@@ -27,7 +27,7 @@ export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
     ref,
   ) => {
     const wrapperClass = cn(
-      'c-callout content-block flex flex-col md:flex-row gap-3 items-start border rounded-[10px] p-4',
+      'c-callout content-block flex flex-col md:flex-row gap-2 items-start border rounded-[10px] p-3 pr-6',
       hasCalloutAfter ? 'mb-2' : 'mb-8',
       hasCalloutBefore ? 'mt-2' : 'mt-8',
       variant === 'default' ? 'bg-grayAlpha-100 border-grayAlpha-200 text-grayAlpha-900' : '',
@@ -46,15 +46,15 @@ export const Callout = forwardRef<HTMLDivElement, CalloutProps>(
     )
 
     const titleClass = cn(
-      'leading-none font-semibold mb-2',
-      size === 'sm' ? 'text-base' : '',
-      size === 'md' ? 'text-base' : '',
+      'leading-[1.3] font-semibold mb-1',
+      size === 'sm' ? 'text-sm' : '',
+      size === 'md' ? 'text-sm' : '',
     )
 
     const contentClass = cn(
-      'markdown',
-      size === 'sm' ? 'text-base' : '',
-      size === 'md' ? 'text-base' : '',
+      'markdown leading-[1.3]',
+      size === 'sm' ? 'text-sm' : '',
+      size === 'md' ? 'text-sm' : '',
     )
 
     return (
