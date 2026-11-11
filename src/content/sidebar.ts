@@ -114,8 +114,9 @@ const items: SidebarGroup[] = [
       section('Composable Docs', composableDocsSidebar),
       section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
       {
-        // Page Layout replaces Pages, which stays at its URLs for existing projects
-        title: 'Page Layout',
+        // Named for the word readers search for. Page Layout replaces Pages, which stays at
+        // its URLs for existing projects
+        title: 'Pagination',
         href: '',
         children: [
           section('Page Layout', pageLayoutSidebar, { inline: ['Page Layout'], tags: ['Alpha'] }),
