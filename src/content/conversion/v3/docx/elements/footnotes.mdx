@@ -1,0 +1,118 @@
+---
+title: Footnotes and endnotes
+intro: 'Word''s footnotes and endnotes import as notes of the Footnotes extension, and export writes them back as Word footnotes and endnotes. Both work in an editor with or without <a href="/docs/features/page-layout/getting-started/overview">Page Layout</a>, the extension that shows the document on pages.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Footnotes and endnotes | Tiptap Conversion
+  description: Check how Word footnotes and endnotes come into the Footnotes extension on import, and how export writes them back to a .docx file.
+  category: Conversion
+---
+
+## What you need
+
+[Footnotes and endnotes](/features/footnotes), the `Footnotes` extension from `@tiptap-pro/extension-footnotes`, holds the notes in these node types:
+
+| Node                 | What it holds                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `footnoteReference`  | The mark of a note in the text, with a `footnoteId`                                      |
+| `footnote`           | The note's text, with the same `footnoteId` and a `placement` of `footnote` or `endnote` |
+| `footnoteCollection` | The notes of one placement                                                               |
+
+Add the extension to an editor set up with [Import DOCX](/conversion/v3/docx/import) or [Export DOCX](/conversion/v3/docx/export):
+
+```ts
+import { Footnotes } from '@tiptap-pro/extension-footnotes'
+import StarterKit from '@tiptap/starter-kit'
+
+const extensions = [StarterKit, Footnotes]
+```
+
+Without the Footnotes extension, import keeps the references and notes as [preserved content](/conversion/v3/docx/preserved-content), with their text and a `preserved` warning. They turn back into notes once the editor has the extension.
+
+## Import
+
+The `importDocx()` command of [Import DOCX](/conversion/v3/docx/import) returns the notes inside the document:
+
+- Each reference, to a footnote or an endnote, becomes a `footnoteReference` node.
+- Each note becomes a `footnote` node. The notes sit at the end of the document, in one `footnoteCollection` node for each placement, footnotes first.
+- When a footnote and an endnote have the same id in the file, the endnote gets the id `<id>-endnote`, and so does its reference.
+
+Import leaves out a note without a reference and a reference without a note, as Word doesn't show either. The `onWarning` option of Import DOCX receives one [`notes-dropped` warning](/conversion/v3/reference/warnings) for them.
+
+With Page Layout, import also reads each Word section's note settings, such as the number format and where numbering restarts. [Sections and page setup](/conversion/v3/docx/elements/sections#import) lists them.
+
+### Change the notes before they reach the editor
+
+To change the notes before they reach the editor, pass `onImport`. `context.content` is the document as Tiptap JSON, and `context.setEditorContent()` writes it, or the document you pass it, into the editor. `context.error` is set when the import failed, and then there is no content to write.
+
+This example leaves out the endnotes, both the notes and their references in the text. `editor` is an editor set up as in [Import DOCX](/conversion/v3/docx/import), and `file` is a `.docx` file the user picked:
+
+```ts
+import type { JSONContent } from '@tiptap/core'
+
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+
+    const endnotes = context.content.content?.find(
+      (node) => node.type === 'footnoteCollection' && node.attrs?.placement === 'endnote',
+    )
+    const endnoteIds = new Set(endnotes?.content?.map((note) => note.attrs?.footnoteId))
+
+    const keep = (node: JSONContent) =>
+      node !== endnotes &&
+      !(node.type === 'footnoteReference' && endnoteIds.has(node.attrs?.footnoteId))
+    const withoutEndnotes = (node: JSONContent): JSONContent =>
+      node.content ? { ...node, content: node.content.filter(keep).map(withoutEndnotes) } : node
+
+    context.setEditorContent(withoutEndnotes(context.content))
+  },
+})
+```
+
+## Export
+
+The `exportDocx()` command of [Export DOCX](/conversion/v3/docx/export) reads the notes from the document, with or without Page Layout, so you pass nothing for them. Notes the editor kept as preserved content count too. Each note's `placement` makes it a Word footnote or endnote.
+
+A note no reference points at is left out, and the `onWarning` option of Export DOCX receives an `unsupported` warning. A reference to a missing note is left out without a warning.
+
+### Note settings
+
+Export writes each section's note settings back to Word:
+
+- **Placement:** below the text or at the bottom of the page.
+- **Number format** and **start number.**
+- **Restart:** each section, each page, or not at all.
+
+With Page Layout, the first section takes them from the Page Layout setup and later ones from their `sectionBreak` node. Without Page Layout, a section break kept as preserved content still carries them.
+
+Without Page Layout, export also sends the `footnoteNumbers` and `endnoteNumbers` options of the Footnotes extension, as the `noteNumbering` option of Export DOCX. So the Word file counts the notes the way the editor does.
+
+`noteNumbering` sets the numbering of every section that sets none of its own, also in a document without a section break. A section's own numbering wins.
+
+To set the numbering yourself, pass `noteNumbering` to `ExportDocx.configure()` or to the `exportDocx()` command. It wins over the options of the Footnotes extension. In an editor set up as in [Export DOCX](/conversion/v3/docx/export), this export counts footnotes i, ii, iii and starts again on each page:
+
+```ts
+editor.commands.exportDocx({
+  noteNumbering: { footnote: { format: 'lowerRoman', restart: 'page' } },
+})
+```
+
+[`noteNumbering`](/conversion/v3/docx/export-options#notenumbering) lists the fields. With Page Layout, export doesn't send the options of the Footnotes extension, because each section carries its own numbering.
+
+A section with the default numbering writes nothing, because Word's default is the same: decimal footnotes and lower Roman endnotes. A format Word can't show exactly exports as the closest one, with an `unsupported` warning that names `footnoteNumbering.format` or `endnoteNumbering.format`.
+
+### Notes from outside the document
+
+`exportDocx()` also has `footnotes` and `endnotes` options, for notes your app keeps outside the editor's document. The command uses them only when the editor has no Page Layout and its document holds no notes. It then sends them as they are, in the shape the [Export DOCX REST API](/conversion/v3/rest-api/export-docx#notes-and-comments) describes.
+
+With Page Layout, or with notes in the document, the notes come from the document. Each of the two options you pass is then ignored with an `unsupported` warning.
+
+## Limits
+
+Footnotes and endnotes have these limits:
+
+- A note without a reference, and a reference without a note, are left out, on import and on export. Import reports them with `notes-dropped`. Export reports only the note without a reference.

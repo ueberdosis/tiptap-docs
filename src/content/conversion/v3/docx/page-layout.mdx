@@ -1,0 +1,144 @@
+---
+title: Word files with Page Layout
+intro: 'With <a href="/docs/features/page-layout/getting-started/overview">Page Layout</a>, the extension that shows the document on pages, a Word file keeps its pages when it moves between Word and the editor. Its sections, page setup, headers, footers, page numbers and page breaks import into the document, and export writes them back to the <code>.docx</code> file.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Word files with Page Layout | Tiptap Conversion
+  description: Check how the sections, page setup, headers, footers, page numbers and page breaks of a Word file come into Page Layout on import, and how export writes them back.
+  category: Conversion
+---
+
+## Import a Word file
+
+The import writes the file's sections, page setup, headers, footers and notes into the document. Without `onImport`, it writes when the file arrives. With `onImport`, it writes when you call `setEditorContent()`, as [Review an import before it applies](/conversion/v3/docx/import/review) shows:
+
+```ts
+editor.commands.importDocx({
+  file,
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+  },
+})
+```
+
+The write is one step, so one undo takes the import back. The caret lands at the start of the body. The Tracked Changes extension doesn't record the write as a suggestion, even while it records the user's edits.
+
+Save the imported document as any Page Layout document: store what `editor.getJSON()` returns. It holds the sections, headers and notes but no pages, because Page Layout draws the pages each time. Don't save `editor.state.doc`, which holds the pages the user sees.
+
+A Page Layout editor that has not mounted, such as a headless one in a Node.js script, draws no pages. The import still writes the sections, headers and notes.
+
+Your schema doesn't make an import fail. Content that the editor has no extension for is kept, as [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains.
+
+### Tell the import apart from an edit
+
+Each write of the import carries the `DOCX_IMPORT_META` transaction meta, set to `true`. With Page Layout, read it in `onUpdate`, not in `onTransaction`, because only the `update` event carries the import's own transaction:
+
+```ts
+import { Extension } from '@tiptap/core'
+import { DOCX_IMPORT_META } from '@tiptap-pro/extension-import-docx'
+
+const LogImports = Extension.create({
+  name: 'logImports',
+  onUpdate({ transaction }) {
+    if (transaction.getMeta(DOCX_IMPORT_META)) console.log('DOCX imported')
+  },
+})
+```
+
+### When the import fails
+
+`setEditorContent()` throws when the editor was destroyed before the write, for example because its component unmounted during the import. It also throws when a newer import has started.
+
+You don't need to catch these errors yourself. An error thrown inside `onImport`, including by `setEditorContent()`, reaches `onError`, on the command or in `ImportDocx.configure()`. [Import errors](/conversion/v3/reference/errors#import-errors) lists every error of an import.
+
+## Export a Page Layout document
+
+Export reads the page setup from the document, so the file gets each section's paper, headers and footers without an export option. It starts a Word section at each `sectionBreak`, the node that starts a section and holds its page setup.
+
+### Export on other paper
+
+Each section exports on the paper its `sectionBreak` holds. An imported document starts with a `sectionBreak`, so no export option changes its paper, only a change to its sections does.
+
+Page Layout's `setPageSections()` command replaces every section in one step, which one undo takes back. This example puts every section on US Letter but keeps its orientation and margins. It undoes the change when the file arrives, so the user's document keeps its paper.
+
+`PAGE_FORMATS` holds Page Layout's paper sizes, and `save` is your app's code that stores the file:
+
+```ts
+import { PAGE_FORMATS } from '@tiptap-pro/extension-page-layout'
+
+const engine = editor.storage.pageLayout.engine
+
+editor.commands.setPageSections(
+  engine.getSections().map((section) => ({
+    ...section,
+    setup: { ...section.setup, format: PAGE_FORMATS.Letter },
+  })),
+)
+
+editor.commands.exportDocx({
+  onCompleteExport: (file) => {
+    editor.commands.undo()
+    save(file)
+  },
+  onError: () => editor.commands.undo(),
+})
+```
+
+Undo takes back the last step, so the user should not edit while the export runs. To keep Letter in the document, leave out the undo. In a pageless editor, `setPageSections()` returns `false`. [Sections](/features/page-layout/sections) and [Page format](/features/page-layout/page-format) describe the commands.
+
+### A document that stores no paper
+
+A document written in the editor may store no paper of its own, so its content before the first `sectionBreak` has none. Export gives that content the paper the editor shows, set by the `setup` of `PageLayout.configure()` or the `setPageSetup()` command.
+
+The `pageSetup` option replaces that paper for one export. It changes nothing in a document that starts with a `sectionBreak`, such as an imported one. Build it with Page Layout's `pageSetup()` function. This example sets US Letter with one-inch margins:
+
+```ts
+import { pageSetup } from '@tiptap-pro/extension-page-layout'
+
+editor.commands.exportDocx({ pageSetup: pageSetup('Letter') })
+```
+
+The `id` of the `format` can be any string, because the file's paper size comes from the format's `width` and `height` in CSS pixels.
+
+A pageless editor, which shows the document as one column without pages, shows no paper. An editor is pageless when `PageLayout` has no `setup`, or after `setPageSetup(null)`, as [Page format](/features/page-layout/page-format) describes.
+
+In a pageless editor, the content before the first `sectionBreak` exports with the `pageSize` and `pageMargins` options, unless you pass `pageSetup`. They default to A4 with margins of 2.54cm at the top and bottom and 3.17cm at the sides, as [Page size and margins](/conversion/v3/docx/export/page-size-and-margins) shows.
+
+## How the document holds the pages
+
+Page Layout keeps a Word file's page setup in the document as nodes, so it is saved with the document and export finds it there:
+
+| Node                       | What it holds                                                               |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `sectionBreak`             | The start of a section, with the section's page setup                       |
+| `pageFurniture`            | One header or footer of a section, inside the section's `sectionBreak`      |
+| `pageNumber`               | A page number field that Page Layout updates, in a header, a footer or text |
+| `pageBreak`, `columnBreak` | A break the user inserted, inside its paragraph                             |
+
+[Sections](/features/page-layout/sections), [Section columns](/features/page-layout/section-columns), [Header and footer](/features/page-layout/header-and-footer), [Page numbers](/features/page-layout/page-numbers) and [Breaks](/features/page-layout/breaks) show how Page Layout uses these nodes.
+
+Footnotes and endnotes come from the Footnotes extension, which works with or without Page Layout. [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes) says how they convert.
+
+## Without Page Layout
+
+An editor without Page Layout has no pages, so import keeps the page setup as [preserved content](/conversion/v3/docx/preserved-content), with a `preserved` warning for each type:
+
+- Each `sectionBreak` keeps its setup, headers and footers, and sits in the text where its Word section starts, the first one at the start of the document.
+- Page numbers and note references stay in the text.
+
+Export writes preserved content back. When you add Page Layout and load the saved document, it opens with its pages, headers and footers.
+
+### Page breaks without Page Layout
+
+Page and column breaks are nodes of Page Layout. An editor without it keeps each break in the text as preserved content, with a `preserved` warning, and export writes it back. The preserved break is visible only with CSS of your own, such as the CSS in [Show preserved content](/conversion/v3/docx/preserved-content#show-preserved-content). Once you add Page Layout, the breaks turn back into real ones.
+
+### Export without Page Layout
+
+Without Page Layout, export writes one section from the `pageSize` and `pageMargins` options, A4 by default, as [Page size and margins](/conversion/v3/docx/export/page-size-and-margins) shows. The editor has no headers or footers to export.
+
+## Limits
+
+Some page settings don't convert, or change on the way, such as the page color of a later section, and the binding gutter. [Limitations](/conversion/v3/reference/limitations#pages) lists each one, with what to do about it.

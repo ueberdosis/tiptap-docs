@@ -1,0 +1,138 @@
+---
+title: Word styles as CSS
+intro: 'A <code>.docx</code> file has named styles, such as Heading 1 and Normal. The <code>cssStyles</code> option of <a href="/docs/conversion/v3/docx/import">Import DOCX</a> extracts them as CSS rules, so imported text looks like the original without inline formatting on every node.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Word styles as CSS | Tiptap Conversion
+  description: Turn the named styles of an imported .docx file into CSS rules with the cssStyles option, and inject them into the page or apply them per editor.
+  category: Conversion
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+<Callout title="Experimental" variant="info">
+  The extracted selectors and properties may change between releases. Pin the package version if you
+  depend on them.
+</Callout>
+
+## Turn on extraction
+
+Set `enabled` to `true`. With `autoInject`, the import adds the rules to the page in a `<style>` tag. In this example, `CONVERSION_TOKEN` is your Conversion token:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  cssStyles: {
+    enabled: true,
+    autoInject: true,
+    selector: '.tiptap',
+  },
+})
+```
+
+Every rule sits under `selector`, as in `.tiptap h1 { ... }`. Tiptap gives the editor element the class `tiptap`, so the default, `'.tiptap'`, styles all editors on the page. A selector such as `body` styles the whole page. [ImportCssStylesOptions](/conversion/v3/docx/import-options#importcssstylesoptions) lists the three options.
+
+The same keys on one `importDocx()` call merge over the configured ones. In this example, `editor` is an editor set up as in [Import DOCX](/conversion/v3/docx/import), and `file` is the `.docx` file the user picked:
+
+```ts
+editor.commands.importDocx({
+  file,
+  cssStyles: { enabled: true, autoInject: false },
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    console.log(context.cssStyles)
+  },
+})
+```
+
+## Inject the rules
+
+With `autoInject`, the import adds the rules after it writes the document. It keeps one `<style data-tiptap-style-import-docx>` tag for the whole page, and a later import with rules replaces that tag's content. Destroying any editor with `ImportDocx` removes the tag.
+
+So for several editors on one page, each with its own styles, turn `autoInject` off and give each editor a stylesheet of its own, as [Apply the rules yourself](#apply-the-rules-yourself) does.
+
+The import injects nothing outside a browser, or when the Conversion service finds no styles.
+
+## Apply the rules yourself
+
+When extraction is on, the [onImport context](/conversion/v3/docx/import/review#the-onimport-context) has the raw `cssStyles` object, and `buildCssRules` builds the CSS from it. To keep the styles of several editors apart, put that CSS into a `<style>` element of your own, with a selector for one editor.
+
+In this example, `#editor` is the element the editor is mounted in:
+
+```ts
+import { buildCssRules } from '@tiptap-pro/extension-import-docx'
+
+const style = document.createElement('style')
+document.head.append(style)
+
+editor.commands.importDocx({
+  file,
+  cssStyles: { enabled: true, autoInject: false },
+  onImport: (context) => {
+    if (context.error) return
+    context.setEditorContent()
+    if (context.cssStyles) style.textContent = buildCssRules(context.cssStyles, '#editor .tiptap')
+  },
+})
+```
+
+For one editor, `injectCssStyles` adds the CSS to the shared tag that `autoInject` uses. The package exports these helpers:
+
+| Export                               | What it does                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `buildCssRules(cssStyles, selector)` | Builds a CSS string from a `cssStyles` object, with every rule under `selector`. |
+| `injectCssStyles(css)`               | Adds the CSS to the one `<style data-tiptap-style-import-docx>` tag in the head. |
+| `removeCssStyles()`                  | Removes that tag. It does nothing when there is none.                            |
+
+`injectCssStyles` and `removeCssStyles` do nothing where there is no `document`, such as in Node.js.
+
+`buildCssRules` also drops the properties a mark shouldn't carry, so a mark doesn't override the font or spacing of its block. Each mark keeps these properties:
+
+| Mark     | Keeps                                                |
+| -------- | ---------------------------------------------------- |
+| `strong` | `fontWeight`                                         |
+| `em`     | `fontStyle`                                          |
+| `u`, `s` | `textDecoration`                                     |
+| `a`      | `color`, `textDecoration`                            |
+| `code`   | `fontFamily`, `color`, `fontSize`, `backgroundColor` |
+
+## What is extracted
+
+The `cssStyles` object, of type `DocxCssStylesOutput`, has one entry for each of these selectors:
+
+| Kind   | Selectors                                         |
+| ------ | ------------------------------------------------- |
+| Blocks | `p`, `h1` to `h6`, `blockquote`, `ul li`, `ol li` |
+| Marks  | `strong`, `em`, `u`, `s`, `a`, `code`             |
+
+Each entry holds some of these properties, depending on what the style sets:
+
+| Property                    | Value                                                        |
+| --------------------------- | ------------------------------------------------------------ |
+| `fontSize`                  | Pixels, such as `16px`.                                      |
+| `marginTop`, `marginBottom` | Points, such as `12pt`.                                      |
+| `lineHeight`                | A multiplier, or points for an exact or minimum line height. |
+| `color`, `backgroundColor`  | A hex color. The service skips Word's Automatic color.       |
+| `fontFamily`                | The font name.                                               |
+| `fontWeight`, `fontStyle`   | `bold` or `normal`, and `italic` or `normal`.                |
+| `textDecoration`            | `underline`, `line-through` or both.                         |
+| `textAlign`                 | `left`, `center`, `right` or `justify`.                      |
+
+A style that is based on another style includes what it inherits. Files written in other languages work too, because the Conversion service matches the styles by their built-in names.
+
+## What extraction doesn't do
+
+Extraction covers only part of a file's formatting, and the rules don't follow the document:
+
+- The Conversion service extracts only the 16 selectors in [What is extracted](#what-is-extracted). It skips table, numbering and custom styles, and it doesn't extract letter spacing.
+- Extraction doesn't fail the import. If the service can't read the styles, the object comes back empty.
+- Formatting set directly on a paragraph or run in Word stays on the node as attributes and marks, and the rules don't override it.
+- The rules describe the imported file. They don't change when the user edits the document.
+- The rules can clash with your own stylesheet, so check the cascade order.
+
+For the Word styles that decide headings and paragraphs, see [Headings and Word styles](/conversion/v3/docx/elements/headings-and-styles).

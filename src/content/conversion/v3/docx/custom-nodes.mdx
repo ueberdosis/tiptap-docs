@@ -1,0 +1,219 @@
+---
+title: Custom nodes in Word files
+intro: 'A custom node is a node type your application adds, such as a callout or a mention. Export DOCX leaves it out of the Word file, with its content, unless a custom node rule says what to write instead, such as a paragraph or a table.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Custom nodes in Word files | Tiptap Conversion
+  description: Write your own node types to a Word file with custom node rules, as paragraphs, text or tables, or leave them out with their content.
+  category: Conversion
+---
+
+To give imported nodes and marks the names your schema uses, see [Custom nodes on import](/conversion/v3/docx/custom-nodes/import).
+
+## Export a custom node
+
+The rules go into the `customNodeDsl` option of `ExportDocx`. They are written in a domain-specific language (DSL) of plain JSON, because the Conversion service, the server that builds the Word file, applies them.
+
+A rule for one of the [node types export converts itself](/conversion/v3/docx/export-options#node-types) is ignored without a warning, and so is a rule for the rows and cells of a table.
+
+### Describe a node with the builder
+
+The custom node builder from `@tiptap-pro/extension-export-docx/dsl` creates the rules, and TypeScript checks their shape. This rule writes each `notice` node as a paragraph with the text of its `message` attribute, or "Notice" when the attribute is empty or missing.
+
+`CONVERSION_TOKEN` stands for your Conversion token, as [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows, and `download` for your function that saves the file:
+
+```ts
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
+import { docxNode, paragraph, ref, textOp } from '@tiptap-pro/extension-export-docx/dsl'
+
+const customNodeDsl: CustomNodeDsl = {
+  dslVersion: '1.0',
+  nodes: [
+    docxNode('notice')
+      .block()
+      .emit(paragraph().children(textOp(ref('node.attrs.message'), { default: 'Notice' })))
+      .toJSON(),
+  ],
+}
+
+const exportExtension = ExportDocx.configure({
+  token: CONVERSION_TOKEN,
+  customNodeDsl,
+  onCompleteExport: (blob) => download(blob),
+})
+```
+
+The calls in the rule do this:
+
+- `docxNode('notice').block()` starts the rule for a block node. `'notice'` is the `name` of the node type in your schema.
+- `emit()` gives what export writes, a `paragraph()` with `children()`.
+- `textOp()` writes a value as text. Its `default` replaces an empty, missing or `null` value.
+- `ref()` reads a value from the node, here the attribute `message` in `node.attrs`.
+- `toJSON()` returns the rule as JSON. It doesn't start an export.
+
+`dslVersion` must be `'1.0'`. [Custom node DSL](/conversion/v3/docx/custom-nodes/dsl) lists every function, and covers marks, values and how the rules are checked.
+
+Add `exportExtension` to the editor's `extensions`, next to the extension that defines `notice`. Then call `editor.commands.exportDocx()`, as [Export DOCX](/conversion/v3/docx/export#export-the-document) shows, and the file arrives in `onCompleteExport`. `exportDocx({ customNodeDsl })` replaces the configured rules for one export.
+
+### More examples
+
+Each example is one rule for the `nodes` array, and they use these imports:
+
+```ts
+import {
+  childrenBlock,
+  childrenInline,
+  docxNode,
+  paragraph,
+  ref,
+  table,
+  tableCell,
+  tableRow,
+  template,
+  textRun,
+} from '@tiptap-pro/extension-export-docx/dsl'
+```
+
+A `tip` that holds text, written as one shaded paragraph. `childrenInline()` writes the text inside the node, and each piece of it keeps its own marks:
+
+```ts
+docxNode('tip')
+  .block()
+  .emit(paragraph({ shading: { fill: 'FFF4CE' } }).children(childrenInline()))
+  .toJSON()
+```
+
+A `callout` that holds paragraphs and lists, written as a table with one shaded cell. `childrenBlock()` writes the blocks inside the node, and `type: 'pct'` makes the width a percentage of the available width:
+
+```ts
+docxNode('callout')
+  .block()
+  .emit(
+    table({ width: { size: 100, type: 'pct' } }).children([
+      tableRow().children([tableCell({ shading: { fill: 'FFF4CE' } }).children(childrenBlock())]),
+    ]),
+  )
+  .toJSON()
+```
+
+A `mention` that sits inside text, written as one colored text run:
+
+```ts
+docxNode('mention')
+  .inline()
+  .emit(
+    textRun({
+      text: template('@{node.attrs.label}'),
+      color: ref('node.attrs.color', { default: '4472C4', transform: 'hexNoHash' }),
+    }).applyMarks('node'),
+  )
+  .toJSON()
+```
+
+The `mention` rule uses these calls:
+
+- `textRun()` writes text with the formatting you set in its properties. `textOp()` takes no properties.
+- `template()` builds the text from a string whose `{...}` slots hold values of the node, here the `label` attribute.
+- `hexNoHash` turns `#4472C4` into the `4472C4` Word expects. A value without `#`, such as the `default`, stays as it is.
+- `textRun()` ignores the marks of the node, such as `bold` when the mention sits in bold text. `applyMarks('node')` adds them.
+
+### Write the JSON by hand
+
+Without the builder, you write the rules as objects, for example on a server that calls the [Export DOCX REST API](/conversion/v3/rest-api/export-docx), which takes them in the `customNodeDsl` field. This is the `notice` rule from [Describe a node with the builder](#describe-a-node-with-the-builder) as its `toJSON()` returns it:
+
+```ts
+import type { CustomNodeDsl } from '@tiptap-pro/extension-export-docx'
+
+const customNodeDsl: CustomNodeDsl = {
+  dslVersion: '1.0',
+  nodes: [
+    {
+      type: 'notice',
+      nodeKind: 'block',
+      render: {
+        emit: {
+          element: 'Paragraph',
+          children: {
+            $text: { $ref: 'node.attrs.message' },
+            default: 'Notice',
+          },
+        },
+      },
+    },
+  ],
+}
+```
+
+Each rule has a `type`, an optional `nodeKind`, and a `render` that holds `emit` or is `null`. `nodes` holds one rule per node type.
+
+These mistakes fail the export with status `400` and an error code, as [Validation and limits](/conversion/v3/docx/custom-nodes/dsl#validation-and-limits) explains:
+
+- A `dslVersion` other than `'1.0'` fails with `DOCX_DSL_UNKNOWN_VERSION`.
+- A second rule for the same type fails with `DOCX_DSL_DUPLICATE_NODE_TYPE`.
+- A root field other than `dslVersion` and `nodes` fails with `DOCX_DSL_INVALID_SHAPE`, or with `DOCX_DSL_RESERVED_SHAPE` for the reserved names `requiresStyles`, `contributedStyles`, `externalRefs` and `limits`.
+
+The types of a rule and everything inside it are exported from `@tiptap-pro/extension-export-docx`, and [Export types](/conversion/v3/docx/export-options/types#custom-node-types) shows their shapes.
+
+## Choose the output shape
+
+The `emit` of a rule holds an element, an operation, an array of them, or `null`. An array writes its items one after the other.
+
+### Elements
+
+An element is one piece of the Word file, such as a paragraph. Its `props` set its formatting, as in `{ element: 'Paragraph', props: { alignment: 'center' }, children: ... }`, and [Properties](/conversion/v3/docx/custom-nodes/dsl#properties) lists them:
+
+| Element             | Kind       | Children                                             |
+| ------------------- | ---------- | ---------------------------------------------------- |
+| `Paragraph`         | block      | inline content                                       |
+| `TextRun`           | inline     | none, the `text` property holds the text             |
+| `ExternalHyperlink` | inline     | inline content. The `link` property is required      |
+| `Table`             | block      | `TableRow` elements                                  |
+| `TableRow`          | table row  | at least one `TableCell`                             |
+| `TableCell`         | table cell | block content. An empty cell gets an empty paragraph |
+| `PageBreak`         | block      | none. It writes a paragraph that holds a page break  |
+
+### Operations
+
+An operation writes something from the node, such as its content. Each one has a JSON form and a builder:
+
+| JSON                                                    | Builder                                                                            | What it writes                                                                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `{ $children: { as, marks?, wrapInlineInParagraph? } }` | `childrenInline()`, `childrenBlock()`, `childrenTableRow()`, `childrenTableCell()` | The content of the node, `as` `inline`, `block`, `table-row` or `table-cell`. Each child converts as usual, or by its own rule. |
+| `{ $text, marks?, default? }`                           | `textOp()`                                                                         | One text run from the value in `$text`. Its `default` also replaces an empty string, which the `default` of a `$ref` doesn't.   |
+| `{ $fragment: [...] }`                                  | `fragment()`                                                                       | Its items, the same as an array.                                                                                                |
+| `{ $if: { test, then, else? } }`                        | `iff()`                                                                            | `then` when `test` is truthy, otherwise `else` or nothing. `false`, `null`, `0`, `''` and a missing value are falsy.            |
+| `{ $switch: { on, cases, default? } }`                  | `switch_()`                                                                        | The branch in `cases` whose key equals `on`, otherwise `default` or nothing. An `on` that isn't a string fails.                 |
+
+### Block or inline
+
+The kind of `$children` must match its element: a `Paragraph` takes `inline`, a `TableCell` takes `block`, a `Table` takes `table-row` and a `TableRow` takes `table-cell`. Another kind fails with `DOCX_DSL_INVALID_CONTEXT`.
+
+When a node can hold text directly as well as blocks, pass `wrapInlineInParagraph: true` to its `childrenBlock()`, so export wraps the text in a paragraph instead of failing.
+
+The `nodeKind` of a rule says whether the node is a block or sits inside text:
+
+- **`'block'` or `'inline'`**, set by `block()` or `inline()`. A rule that emits the other kind fails with `DOCX_DSL_INVALID_CONTEXT` before the export starts.
+- **No `nodeKind`, or `'auto'`.** Export works out the kind from what the rule emits. Then a block, such as a paragraph, emitted for a node that sits inside text is left out without an error. Set `block()` or `inline()` to get the error instead.
+
+## Keep or drop the content
+
+Every way of writing nothing for a node also leaves out the content inside it. To leave out only the node, emit its children:
+
+| Rule                                                | Builder                                               | Result                                                    |
+| --------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+| `render: null` or `render: { emit: null }`          | `drop()` writes the first, `emitNothing()` the second | The node and its content are left out, without a warning. |
+| `render: { emit: { $children: { as: 'block' } } }`  | `emit(fragment(childrenBlock().toJSON()))`            | The blocks inside the node are written without the node.  |
+| `render: { emit: { $children: { as: 'inline' } } }` | `emit(fragment(childrenInline().toJSON()))`           | The text inside an inline node is written without it.     |
+
+The builder's `emit()` doesn't take the children builders, so they go into `fragment()` as JSON.
+
+## Nodes without a rule
+
+When a node type has no rule and export can't convert it, `onWarning` receives an `unsupported` warning with the type in `nodeType` and the message `Node "<type>" has no converter, it was left out of the export`. [Warnings](/conversion/v3/reference/warnings) lists every warning.
+
+Export has no converter for the `crossReference` node of `@tiptap-pro/extension-cross-references` or the `bookmarkPoint` node of `@tiptap-pro/extension-bookmark`, so a rule can write them. The rules have no element for a Word field or bookmark, so a rule writes a cross-reference as fixed text that Word doesn't update.
+
+Rules apply only to nodes, so the `bookmark` mark stays left out. [Links and bookmarks](/conversion/v3/docx/elements/links-and-bookmarks) says what export writes for links and bookmarks.

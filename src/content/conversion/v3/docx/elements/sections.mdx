@@ -1,0 +1,142 @@
+---
+title: Sections and page setup
+intro: 'A section is a part of the document with its own page setup, as in Word: paper size, orientation, margins, section columns, page numbering, headers and footers. Each Word section becomes a Page Layout section on import, and export writes each section back as a Word section. To import and export a file with Page Layout, see <a href="/docs/conversion/v3/docx/page-layout">Word files with Page Layout</a>.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Sections and page setup | Tiptap Conversion
+  description: Check which section settings of a Word file import into Page Layout, which ones export writes back, and how page color, page breaks and column breaks convert.
+  category: Conversion
+---
+
+## What you need
+
+[Page Layout](/features/page-layout/getting-started/overview), the extension that shows the document on pages, holds the sections. Each section starts with a `sectionBreak` node, which holds the section's page setup. [Word files with Page Layout](/conversion/v3/docx/page-layout) shows how to import and export a file with it.
+
+Each section also keeps its own headers and footers, as [Headers and footers](/conversion/v3/docx/elements/headers-and-footers) shows.
+
+Without Page Layout, the editor has no pages, so import keeps each `sectionBreak` as [preserved content](/conversion/v3/docx/preserved-content), with its setup and a `preserved` warning. Export writes it back, and the document opens with its pages once you add Page Layout.
+
+[Without Page Layout](/conversion/v3/docx/page-layout#without-page-layout) says what import and export do in such an editor.
+
+## Import
+
+Import puts a `sectionBreak` node in front of each section, the first at the very start of the document. Each one holds its section's setup in these attributes, with lengths in pixels:
+
+| Setting              | Attributes                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| Paper size           | `formatId`, `pageWidth`, `pageHeight`                                                                     |
+| Orientation          | `orientation`                                                                                             |
+| Margins              | `marginTop`, `marginRight`, `marginBottom`, `marginLeft`                                                  |
+| Section break kind   | `kind`: `nextPage`, `evenPage`, `oddPage` or `continuous`                                                 |
+| Section columns      | `columnCount`, `columnGaps`, `columnWidths`, `columnRule` for the line between columns                    |
+| Page numbering       | `pageNumbering`, an object with `format`, `start` and `chapter`                                           |
+| Different first page | `differentFirstPage`                                                                                      |
+| Note placement       | `notePlacement`: `bottomOfPage` or `belowText`                                                            |
+| Note numbering       | `footnoteNumbering` and `endnoteNumbering`, each `null` or an object with `format`, `start` and `restart` |
+| Page color           | `themePage`, a hex color such as `#fff8e8`, on the first section only, as [Page color](#page-color) says  |
+| Header and footer    | See [Headers and footers](/conversion/v3/docx/elements/headers-and-footers)                               |
+
+`formatId` names a Page Layout paper size, such as `A4` or `Letter`, when the Word paper matches one, and other paper gets an ID of its own.
+
+A `null` note numbering means Page Layout's default: `1, 2, 3` for footnotes and `i, ii, iii` for endnotes.
+
+Section columns flow a section's text through several columns side by side, as Word's Layout > Columns does.
+
+`columnGaps` holds the space after each column but the last. `columnWidths` holds each column's share of the text width, such as `[0.6, 0.4]`, so the widths follow the paper size. A section's blocks aren't wrapped in column nodes, because Page Layout flows them through the columns, as [Section columns](/features/page-layout/section-columns) explains.
+
+### Page numbering
+
+| Field     | Value                                                                |
+| --------- | -------------------------------------------------------------------- |
+| `format`  | The number format, such as `decimal` or `lowerRoman`                 |
+| `start`   | The first page number, or `null` to continue from the section before |
+| `chapter` | Word's "Include chapter number", or `null`                           |
+
+`chapter` puts the current chapter number before the page number, such as `2-5` for page 5 of chapter 2. It holds the heading `level` that starts a chapter and the `separator` between the two numbers: `hyphen`, `period`, `colon`, `emDash` or `enDash`.
+
+### Settings that change on import
+
+A Word file with no section properties, so no paper or margins, imports as one US Letter section with 1-inch margins. An "at least" top or bottom margin imports as a fixed margin of the same size.
+
+Some settings change to ones Page Layout has. The last two give no warning, which is a known limit that is being fixed:
+
+| Word setting                        | Imports as                                   | Warning                 |
+| ----------------------------------- | -------------------------------------------- | ----------------------- |
+| Binding gutter of the margins       | Left out                                     | `gutter-dropped`        |
+| Section break in a table            | Ignored, as Word doesn't end a section there | `section-in-table-cell` |
+| Start in the next column            | Starts on the next page                      | None                    |
+| Custom number format, such as `001` | Default for its kind                         | None                    |
+
+The default number format is decimal for pages and footnotes, and lowercase Roman for endnotes.
+
+### Page breaks and column breaks
+
+A page break the user inserted in Word imports as a `pageBreak` node and exports back as a Word page break. A column break converts the same way, as a `columnBreak` node. Page Layout has both as inline nodes, with the `insertPageBreak()` and `insertColumnBreak()` commands, as [Breaks](/features/page-layout/breaks) shows.
+
+Import keeps a page break inside its paragraph, where Word has it:
+
+```json
+{
+  "type": "paragraph",
+  "content": [{ "type": "text", "text": "End of part one" }, { "type": "pageBreak" }]
+}
+```
+
+Other breaks import like this:
+
+- **A paragraph set to start on a new page**, directly or by its style, gets a `pageBreak` at its start.
+- **A page break in a table cell** stays in the cell's paragraph.
+- **Soft page breaks**, which Word saves from its last layout, aren't read, because they are Word's layout, not content.
+
+[Breaks on export](#breaks-on-export) lists what each break node becomes in the file. In an editor without Page Layout, see [Page breaks without Page Layout](/conversion/v3/docx/page-layout#page-breaks-without-page-layout).
+
+## Export
+
+Export writes the settings of the [Import](#import) table back, with one exception: the page color follows the rules in [Page color](#page-color).
+
+Export writes the paper size from `pageWidth` and `pageHeight`, so it doesn't need `formatId`. The chapter number exports with its `separator`.
+
+The `kind` decides where a section starts:
+
+- **`nextPage`** starts a new page.
+- **`evenPage`** and **`oddPage`** start the section on the next even or odd page in Word. Page Layout lays the section out the same way: where the next page would have the wrong number, the page in between stays blank.
+- **`continuous`** stays on the sheet and takes the paper of the section before it, because paper can't change halfway down a sheet.
+
+Page numbers use the section's number format, such as `decimal` or `lowerRoman`. A format without an exact Word match is written as the closest one, with an `unsupported` warning.
+
+To export on other paper than the sections hold, see [Export on other paper](/conversion/v3/docx/page-layout#export-on-other-paper).
+
+### Page color
+
+Word has one page color for the whole document. Import puts it on the first section as `themePage` when Word stores a hex color. A page color of `auto`, or a theme color without a hex value, gives none.
+
+Export writes the `themePage` of the first section. To set the color yourself, pass `pageColor` to `exportDocx()` in an editor set up as in [Export DOCX](/conversion/v3/docx/export). It wins over `themePage`:
+
+```ts
+editor.commands.exportDocx({ pageColor: '#fff8e8' })
+```
+
+Export drops a different page color on a later section, with an `unsupported` warning. It also drops `themeText` and `themeAccent`, the text and accent colors Page Layout can give a section, with one `unsupported` warning for each kind. Word prints the page color only with its print background setting on.
+
+### Breaks on export
+
+On export, break nodes become:
+
+| Node                           | Exports as                         |
+| ------------------------------ | ---------------------------------- |
+| `pageBreak` inside a paragraph | A Word page break at that place    |
+| `pageBreak` between blocks     | A paragraph with a Word page break |
+| `columnBreak`                  | A Word column break                |
+
+## Limits
+
+Sections and page setup have these limits:
+
+- Word has one page color for the whole document, so export drops the page color of a later section. It also drops a section's `themeText` and `themeAccent`.
+- Import starts a section that Word starts in the next column on the next page.
+- Import leaves out the binding gutter, and reads a custom number format as the default for its kind.
+- Soft page breaks don't import.
+
+[Limitations](/conversion/v3/reference/limitations#pages) lists each one, with what to do about it.

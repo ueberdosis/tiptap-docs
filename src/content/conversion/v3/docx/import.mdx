@@ -1,0 +1,157 @@
+---
+title: Import DOCX
+intro: 'The <code>ImportDocx</code> extension opens a Word (<code>.docx</code>) file in the editor. Its <code>importDocx</code> command sends the file to the Conversion service and writes the result into your editor. To set it up, start with <a href="/docs/conversion/v3/getting-started/install">Install Tiptap Conversion</a>.'
+headerDemo:
+  path: '/Extensions/ImportDocx'
+  isPro: true
+  code: false
+  caption: '<strong>Import DOCX:</strong> pick a <code>.docx</code> file and see it in the editor.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Import DOCX | Tiptap Conversion
+  description: Open a .docx file in the editor with the importDocx command, keep the content your extensions can't show, import checkbox lists and choose where the document goes.
+  category: Conversion
+---
+
+## Import a file
+
+`importDocx()` replaces the editor's content with the content of a `.docx` file. Add `ImportDocx` with your Conversion token to the editor, as [Install Tiptap Conversion](/conversion/v3/getting-started/install#4-build-a-first-editor) builds it, and pass the `File` the user picked to the command.
+
+In this example, `CONVERSION_TOKEN` is your Conversion token, the JWT that lets the editor call the Conversion service, and `#import` is a file input on the page:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ImportDocx.configure({
+      token: CONVERSION_TOKEN,
+      onWarning: (warning) => console.warn(warning.code, warning.message),
+      onError: (error) => console.error(error),
+    }),
+  ],
+})
+
+document.querySelector('#import')?.addEventListener('change', (event) => {
+  if (!(event.target instanceof HTMLInputElement)) return
+  const file = event.target.files?.[0]
+  if (file) editor.commands.importDocx({ file })
+})
+```
+
+`token` is required, and the other [Import options](/conversion/v3/docx/import-options) are optional. Without a `token` or a `file`, the import fails before it sends a request.
+
+The command returns `true` right away, because the Conversion service converts the file over the network. The import runs in the background and replaces the whole document when it finishes.
+
+Without `onImport`, the import writes the document when it arrives. To read or change the document first, pass `onImport`, as [Review an import before it applies](/conversion/v3/docx/import/review) shows. Problems reach `onWarning` and `onError`, as [Warnings and errors](#warnings-and-errors) shows.
+
+## What the editor keeps
+
+The editor shows the nodes and marks its extensions define. Add what the content you expect needs:
+
+- **Tables, lists and other Word content:** [Supported Word elements](/conversion/v3/docx/elements) links to the extension for each kind.
+- **Images:** also an upload endpoint of yours, because a `.docx` file holds its images inside the file. Without one, import skips every image. See [Images in imported files](/conversion/v3/docx/import/images).
+- **Word's named styles, such as Heading 1:** turn them into CSS, as [Word styles as CSS](/conversion/v3/docx/import/word-styles) shows.
+
+### Content without an extension
+
+Content the editor has no extension for doesn't fail the import. The import keeps it as preserved content until you add the extension, and `onWarning` receives a `preserved` warning for each such type.
+
+For example, a Word table in an editor without the table extension shows its cells' text as editable paragraphs. Once you add the extension, it shows as a table. [Content the editor cannot show](/conversion/v3/docx/preserved-content) explains how preserved content looks and turns back.
+
+### Sections, headers and footers
+
+The imported document holds everything [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the editor as pages, can show: sections, page setup, headers, footers, page numbers, breaks and notes.
+
+- **With Page Layout:** all of it goes into the pages, as [Word files with Page Layout](/conversion/v3/docx/page-layout) shows.
+- **Without Page Layout:** the editor shows the body, and keeps the other parts as preserved content, as [Without Page Layout](/conversion/v3/docx/preserved-content#without-page-layout) explains. `context.content` in `onImport` still holds the whole document, so you can read these parts yourself.
+
+## Checkbox lists
+
+The `taskLists` option decides whether a Word checkbox list imports as a task list, the `taskList` and `taskItem` nodes with the ticked state kept. Set it on `ImportDocx.configure()`, or on one `importDocx()` call, which wins:
+
+```ts
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  taskLists: 'auto',
+})
+
+editor.commands.importDocx({ file, taskLists: 'ignore' })
+```
+
+The default, `'auto'`, does the same as `'import'`: it imports checkbox lists as task lists, whatever the editor's schema has. `'ignore'` imports them as ordinary bullet or numbered lists.
+
+An editor without `taskList` and `taskItem` keeps imported task lists as preserved content, ticked states included, and they become task lists once you add the nodes.
+
+[Lists and task lists](/conversion/v3/docx/elements/lists) shows the extensions a task list needs, and which Word checkboxes convert.
+
+## Where the document goes
+
+`setEditorContent()`, the function of the [onImport context](/conversion/v3/docx/import/review#the-onimport-context) that writes the import, uses the first of these ways that applies:
+
+1. An extension with an import handler writes it, as [Write the import yourself](#write-the-import-yourself) shows.
+2. With Page Layout on a mounted editor, one attached to an element on the web page, it replaces the Source Document in one step. That is the document Page Layout lays out into pages. The caret lands at the start of the body, and one undo takes the import back.
+3. Otherwise it writes into the editor's own document with `setContent`. A Page Layout editor that has not mounted, such as a headless one in a Node.js script, has no pages, so its own document is the Source Document. Sections, headers and notes land there as they do in a mounted editor.
+
+The import doesn't record the write as tracked changes, even when the Tracked Changes extension is on the editor.
+
+Each write carries the `DOCX_IMPORT_META` transaction meta, set to `true`, so your plugins can tell an import apart. The constant holds the meta key `'docxImport'`.
+
+Read the meta in `onUpdate`, which sees the import with and without Page Layout. `onTransaction` misses it with Page Layout, because the editor's `transaction` event doesn't carry the import's own transaction:
+
+```ts
+import { Extension } from '@tiptap/core'
+import { DOCX_IMPORT_META } from '@tiptap-pro/extension-import-docx'
+
+const LogImports = Extension.create({
+  name: 'logImports',
+  onUpdate({ transaction }) {
+    if (transaction.getMeta(DOCX_IMPORT_META)) console.log('DOCX imported')
+  },
+})
+```
+
+### Write the import yourself
+
+An extension can replace the write with its own, such as one that puts the document into your app's state first. Keep a function named `applyDocxImport` in its storage, and `setEditorContent()` calls it with `{ content }` instead of writing the document.
+
+Return `true` when you wrote the import, or `false` to let the import write it as usual. When several extensions have such a function, the first in the editor's extension order is called. This example writes the document into the editor itself:
+
+```ts
+import { Extension } from '@tiptap/core'
+import type { DocxImport } from '@tiptap-pro/extension-import-docx'
+
+const WriteImport = Extension.create({
+  name: 'writeImport',
+  addStorage() {
+    return {
+      applyDocxImport: ({ content }: DocxImport) => {
+        this.editor
+          .chain()
+          .setMeta('trackedChanges', { type: 'skipTracking' })
+          .setContent(content)
+          .run()
+        return true
+      },
+    }
+  },
+})
+```
+
+`content` is a copy of the document, not yet checked against any schema, so check it before you write it. Changing it doesn't change the `onImport` context. The `skipTracking` meta keeps tracked changes from recording the import as a suggestion. The import still applies the CSS styles.
+
+The function's type is `DocxImportHandler`, `(docxImport: DocxImport) => boolean`.
+
+## Warnings and errors
+
+A warning means the import left something out or changed it, and went on. An error means the import stopped and wrote nothing.
+
+`onWarning` receives the warnings and `onError` the errors. Set them on `ImportDocx.configure()`, as [Import a file](#import-a-file) does, or on one `importDocx()` call, which wins.
+
+[Warnings](/conversion/v3/reference/warnings) lists every warning code and when each arrives. [Errors](/conversion/v3/reference/errors) lists every error, which callback receives it, and what happens when a newer import starts before an older one finished.
