@@ -20,6 +20,12 @@ export type SidebarGroup = {
   href: string
   tags?: string[]
   children: Omit<SidebarLink, 'type'>[]
+  /** The title folds the group open and closed. It starts open when it holds the current page. */
+  collapsible?: boolean
+  /** A collapsible group that starts open on every page. */
+  defaultOpen?: boolean
+  /** Draws a line above the group, to separate it from the groups before. */
+  divider?: boolean
 }
 
 export type SidebarConfig = {
@@ -93,6 +99,8 @@ export type FrontmatterHeaderDemo = {
   code?: boolean
   /** A short line at the left of the bar, in HTML like `intro`. Shown only without code, where the view switch is not. */
   caption?: string
+  /** A CSS length, such as `min(80vh, 52rem)`, for a taller demo. Defaults to `min(70vh, 31rem)`. */
+  height?: string
 }
 
 export type FrontmatterSidebar = {
