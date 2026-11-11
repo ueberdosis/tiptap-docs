@@ -30,12 +30,9 @@ export const EnterpriseCalloutAuto = ({
   disableWaitlist = false,
   inverted = false,
 }: EnterpriseCalloutAutoProps) => {
-  const [mounted, setMounted] = useState(false)
   const [sidebarElement, setSidebarElement] = useState<Element | null>(null)
 
   useEffect(() => {
-    setMounted(true)
-
     if (renderMode === 'sidebar') {
       // Find the secondary sidebar by looking for the requirements-slot's parent
       const requirementsSlot = document.getElementById('requirements-slot')
@@ -50,6 +47,8 @@ export const EnterpriseCalloutAuto = ({
           // Insert after requirements-slot
           requirementsSlot.insertAdjacentElement('afterend', container)
         }
+        // The container only exists in the browser, so it can be known only after mounting
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSidebarElement(container)
       }
     }
@@ -69,7 +68,7 @@ export const EnterpriseCalloutAuto = ({
   }
 
   // Render in sidebar via portal
-  if (mounted && sidebarElement && renderMode === 'sidebar') {
+  if (sidebarElement && renderMode === 'sidebar') {
     return createPortal(
       <EnterpriseCallout variant={variant} disableWaitlist={disableWaitlist} inverted={inverted} />,
       sidebarElement,

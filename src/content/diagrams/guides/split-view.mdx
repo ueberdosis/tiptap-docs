@@ -1,0 +1,119 @@
+---
+title: 'Text beside the picture'
+intro: 'You can show the text of a chart or a diagram in a text field of your own, next to the document. A change in either one updates the other. The package reads and writes the text. You build the text field and the layout.'
+headerDemo:
+  path: '/Extensions/DiagramsSplitView'
+  isPro: true
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Text beside the picture | Tiptap Diagrams Docs'
+  description: 'You can show the text of a chart or a diagram in a text field of your own, next to the document.'
+  category: Diagrams
+---
+
+## Functions
+
+| Function                                                                                | What it does                                                                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`readText({ pos? })`](/diagrams/api-reference/storage#reading-a-charts-data)           | Returns the text of a chart or a diagram, with its format                                   |
+| [`updateFromText({ text, pos? })`](/diagrams/guides/split-view#updatefromtext)          | Changes the chart or diagram from that text                                                 |
+| [`highlightSource(text, format)`](/diagrams/api-reference/selectors#highlighted-source) | Returns the text as HTML with its parts colored, from `@tiptap-pro/extension-diagrams/core` |
+
+## Reading the text
+
+```ts
+const current = editor.storage.diagrams.readText({ pos })
+// { format: 'chart-syntax', text: 'bar\nMonth | Revenue\nJan | 120' }
+```
+
+For a chart, `readText` returns its type line and its rows in the
+[Chart syntax](/diagrams/data/chart-syntax), split at its delimiter, as the Quick Input shows them. The
+format is `'chart-syntax'`. For a diagram, it returns the source, in the diagram's own format:
+`'mermaid'`, `'drawio'` or `'bpmn'`. Without a chart or a diagram at `pos`, or selected, it returns
+`null`.
+
+## Writing it back
+
+### updateFromText
+
+Changes a chart or a diagram from its text, the same text that `readText` returns.
+
+```ts
+editor.commands.updateFromText({ pos, text: 'pie\nDogs, 3\nCats, 2' })
+```
+
+| Option | Type     | Description                                                        |
+| ------ | -------- | ------------------------------------------------------------------ |
+| `text` | `string` | The text                                                           |
+| `pos`  | `number` | The position of the chart or diagram. Defaults to the selected one |
+
+- **A chart** reads the text as the Quick Input does: rows in the Chart syntax below an optional
+  type line, or a [Mermaid chart](/diagrams/charts/overview#importmermaidchart). The chart's data and type
+  change. A Mermaid chart also sets what its source names, such as the title or the axes. The
+  rest of the Chart Spec, such as its colors, stays.
+- **A diagram** takes the text as its new source, as `updateFlowDiagram` does.
+- **Text the command cannot read**, such as an unclosed quote, changes nothing, and the command
+  returns `false`. Keep the text in your text field and mark it as invalid, so nothing the user
+  typed is lost.
+- **A chart whose data is read-only**, because it comes from a linked Data Source, returns
+  `false` for new data.
+
+## Following the selection
+
+Read the text again when the selection moves to another chart or diagram, or when the chart
+changes elsewhere. Skip the update that your own text field caused, so the text stays as the
+user typed it.
+
+```ts
+const textField = document.createElement('textarea')
+document.body.append(textField)
+
+let pos = editor.storage.diagrams.listCharts()[0]?.pos ?? null
+if (pos !== null) textField.value = editor.storage.diagrams.readText({ pos })?.text ?? ''
+let typing = false
+
+editor.on('transaction', ({ transaction }) => {
+  // A command that changes a chart replaces its node. Mapping with -1 keeps pos at its start.
+  if (pos !== null) pos = transaction.mapping.map(pos, -1)
+  const { node, from } = editor.state.selection
+  if (node && ['chart', 'flowDiagram'].includes(node.type.name)) pos = from
+  if (!typing && pos !== null) {
+    textField.value = editor.storage.diagrams.readText({ pos })?.text ?? ''
+  }
+})
+
+textField.addEventListener('input', () => {
+  if (pos === null) return
+  typing = true
+  const valid = editor.commands.updateFromText({ pos, text: textField.value })
+  typing = false
+  textField.toggleAttribute('data-invalid', !valid)
+})
+```
+
+## Coloring the text
+
+`highlightSource` returns the text as HTML. Each part sits in a `<span>` with a class such as
+`tiptap-diagram-source-keyword`. It colors the Chart syntax and Mermaid. Leave draw.io and BPMN
+XML as plain text.
+
+```ts
+import { highlightSource } from '@tiptap-pro/extension-diagrams/core'
+
+const { delimiters, chartTypes } = editor.storage.diagrams.describeCapabilities()
+code.innerHTML = highlightSource(text, 'chart-syntax', {
+  delimiters,
+  types: chartTypes.map((type) => type.id),
+})
+```
+
+Put the class `tiptap-diagram-source` on the element around the HTML. The
+[Highlighted source](/diagrams/api-reference/selectors#highlighted-source) colors of the Quick Input then apply
+there too, in light and dark. For a text field the user can edit, lay a transparent `<textarea>`
+over a `<pre>` that holds the HTML, with the same font, padding and line height. The demo works
+that way.
+
+The [`sourceHighlighting`](/diagrams/api-reference/options#sourcehighlighting) option turns the colors off only in the
+Quick Input and in a diagram's code view, not in your own text field.

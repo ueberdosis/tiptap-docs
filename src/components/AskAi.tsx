@@ -62,7 +62,12 @@ Output format:
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild className="outline-none ring-0">
-        <Button size="small" variant="tertiary">
+        <Button
+          size="small"
+          variant="tertiary"
+          // The same hover as the sidebar links
+          className="hover:bg-grayAlpha-100 group-hover:bg-grayAlpha-100"
+        >
           <SparklesIcon className="size-3" />
           <span>Ask AI</span>
           <ChevronDownIcon className="size-3" />
