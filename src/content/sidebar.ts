@@ -12,6 +12,7 @@ import { sidebarConfig as editorSidebar } from './editor/sidebar'
 import { sidebarConfig as examplesSidebar } from './examples/sidebar'
 import { sidebarConfig as guidesSidebar } from './guides/sidebar'
 import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
+import { sidebarConfig as pageLayoutSidebar } from './features/page-layout/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
@@ -112,7 +113,16 @@ const items: SidebarGroup[] = [
       section('Conversion', conversionSidebar, { inline: ['Get started'] }),
       section('Composable Docs', composableDocsSidebar),
       section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
-      section('Pages', pagesSidebar, { inline: ['Getting started'] }),
+      {
+        // Named for the word readers search for. Page Layout replaces Pages, which stays at
+        // its URLs for existing projects
+        title: 'Pagination',
+        href: '',
+        children: [
+          section('Page Layout', pageLayoutSidebar, { inline: ['Page Layout'], tags: ['Alpha'] }),
+          section('Pages', pagesSidebar, { inline: ['Getting started'], tags: ['Legacy'] }),
+        ],
+      },
       {
         ...link(editorSidebar, ['Whiteboard']),
         href: '',
