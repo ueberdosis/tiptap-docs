@@ -188,6 +188,7 @@ const items: SidebarGroup[] = [
     title: 'Features',
     href: '/features',
     collapsible: true,
+    defaultOpen: true,
     divider: true,
     children: [
       { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },

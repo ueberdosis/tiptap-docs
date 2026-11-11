@@ -103,8 +103,8 @@ Request body:
 - `readSelection` (`boolean`, optional)
 - `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
   include an extra metadata field on every proofreading edit, such as a short explanation.
-- `readBoard`, `createShapes`, `arrangeShapes`, `createDiagram`, `updateShapes`, `deleteShapes`,
-  `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
+- `readBoard`, `createShapes`, `arrangeShapes`, `distributeShapes`, `createDiagram`, `updateShapes`,
+  `deleteShapes`, `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
   a whiteboard.
 
 Response:
@@ -197,6 +197,7 @@ Request body:
 - `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+- `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
 
 Response:
 
@@ -270,6 +271,8 @@ This endpoint can return:
   Retry the request with the latest document state.
 - `422` with `validation_failed`: The request body does not match the endpoint schema. The response
   includes `error.issues`, a list of validation issues.
+- `422` with `tool_config_validation_failed`: `tool.config` isn't valid, like a `readSelection` call
+  without `user`. The response includes `error.data.issues`.
 - `429` with `rate_limited`: Access Control rate-limited authentication.
 - `429`: The server-side rate limiter blocked the request. This response uses a different top-level
   shape:
@@ -319,6 +322,7 @@ The request is sent in parts. The first part contains:
 - `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+- `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
 - `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
   `tiptapEdit` output. Must be between `0` and `1000`. Use `0` to apply edits as fast as possible.
 
@@ -401,6 +405,18 @@ enabling additional tools as needed.
 
 You can also call these tools directly from your application code to build custom workflows.
 
+### Hidden attributes
+
+Use the `hiddenAttributes` field (`string[]`) of `execute-tool` and `stream-tool` requests to keep node attributes away from the AI, like layout settings that only an export uses. `tiptapRead`, `tiptapEdit`, `tiptapQuery`, `replaceDocument`, `createDocument`, `readSelection`, `getThreads` and `readDocument` use it: through these tools, the AI can't read or change these attributes, and the document keeps their values. The other tools ignore it, so the [board tools](#board-tools) still read and write shapes with all their attributes, like the `docId` of a doc frame. Pass the same list in every request that reads or edits the document.
+
+- Reads leave the attributes out of the returned content.
+- Edits ignore the values that the AI writes for them. A node whose text doesn't change keeps its values, also when it moves. A changed node keeps the values of the node of the same type that it replaces, also when the AI rewrites a whole table or list and adds or removes rows. A paragraph that the AI splits into several paragraphs passes its values to each of them.
+- New content, like an added table row, and a node that changes its type, like a paragraph that becomes a heading, get the default values of the schema. A node that the AI moves with a separate insert and delete is new content too.
+- When one edit adds a node and completely rewrites the text of a node next to it, the values can go to the added node instead.
+- The AI can't carry out requests that need these attributes, like a smaller line height.
+- Only node attributes are hidden. `_hash` and the tracked-changes attributes can't be hidden. An invalid list fails with `422` and `validation_failed` in `execute-tool`, and with `400` and `invalid_stream_message` in `stream-tool`.
+- `stream-tool` rejects the option for `tiptapEdit` with `invalid_stream_message`, because streamed edits can't keep the values.
+
 ### `tiptapRead`
 
 Reads the document in chunks to avoid overflowing the context window.
@@ -413,6 +429,7 @@ Tool input (`tool.input`):
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
+- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -486,6 +503,7 @@ Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters that all reads of one tool call
   return together. Default: `32000`
+- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from `content` and `summary` reads. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 - `threadData` (`object`, optional): Metadata added to created threads.
 - `commentData` (`object`, optional): Metadata added to created comments.
 
@@ -529,7 +547,7 @@ Alias for `replaceDocument`. It accepts the same input and returns the same outp
 
 Reads the user's current editor selection.
 
-This tool is only compatible with Tiptap Cloud collaborative documents. In [multi-field documents](/editor/extensions/functionality/collaboration#field), only the `default` field is supported.
+This tool is only compatible with Tiptap Cloud collaborative documents. In [multi-field documents](/editor/extensions/functionality/collaboration#field), it reads the selection in the requested `field`.
 
 Tool input (`tool.input`):
 
@@ -537,7 +555,9 @@ This tool does not take any input. Pass an empty object (`{}`).
 
 Tool config (`tool.config`):
 
-- `user` (`string`, required): The ID of the user whose selection to read. Must be the same as the `user.id` defined in the [Collaboration Caret extension](/editor/extensions/functionality/collaboration-caret).
+- `user` (`string`, required): The ID of the user whose selection to read. Must match `user.id`
+  configured in [Collaboration Caret](/editor/extensions/functionality/collaboration-caret).
+- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -565,6 +585,7 @@ Tool input (`tool.input`):
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
+- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -655,7 +676,7 @@ This tool does not take any input. Pass an empty object (`{}`).
 
 Tool config (`tool.config`):
 
-`null`
+- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -728,7 +749,7 @@ Each field that is missing, `null` or invalid falls back on its own: to no selec
 `createShapes`, `createDiagram` and `createDocFrame` take these fields in their input (`tool.input`), so the AI can name the place for new content:
 
 - `near` (`string[]`, optional): Up to 100 ids of the shapes that the new content belongs next to, like the diagram that a summary is about. Defaults to the selected shapes.
-- `side` (`'right' | 'below' | 'left' | 'above'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer.
+- `side` (`'right' | 'below' | 'left' | 'above' | 'between'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer. `'between'` puts the new content in the middle between exactly two shapes, and places it like without `side` for any other number of shapes.
 
 New shapes go beside the shapes in `near` that are on the board, or else beside the selected shapes. Without such shapes, they go in the middle of the viewport, or else right of all shapes on the board, or at the origin of an empty board. When other shapes are in the way, they move to the closest free spot.
 
@@ -780,22 +801,28 @@ Success response:
   - `id` (`string`): Unique arrow identifier.
   - `fromId` (`string | null`): Id of the shape where the arrow starts, or `null` for a free end.
   - `toId` (`string | null`): Id of the shape that the arrow points to, or `null` for a free end.
+  - `label?` (`string`): Label on the arrow, one line per paragraph. The label of arrows that
+    aren't selected is cut after 280 characters.
+  - `suggestion?` (`'add' | 'delete' | 'change'`): A suggestion that waits for a review, and adds
+    or deletes the arrow, or changes its attributes or its label.
 - `omittedShapeCount` (`number`): Number of shapes and arrows that the output leaves out. It
   lists at most 300.
 - `viewport` (`object | null`): The `viewport` of the tool config.
 
 ### `createShapes`
 
-Adds sticky notes as one grid, in front of all shapes.
+Adds sticky notes as one grid, or plain text as one column, in front of all shapes.
 
 Tool input (`tool.input`):
 
-- `notes` (`array`, required): 1 to 24 notes, in reading order.
+- `notes` (`array`, required): 1 to 24 notes or texts, in reading order.
   - `text` (`string`, required): Text of the note, up to 500 characters. A line break starts a
     new paragraph. Lines that start with `- `, `1. `, `[ ] ` or `[x] ` make a bulleted list, a
     numbered list or a task list.
   - `color` (`'black' | 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'violet'`,
-    optional): Color of the note. Default: `'yellow'`
+    optional): Color of the note or text. Default: `'yellow'` for notes, `'black'` for text
+- `type` (`'note' | 'text'`, optional): `'text'` adds free text without a note around it, like a
+  heading or a caption, up to 400 wide, one text below the other. Default: `'note'`
 - `near` and `side` (optional): Where the notes go. See [board placement](#board-placement).
 
 Tool config (`tool.config`):
@@ -806,8 +833,8 @@ Tool output (`tool.output`):
 
 Success response:
 
-- `success` (`true`): Indicates that the notes were added.
-- `createdIds` (`string[]`): Ids of the new notes, in the order of the input.
+- `success` (`true`): Indicates that the notes or texts were added.
+- `createdIds` (`string[]`): Ids of the new notes or texts, in the order of the input.
 - `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
 
 Error response:
@@ -847,9 +874,41 @@ Error response:
 - `success` (`false`): Indicates that no shapes were arranged. The error lists the reasons.
 - `error` (`string`): Error message.
 
+### `distributeShapes`
+
+Lines shapes up in one row or column, with equal room between them, in their order along it. They line up on the middle of all of them. The row keeps the outer edges of the shapes, unless the room between them would be under 48, and then the shapes go 48 apart. When the row would cover other shapes, it moves as a whole to the closest free spot, but frames of its shapes don't count. Shapes only move, so the arrows that connect them follow, and the shapes in a moved frame move with it.
+
+Tool input (`tool.input`):
+
+- `ids` (`string[]`, required): 2 to 300 ids of the shapes to line up.
+- `direction` (`'horizontal' | 'vertical'`, optional): A row from left to right, or a column from
+  top to bottom. Default: `'horizontal'`
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the shapes were lined up.
+- `movedIds` (`string[]`): Ids of the shapes that moved, with the shapes in moved frames. Shapes
+  that were in place already are left out.
+- `skipped` (`array`): Shapes that stayed where they were, each with `id` and `reason`, like an
+  id that isn't a shape on the board, an arrow, an id that came earlier, or a shape that waits for
+  another user's review.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that fewer than two shapes could be lined up. The error lists the
+  reasons.
+- `error` (`string`): Error message.
+
 ### `createDiagram`
 
-Draws shapes with text, connected by arrows, and lays them out as a diagram. The arrows connect the shapes, so they follow when a user moves a shape.
+Draws shapes with text, connected by arrows, and lays them out as a diagram. The arrows connect the shapes and hold their labels, so both follow when a user moves a shape.
 
 Tool input (`tool.input`):
 
@@ -858,14 +917,15 @@ Tool input (`tool.input`):
 - `nodes` (`array`, required): 1 to 40 shapes.
   - `key` (`string`, required): The AI's own name for the shape, up to 40 characters and unique
     in the diagram. Arrows refer to it.
-  - `text` (`string`, required): Text in the shape, up to 60 characters.
+  - `text` (`string`, optional): Text in the shape, up to 60 characters. A shape without text is
+    120 wide and 120 tall.
   - `shape` (`'rectangle' | 'ellipse' | 'diamond'`, optional): Kind of the shape. Another kind
     becomes a rectangle. Default: `'rectangle'`
   - `color` (`string`, optional): One of the colors of `createShapes`. Default: `'black'`
 - `arrows` (`array`, optional): Up to 60 arrows.
   - `from` (`string`, required): Key of the shape where the arrow starts.
   - `to` (`string`, required): Key of the shape that the arrow points to.
-  - `label` (`string`, optional): Label beside the arrow, up to 24 characters.
+  - `label` (`string`, optional): Label on the arrow, up to 24 characters.
 - `near` and `side` (optional): Where the diagram goes. See [board placement](#board-placement).
 
 Tool config (`tool.config`):
@@ -877,11 +937,12 @@ Tool output (`tool.output`):
 Success response:
 
 - `success` (`true`): Indicates that the diagram was drawn.
-- `createdIds` (`string[]`): Ids of all new shapes: the title, the shapes, the arrows and their
-  labels.
+- `createdIds` (`string[]`): Ids of all new shapes: the title, the shapes and the arrows.
 - `nodeIds` (`Record<string, string>`): Id of each new shape, by its key.
 - `skippedArrows` (`array`): Arrows that were left out, each with `from`, `to` and `reason`. An
   arrow with an unknown key, from a shape to itself, or that came earlier is left out.
+- `skippedLabels` (`array`): Arrows that were drawn without their label, each with `from`, `to`
+  and `reason`. Arrows of Whiteboard 0.1.0 hold no label.
 - `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
 
 Error response:
@@ -891,7 +952,7 @@ Error response:
 
 ### `updateShapes`
 
-Changes the text, color or kind of shapes. Shapes keep their place and size.
+Changes the text, color or kind of shapes, and the labels of arrows. Shapes keep their place and size.
 
 Tool input (`tool.input`):
 
@@ -899,8 +960,9 @@ Tool input (`tool.input`):
   - `id` (`string`, required): Id of the shape.
   - `text` (`string`, optional): New text, up to 500 characters, with the same lines as for
     `createShapes`. It replaces the text of the shape, without its formatting. The text that
-    `readBoard` gives for the shape is no change. Only sticky notes, geometric shapes and free
-    text have text.
+    `readBoard` gives for the shape is no change. An empty text takes the text away. Free text
+    without text stays on the board, so delete it instead. Sticky notes, geometric shapes and free text
+    have text. The text of an arrow is its label, without lists, from Whiteboard 0.2.0 on.
   - `color` (`string`, optional): New color, one of the colors of `createShapes`.
   - `kind` (`'rectangle' | 'ellipse' | 'diamond' | 'triangle'`, optional): New kind of a geometric
     shape.
@@ -954,14 +1016,14 @@ Error response:
 
 ### `connectShapes`
 
-Draws arrows between shapes that are on the board, each with an optional label beside it.
+Draws arrows between shapes that are on the board, each with an optional label on it. An arrow runs between the middles of its shapes, or between the middles of their sides when it and its label cover other shapes and labels less there. An arrow back between two shapes takes another line than the arrow there.
 
 Tool input (`tool.input`):
 
 - `arrows` (`array`, required): 1 to 40 arrows.
   - `from` (`string`, required): Id of the shape where the arrow starts.
   - `to` (`string`, required): Id of the shape that the arrow points to.
-  - `label` (`string`, optional): Label beside the arrow, up to 24 characters.
+  - `label` (`string`, optional): Label on the arrow, up to 24 characters.
 
 Tool config (`tool.config`):
 
@@ -972,10 +1034,12 @@ Tool output (`tool.output`):
 Success response:
 
 - `success` (`true`): Indicates that at least one arrow was drawn.
-- `createdIds` (`string[]`): Ids of the new arrows and labels.
+- `createdIds` (`string[]`): Ids of the new arrows.
 - `skippedArrows` (`array`): Arrows that were left out, each with `from`, `to` and `reason`: an
   unknown shape, an arrow from a shape to itself, a shape that waits to be deleted, or an arrow
   that the board has already.
+- `skippedLabels` (`array`): Arrows that were drawn without their label, each with `from`, `to`
+  and `reason`. Arrows of Whiteboard 0.1.0 hold no label.
 - `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
 
 Error response:
