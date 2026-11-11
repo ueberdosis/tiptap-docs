@@ -197,6 +197,7 @@ Request body:
 - `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+- `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
 
 Response:
 
@@ -270,6 +271,8 @@ This endpoint can return:
   Retry the request with the latest document state.
 - `422` with `validation_failed`: The request body does not match the endpoint schema. The response
   includes `error.issues`, a list of validation issues.
+- `422` with `tool_config_validation_failed`: `tool.config` isn't valid, like a `readSelection` call
+  without `user`. The response includes `error.data.issues`.
 - `429` with `rate_limited`: Access Control rate-limited authentication.
 - `429`: The server-side rate limiter blocked the request. This response uses a different top-level
   shape:
@@ -319,6 +322,7 @@ The request is sent in parts. The first part contains:
 - `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format for tool input and
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
+- `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
 - `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
   `tiptapEdit` output. Must be between `0` and `1000`. Use `0` to apply edits as fast as possible.
 
@@ -400,6 +404,18 @@ All tools are disabled by default. We recommend starting with `tiptapRead` and `
 enabling additional tools as needed.
 
 You can also call these tools directly from your application code to build custom workflows.
+
+### Hidden attributes
+
+Use the `hiddenAttributes` field (`string[]`) of `execute-tool` and `stream-tool` requests to keep node attributes away from the AI, like layout settings that only an export uses. `tiptapRead`, `tiptapEdit`, `tiptapQuery`, `replaceDocument`, `createDocument`, `readSelection`, `getThreads` and `readDocument` use it: through these tools, the AI can't read or change these attributes, and the document keeps their values. The other tools ignore it, so the [board tools](#board-tools) still read and write shapes with all their attributes, like the `docId` of a doc frame. Pass the same list in every request that reads or edits the document.
+
+- Reads leave the attributes out of the returned content.
+- Edits ignore the values that the AI writes for them. A node whose text doesn't change keeps its values, also when it moves. A changed node keeps the values of the node of the same type that it replaces, also when the AI rewrites a whole table or list and adds or removes rows. A paragraph that the AI splits into several paragraphs passes its values to each of them.
+- New content, like an added table row, and a node that changes its type, like a paragraph that becomes a heading, get the default values of the schema. A node that the AI moves with a separate insert and delete is new content too.
+- When one edit adds a node and completely rewrites the text of a node next to it, the values can go to the added node instead.
+- The AI can't carry out requests that need these attributes, like a smaller line height.
+- Only node attributes are hidden. `_hash` and the tracked-changes attributes can't be hidden. An invalid list fails with `422` and `validation_failed` in `execute-tool`, and with `400` and `invalid_stream_message` in `stream-tool`.
+- `stream-tool` rejects the option for `tiptapEdit` with `invalid_stream_message`, because streamed edits can't keep the values.
 
 ### `tiptapRead`
 
