@@ -1,0 +1,137 @@
+---
+title: "Notes in the document"
+intro: "Notes are part of the Tiptap document, so they are saved, undone and shared like the rest of the text. This page explains what the document holds for them and how each note stays with its reference."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Notes in the document | Tiptap Editor Docs"
+  description: "What a document with footnotes stores, how to save it as JSON or HTML, and how each note stays with its reference."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-footnotes/docs/document.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## The four nodes
+
+The Footnotes extension adds four nodes to the schema. A node is one piece of a Tiptap document,
+such as a paragraph or an image.
+
+| Node                     | What it is                                     | Behavior                                                  |
+| ------------------------ | ---------------------------------------------- | --------------------------------------------------------- |
+| `footnoteReference`      | The reference, the number in the text          | Inline. Backspace deletes it as one character             |
+| `footnote`               | The note, the text of a footnote or an endnote | Holds blocks. Stands only inside a collection             |
+| `footnoteCollection`     | A collection, the numbered list of notes       | A block. Holds notes, after a title if `titleNode` is set |
+| `footnoteNumberingBreak` | A numbering break, after which numbers restart | A block with no content. A click selects it               |
+
+A reference and its note share a `footnoteId`, the id that pairs them. A note's placement,
+`'footnote'` or `'endnote'`, is the `FootnotePlacement` type. The table lists what each node stores:
+
+| Node                     | Attribute           | Default     | In HTML                                     |
+| ------------------------ | ------------------- | ----------- | ------------------------------------------- |
+| `footnoteReference`      | `footnoteId`        | `null`      | `data-tt-footnote-reference`                |
+| `footnote`               | `footnoteId`        | `null`      | `data-tt-footnote`                          |
+| `footnote`               | `placement`         | `'endnote'` | `data-tt-footnote-placement`                |
+| `footnoteCollection`     | `placement`         | `'endnote'` | `data-tt-footnote-placement`                |
+| `footnoteNumberingBreak` | `footnoteNumbering` | `null`      | `data-tt-footnote-sequence`, JSON, when set |
+| `footnoteNumberingBreak` | `endnoteNumbering`  | `null`      | `data-tt-endnote-sequence`, JSON, when set  |
+
+A reference with no `footnoteId` is not read as a reference, and a `placement` other than
+`'footnote'` counts as `'endnote'`. `getJSON()` also shows `"carriedNote": null` on each reference,
+which the clipboard uses. Leave it as it is.
+
+In HTML, a reference is an empty `sup`, because the stylesheet draws its number:
+
+```html
+<p>
+  Text with a note<sup data-tt-footnote-reference="fn1" class="tiptap-footnote-reference"></sup>
+</p>
+<ol
+  data-tt-footnote-placement="footnote"
+  class="tiptap-footnotes"
+  data-tt-footnote-collection="true"
+>
+  <li data-tt-footnote="fn1" data-tt-footnote-placement="footnote" class="tiptap-footnote">
+    <p>The text of the note.</p>
+  </li>
+</ol>
+```
+
+A numbering break is a `div` with `data-tt-footnote-numbering-break="true"` and
+`aria-hidden="true"`. [Styling](/features/footnotes/styling) lists the classes.
+
+## Where the collections stand
+
+There is one collection per placement and per numbering scope, the part of the document between two
+numbering breaks. Without breaks, the footnotes stand in one collection at the end of the document
+and the endnotes in a second one after it.
+
+- **The collections are the last blocks of their scope**, footnotes first, also at the top level
+  when pasted into another block. A paragraph written after them moves in front of them.
+- **Empty text blocks**, such as StarterKit's last paragraph, stay after the collections until the
+  user types in one.
+- **A scope with no notes has no collection.** `insertFootnote()` creates one for the first note.
+
+Only breaks at the top level divide the collections, as
+[Limitations](/features/footnotes/limitations#a-numbering-break-inside-a-blockquote-a-list-or-a-table) explains.
+
+## Save as JSON or HTML
+
+Store what `getJSON()` or `getHTML()` returns, which holds every note but no numbers. Both load
+back with every reference and note:
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { Footnotes } from '@tiptap-pro/extension-footnotes'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Footnotes],
+  content: savedHtml,
+})
+```
+
+`savedHtml` stands for the HTML you stored. The order of the extensions does not matter, because
+the extension reads its own elements before StarterKit's ordered list or a superscript mark can.
+
+## How each note stays with its reference
+
+After every change, the repair pass checks the notes against the references and fixes them in the
+same transaction, so one undo brings back a deleted reference with its note. It fixes these cases:
+
+- **A deleted reference** takes its note with it. A note with no reference or no `footnoteId` is
+  removed.
+- **A note out of order** moves to where its reference is read.
+- **A note whose placement changed** moves to the other collection. A collection holding both
+  placements is split.
+- **A collection whose last note is gone** is removed.
+- **A second reference to the same note** gets a copy of it. See
+  [Copy and paste](/features/footnotes/notes#copy-and-paste).
+- **Two notes with the same `footnoteId`** become one. The first is kept.
+
+A reference whose note is missing stays in the text with no number. Content passed to
+`new Editor({ content })` is not repaired until the first change that does more than type in a
+paragraph.
+
+### Turn the repair pass off
+
+Set `repair: false` only in an editor that shows something other than the document you save, as
+[Page Layout](/features/page-layout/getting-started/overview) does for its pages:
+
+```js
+Footnotes.configure({ repair: false })
+```
+
+In another editor, it keeps notes whose reference is deleted. To run the repair pass without the
+extension, see [Functions and names](/features/footnotes/api-reference/functions).
+
+## Ids and collaboration
+
+`insertFootnote()` gives each new note an id from `createFootnoteId()`, `footnote-` and a random
+UUID, unless its `createId` option passes a function of your own. A note keeps its id when the
+repair pass moves it.
+
+A copy gets an id derived from the original, such as `fn3-1`, and every client
+of a shared document derives the same id for the same copy.

@@ -1,0 +1,278 @@
+---
+title: "Insert and edit notes"
+intro: "The Footnotes extension has commands that insert a note, move the cursor between a reference and its note, turn a footnote into an endnote and delete a note. A copied note comes along when users paste it."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Insert and edit notes | Tiptap Editor Docs"
+  description: "Insert a footnote or an endnote, go from a reference to its note and back, turn a footnote into an endnote, and delete or copy a note."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-footnotes/docs/notes.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+The examples use the `editor` of the complete example in [Install Footnotes](/features/footnotes/install).
+
+## Insert a footnote or an endnote
+
+`insertFootnote()` puts a reference, the number in the text, at the cursor and adds an empty note
+for it. It moves the cursor into the note, so the user types the note's text next:
+
+```js
+editor.chain().focus().insertFootnote({ placement: 'footnote' }).run()
+editor.chain().focus().insertFootnote({ placement: 'endnote' }).run()
+```
+
+Without `placement`, the command uses the `defaultPlacement` option, which makes an endnote unless
+you set it to `'footnote'`. With [Page Layout](/features/page-layout/getting-started/overview), which
+shows the editor as printed pages, it makes a footnote unless you set it to `'endnote'`.
+
+The note goes into the collection, the numbered list of notes at the end of the document, in the
+order of its reference. [Notes in the document](/features/footnotes/document#where-the-collections-stand) says
+where the collections stand.
+
+Details:
+
+- **Selected text** stays. The reference goes at the head of the selection, the end where the
+  user stopped selecting.
+- **Inside a note**, the command returns `false`, because a note cannot have a note of its own.
+
+## Go from a reference to its note and back
+
+`focusFootnote(footnoteId)` puts the cursor at the start of a note's text, and
+`focusFootnoteReference(footnoteId)` puts it in front of the note's reference. The `footnoteId`
+is the id that pairs a reference with its note, and [Find the note at the cursor](/features/footnotes/notes#find-the-note-at-the-cursor)
+reads it.
+
+Neither command gives the editor focus, so a button chains `focus()` first:
+
+```js
+editor.chain().focus().focusFootnote(footnoteId).run()
+editor.chain().focus().focusFootnoteReference(footnoteId).run()
+```
+
+### Clicks on a reference and on a note's number
+
+By default, a click on a reference selects it. To let a click lead from the reference to its
+note, and from the number at the start of the note back to the text, set the click handlers:
+
+```js
+Footnotes.configure({
+  onReferenceClick: ({ footnoteId }) => editor.commands.focusFootnote(footnoteId),
+  onNoteMarkClick: ({ footnoteId }) => editor.commands.focusFootnoteReference(footnoteId),
+})
+```
+
+The handlers run when the user clicks, so they can use the `editor` that `new Editor()` returns.
+`onNoteMarkClick` says "mark" where these pages say number.
+
+| Handler            | Receives                             | Called for                                                                     |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------------------------ |
+| `onReferenceClick` | `{ footnoteId, pos, event }`         | A click directly on a reference                                                |
+| `onNoteMarkClick`  | `{ footnoteId, noteElement, event }` | A left-button `mousedown` between the note's left edge and its first character |
+
+A handler returns `true` when it handled the click, or `false` to let the editor handle it as
+usual.
+
+Details:
+
+- **`pos`** is the position in the clicked document. With Page Layout that is the pages, so use
+  it to place something beside the reference, not to write.
+- **`noteElement`** is the closest element with `data-tt-footnote`.
+- **An empty note** has no first character, so its number cannot be clicked.
+- **With Page Layout**, both clicks work without a handler. A handler of your own replaces
+  [Page Layout's](/features/page-layout/extension-behavior/footnotes#what-page-layout-sets).
+
+## Find the note at the cursor
+
+`footnoteAtSelection(selection)` returns the note the cursor is on, and whether the cursor is in
+the note's text or at its reference:
+
+```js
+import { footnoteAtSelection } from '@tiptap-pro/extension-footnotes'
+
+footnoteAtSelection(editor.state.selection)
+// { footnoteId: 'fn3', in: 'note' }, { footnoteId: 'fn3', in: 'reference' } or null
+```
+
+It reads only the head of the selection:
+
+| Where the cursor is                                          | Returns                  |
+| ------------------------------------------------------------ | ------------------------ |
+| Anywhere in a note's text                                    | `in: 'note'`             |
+| Right before or after a reference, or the reference selected | `in: 'reference'`        |
+| Between two references                                       | The one after the cursor |
+| Anywhere else, including a title above the notes             | `null`                   |
+
+This toolbar adds two buttons to the
+[complete example](/features/footnotes/install#a-first-editor-with-footnotes), next to its Insert footnote button,
+and uses `editor.can()` to enable a button only when its command would act:
+
+```html
+<button id="insert-footnote">Insert footnote</button>
+<button id="jump-to-note">Go to note</button>
+<button id="delete-note">Delete note</button>
+<div id="editor"></div>
+```
+
+```js
+import { footnoteAtSelection } from '@tiptap-pro/extension-footnotes'
+
+const insertButton = document.querySelector('#insert-footnote')
+const jumpButton = document.querySelector('#jump-to-note')
+const deleteButton = document.querySelector('#delete-note')
+
+jumpButton.addEventListener('click', () => {
+  const atCursor = footnoteAtSelection(editor.state.selection)
+
+  if (atCursor?.in === 'reference') {
+    editor.chain().focus().focusFootnote(atCursor.footnoteId).run()
+  } else if (atCursor?.in === 'note') {
+    editor.chain().focus().focusFootnoteReference(atCursor.footnoteId).run()
+  }
+})
+
+deleteButton.addEventListener('click', () => {
+  const atCursor = footnoteAtSelection(editor.state.selection)
+
+  if (atCursor) {
+    editor.chain().focus().deleteFootnote(atCursor.footnoteId).run()
+  }
+})
+
+function updateButtons() {
+  const atCursor = footnoteAtSelection(editor.state.selection)
+
+  insertButton.disabled = !editor.can().insertFootnote()
+  jumpButton.disabled = atCursor === null
+  jumpButton.textContent = atCursor?.in === 'note' ? 'Back to text' : 'Go to note'
+  deleteButton.disabled = atCursor === null
+}
+
+editor.on('transaction', updateButtons)
+updateButtons()
+```
+
+With Page Layout, pass the document's selection instead of the editor's, as
+[Footnotes in Page Layout](/features/page-layout/extension-behavior/footnotes#writing-and-reading-notes)
+shows.
+
+## Turn a footnote into an endnote
+
+`setFootnotePlacement(footnoteId, placement)` turns a footnote into an endnote, or back. It stays
+the same note, with the same `footnoteId` and text:
+
+```js
+import { footnoteAtSelection } from '@tiptap-pro/extension-footnotes'
+
+const atCursor = footnoteAtSelection(editor.state.selection)
+
+if (atCursor) {
+  editor.commands.setFootnotePlacement(atCursor.footnoteId, 'endnote')
+  editor.commands.focusFootnote(atCursor.footnoteId)
+}
+```
+
+The note moves into the other collection in the same step, and one undo reverts it. The cursor
+does not move with the note, so the example calls `focusFootnote()` afterwards.
+
+## Delete a note
+
+`deleteFootnote(footnoteId)` deletes a note and every reference to it in one step, so one undo
+brings both back:
+
+```js
+editor.commands.deleteFootnote('fn3')
+```
+
+When the user deletes a reference, the note goes too, as
+[Notes in the document](/features/footnotes/document#how-each-note-stays-with-its-reference) explains.
+
+## Copy and paste
+
+A copied reference carries its note, in the `data-tt-footnote-note` attribute of the clipboard's
+HTML. What the pasted reference gets depends on how the text left its place:
+
+| Users                           | The pasted reference                               |
+| ------------------------------- | -------------------------------------------------- |
+| Copy and paste                  | A copy of the note, with a new `footnoteId`        |
+| Cut and paste, or drag the text | The same note and `footnoteId`                     |
+| Paste into another editor       | A copy of the note, if that editor has `Footnotes` |
+| Paste the same copy again       | Another copy, with another new `footnoteId`        |
+
+When references share a `footnoteId`, the first one in reading order that was not pasted keeps
+the note, and every other one gets a copy. A copy's id comes from the original, such as `fn3-1`,
+as [Notes in the document](/features/footnotes/document#ids-and-collaboration) explains.
+
+Details:
+
+- **Plain text** has no reference, so the note is lost.
+- **A reference with no note** in the document or the clipboard stays, with no number.
+- **A copied note the schema cannot hold** is ignored.
+- **A reference pasted into a note** gets no number and keeps the copied note in its attributes.
+- **[`notesDocument`](/features/footnotes/api-reference/options#notesdocument)** sets the document a copy takes
+  its note from.
+
+## Commands
+
+The five commands of this page. [Commands](/features/footnotes/api-reference/commands) says how all of them behave
+in a chain and with `editor.can()`.
+
+### insertFootnote()
+
+Inserts a reference at the cursor and a note for it, and moves the cursor into the note. See
+[Insert a footnote or an endnote](/features/footnotes/notes#insert-a-footnote-or-an-endnote).
+
+| Option      | Type                      | Default                       | Description                                                                  |
+| ----------- | ------------------------- | ----------------------------- | ---------------------------------------------------------------------------- |
+| `placement` | `'footnote' \| 'endnote'` | The `defaultPlacement` option | A footnote or an endnote                                                     |
+| `at`        | `number`                  | The head of the selection     | Where the reference goes                                                     |
+| `createId`  | `() => string`            | `createFootnoteId`            | Makes the new `footnoteId`. An empty string gives a note no number           |
+| `titles`    | `StrandTitles`            | The title options             | `{ node, footnote, endnote }`, the title of a collection this insert creates |
+| `scopes`    | `NoteScopeReader \| null` | The `scopes` option           | Where the numbering scopes end                                               |
+
+An option passed as `undefined` replaces its default, so leave out a key you do not set. Titles
+are on [A title above the notes](/features/footnotes/styling#a-title-above-the-notes).
+
+Returns `false` inside a note or its collection's title, where the position takes no text, and
+when the schema lacks `footnoteReference`, `footnote` or `footnoteCollection`.
+
+### deleteFootnote()
+
+Deletes a note and every reference to it. See [Delete a note](/features/footnotes/notes#delete-a-note).
+
+Takes the `footnoteId` of the note, a `string`.
+
+Returns `false` when neither a note nor a reference has that `footnoteId`.
+
+### setFootnotePlacement()
+
+Turns a footnote into an endnote, or back. See
+[Turn a footnote into an endnote](/features/footnotes/notes#turn-a-footnote-into-an-endnote).
+
+| Argument     | Type                      | Description        |
+| ------------ | ------------------------- | ------------------ |
+| `footnoteId` | `string`                  | The note to change |
+| `placement`  | `'footnote' \| 'endnote'` | Its new placement  |
+
+Returns `false` when no note has that `footnoteId`, or the note has that placement already.
+
+### focusFootnote()
+
+Puts the cursor at the start of a note's text and scrolls it into view. See
+[Go from a reference to its note and back](/features/footnotes/notes#go-from-a-reference-to-its-note-and-back).
+
+Takes the `footnoteId` of the note, a `string`.
+
+Returns `false` when no note has that `footnoteId`.
+
+### focusFootnoteReference()
+
+Puts the cursor in front of the first reference to a note and scrolls it into view. See
+[Go from a reference to its note and back](/features/footnotes/notes#go-from-a-reference-to-its-note-and-back).
+
+Takes the `footnoteId` of the note, a `string`.
+
+Returns `false` when no reference in the text has that `footnoteId`.
