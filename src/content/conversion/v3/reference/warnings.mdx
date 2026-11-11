@@ -1,0 +1,110 @@
+---
+title: Warnings
+intro: 'A warning means an import or export changed something or left it out, and went on, so the document or the file still arrives. This page shows how to read warnings and lists every warning code. When a conversion stops instead, it reports an error, as <a href="/docs/conversion/v3/reference/errors">Errors</a> explains.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Warnings | Tiptap Conversion
+  description: Read the warnings an import or export reports for content it changed or left out, and look up what each warning code means.
+  category: Conversion
+---
+
+## Read warnings
+
+The `onWarning` option receives each warning, on import and on export. Set it in `ImportDocx.configure()` or `ExportDocx.configure()`, or pass it to one `importDocx()` or `exportDocx()` call. The value on the call wins.
+
+A warning doesn't stop the conversion, and an error thrown inside `onWarning` is ignored. Without `onWarning`, each warning goes to the console as `[import-docx] <message>` or `[export-docx] <message>`.
+
+### Import warnings
+
+This example logs each warning of an import. `CONVERSION_TOKEN` stands for your Conversion token:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+An import warning has these fields:
+
+| Field      | Type     | What it holds                                                                                               |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `code`     | `string` | The code, from the editor or from the Conversion service, as [Warning codes](#warning-codes) lists          |
+| `message`  | `string` | A summary that is safe to log                                                                               |
+| `nodeType` | `string` | The node type that was preserved, changed or left out. Set on `preserved`, `restructured` and `unsupported` |
+| `markType` | `string` | The mark type that was preserved or left out. Set on `preserved`, `mark-excluded` and `unsupported`         |
+
+Import warnings come from the Conversion service or from the editor, and reach `onWarning` at different times:
+
+| Source                          | Arrives                                                    | How often                                      |
+| ------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| The Conversion service          | Before `onImport` runs. `context.warnings` lists them too. | Each code at most once per import              |
+| The editor, such as `preserved` | Only when `setEditorContent()` writes the document         | One for each code and type, not per occurrence |
+
+The entries the Conversion service logged are in `context.logs`, and they don't become warnings. `logs.warn` and `logs.error` are arrays of objects, each with a `message`.
+
+`logs.warn` names each image and table that an `image-skipped` or `table-skipped` warning stands for, and why it was left out. [When an image is skipped](/conversion/v3/docx/import/images#when-an-image-is-skipped) shows how to print them.
+
+### Export warnings
+
+This example logs each warning of an export:
+
+```ts
+editor.commands.exportDocx({
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+Every export warning arrives before `onCompleteExport`. A warning has a `code`, a `message` that is safe to log, and the fields that fit its code. An image or font warning holds the file's URL in `src`. [ExportDocxWarning](/conversion/v3/docx/export-options/types#exportdocxwarning) lists every field.
+
+The Conversion service sends its export warnings in the `X-Export-Warnings` and `X-Export-Warnings-Truncated` response headers. The service lists both in `Access-Control-Expose-Headers`, because a browser reads a response header from another origin only when it is listed there.
+
+A proxy in front of a Conversion service you run yourself must pass on both headers and that list, or the browser gets none of these warnings.
+
+## Warning codes
+
+Each code says what the conversion changed or left out. `preserved`, `restructured`, `mark-excluded` and the import's `unsupported` come from the editor. The other import codes come from the Conversion service, and a newer Conversion service may send codes that aren't listed here:
+
+| Code                          | Direction | What happened                                                                                                                                                                                                                           |
+| ----------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preserved`                   | Import    | The editor has no such node or mark type. It was kept as [preserved content](/conversion/v3/docx/preserved-content), and comes back when you add the type.                                                                              |
+| `restructured`                | Import    | A node didn't fit where it was, so it was changed to fit, such as a numbered heading that becomes its list item's paragraph. Its content was kept.                                                                                      |
+| `mark-excluded`               | Import    | A mark can't be combined with the marks next to it in this editor, such as `bold` on `code`, so it was left out. The text was kept.                                                                                                     |
+| `unsupported`                 | Import    | A node or mark type was left out with nothing kept, because the editor's schema has no preserved content.                                                                                                                               |
+| `section-in-table-cell`       | Import    | A section break inside a table was ignored. Word doesn't end a section there.                                                                                                                                                           |
+| `gutter-dropped`              | Import    | The binding gutter of the page margins was left out.                                                                                                                                                                                    |
+| `bookmarks-dropped`           | Import    | Bookmarks were left out. Cross-references keep the text Word shows.                                                                                                                                                                     |
+| `toc-flattened`               | Import    | The table of contents was imported as plain paragraphs.                                                                                                                                                                                 |
+| `notes-dropped`               | Import    | Footnotes or endnotes with no matching reference or text were left out.                                                                                                                                                                 |
+| `image-skipped`               | Import    | Some images were left out. `logs.warn` names each one and why.                                                                                                                                                                          |
+| `table-skipped`               | Import    | A table with no readable row was left out, instead of coming in as an empty table. `logs.warn` names each one and why.                                                                                                                  |
+| `unsupported`                 | Export    | Something Word or the Conversion service can't take was left out. `attribute`, `nodeType` or `noteId` names it, as [Unsupported content](#unsupported-content) explains.                                                                |
+| `image-missing-src`           | Export    | An image node has no `src`.                                                                                                                                                                                                             |
+| `image-request-failed`        | Export    | An image download did not complete, or passed a limit of the Conversion service.                                                                                                                                                        |
+| `image-fetch-failed`          | Export    | The image host answered with a failure, in `status`. Without `status`, the browser did not upload the image, because it is over 20 MB or past the limit of 64 files.                                                                    |
+| `image-unsupported-type`      | Export    | Word can't hold the image format, which `contentType` names.                                                                                                                                                                            |
+| `image-resized`               | Export    | An image too large for Word was scaled down. The code is not in the `ExportDocxWarning` type, so compare `String(warning.code)` to find it.                                                                                             |
+| `font-fetch-failed`           | Export    | The font in `family` could not be read, is not TTF, OTF or WOFF2, is over 25 MB or is past the limit of 64 files. Word shows another font.                                                                                              |
+| `document-styles-failed`      | Export    | Measuring the editor's CSS failed, so the file uses default styles.                                                                                                                                                                     |
+| `list-paragraph-path-missing` | Export    | The command measured a list paragraph that the Conversion service did not find in the document, so its measured styling was skipped. `path` gives the position, one index per nested `content` array, such as `[2, 0]`.                 |
+| `numbering-format-invalid`    | Export    | The numbering format in `formatId`, the way a list counts such as `1.` or `a)`, could not be built, so its lists get Word's default numbering. [Lists and task lists](/conversion/v3/docx/elements/lists) says where formats come from. |
+| `warnings-truncated`          | Export    | The Conversion service had more warnings than fit in its response header, about 8 KB.                                                                                                                                                   |
+
+### Unsupported content
+
+`unsupported` means something was left out, and it means different things in the two directions.
+
+On import, content the editor has no extension for is kept as preserved content, with a `preserved` warning, because `ImportDocx` adds the `PreservedContent` extension to the editor. The editor gives `unsupported` only when the schema the import writes into has no preserved content types.
+
+On export, an `unsupported` warning covers these cases:
+
+- **A removed option from the 0.x versions of the extension**, in `attribute`. [Removed 0.x options](/conversion/v3/docx/export-options#removed-0x-options) says what replaces it.
+- **An override passed as a function**, such as `paragraphOverrides`, in `attribute`.
+- **The `footnotes` or `endnotes` option with Page Layout, or for a document with notes**, in `attribute`. Export takes the notes from the document instead.
+- **A note without a reference**, in `noteId`. `nodeType` is `'footnote'` for an endnote too.
+- **A node type without a converter or a rule**, in `nodeType`. See [Custom nodes in Word files](/conversion/v3/docx/custom-nodes#nodes-without-a-rule).
+- **A section setting Word can't hold**, in `attribute` and `value`, with `nodeType` `'sectionBreak'`, or `'pageFurniture'` for a header or footer. [Pages](/conversion/v3/reference/limitations#pages) in Limitations lists them. Each one is reported once per export, not once per section.

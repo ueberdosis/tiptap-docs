@@ -1,0 +1,136 @@
+---
+title: Export DOCX
+intro: "The <code>ExportDocx</code> extension saves the editor's document as a Word (<code>.docx</code>) file. Its <code>exportDocx</code> command sends the document to the Conversion service, which builds the file and hands it back. The Conversion service runs in Tiptap Cloud, or on your own server that the <code>endpoint</code> option names."
+headerDemo:
+  path: '/Extensions/ExportDocx'
+  isPro: true
+  code: false
+  caption: '<strong>Export DOCX:</strong> edit the document and save it as a <code>.docx</code> file.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Export DOCX | Tiptap Conversion
+  description: Add the ExportDocx extension to a Tiptap editor and save the document as a Word file, as a Blob, bytes or Base64.
+  category: Conversion
+---
+
+## Set up the editor
+
+Add `ExportDocx` from `@tiptap-pro/extension-export-docx` to the editor. Here, `download` is a function that saves the file, which [Save the file](#save-the-file) defines:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ExportDocx.configure({
+      onCompleteExport: (result) => download(result, 'report.docx'),
+      onError: (error) => console.error(error),
+    }),
+  ],
+  content: '<h1>My report</h1><p>Hello from Tiptap.</p>',
+})
+```
+
+Always set `onCompleteExport`, because it receives the file. Without it, the export throws an error when the file arrives, and `onError` does not catch that error.
+
+The export runs where `fetch`, `Blob` and `FormData` exist: in a browser, or in Node.js 18 or later with an editor that isn't mounted. Such an editor has no CSS for export to read, as [Replace the standalone exportDocx function](/conversion/v3/getting-started/migrate-from-v2/export#2-replace-the-standalone-exportdocx-function) shows.
+
+## Export the document
+
+To export, call `exportDocx()` with a Conversion token, a JWT that lets the editor call the Conversion service. Your server creates the token, and the browser fetches a fresh one for each export, as [Install Tiptap Conversion](/conversion/v3/getting-started/install) shows. Here, `getConversionToken()` stands for your function that fetches it:
+
+```ts
+document.querySelector('#export').addEventListener('click', async () => {
+  editor.commands.exportDocx({ token: await getConversionToken() })
+})
+```
+
+When you fetch the token before you create the editor, set `token` in `ExportDocx.configure()` instead. For Tiptap Cloud, the token is the only connection option you need. A legacy token, one signed with an App ID's secret, also needs `appId`, as [Connection options](/conversion/v3/getting-started/install#connection-options) explains.
+
+The command returns `true` right away, and the file arrives later in `onCompleteExport`, because the Conversion service builds it over the network. So an editor that is offline can't export.
+
+When the export fails, `onError` receives the error and no file arrives. Without `onError`, the error becomes an unhandled promise rejection, so set `onError` wherever you export. [Errors](/conversion/v3/reference/errors) lists the errors.
+
+### Command options
+
+Every option of `ExportDocx.configure()` also works on the command and replaces the configured value for that export. An object, such as `pageMargins` in [Page size and margins](#page-size-and-margins), does not merge with the configured one. [Export options](/conversion/v3/docx/export-options) lists every option.
+
+The other examples on this page pass only the options they show, so add `token` when `ExportDocx.configure()` doesn't set it.
+
+## Save the file
+
+The `exportType` option sets what `onCompleteExport` receives. The default, `'blob'`, gives a `Blob` you can download or upload:
+
+| `exportType` | `onCompleteExport` receives                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| `'blob'`     | A `Blob` with the type `application/vnd.openxmlformats-officedocument.wordprocessingml.document`. Default. |
+| `'buffer'`   | The bytes of the file as a `Uint8Array`.                                                                   |
+| `'base64'`   | The file as a Base64 string.                                                                               |
+| `'string'`   | The file as a binary string, with one character per byte.                                                  |
+
+This `download` function from [Set up the editor](#set-up-the-editor) downloads the `Blob` in a browser:
+
+```ts
+function download(result: Blob | string | Uint8Array, filename: string) {
+  if (!(result instanceof Blob)) return
+
+  const url = URL.createObjectURL(result)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+```
+
+## Page size and margins
+
+In an editor without Page Layout, the `pageSize` and `pageMargins` options set the page of the file. [Page size and margins](/conversion/v3/docx/export/page-size-and-margins) shows the values and their defaults. With Page Layout, the file takes the page setup from the editor instead, as [Word files with Page Layout](/conversion/v3/docx/page-layout) explains.
+
+## Images
+
+The Conversion service downloads most images from their URL. The browser uploads the images the service can't reach with the export request, from the document, its footnotes and endnotes, and its comments:
+
+- Images with a `blob:` URL, such as a pasted screenshot.
+- Images with a `data:` URL longer than 64 KB. A shorter one stays in the document JSON.
+- Images on your app's own origin, because the browser loads them with the user's session and the Conversion service has no login. A public image there is uploaded too.
+
+The Conversion service also refuses private network addresses, such as `10.0.0.1`. To export an image from a private host on another origin, serve it through a route of your own server, and use that route's URL as the image's `src`.
+
+An uploaded image must be PNG, JPEG, GIF, BMP or SVG. Another format, such as a pasted WebP image, fails the whole export with 400 `INVALID_EXPORT_OPTIONS`, whatever `onImageError` says. The same image by a public URL is left out instead. This is a known limit that is being fixed.
+
+An image that can't be used is left out with a warning, because `onImageError` defaults to `'skip'`. To fail the export instead, set `onImageError: 'throw'`:
+
+```ts
+editor.commands.exportDocx({ onImageError: 'throw' })
+```
+
+The image warnings and their limits are in [Warning codes](/conversion/v3/reference/warnings#warning-codes), and the errors in [Image errors](/conversion/v3/reference/errors#image-errors). What Word keeps of an image is in [Images and math](/conversion/v3/docx/elements/images-and-math).
+
+## What the document needs
+
+Word gets only what the document holds, so each kind of content needs its extension in the editor. [Supported Word elements](/conversion/v3/docx/elements) links to the extension for each kind of Word content, and [Export options](/conversion/v3/docx/export-options#node-types) lists the node types the Conversion service converts itself.
+
+A node type of your own needs a rule, as [Custom nodes in Word files](/conversion/v3/docx/custom-nodes) explains. Without one, export leaves out the node together with its content, and reports an `unsupported` warning.
+
+An imported document can hold [preserved content](/conversion/v3/docx/preserved-content), the nodes and attributes the import kept although the editor has no extension for them. Export sends them in their original form, so a table kept without the table extension is a table in the `.docx` file.
+
+`ExportDocx` doesn't add the `PreservedContent` extension that holds this content, but an editor with Import DOCX has it. Without Import DOCX, add it yourself when your editor loads documents saved from an import, as [Packages](/conversion/v3/getting-started/install#packages) explains.
+
+A pending node type change fails the export. That is a suggestion of the Tracked Changes extension to turn a node into another type, such as a paragraph into a heading. Accept or reject it first, as [A pending node type change fails the export](/conversion/v3/reference/errors#a-pending-node-type-change-fails-the-export) shows.
+
+## Next steps
+
+Where to go from here:
+
+- [Word files with Page Layout](/conversion/v3/docx/page-layout): export the page setup, headers and footers of a Page Layout editor.
+- [Export styles and fonts](/conversion/v3/docx/export/styles-and-fonts): match the Word styles to your editor, and embed fonts.
+- [Custom nodes in Word files](/conversion/v3/docx/custom-nodes): write node types of your own to Word.
+- [Warnings](/conversion/v3/reference/warnings): see what an export left out.
+- [Errors](/conversion/v3/reference/errors): see why an export failed.

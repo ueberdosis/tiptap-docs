@@ -1,0 +1,171 @@
+---
+title: Content the editor cannot show
+intro: "The editor shows what its extensions define. Import keeps content the editor has no extension for as preserved content, so the editor's schema doesn't make an import fail or lose text."
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Content the editor cannot show | Tiptap Conversion
+  description: See how a DOCX import keeps content your editor has no extension for, how to show it with CSS, and how it turns back into real nodes once you add the extension.
+  category: Conversion
+---
+
+Preserved content comes from `@tiptap-pro/extension-preserved-content`. The Import DOCX extension (`ImportDocx`) depends on it and adds its `PreservedContent` extension to the editor on its own, so you don't install or register it.
+
+## What the editor keeps
+
+The editor's schema, the node and mark types it allows, comes from its extensions. An import keeps what the schema lacks:
+
+- **A node type the editor lacks**, such as a table without `TableKit`, is kept with its type and attributes. Its text stays editable, in paragraphs of your schema.
+- **A mark type the editor lacks**, such as a comment without the Comments extension, is kept on its text.
+- **Attributes a node or mark type doesn't define**, such as table borders, which `TableKit` doesn't define, are kept in its `preservedAttrs` attribute without a warning. The editor doesn't show them.
+
+For each preserved node or mark type, the `onWarning` callback of `ImportDocx` receives a `preserved` warning with its `nodeType` or `markType`.
+
+In the JSON document, preserved content has its own node and mark types, each defined by an extension of the same name, such as `PreservedBlock` for `preservedBlock`. Each preserved node and mark has two attributes: `type`, the name of the original type, and `attrs`, its original attributes:
+
+| Kept in              | Holds                                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preservedBlock`     | A block node the schema lacks that holds other blocks, such as a table, a note collection or a section break. Its children are nodes of your schema. |
+| `preservedTextblock` | A block node the schema lacks that holds text directly, such as a heading in an editor without the Heading extension.                                |
+| `preservedInline`    | An inline node the schema lacks, such as a note reference, a page break or a page number. The caret steps over it.                                   |
+| `preservedMark`      | A mark the schema lacks, such as a comment thread without the Comments extension. Several can sit on one text.                                       |
+| `preservedAttrs`     | Attributes a node or mark type of your schema doesn't define, such as paragraph spacing.                                                             |
+
+The value of `preservedAttrs` is an object with `attrs`, the attributes the type doesn't define, and `type`. `type` is set only when the node had to change its type to fit, such as a heading that became a paragraph, and then holds the original type.
+
+## Without Page Layout
+
+The Conversion service returns the document in the shape that [Page Layout](/features/page-layout/getting-started/overview), the extension that shows the editor as pages, uses. The sections, page setup, headers, footers, page numbers, breaks and notes are inside it.
+
+In an editor without Page Layout, `setEditorContent()` writes the body with `setContent` and keeps the other parts in the document, as nodes of your schema or as preserved content:
+
+- **Notes and page breaks**, the `footnoteReference`, `footnoteCollection`, `pageBreak` and `columnBreak` nodes, become real nodes when the editor has an extension for them. The [Footnotes](/features/footnotes) extension, for example, works without Page Layout. Otherwise they are preserved content.
+- **Sections**, the `sectionBreak` nodes with the page setup, and the `pageFurniture` nodes inside them with the headers and footers, stay preserved content until you add Page Layout. The headers and footers of a section stay at the start of the section.
+- **Page numbers**, the `pageNumber` nodes, stay preserved content in the text.
+
+Page breaks, page numbers and note references that are preserved content stay in the text as inline markers. `onWarning` receives one `preserved` warning for each node type it kept this way. When you add Page Layout, the same document opens with its pages, as [Word files with Page Layout](/conversion/v3/docx/page-layout) shows.
+
+## Show preserved content
+
+The package ships no stylesheet, so preserved content reads like body text, and a preserved page break or note reference doesn't show at all.
+
+Each preserved node or mark renders as an element with `data-tt-preserved-type` and `data-tt-preserved-attrs`, so copy and paste keep it. `data-tt-preserved` says which kind it is, and a class lets you style it:
+
+| Extension            | Element | `data-tt-preserved` | Class                                |
+| -------------------- | ------- | ------------------- | ------------------------------------ |
+| `PreservedBlock`     | `div`   | `block`             | `tiptap-preserved-content-block`     |
+| `PreservedTextblock` | `div`   | `textblock`         | `tiptap-preserved-content-textblock` |
+| `PreservedInline`    | `span`  | `inline`            | `tiptap-preserved-content-inline`    |
+| `PreservedMark`      | `span`  | `mark`              | `tiptap-preserved-content-mark`      |
+
+A known node or mark with `preservedAttrs` writes them to `data-tt-preserved-own-attrs`.
+
+This CSS frames each preserved block and labels it with its original type, and shows each empty preserved inline node as its type in brackets:
+
+```css
+.tiptap {
+  --tt-preserved-content-color: #888;
+}
+
+.tiptap .tiptap-preserved-content-block {
+  border-left: 2px solid var(--tt-preserved-content-color);
+  padding-left: 0.5rem;
+}
+
+.tiptap .tiptap-preserved-content-block::before {
+  content: attr(data-tt-preserved-type);
+  display: block;
+  font-size: 0.75rem;
+  color: var(--tt-preserved-content-color);
+}
+
+.tiptap .tiptap-preserved-content-inline:empty::before {
+  content: '[' attr(data-tt-preserved-type) ']';
+  font-size: 0.75rem;
+  color: var(--tt-preserved-content-color);
+}
+```
+
+`editor.getText()` puts a space where an empty preserved inline node stands, so a page break between two words doesn't join them.
+
+## Turn preserved content back
+
+Preserved content turns back into the real node, and `preservedAttrs` into real attributes, when you add the extension that defines them and load the saved document again. What still doesn't fit stays preserved, so it can turn back later, after you add another extension.
+
+Whether loading restores on its own depends on how you load the document:
+
+- **`new Editor`** restores a JSON document you pass as `content`, before it builds the document.
+- **`createPageLayoutEditor()`**, the function that creates a Page Layout editor in place of `new Editor`, restores on its own too. That restore isn't in the undo history.
+- **`setContent()`** on an editor that already exists doesn't restore. Run the `restorePreservedContent()` command after it, as [Restore the document in the editor](#restore-the-document-in-the-editor) shows.
+
+### Restore the document in the editor
+
+To restore the document an editor already holds, run the `restorePreservedContent()` command. One undo takes it back. With Page Layout, it writes to the Source Document. It returns `false` when there is nothing to restore:
+
+```ts
+editor.commands.restorePreservedContent()
+```
+
+### Restore a shared document
+
+The editor doesn't restore a shared document, which Tiptap Collaboration syncs between users, when it opens, with or without Page Layout. If every client restored it, each would insert the same node, and the document would hold it twice.
+
+So restore a shared document from one place only:
+
+- **From one client only**, at a time your app chooses, such as from an action one user starts after you add the extension. Once that restore has synced, the other clients find nothing to restore, and the command returns `false` there.
+- **Where the document has one writer**, such as a headless editor on your server.
+
+`holdsPreservedContent(editor.getJSON())` from `@tiptap-pro/extension-preserved-content` tells you whether to offer that action at all. With Page Layout, `editor.getJSON()` returns the document without its pages, as without Page Layout.
+
+### Restore without an editor
+
+To restore a document without an editor, such as on a server, call the function `restorePreservedContent({ content, schema })`. It returns the restored JSON, or the same `content` when there is nothing to restore. `RestorePreservedContentOptions` is the type of its options.
+
+`holdsPreservedContent(content)` tells you whether a document holds any preserved content. Both functions come from `@tiptap-pro/extension-preserved-content`.
+
+Build the schema from the extensions of the editor that will open the document, with `PreservedContent` among them. A schema without the preserved types gets `content` back unchanged. In this example, `storedDocument` stands for a JSON document you saved from an import into an editor without the table extension:
+
+```ts
+import { getSchema } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
+import {
+  PreservedContent,
+  holdsPreservedContent,
+  restorePreservedContent,
+} from '@tiptap-pro/extension-preserved-content'
+
+const schema = getSchema([StarterKit, TableKit, PreservedContent])
+
+const restored = holdsPreservedContent(storedDocument)
+  ? restorePreservedContent({ content: storedDocument, schema })
+  : storedDocument
+```
+
+The package also exports the four type names as `PRESERVED_BLOCK`, `PRESERVED_TEXTBLOCK`, `PRESERVED_INLINE` and `PRESERVED_MARK`, and the attribute name as `PRESERVED_ATTRS`. `PreservedOrigin` is the TypeScript type of `{ type, attrs }`, and `PreservedAttrs` the type of the `preservedAttrs` value.
+
+### What restoring changes
+
+Restoring gives the same shapes as an import into the editor that has the extension:
+
+- A preserved inline node that turns back into a block, such as an image in an editor whose images are blocks, splits its paragraph.
+- A preserved block that turns back into an inline node goes into a paragraph.
+- An empty preserved node whose type needs content, such as a table without rows, is left out.
+
+## Content that changes shape
+
+Import changes the shape of some content to fit the editor and keeps its text. `onWarning` names each case:
+
+- **`restructured`** is the warning for a node that didn't fit where it was, such as a [numbered Word heading](/conversion/v3/docx/elements/lists#numbered-headings) that becomes the first paragraph of a list item. The paragraph keeps the original type in `preservedAttrs`, and the heading comes back only if the schema later allows that shape.
+- **`mark-excluded`** is the warning for a mark the editor doesn't allow next to another one, such as `bold` on `code`. The text and the first mark stay, and the excluded mark is lost.
+
+An image in a paragraph also splits its paragraph in an editor whose images are blocks, as [Images and math](/conversion/v3/docx/elements/images-and-math) shows.
+
+A third code, `unsupported`, means import left a type out and kept nothing. It comes only from a schema without preserved content, so an import into an editor with `ImportDocx` doesn't give it.
+
+## Export preserved content
+
+Export writes preserved content and `preservedAttrs` back to the `.docx` file in their original form, except `letterSpacing`, as [Text formatting](/conversion/v3/docx/elements/text-formatting#export) says. So a table kept as preserved content in an editor without the table extension is a table in Word.
+
+The Export DOCX extension doesn't add `PreservedContent` to the editor. An editor that loads imported documents without Import DOCX, such as an export-only editor or a read-only viewer, registers it itself, as [Packages](/conversion/v3/getting-started/install#packages) shows. Without it, the editor replaces such a document with an empty one.

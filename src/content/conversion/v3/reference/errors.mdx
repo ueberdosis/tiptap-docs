@@ -1,0 +1,232 @@
+---
+title: Errors
+intro: 'An error means an import or export stopped, and nothing arrives. This page lists the errors of each direction and the problems that come up with exports, with their cause and fix. When a conversion only changes or leaves out something and goes on, it reports a warning instead, as <a href="/docs/conversion/v3/reference/warnings">Warnings</a> explains.'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: Errors | Tiptap Conversion
+  description: Handle the errors that stop an import or export, and fix the problems that come up with exports.
+  category: Conversion
+---
+
+Each direction hands an error to its own callbacks. On export, `onCompleteExport` is not called, and no file arrives.
+
+## Import errors
+
+An import error goes to the first of these that you set:
+
+1. `onError`, from the `importDocx()` call or from `ImportDocx.configure()`. The call wins.
+2. `onImport`, as `{ content: null, error }`, when the error comes before the import hands over the document.
+3. Without either, the import logs the error with `console.error`. It doesn't log an `ImportDocxSupersededError`, because the newer import replaces the older one.
+
+An error thrown inside `onImport`, including by `setEditorContent()`, goes to `onError`, and without `onError` to the console. This example handles errors in the configuration. `CONVERSION_TOKEN` stands for your Conversion token:
+
+```ts
+import { ImportDocx } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  onError: (error) => console.error(error),
+})
+```
+
+These errors stop an import:
+
+| Error                              | When                                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Error`                            | The `token` or the `file` is missing. This fails before any request, and the message starts with "The [importDocx] command needs".                                    |
+| `ImageUploadConfigValidationError` | `imageUploadConfig.url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings.                                                             |
+| `ImportDocxRequestError`           | The Conversion service refused the import, or the request didn't reach it.                                                                                            |
+| `ImportDocxSupersededError`        | A newer import started before this one finished.                                                                                                                      |
+| `Error`                            | The editor didn't accept the document, or Page Layout's engine, the part that lays out the pages, was destroyed before the write. It comes from `setEditorContent()`. |
+
+### Request errors
+
+`ImportDocxRequestError` has a `code` and, when the Conversion service answered, a `status`. `error.message` holds the reason from the Conversion service:
+
+```ts
+import { ImportDocx, ImportDocxRequestError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  onError(error) {
+    if (error instanceof ImportDocxRequestError && error.status === 401) {
+      // Ask for a new token.
+      return
+    }
+    console.error(error)
+  },
+})
+```
+
+The `code` is `NETWORK_ERROR` when the request got no answer, so `status` is unset. It is `HTTP_ERROR` when the answer had no usable code or document. Otherwise it is the code from the Conversion service:
+
+| Code                                                                             | Status   | When                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_DOCX_FILE`                                                              | 422      | The file is corrupt, or isn't a `.docx` file.                                                                                                                                                             |
+| `DOCX_TOO_LARGE`                                                                 | 422      | The file unpacks to more than the Conversion service accepts.                                                                                                                                             |
+| `FAILED_TO_PARSE_DOCX_FILE`                                                      | 422      | The Conversion service couldn't read the file.                                                                                                                                                            |
+| `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON`                                          | 500      | The Conversion service read the file but couldn't convert it.                                                                                                                                             |
+| `REQUEST_BODY_TOO_LARGE`                                                         | 413      | The request is larger than the Conversion service accepts.                                                                                                                                                |
+| `RATE_LIMITED`                                                                   | 429      | Too many requests in a short time. Wait before you retry, because the error doesn't carry the `Retry-After` header. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits.         |
+| `INVALID_IMPORT_OPTIONS`                                                         | 400      | An import option is not valid, such as `imageUploadConfig`.                                                                                                                                               |
+| `UNSUPPORTED_NODE_OVERRIDE`                                                      | 400      | `prosemirrorNodes`, the option that renames node types, renames a node the document structure depends on. See [Rename a node or a mark](/conversion/v3/docx/custom-nodes/import#rename-a-node-or-a-mark). |
+| Authentication and origin codes, such as `missing_app_id` or `permission_denied` | 401, 403 | The Conversion service refused the token, the app ID or the page's origin.                                                                                                                                |
+| `rate_limited`                                                                   | 429      | The token check itself is rate limited.                                                                                                                                                                   |
+| `service_unavailable`                                                            | 503      | The token check itself is unavailable.                                                                                                                                                                    |
+
+[REST API overview](/conversion/v3/rest-api/overview) lists the authentication codes. A validation error without a code becomes `HTTP_ERROR` with the status.
+
+### Superseded imports
+
+When you start another import before the first response arrives, the newest import wins: the first one writes nothing and reports an `ImportDocxSupersededError`. Calling `setEditorContent()` from the older import throws it too. This example ignores it:
+
+```ts
+import { ImportDocx, ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: CONVERSION_TOKEN,
+  onError(error) {
+    if (error instanceof ImportDocxSupersededError) return
+    console.error(error)
+  },
+})
+```
+
+## Export errors
+
+An export error reaches `onError`. Without `onError`, it becomes an unhandled promise rejection. An error thrown inside `onCompleteExport` skips `onError` and becomes an unhandled promise rejection too.
+
+These errors stop an export:
+
+| Error                                                                           | When                                                                                                                |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Error`: "The [exportDocx] command needs a [token] for the Tiptap convert API." | No `token` is set. See [The export fails with a missing token error](#the-export-fails-with-a-missing-token-error). |
+| `Error`: "DOCX export does not support pending node type changes."              | See [A pending node type change fails the export](#a-pending-node-type-change-fails-the-export).                    |
+| `Error`: `Invalid export type "<value>"`                                        | `exportType` is not `'blob'`, `'buffer'`, `'base64'` or `'string'`.                                                 |
+| `ImageRequestError`, `ImageFetchError`                                          | With `onImageError: 'throw'`, the browser could not use an image. See [Image errors](#image-errors).                |
+| `ExportDocxRequestError`                                                        | The request did not reach the Conversion service, or the Conversion service refused it.                             |
+
+### ExportDocxRequestError
+
+`ExportDocxRequestError` means the request did not reach the Conversion service, or the Conversion service refused it. Its `code` tells the cases apart:
+
+```ts
+import { ExportDocxRequestError } from '@tiptap-pro/extension-export-docx'
+
+editor.commands.exportDocx({
+  onError: (error) => {
+    if (error instanceof ExportDocxRequestError) {
+      console.error(error.code, error.status, error.path)
+    }
+  },
+})
+```
+
+Besides `code`, the error carries these fields:
+
+| Field     | What it holds                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `status`  | The HTTP status. Unset when the request got no answer.                                               |
+| `path`    | The option that caused the error, when the Conversion service names one.                             |
+| `docsUrl` | A page that explains the error, when the Conversion service sends one.                               |
+| `message` | The error text of the Conversion service, or "The export failed with status `<status>`" without one. |
+
+The `code` says what happened:
+
+| `code`                                                                                                                 | `status`   | What happened                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NETWORK_ERROR`                                                                                                        | None       | The request did not reach the Conversion service. `cause` holds the original error.                                                                                                                                                 |
+| `HTTP_ERROR`                                                                                                           | Any        | A failure status without a JSON body or an error code, such as `404` from a Conversion service older than 2.48.0 on your own server. See [Region and endpoint](/conversion/v3/getting-started/install#region-and-endpoint).         |
+| `INVALID_EXPORT_OPTIONS`                                                                                               | 400        | An option, named in `path`, is not valid, such as a `px` page measure or a `defaultTabStop` of 0.                                                                                                                                   |
+| `DOCX_DSL_` and a name                                                                                                 | 400 or 422 | A custom node rule failed validation (400) or rendering (422). See [Find the failing rule](#find-the-failing-rule).                                                                                                                 |
+| `FAILED_TO_EXPORT_DOCX_FILE`                                                                                           | 422        | The Conversion service could not build the file, such as for an image it downloads with `onImageError: 'throw'`.                                                                                                                    |
+| `REQUEST_BODY_TOO_LARGE`                                                                                               | 413        | The request is over 100 MB.                                                                                                                                                                                                         |
+| `RATE_LIMITED`                                                                                                         | 429        | Too many requests in a short time. Wait before you retry, because a browser can't read the `Retry-After` and `RateLimit` headers. [Rate limits](/conversion/v3/rest-api/overview#rate-limits) gives the limits.                     |
+| Authentication and origin codes, such as `missing_app_id` for a [legacy token](/authentication/legacy) without `appId` | 401, 403   | The token, the app ID or the page's origin was refused. `code` holds the code, and `message` only the status, such as "The export failed with status 401". [REST API overview](/conversion/v3/rest-api/overview) lists these codes. |
+
+When `INVALID_EXPORT_OPTIONS` names `path: 'documentCss'`, the Conversion service could not read the measured CSS. Set `documentStyles: false` to export without it.
+
+### Find the failing rule
+
+`ExportDocxRequestError` doesn't say which custom node rule failed, but the response of the Conversion service does. Open the failed request to `/export/docx` in the network tab of the browser's developer tools.
+
+Its JSON response holds `dslPath`, the place in the rules, such as `nodes[2].render.emit.props.size`. For a 422, it also holds `nodePath` and `nodeType`, the node that failed.
+
+The names after the `DOCX_DSL_` prefix are `UNKNOWN_VERSION`, `INVALID_SHAPE`, `DUPLICATE_NODE_TYPE`, `UNKNOWN_ELEMENT`, `UNKNOWN_OPERATION`, `RESERVED_SHAPE`, `INVALID_PROP`, `INVALID_ENUM`, `INVALID_REF`, `INVALID_TEMPLATE`, `INVALID_UNIT`, `INVALID_TRANSFORM`, `INVALID_CONTEXT`, `INVALID_OP_ARITY`, `RUNTIME_TYPE_MISMATCH`, `RESOURCE_LIMIT`, `RENDER_FAILED` and `DISABLED`.
+
+### Image errors
+
+With `onImageError: 'throw'`, an image the browser can't use fails the export instead of being left out, as it is with the default, `'skip'`. The error class depends on whether the image host answered:
+
+- **`ImageFetchError`**, code `image-fetch-failed`: the host answered with a failure, and `status` holds it.
+- **`ImageRequestError`**, code `image-request-failed`: the download did not complete, or the image is over 20 MB or past the limit of 64 files.
+
+The same image can have two codes. An image over 20 MB gives the warning `image-fetch-failed` with `'skip'`, but an `ImageRequestError` with the code `image-request-failed` with `'throw'`. So check for both codes when you handle large images.
+
+Both classes extend `ImageConversionError`, which has `code`, `message`, and optionally `src` and `cause`. All three come from `@tiptap-pro/extension-export-docx`:
+
+```ts
+import { ImageConversionError } from '@tiptap-pro/extension-export-docx'
+
+editor.commands.exportDocx({
+  onImageError: 'throw',
+  onError: (error) => {
+    if (error instanceof ImageConversionError) {
+      console.error(error.code, error.src)
+    }
+  },
+})
+```
+
+An image the Conversion service downloads itself fails as an `ExportDocxRequestError` instead, with the code `FAILED_TO_EXPORT_DOCX_FILE`, the status 422 and the image's `src` in the message.
+
+## Problems
+
+These are problems that come up with exports, with their cause and fix.
+
+### The export fails with a missing token error
+
+`onError` receives an `Error` with the message "The [exportDocx] command needs a [token] for the Tiptap convert API. The DOCX is built in the Tiptap Cloud." The export has no token, so it stopped before it called the Conversion service.
+
+Set `token` in `ExportDocx.configure()`, or pass it to the command. [Install Tiptap Conversion](/conversion/v3/getting-started/install) says how to get a token.
+
+### A pending node type change fails the export
+
+`onError` receives an `Error` with the message "DOCX export does not support pending node type changes. Accept or reject them before exporting."
+
+With the Tracked Changes extension, a suggestion to change a node's type, such as a paragraph into a heading, waits in the node's `suggestionNodeTypeChange` attribute. Word can't hold such a change, so the export fails before it sends anything, for a change in the document or in a note.
+
+Accept or reject these suggestions with the extension's `acceptSuggestion({ id })` or `rejectSuggestion({ id })` command, as [the Tracked Changes commands](/tracked-changes/api-reference/commands) show, then export again.
+
+`findSuggestions(editor)` returns the suggestions in the document, and a node type change has a `nodeTypeChange` field. This example accepts each node type change before an export:
+
+```ts
+import { findSuggestions } from '@tiptap-pro/extension-tracked-changes'
+
+for (const suggestion of findSuggestions(editor)) {
+  if (suggestion.nodeTypeChange) editor.commands.acceptSuggestion({ id: suggestion.id })
+}
+```
+
+[Tracked changes](/conversion/v3/docx/elements/tracked-changes#export) says what export writes for the other suggestions.
+
+### Styles look different in Word
+
+The file gets its styles from the CSS the command measures. [Match your editor's formatting](/conversion/v3/docx/export/styles-and-fonts#match-your-editors-formatting) says when the measurement is skipped or misses something, and [Check what the command measures](/conversion/v3/docx/export/styles-and-fonts#check-what-the-command-measures) shows how to see it.
+
+For a result that does not depend on the browser, set the styles yourself, as [Export styles and fonts](/conversion/v3/docx/export/styles-and-fonts) describes.
+
+### Content is missing from the file
+
+Read the warnings first, or the browser console without `onWarning`, because export reports most of what it leaves out. These are the usual causes:
+
+- **A node type of your own without a rule**, with an `unsupported` warning. See [Custom nodes in Word files](/conversion/v3/docx/custom-nodes).
+- **An image that can't be used**, with an image warning. See [Images](/conversion/v3/docx/export#images).
+- **A note without a reference.** See [Footnotes and endnotes](/conversion/v3/docx/elements/footnotes).
+- **Comments.** Export leaves out the archived threads of the Comments extension, the ones it keeps as deleted. Resolved threads are exported. See [Comments](/conversion/v3/docx/elements/comments#export).
+- **A formatting change from tracked changes.** See [Tracked changes](/conversion/v3/docx/elements/tracked-changes#export).
+- **A font the Conversion service did not find**, without a warning. See [Embed fonts](/conversion/v3/docx/export/styles-and-fonts#embed-fonts).
+
+When no warning of the Conversion service arrives at all, a proxy may remove the `X-Export-Warnings` header, as [Export warnings](/conversion/v3/reference/warnings#export-warnings) explains.
