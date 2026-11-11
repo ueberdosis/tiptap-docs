@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Button } from './ui/Button'
 const NO_OPTIONS = ['Inaccurate', 'Missing information', 'Hard to understand', 'Code sample errors']
@@ -7,12 +7,6 @@ const NO_OPTIONS = ['Inaccurate', 'Missing information', 'Hard to understand', '
 export type FeedbackState = 'initial' | 'yes' | 'no' | 'submitted'
 
 export default function PageHelpFeedback({ className }: { className?: string }) {
-  const [slug, setSlug] = useState('')
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setSlug(window.location.pathname)
-    }
-  }, [])
   const [state, setState] = useState<FeedbackState>('initial')
   const [yesText, setYesText] = useState('')
   const [noOption, setNoOption] = useState('')
@@ -22,6 +16,7 @@ export default function PageHelpFeedback({ className }: { className?: string }) 
 
   const handleSubmit = async () => {
     setSubmitting(true)
+    const slug = window.location.pathname
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
     await fetch(`${basePath}/api/feedback`, {
       method: 'POST',
