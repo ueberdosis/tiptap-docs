@@ -2,6 +2,9 @@ import type { VersionData } from '@/types'
 
 export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://embed.tiptap.dev/preview'
 
+/** Every `CodeDemo` shows its demo in the `DemoViewer` (`NEXT_PUBLIC_DEMO_VIEWER=true`); otherwise only those with `viewer`. */
+export const DEMO_VIEWER = process.env.NEXT_PUBLIC_DEMO_VIEWER === 'true'
+
 export const PRO_DEMO_URL =
   process.env.NEXT_PUBLIC_DEMO_URL_PRO ?? 'https://embed-pro.tiptap.dev/preview'
 
