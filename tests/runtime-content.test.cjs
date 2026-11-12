@@ -3,6 +3,15 @@ const { test } = require('node:test')
 
 const base = process.env.DOCS_TEST_URL || 'http://127.0.0.1:3145'
 
+test('whiteboard utility links reach a rendered reference page', async () => {
+  const response = await fetch(`${base}/editor/whiteboard/api-reference/utilities`)
+  assert.equal(response.status, 200)
+  const html = await response.text()
+  assert.ok(html.includes('id="attachstage"'))
+  assert.ok(html.includes('will-change only while the camera moves'))
+  assert.ok(html.includes('Set <code>will-change: transform</code>'))
+})
+
 test('pages send only the current edit path, including homepage and index routes', async () => {
   for (const [route, file] of [
     ['/', 'index.mdx'],
