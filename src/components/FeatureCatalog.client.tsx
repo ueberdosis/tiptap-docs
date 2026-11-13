@@ -18,7 +18,7 @@ import { MultiSelect, useListParam } from '@/components/FilterControls.client'
 import type { CatalogEntry } from '@/server/getCatalog'
 import { getIcon } from '@/utils/iconKit'
 
-const END_OF_LIFE = ['Deprecated']
+const END_OF_LIFE = ['Legacy']
 
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
   // Icons come by name from the frontmatter
