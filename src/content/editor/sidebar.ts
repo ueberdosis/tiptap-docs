@@ -85,6 +85,7 @@ export const sidebarConfig: SidebarConfig = {
           href: '/editor/extensions/overview',
           title: 'Overview',
         },
+        // The extensions themselves come from the catalog (src/content/catalog.ts)
         {
           href: '/editor/extensions/custom-extensions',
           title: 'Custom extensions',
@@ -162,7 +163,7 @@ export const sidebarConfig: SidebarConfig = {
       children: [
         {
           href: '/editor/core-concepts/introduction',
-          title: 'Introduction',
+          title: 'Overview',
         },
         {
           href: '/editor/core-concepts/extensions',
@@ -200,7 +201,7 @@ export const sidebarConfig: SidebarConfig = {
       title: 'Markdown',
       tags: ['beta'],
       children: [
-        { href: '/editor/markdown', title: 'Introduction' },
+        { href: '/editor/markdown', title: 'Overview' },
         {
           href: '/editor/markdown/getting-started',
           title: 'Getting Started',
@@ -400,6 +401,10 @@ export const sidebarConfig: SidebarConfig = {
                 {
                   href: '/editor/api/commands/nodes-and-marks/exit-code',
                   title: 'exitCode',
+                },
+                {
+                  href: '/editor/api/commands/nodes-and-marks/insert-default-block',
+                  title: 'insertDefaultBlock',
                 },
                 {
                   href: '/editor/api/commands/nodes-and-marks/join-backward',
@@ -647,6 +652,30 @@ export const sidebarConfig: SidebarConfig = {
           href: '/editor/api/paste-rules',
           title: 'Paste Rules',
         },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Guides',
+      href: '/editor/guides',
+      children: [
+        { href: '/editor/guides/output-json-html', title: 'Export JSON or HTML' },
+        { href: '/editor/guides/invalid-schema', title: 'Invalid schema handling' },
+        { href: '/editor/guides/react-composable-api', title: 'React Composable API' },
+        { href: '/editor/guides/spellcheck', title: 'Spellcheck' },
+        { href: '/editor/guides/find-and-replace', title: 'Find and replace UI' },
+      ],
+    },
+    {
+      type: 'group',
+      title: 'Customization guides',
+      href: '/editor/guides',
+      children: [
+        { href: '/editor/guides/create-mark', title: 'Create a mark' },
+        { href: '/editor/guides/nested-node-view-content', title: 'Nested node views' },
+        { href: '/editor/guides/decorations-vanilla', title: 'Decorations in JavaScript' },
+        { href: '/editor/guides/decorations-react', title: 'Decorations in React' },
+        { href: '/editor/guides/decorations-vue', title: 'Decorations in Vue' },
       ],
     },
     {

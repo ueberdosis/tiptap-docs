@@ -16,38 +16,67 @@ import { INDUSTRIES } from '@/content/industries'
 import { useUrlParam } from '@/hooks/useUrlParam'
 import { MultiSelect, useListParam } from '@/components/FilterControls.client'
 import type { CatalogEntry } from '@/server/getCatalog'
+import { cn } from '@/utils'
 import { getIcon } from '@/utils/iconKit'
 
-const END_OF_LIFE = ['Deprecated']
+const END_OF_LIFE = ['Legacy']
 
 function CatalogCard({ entry }: { entry: CatalogEntry }) {
+  // A feature without docs yet is still to come, so its card is greyed out
+  const upcoming = !entry.url
   // Icons come by name from the frontmatter
-  const icon = createElement(getIcon(entry.icon), { className: 'w-3.5 h-3.5', 'aria-hidden': true })
+  const icon = createElement(getIcon(entry.icon), {
+    className: cn('w-3.5 h-3.5', upcoming ? 'text-grayAlpha-500' : undefined),
+    'aria-hidden': true,
+  })
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2 mb-5">{icon}</div>
+      <div
+        className={cn(
+          'font-semibold leading-[140%]',
+          upcoming ? 'text-grayAlpha-700' : 'text-black',
+        )}
+      >
+        {entry.name}
+      </div>
+      <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
+      {entry.plan || entry.paid || entry.status ? (
+        // Plan first, then status, as in the page header
+        // The labels sit at the bottom, whatever the length of the description
+        <div className="mt-auto pt-5 flex items-center flex-wrap gap-1">
+          {entry.plan || entry.paid ? (
+            <Tag
+              variant={entry.plan === 'Open source' ? 'gray' : 'info'}
+              tooltip={
+                entry.plan
+                  ? PLAN_LABELS[entry.plan].tooltip
+                  : 'Will need a paid plan. Which one is set when it ships.'
+              }
+            >
+              {entry.plan ? PLAN_LABELS[entry.plan].label : 'Paid'}
+            </Tag>
+          ) : null}
+          {entry.status ? (
+            <Tag variant={END_OF_LIFE.includes(entry.status) ? 'hint' : 'gray'}>{entry.status}</Tag>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  )
+
+  // A feature without docs yet has no page to link to
+  if (!entry.url)
+    return (
+      <Card className="flex flex-col bg-grayAlpha-50 border border-dashed border-grayAlpha-300 shadow-none">
+        {content}
+      </Card>
+    )
+
   return (
     <Card isClickable asChild>
       <Link href={entry.url} className="flex flex-col">
-        <div className="flex items-center justify-between gap-2 mb-5">{icon}</div>
-        <div className="font-semibold text-black leading-[140%]">{entry.name}</div>
-        <div className="mt-2 text-sm leading-[140%] text-grayAlpha-600">{entry.description}</div>
-        {entry.plan || entry.status ? (
-          // Plan first, then status, as in the page header
-          // The labels sit at the bottom, whatever the length of the description
-          <div className="mt-auto pt-5 flex items-center flex-wrap gap-1">
-            {entry.plan ? (
-              <Tag
-                variant={entry.plan === 'Open source' ? 'gray' : 'info'}
-                tooltip={PLAN_LABELS[entry.plan].tooltip}
-              >
-                {PLAN_LABELS[entry.plan].label}
-              </Tag>
-            ) : null}
-            {entry.status ? (
-              <Tag variant={END_OF_LIFE.includes(entry.status) ? 'hint' : 'gray'}>
-                {entry.status}
-              </Tag>
-            ) : null}
-          </div>
-        ) : null}
+        {content}
       </Link>
     </Card>
   )
@@ -57,7 +86,7 @@ function CatalogCard({ entry }: { entry: CatalogEntry }) {
 export const CatalogCards = ({ entries }: { entries: CatalogEntry[] }) => (
   <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 xl:gap-5">
     {entries.map((entry) => (
-      <CatalogCard entry={entry} key={entry.url} />
+      <CatalogCard entry={entry} key={entry.url || entry.name} />
     ))}
   </div>
 )

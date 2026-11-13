@@ -411,6 +411,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Configure',
               href: '/ai/basic/configure',
             },
+            {
+              title: 'Privacy',
+              href: '/ai/basic/privacy',
+            },
           ],
         },
       ],

@@ -3,9 +3,9 @@ import { forwardRef } from 'react'
 import { PageHeaderBreadcrumbs } from './PageHeader.client'
 import { Tag } from './ui/Tag'
 import Link from '@/components/Link'
-import { PLAN_LABELS, Plan, Status } from '@/content/plans'
-import { isNew } from '@/utils/isNew'
+import { PLAN_LABELS } from '@/content/catalog'
 import { cn } from '@/utils'
+import { isNew } from '@/utils/isNew'
 import { GeneralPageTag, ImagePageTag, PageTag } from '@/types'
 
 export type PageHeaderWrapperProps = {
@@ -99,7 +99,7 @@ const isImageTag = (tag: PageTag): tag is ImagePageTag => {
 }
 
 const PLAN_TYPES = ['restricted', 'addon', 'business', 'team', 'start', 'beginStart', 'mit', 'pro']
-const STATUS_TYPES = ['deprecated', 'alpha', 'beta', 'experiment', 'new']
+const STATUS_TYPES = ['legacy', 'alpha', 'beta', 'experiment', 'new']
 
 // Plan first, then status, then version, then npm badges, whatever the frontmatter order
 const tagRank = (tag: PageTag) =>
@@ -111,7 +111,7 @@ const tagRank = (tag: PageTag) =>
         ? 2
         : 3
 
-const PLAN_TAG: Record<Plan, GeneralPageTag['type']> = {
+const PLAN_TAG: Record<string, GeneralPageTag['type']> = {
   'Pilot program': 'restricted',
   'Add-on': 'addon',
   Business: 'business',
@@ -120,8 +120,8 @@ const PLAN_TAG: Record<Plan, GeneralPageTag['type']> = {
   'Open source': 'mit',
 }
 
-const STATUS_TAG: Record<Status, GeneralPageTag['type']> = {
-  Deprecated: 'deprecated',
+const STATUS_TAG: Record<string, GeneralPageTag['type']> = {
+  Legacy: 'legacy',
   Alpha: 'alpha',
   Beta: 'beta',
 }
@@ -130,24 +130,30 @@ const STATUS_TAG: Record<Status, GeneralPageTag['type']> = {
  * A page's header tags, with the plan and status it inherits from its feature
  * when it doesn't tag them itself, so a sub-page of a paid feature says so.
  */
-export function headerTags(tags: PageTag[] = [], inherited?: { plan?: Plan; status?: Status }) {
+export function headerTags(tags: PageTag[] = [], inherited?: { plan?: string; status?: string }) {
   const own = (types: string[]) => tags.some((tag) => types.includes(tag.type))
   const added: PageTag[] = []
-  if (inherited?.plan && !own(PLAN_TYPES)) added.push({ type: PLAN_TAG[inherited.plan] })
-  // New says when a page went live, not how stable it is
-  const ownStatus = own(STATUS_TYPES.filter((type) => type !== 'new'))
-  if (inherited?.status && !ownStatus) added.push({ type: STATUS_TAG[inherited.status] })
+  const plan = inherited?.plan && PLAN_TAG[inherited.plan]
+  if (plan && !own(PLAN_TYPES)) added.push({ type: plan })
+  const status = inherited?.status && STATUS_TAG[inherited.status]
+  if (status && !own(STATUS_TYPES)) added.push({ type: status })
   return [...tags, ...added]
 }
 
 export type PageHeaderTagsProps = {
   tags: PageTag[]
   isTemplate?: boolean
+  /** The Legacy box below says it already, so the tag would repeat it. */
+  hideLegacy?: boolean
 }
 
-export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
-  // A deprecated page shouldn't also invite you in as Beta or New
-  const endOfLife = tags.some((tag) => tag.type === 'deprecated')
+export const PageHeaderTags = ({
+  tags,
+  isTemplate = false,
+  hideLegacy = false,
+}: PageHeaderTagsProps) => {
+  // A legacy page shouldn't also invite you in as Beta or New
+  const endOfLife = tags.some((tag) => tag.type === 'legacy')
   // `pro` reads as Open source, which a page that names a paid plan isn't
   const paidPlan = tags.some(
     (tag) => PLAN_TYPES.includes(tag.type) && !['mit', 'pro'].includes(tag.type),
@@ -155,7 +161,7 @@ export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
     .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
-    .filter(({ tag }) => tag.type !== 'new' || isNew((tag as GeneralPageTag).since))
+    .filter(({ tag }) => !(hideLegacy && tag.type === 'legacy'))
     .filter(({ tag }) => !(paidPlan && tag.type === 'pro'))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
   if (!sorted.length) return null
@@ -222,8 +228,8 @@ export const PageHeaderTag = ({
       )
     case 'business':
       return (
-        <PlanTag tooltip={tag.tooltip || PLAN_LABELS.Business.tooltip}>
-          {PLAN_LABELS.Business.label}
+        <PlanTag tooltip={tag.tooltip || 'Included in Business and Enterprise.'}>
+          Business plan
         </PlanTag>
       )
     case 'addon':
@@ -273,13 +279,13 @@ export const PageHeaderTag = ({
           New
         </Tag>
       ) : null
-    case 'deprecated':
+    case 'legacy':
       return (
         <Tag
           variant="hint"
-          tooltip={tag.tooltip || 'Will be removed. Use what the page names instead.'}
+          tooltip={tag.tooltip || 'Kept for existing projects, not for new ones.'}
         >
-          Deprecated
+          Legacy
         </Tag>
       )
     case 'version':
