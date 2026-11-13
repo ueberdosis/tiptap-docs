@@ -1,0 +1,262 @@
+---
+title: "Reading the document"
+intro: "The functions on this page list the targets and the references of a document, and what each reference reads. Use them to build a picker, to find references whose target is gone, or to export a document on a server, with an editor or without one."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Reading the document | Tiptap Editor Docs"
+  description: "Read the targets and cross-references of a document, find references whose target is gone, read them on a server, and repair doubled ids."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-cross-references/docs/reading.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+A target is what a reference points at, such as a heading of a type you register, or a target of a
+[source](/features/cross-references/sources). A reference is the inline node `crossReference`, which names targets by
+their ids. None of these functions changes the document.
+
+## The registration
+
+Most of the functions take the document and the registration, your configuration of the
+extension. In an editor it is `editor.storage.crossReferences`, with these fields:
+
+| Field                                                                                               | What it holds                                                                           |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `targets`, `sources`, `displays`, `joins`, `join`, `idAttribute`, `ignore`, `multiple`, `holdsText` | The options of the same name                                                            |
+| `assignsIds`                                                                                        | The `defineIdAttribute` option                                                          |
+| `labels`                                                                                            | `{ phrases, pageOf }`: your `phrases` merged over the defaults, and the `pageOf` option |
+| `update`                                                                                            | The current update mode, `'live'` or `'manual'`                                         |
+
+The functions keep what they read per document and per registration object. So pass the same
+object each time, as `editor.storage.crossReferences` is. A new object reads every target and asks
+every source again. `crossReferencesIn(doc)` and `crossReferenceAround(doc, from, to)` take no
+registration.
+
+## Reading the targets
+
+`crossReferenceTargetsIn(doc, registration)` returns every target of the document in reading order. A
+picker builds its list from it, see [Build a reference picker](/features/cross-references/picker):
+
+```js
+import { crossReferenceTargetsIn } from '@tiptap-pro/extension-cross-references'
+
+const targets = crossReferenceTargetsIn(editor.state.doc, editor.storage.crossReferences)
+```
+
+Each target, a `CrossReferenceTargetAt`, has these fields:
+
+| Field      | Description                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| `node`     | The target's node. `null` for a source's target                                                      |
+| `pos`      | Where it starts. `null` for a target outside the document                                            |
+| `id`       | The id a reference stores, `source:id` for a source's target. `null` until the first reference to it |
+| `title`    | What `show: 'title'` reads                                                                           |
+| `type`     | The reference type a picker lists it under                                                           |
+| `label`    | Its number, `{ number, fullNumber, counts? }`, or `null`                                             |
+| `withheld` | Whether a reference to it says nothing about it                                                      |
+| `source`   | The name of its source, or `null`                                                                    |
+| `data`     | What the source gave along                                                                           |
+
+A nested target comes after the target it is in. A source's targets outside the document come
+after every target in the document.
+
+Read a target's id and node from these fields, not from `doc.nodeAt(target.pos)`. They are right
+also for a footnote, which keeps its id in an attribute of its own, and for a source's target.
+
+### One target by its id
+
+`crossReferenceTargetById(doc, registration, id)` returns the target with that id, or `null`. Where an
+id is doubled, it returns the first target with it, the one a reference names. For an id a source
+does not list, it asks the source's `resolve`.
+
+## Reading the references
+
+`crossReferencesIn(doc)` lists every reference of the document in reading order. Each reference, a
+`CrossReferenceAt`, has these fields.
+
+The functions of the second column read the same value off a reference node, and
+`isCrossReference(node)` tells whether a node is a reference:
+
+| Field             | Function             | Description                                                                      |
+| ----------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `node`            |                      | The reference node                                                               |
+| `pos`             |                      | Where it starts                                                                  |
+| `targetIds`       | `referencedIdsOf`    | The ids it names, in order. Empty for a reference that names no target           |
+| `targetId`        | `referencedIdOf`     | The first of `targetIds`, or `null`                                              |
+| `show`            | `showOf`             | Its display, what it reads of its target. `'fullNumber'` where nothing is stored |
+| `hyperlink`       | `isHyperlink`        | Whether a Cmd/Ctrl+click follows it                                              |
+| `aboveBelow`      | `includesAboveBelow` | Whether `above` or `below` follows its text                                      |
+| `numberSeparator` | `numberSeparatorOf`  | What separates the parts of a number, or `null`                                  |
+| `join`            | `joinRuleOf`         | Its rule for several targets, or `null` for the configured one                   |
+| `locked`          | `isLocked`           | Whether an update leaves its text alone                                          |
+| `fixedText`       | `fixedTextOf`        | The text it holds, or `null` for an empty reference, which reads its targets     |
+
+`referencedIdsOf` also reads a document saved with the older single `targetId` attribute.
+
+### What each reference reads
+
+`crossReferenceLabelsIn(doc, registration, options)` lists what each reference reads, in the same
+order. Pass `editor.storage.crossReferences.labels` as `options`, so the list reads what the
+editor draws:
+
+```js
+import { crossReferenceLabelsIn } from '@tiptap-pro/extension-cross-references'
+
+const labels = crossReferenceLabelsIn(
+  editor.state.doc,
+  editor.storage.crossReferences,
+  editor.storage.crossReferences.labels,
+)
+```
+
+Each entry, a `CrossReferenceLabelAt`, has these fields:
+
+| Field        | Description                                                                      |
+| ------------ | -------------------------------------------------------------------------------- |
+| `reference`  | The reference, as `crossReferencesIn` lists it                                   |
+| `text`       | What its targets say. An empty reference reads it, and an update stores it       |
+| `unresolved` | `null`, or what is missing, see [Broken references](/features/cross-references/reading#broken-references)          |
+| `format`     | How the display prints the text, such as `'superscript'`, or `null`              |
+| `fixed`      | Whether the reference shows text of its own                                      |
+| `stale`      | Whether its own text is not what its targets say                                 |
+| `hidesText`  | Whether its own text is hidden, with `holdsText: false` or for a withheld target |
+
+In an editor, `crossReferenceLabelsKey.getState(editor.state).labels` already holds this list for
+the current document.
+
+## Broken references
+
+A broken reference is unresolved: it has nothing to show, so it reads `?`. The `unresolved` field
+of its entry says what is missing. This finds the references whose target is gone:
+
+```js
+const broken = labels.filter(label => label.unresolved === 'target')
+```
+
+`unresolved` holds one of these values:
+
+| `unresolved` | What is missing                                                 |
+| ------------ | --------------------------------------------------------------- |
+| `'target'`   | A target with the id. Also for a reference that names no target |
+| `'number'`   | The target's number                                             |
+| `'page'`     | The page the target is on                                       |
+| `'withheld'` | Nothing, but the target is withheld                             |
+
+With several targets, `unresolved` names the first thing missing, and `'withheld'` wins.
+
+A broken reference stays in the document, because an undo can bring its target back. Retarget it
+with [setCrossReferenceOptions()](/features/cross-references/commands#setcrossreferenceoptions) or remove it with
+[removeCrossReference()](/features/cross-references/commands#removecrossreference).
+
+## The reference at the selection
+
+`crossReferenceAround(doc, from, to)` returns the reference the selection is in or selects whole,
+or `null`. A toolbar passes `editor.state.selection`'s `from` and `to` to show the reference at the
+cursor. `to` defaults to `from`, and tells a reference selected as a node from a caret in front of
+it.
+
+`crossReferenceTypesIn(doc, registration)` returns each type of target with its targets and displays,
+leaving withheld targets out. [Build a reference picker](/features/cross-references/picker) shows how to use it.
+
+## Reading without an editor
+
+None of these functions needs an editor, so an export on a server reads the same text the editor
+draws. `extensions` stands for the extensions of your editor, which must include
+`CrossReferences`, and `json` for the stored document:
+
+```js
+import { getSchema } from '@tiptap/core'
+import { Node } from '@tiptap/pm/model'
+import {
+  crossReferenceLabelsIn,
+  DEFAULT_CROSS_REFERENCE_PHRASES,
+} from '@tiptap-pro/extension-cross-references'
+
+const doc = Node.fromJSON(getSchema(extensions), json)
+const registration = { targets, sources, displays }
+
+for (const { reference, text } of crossReferenceLabelsIn(doc, registration, {
+  phrases: DEFAULT_CROSS_REFERENCE_PHRASES,
+  pageOf: null,
+})) {
+  // write `text` where `reference.pos` stands
+}
+```
+
+The registration you build, of the type `CrossReferenceReading`, needs only `targets`. Add every other option you
+configured in the editor, because each one changes what the functions return: `sources`,
+`displays`, `joins`, `join`, `idAttribute`, `ignore` and `holdsText`. Build it once and pass the
+same object to every call.
+
+The third argument takes the whole phrases object, so merge phrases of your own over the defaults,
+as in `{ ...DEFAULT_CROSS_REFERENCE_PHRASES, lastSeparator: ' und ' }`. `pageOf` returns the page
+a target is drawn on, which only [Page Layout](/features/page-layout/getting-started/overview) knows.
+Without pages, pass `null`, and a reference that shows `page` reads `?`.
+
+## Checking and repairing ids
+
+One id must name one target, and the editor repairs a doubled id by itself, see
+[One id, one target](/features/cross-references/targets#one-id-one-target).
+
+The repair skips a transaction that only types text, deletes or changes marks. So to repair a
+loaded document right away, use these:
+
+```js
+import {
+  hasDoubledTargetIds,
+  repairTargetIdsTransaction,
+} from '@tiptap-pro/extension-cross-references'
+
+const registration = editor.storage.crossReferences
+hasDoubledTargetIds(editor.state.doc, registration) // true where two targets share an id
+
+const transaction = repairTargetIdsTransaction(editor.state.tr, registration)
+if (transaction) editor.view.dispatch(transaction)
+```
+
+`repairTargetIdsTransaction(tr, registration, inserted)` returns the transaction with every doubled id
+fixed, or `null`. The first target in reading order keeps the id, and each other one gets the id
+with the lowest free number, such as `scope-1`.
+
+The optional `inserted` holds the ranges, `{ from, to }`, that `insertedRanges(transactions)`
+returns. A target starting in one is the copy and gets the new id. The repair leaves a source's
+ids alone, and those of a type with an id attribute of its own.
+
+### Making an id
+
+These functions make the ids the package writes. `taken` is a `Set` of ids:
+
+| Function      | Arguments      | Returns                                                                       |
+| ------------- | -------------- | ----------------------------------------------------------------------------- |
+| `newTargetId` | `title, taken` | A target's first id: `slugOf(title)`, made free of `taken`, or `'target'`     |
+| `slugOf`      | `title`        | A readable id: "Scope of work" becomes `scope-of-work`, at most 48 characters |
+| `freeId`      | `base, taken`  | `base` where it is free, otherwise `base-n` with the lowest free `n`          |
+
+## Reading one node
+
+These functions read a target node, with `editor.storage.crossReferences.targets` as `targets`:
+
+| Function        | Arguments                      | Returns                                                                                |
+| --------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `targetIdOf`    | `node, idAttribute`            | The target's id, or `null`. `idAttribute` defaults to `'crossReferenceId'`             |
+| `resolveTarget` | `targets, node, { ancestors }` | `{ title, type }`, or `null` where the node is no target. `ancestors` go to `isTarget` |
+| `targetLabelOf` | `targets, { node, pos, doc }`  | The target's number, or `null`                                                         |
+
+## Names
+
+The package exports these constants:
+
+| Name                               | What it is                                                     |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `CROSS_REFERENCE_NODE_NAME`        | `'crossReference'`, the name of the reference node             |
+| `CROSS_REFERENCE_ID_ATTRIBUTE`     | `'crossReferenceId'`, the attribute that holds a target's id   |
+| `CROSS_REFERENCE_SHOWS`            | The built-in values of `show`                                  |
+| `DEFAULT_CROSS_REFERENCE_SHOW`     | `'fullNumber'`                                                 |
+| `DEFAULT_CROSS_REFERENCE_PHRASES`  | The default phrases, see [What a reference shows](/features/cross-references/displays) |
+| `DEFAULT_CROSS_REFERENCE_DISPLAYS` | The built-in displays, by id                                   |
+| `DEFAULT_CROSS_REFERENCE_JOIN`     | `'list'`                                                       |
+| `DEFAULT_CROSS_REFERENCE_JOINS`    | The built-in rules, by id                                      |
+
+The names of the attributes and classes in the editor's HTML are on [Styling](/features/cross-references/styling).

@@ -1,0 +1,265 @@
+---
+title: "Targets"
+intro: "A target is what a reference points at, such as a heading, a numbered clause or a footnote. You choose which node types of your schema are targets, and say for each one what its title and its number are."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Targets | Tiptap Editor Docs"
+  description: "Register the node types a cross-reference can point at, number them, refer to footnotes, and control the ids targets get."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-cross-references/docs/targets.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+A reference is the inline node `crossReference`. It names its targets by id and reads their
+number, title or page each time the document changes.
+
+## Registering targets
+
+Register a node type as a target by its name in the `targets` option. This makes every heading a
+target, with every field of the registration at its default:
+
+```js
+CrossReferences.configure({
+  targets: { heading: {} },
+})
+```
+
+[Install Cross-references](/features/cross-references/install#a-first-editor) has the complete editor around it.
+
+A registration is the object under the type's name. Each field is a value, or a function the
+extension calls for each node of the type:
+
+| Field         | Type                                                              | Default                   | Description                                                                                             |
+| ------------- | ----------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `title`       | `string \| (node) => string`                                      | The node's text           | What a reference showing the title reads                                                                |
+| `label`       | `({ node, pos, doc }) => { number, fullNumber, counts? } \| null` | No number                 | The target's number, see [Numbering targets](/features/cross-references/targets#numbering-targets)                                        |
+| `type`        | `string \| (node) => string`                                      | The node type's name      | The name a picker groups the target under                                                               |
+| `displays`    | `(string \| { id, title })[]`                                     | By whether `label` is set | What a reference to the type may show, see [What a reference shows](/features/cross-references/displays)                        |
+| `idAttribute` | `string`                                                          | The `idAttribute` option  | The attribute of an id the type has of its own, see [An id for one type only](/features/cross-references/targets#an-id-for-one-type-only) |
+| `withheld`    | `boolean \| (node) => boolean`                                    | `false`                   | Hides what the target says, see [Withheld targets](/features/cross-references/targets#withheld-targets)                                   |
+| `isTarget`    | `boolean \| (node, { ancestors }) => boolean`                     | `true`                    | Whether a node of the type is a target, see [Numbered list items](/features/cross-references/targets#numbered-list-items)                 |
+
+Only block nodes can be targets, such as headings, paragraphs and list items. A target that is
+not a node, such as a bookmark around a few words, comes from a [source](/features/cross-references/sources).
+
+### When the fields are asked
+
+The extension keeps what `title`, `type` and `isTarget` return for a node until the top-level
+block that holds it changes. So their answers must depend on the node and its ancestors alone.
+
+`label` and `withheld` are asked for every target on every change of the document. An answer
+can also change while the document does not, such as which targets the user may see. Then call
+[`refreshCrossReferences()`](/features/cross-references/commands#refreshcrossreferences).
+
+## Numbering targets
+
+A reference reads a target's number from the registration's `label` function, because the
+extension counts nothing itself. `label` returns the number, or `null` for a target without one:
+
+| Field        | Type       | Description                                                                     |
+| ------------ | ---------- | ------------------------------------------------------------------------------- |
+| `number`     | `string`   | How the target shows its own number, such as `(a)`                              |
+| `fullNumber` | `string`   | How the target is named from elsewhere, such as `1.02(a)`                       |
+| `counts`     | `number[]` | Optional. The count at each level, outermost first, such as `[3, 2]` for `3(b)` |
+
+The number is not stored on the target, because it follows from where the target stands. So
+when the user inserts a clause in front of it, the references to the later clauses read the new
+numbers.
+
+Any code that counts can be a `label`. Since it is asked for every target on every change, count
+each document once and keep the result in a `WeakMap`, as
+[Footnotes as targets](/features/cross-references/targets#footnotes-as-targets) does.
+
+Two features read `counts`, and treat the number as one piece without it. The `relativeNumber`
+display writes `(b)` for `3(b)` inside clause 3, see [What a reference shows](/features/cross-references/displays). A
+range such as `3–5` needs `counts` that follow each other on one level, see
+[Several targets in one reference](/features/cross-references/joins).
+
+### Numbers from Outline numbering
+
+For headings and clauses, take the numbers from
+[Outline numbering](/features/outline-numbering), the extension that draws
+numbers such as `1.1.1` or `Article I` in front of them. Give its `outlineNumberAt` the options
+you give `OutlineNumbering.configure`, so both extensions count the same way:
+
+```js
+import { OutlineNumbering, outlineNumberAt } from '@tiptap-pro/extension-outline-numbering'
+import { CrossReferences } from '@tiptap-pro/extension-cross-references'
+
+const outline = {
+  types: { heading: { level: node => node.attrs.level } },
+  levels: [],
+  ignore: null,
+}
+
+// Add these to the extensions of your editor.
+const extensions = [
+  OutlineNumbering.configure(outline),
+  CrossReferences.configure({
+    targets: {
+      heading: {
+        label: ({ doc, pos }) => {
+          const found = outlineNumberAt(doc, outline, pos)
+          return found && { number: found.label, fullNumber: found.fullLabel, counts: found.counts }
+        },
+      },
+    },
+  }),
+]
+```
+
+## Numbered list items
+
+The `isTarget` field makes only some nodes of a type targets. This registration makes the items
+of an ordered list targets, listed in a picker as "Numbered item", and leaves the items of a
+bullet list out:
+
+```js
+CrossReferences.configure({
+  targets: {
+    listItem: {
+      type: 'Numbered item',
+      isTarget: (node, { ancestors }) => ancestors.at(-1)?.type.name === 'orderedList',
+    },
+  },
+})
+```
+
+`ancestors` runs from the outermost node to the parent, without the document. A node that
+`isTarget` rejects is not a target anywhere. A picker does not list it, it gets no id, and a
+reference to an id it carries reads `?`.
+
+## Footnotes as targets
+
+A reference to a footnote, such as "see note 3", prints the number the note prints. Register the
+`footnote` type of [Footnotes](/features/footnotes) with its own id
+attribute, `footnoteId`, and number it with the footnotes' own count:
+
+```js
+import { footnoteIdOf, noteNumbers } from '@tiptap-pro/extension-footnotes'
+import { CrossReferences } from '@tiptap-pro/extension-cross-references'
+
+const marks = new WeakMap()
+
+CrossReferences.configure({
+  targets: {
+    footnote: {
+      idAttribute: 'footnoteId',
+      label: ({ doc, node }) => {
+        if (!marks.has(doc)) marks.set(doc, noteNumbers(doc))
+        const mark = marks.get(doc).get(footnoteIdOf(node))
+        return mark ? { number: mark, fullNumber: mark } : null
+      },
+    },
+  },
+})
+```
+
+If you give `Footnotes` a `counter`, pass it as `noteNumbers(doc, { counter })`, so the
+reference counts as the note does. The title of a footnote target is the note's text.
+
+## What a target stores
+
+A target stores one thing: its id, in the attribute `crossReferenceId`
+(`CROSS_REFERENCE_ID_ATTRIBUTE`), which the extension adds to the registered types. In HTML, it is written as `data-tt-cross-reference-id`. So a target
+keeps its identity through a save and a copy into another editor.
+
+### How a target gets its id
+
+A target gets its id with the first reference to it, in the same transaction that inserts the
+reference. A document without references carries no ids.
+
+The id is made from the target's title, so a heading "Scope of work" gets `scope-of-work`. Where
+that id is taken, the extension adds the lowest free number, such as `scope-of-work-1`.
+
+Because the ids are not random, two people who refer to the same clause at the same moment give
+it the same id, and their changes do not conflict. The extension does not remove an id when the
+last reference to the target is deleted.
+
+### One id, one target
+
+After a change, the extension checks that no two targets share an id. Where two do, the new one
+gets the id with the lowest free number, so the references that were there keep pointing where
+they pointed.
+
+A pasted copy of a target gets a new id, and a target that is cut and pasted keeps its id. A
+heading split in the middle keeps its id on the front half.
+
+`repair: false` turns the check off. To run it in an editor state of your own, add
+`crossReferenceIdsPlugin(editor.storage.crossReferences)` to its plugins.
+
+## Using an id another extension defines
+
+When another extension already puts an id on your targets, as a table of contents does on
+headings, name that attribute in `idAttribute` and set `defineIdAttribute` to `false`. A heading
+then has one id and not two that both have to stay unique:
+
+```js
+CrossReferences.configure({
+  targets: { heading: {} },
+  idAttribute: 'id',
+  defineIdAttribute: false,
+})
+```
+
+The other extension then decides when a target gets an id, so inserting a reference by position
+to a target without one fails.
+
+Choose the attribute before documents are saved. Its name is part of every stored document, so
+changing it later means migrating every saved file.
+
+### An id for one type only
+
+The `idAttribute` field of a registration names an id that belongs to one type, as in
+[Footnotes as targets](/features/cross-references/targets#footnotes-as-targets). The extension only reads it, so it gives no node
+of that type an id and repairs no doubled ones.
+
+## Withheld targets
+
+A withheld target stays in the document, but a reference to it says nothing about it. Use it
+where a reference must not give a target's number or title away, such as a clause that only some
+people may see. This registration withholds the headings whose `protected` attribute is `true`:
+
+```js
+CrossReferences.configure({
+  targets: {
+    heading: { withheld: node => node.attrs.protected === true },
+  },
+})
+```
+
+`protected` stands for an attribute your schema defines.
+
+A reference to a withheld target reads `[withheld]`, also in a copy, and hides text it holds.
+Typing and deleting inside it do nothing, a click does not follow it, and an update or a
+conversion to text leaves it as it is.
+
+A picker does not offer a withheld target. A .docx export needs `isWithheld`, see
+[Word fields](/features/cross-references/docx#export).
+
+The document does not store which targets are withheld, so the same document read with another
+registration shows every target.
+
+## Leaving nodes out
+
+The `ignore` option keeps nodes from being targets, for a document that holds nodes which are not
+its own content. With [Page Layout](/features/page-layout/getting-started/overview), pass its
+`ignoreLayoutArtifacts`, so the rest of a heading that a page boundary cut is not read as a
+second heading:
+
+```js
+import { ignoreLayoutArtifacts } from '@tiptap-pro/extension-page-layout'
+import { CrossReferences } from '@tiptap-pro/extension-cross-references'
+
+CrossReferences.configure({
+  targets: { heading: {} },
+  ignore: ignoreLayoutArtifacts,
+})
+```
+
+`ignore` is a function of a node. It returns `true` to leave the node out with all it holds, or
+`'descend'` to leave out only the node itself. `ignore` leaves no reference out, but a reference
+to a left-out node reads `?`.
