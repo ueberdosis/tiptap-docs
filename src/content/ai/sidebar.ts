@@ -42,7 +42,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'With Diagrams',
               href: '/ai/ai-toolkit/agents/diagrams',
-              releaseTag: 'alpha',
             },
             {
               title: 'Selection awareness',
