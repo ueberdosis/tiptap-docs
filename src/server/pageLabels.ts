@@ -3,6 +3,7 @@ import path from 'path'
 import { readFrontmatterSync } from './readFrontmatter'
 import { Plan, Status, planFromTags, statusFromTags } from '@/content/plans'
 
+// What the sidebar reads from a page's frontmatter; the lookups share fileForRoute
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
 
 /** The MDX file of a route, such as `/comments/getting-started/overview`. */
@@ -17,4 +18,10 @@ export function pageLabels(route: string): { plan?: Plan; status?: Status } {
   if (!file) return {}
   const types = (readFrontmatterSync(file).tags ?? []).map((tag) => tag.type)
   return { plan: planFromTags(types), status: statusFromTags(types) }
+}
+
+/** A page's own title from its frontmatter, such as "Import .docx in your editor". */
+export function pageTitle(route: string): string | undefined {
+  const file = fileForRoute(route.split('#')[0])
+  return file ? readFrontmatterSync(file).title : undefined
 }
