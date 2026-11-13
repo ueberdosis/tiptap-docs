@@ -1,0 +1,305 @@
+---
+title: "How styles are stored and drawn"
+intro: "Document styles keeps every style in the document and draws it with a stylesheet the editor writes. A block stores only the id of its style, so a change to a style changes every block that uses it. <a href=\"/features/document-styles#words-these-pages-use\">Words these pages use</a> explains style, override and the other terms."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "How styles are stored and drawn | Tiptap Editor Docs"
+  description: "How document styles are stored in the document, shared with collaborators, and drawn with a stylesheet, and how to write the CSS yourself."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-document-styles/docs/how-it-works.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+An editor with the default options needs nothing from this page. It is for these tasks:
+
+- To build content with styles in code, see [The definitions node](/features/document-styles/how-it-works#the-definitions-node).
+- To write the CSS yourself, or to show saved HTML outside the editor, see
+  [Your own CSS](/features/document-styles/how-it-works#your-own-css).
+- To know what undo and collaboration do with styles, see
+  [Saving, undo and collaboration](/features/document-styles/how-it-works#saving-undo-and-collaboration).
+
+## What is stored
+
+A styled block or piece of text stores the id of its style and its overrides, the values it sets
+differently from the style. What the style sets is stored once, in its definition. The
+`applyStyle` command sets the id, as [Apply a style](/features/document-styles/applying#apply-a-style) shows.
+
+The extension adds these attributes to each node type in the `types` option and each mark type in
+`markTypes`. By default these are the paragraphs, headings, blockquotes, tables and `textStyle`
+marks of the schema, as [Options](/features/document-styles/options) describes:
+
+| Attribute        | Type                         | Default | In HTML                                       | What it holds                                                   |
+| ---------------- | ---------------------------- | ------- | --------------------------------------------- | --------------------------------------------------------------- |
+| `styleId`        | `string \| null`             | `null`  | `data-tt-style-id`                            | The id of the style                                             |
+| `styleOverrides` | `StyleOverrides \| null`     | `null`  | `data-tt-style-overrides`, and inline `style` | The values set apart from the style, such as `{ color: 'red' }` |
+| `styleLook`      | `Partial<TableLook> \| null` | `null`  | `data-tt-style-look`                          | Which parts of its table style a table shows                    |
+
+`styleLook` is only on the node types of the `tableTypes` option, as
+[Which parts a table shows](/features/document-styles/tables#which-parts-a-table-shows) explains. An override value is a
+string, a number, a boolean or `null`. An empty `data-tt-style-id` reads back as `null`.
+
+### The definitions node
+
+The document's own definitions and its theme are stored in a hidden `styleDefinitions` node at the
+end of the document, with one `styleDefinition` node per definition. `DocumentStyles` adds both
+node types to the schema, as `StyleDefinitions` and `StyleDefinitionEntry`.
+
+The styles of a [library](/features/document-styles/libraries), a set of styles from outside the document, are not stored
+here. Content without the node is fine. The first command that stores a definition or a theme
+adds the node, and it is removed when its last definition goes and it holds no theme.
+
+To build content with styles in code, such as the `content` of `new Editor()`, end it with
+`styleDefinitionsContent`. It takes the definitions that
+[Definition fields](/features/document-styles/definitions#definition-fields) describes:
+
+```js
+import { styleDefinitionsContent } from '@tiptap-pro/extension-document-styles'
+
+const content = {
+  type: 'doc',
+  content: [
+    { type: 'paragraph', attrs: { styleId: 'body' }, content: [{ type: 'text', text: 'Hello' }] },
+    styleDefinitionsContent([
+      { id: 'body', name: 'Body Text', kind: 'paragraph', props: { fontSize: 16 } },
+    ]),
+  ],
+}
+```
+
+`styleDefinitionsContent(definitions, theme)` takes an optional [theme](/features/document-styles/themes) as well.
+`theme` defaults to `null`, which leaves out the node's `attrs`. In `getJSON()`, the node is
+`{ type: 'styleDefinitions', content: [{ type: 'styleDefinition', attrs: { definition } }] }`.
+
+In HTML, the node is `<div data-tt-style-definitions hidden>`, with one
+`<div data-tt-style-definition="...">` per definition that holds it as JSON. The theme is the
+node's `theme` attribute, written as JSON in `data-tt-style-theme`.
+
+The node is an atom in the `block` group, so the user cannot type into it, select it or drag it.
+It goes at the end of the document, where a schema such as StarterKit's has room for it.
+
+If the top level allows only something else, the node goes at the end of the last container that
+takes it. If nothing at the end can hold it, storing the first definition throws
+`No container at the end of the document takes a "styleDefinitions" Node`.
+
+When reading, the extension finds the node anywhere outside atoms and textblocks, the nodes that
+hold text. It reads the first one, and skips a stored definition without an `id`, a `name` or a
+`kind`.
+
+This package has no .docx import or export. A .docx converter of your own reads the definitions
+with `styleDefinitionsOf` and maps them to Word's styles with `wordBuiltInStylesOf`, as
+[Word's built-in name](/features/document-styles/definitions#words-built-in-name) describes.
+
+## Saving, undo and collaboration
+
+The definitions are part of the document, so they need nothing besides it. `getJSON()` and
+`getHTML()` carry the definitions and the overrides, and `setContent` brings them back.
+
+A change to a definition is one step of the history, together with what the same command did to
+the text. The definitions reach every collaborator through Tiptap Collaboration as ordinary
+changes.
+
+Each definition is a node of its own, so two collaborators who change two different styles at the
+same time both keep their change. When both change the same thing at the same time:
+
+| Both change                            | Result                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| The same style                         | Both end with the same one of the two changes                                                    |
+| A new style with the same id           | Two `styleDefinition` nodes of that id. The first is read, and the next change removes the other |
+| The first style or theme of a document | Two `styleDefinitions` nodes, which the extension repairs                                        |
+
+The repair moves into the first `styleDefinitions` node the definitions it lacks, and the theme if
+it has none, then removes the later nodes. It is not added to the history.
+
+The repair runs as a transaction of its own in a microtask, after the transaction that added the
+node, so it reaches the shared document like any local change. The `repair` option, `true` by
+default, turns it off.
+
+A server that changes stored documents without an editor calls
+`repairStyleDefinitionsTransaction(transaction)` instead, as the
+[API reference](/features/document-styles/api#transactions) describes.
+
+## The stylesheet
+
+The editor draws the styles with one `<style data-tt-document-styles="...">` element in the
+`<head>` of the web page, and removes it when the editor is destroyed. You write no CSS for it.
+The stylesheet has one rule per style:
+
+```css
+.tiptap[data-tt-document-styles='s1'] [data-tt-style-id='body'] {
+  font-size: 16px;
+  line-height: 1.6;
+}
+```
+
+The editor's element carries its own key in `data-tt-document-styles`, so two editors on one web
+page with different styles do not draw each other's.
+
+A rule holds what the style inherits from the style it is `basedOn`, as
+[Where a value comes from](/features/document-styles/definitions#where-a-value-comes-from) explains. A style that cannot
+be resolved, such as one based on itself, gets no rule, so what refers to it is drawn without a
+style.
+
+The editor writes the stylesheet again after a change to a definition or the document's theme. It
+also does so when a library reports a change, as
+[A library of your own](/features/document-styles/libraries#a-library-of-your-own) describes.
+
+An override is written twice, as JSON in `data-tt-style-overrides` and as inline CSS, which wins
+over the stylesheet's rule:
+
+```html
+<p data-tt-style-id="body" data-tt-style-overrides='{"color":"red"}' style="color: red">...</p>
+```
+
+Only the JSON is read back, because a browser may rewrite the inline CSS in a copy and paste.
+Invalid JSON, an empty object or a value of another type reads as no overrides. An empty overrides
+object writes neither attribute.
+
+With a dark `colorScheme`, the inline CSS carries each color's
+[dark counterpart](/features/document-styles/themes#dark-mode), and the JSON keeps the color as it was set.
+
+A block without a style is drawn in its type's
+[default style](/features/document-styles/definitions#the-default-style), such as Normal for a paragraph. In the editor,
+the block carries the default's `data-tt-style-id` and `data-tt-style-default`, so the rule
+matches it. They are a decoration only, so `getHTML()` writes no `styleId` for the block.
+
+A character style with no overrides is written as `<span data-tt-style-id="marker" style="">`.
+TextStyle reads a `<span>` back only when it has a `style` attribute, so the empty one keeps the
+style through `getHTML()` and `setContent`.
+
+## Your own CSS
+
+`stylesheet: false` turns off the editor's stylesheet, so your integration writes the CSS.
+`documentStylesStylesheet` returns the rules the editor would write, the theme and table styles
+included, as a string. Write it into a `<style>` element, and again after each change:
+
+```js
+import { DocumentStyles, documentStylesStylesheet } from '@tiptap-pro/extension-document-styles'
+
+// In the extensions of the editor
+DocumentStyles.configure({ stylesheet: false })
+
+const style = document.head.appendChild(document.createElement('style'))
+
+function writeStyles() {
+  const { documentStyles } = editor.storage
+  const doc = editor.state.doc
+  style.textContent = documentStylesStylesheet(documentStyles.stylesOf(doc), '.tiptap', {
+    theme: documentStyles.themeOf(doc),
+  })
+}
+
+writeStyles()
+editor.on('update', writeStyles)
+```
+
+[Install](/features/document-styles/install) has the complete editor. A change to a [library](/features/document-styles/libraries) is no change
+to the document, so call `writeStyles` from the library's `subscribe` listener too.
+
+`documentStylesStylesheet(lookup, scope, options)` takes these arguments:
+
+| Argument  | Type                | Description                                                                        |
+| --------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `lookup`  | `StyleLookup`       | The styles the document can use, as [`stylesOf`](/features/document-styles/api#readers) returns them      |
+| `scope`   | `string`            | The selector of the element that holds the content. Every rule is written under it |
+| `options` | `StylesheetOptions` | Optional, defaults to `{}`                                                         |
+
+Two editors on one web page need two scopes. `StylesheetOptions` has these optional fields:
+
+| Field                 | Type               | Description                                                           |
+| --------------------- | ------------------ | --------------------------------------------------------------------- |
+| `theme`               | `ResolvedTheme`    | The theme references are drawn in. Word's Office theme when left out  |
+| `colorScheme`         | `ColorScheme`      | As the [`colorScheme`](/features/document-styles/options#colorscheme) option                 |
+| `printColorScheme`    | `PrintColorScheme` | As the `printColorScheme` option                                      |
+| `repeatedRowSelector` | `string \| null`   | As the [`repeatedRowSelector`](/features/document-styles/options#repeatedrowselector) option |
+
+With `stylesheet: false`, the editor also leaves out:
+
+- `data-tt-document-styles` on the editor's element.
+- The `STYLE_LIBRARY_CHANGED` transaction after a library change.
+- `data-tt-style-default` on a block drawn in its default style.
+- `lang` for a style's [language](/features/document-styles/definitions#language).
+- Dark counterparts for Tiptap's own colors.
+
+HTML from `getHTML()` that is shown without the editor, such as on a page that renders saved
+documents, works the same. Its overrides are inline CSS and still draw. Its styles and theme
+references need the rules of `documentStylesStylesheet`, scoped to the element that holds the HTML.
+
+A block drawn in its default style has no `styleId` in that HTML, so it is drawn without the
+default there. [Writing the defaults onto the blocks](/features/document-styles/cleanup#writing-the-defaults-onto-the-blocks)
+shows how `applyDefaultStyles` stores the default on each block.
+
+## How a value becomes CSS
+
+The stylesheet writes each value of a style's `props`, and each override, as a CSS declaration:
+
+| A value                                                       | Is written as                                        |
+| ------------------------------------------------------------- | ---------------------------------------------------- |
+| A name in lower camel case, such as `fontSize` or `marginTop` | The CSS property it names, `font-size`, `margin-top` |
+| A number, such as `18`                                        | Pixels, `18px`                                       |
+| A number for a unitless property, or `0`                      | The number                                           |
+| A theme reference, such as `'theme:accent1'`                  | `var(--tt-document-styles-theme-accent1)`            |
+| Any other string                                              | The string, trimmed                                  |
+
+The unitless properties are `fontWeight`, `lineHeight`, `opacity`, `orphans`, `widows`, `zIndex`,
+`flexGrow`, `flexShrink` and `order`. Every other number gets `px`, whether the property takes a
+length or not.
+
+Anybody who can edit a document can store a definition in it. So the extension leaves out a value
+that could style anything outside the content that refers to the style:
+
+- A name that is not lower camel case letters, such as `font-size`, `--x`, a vendor prefix such
+  as `WebkitTextStroke`, or one with digits.
+- A string that contains `;`, `{`, `}`, `<`, `>`, `\` or `/*`.
+- A number that is not finite, such as `NaN` or `Infinity`, a boolean, and an empty string.
+- A theme reference to a name the theme does not have.
+
+The rest of the style still draws.
+
+## Themes in CSS
+
+The [theme](/features/document-styles/themes) is two fonts and twelve colors that styles refer to, such as
+`'theme:accent1'`, which
+[Which theme a document is drawn in](/features/document-styles/themes#which-theme-a-document-is-drawn-in) lists. The
+stylesheet's first rule sets it as custom properties on the editor's
+element, so with the default `stylesheet: true` you write no CSS for the theme:
+
+| Theme value                        | Custom property                                             |
+| ---------------------------------- | ----------------------------------------------------------- |
+| The heading font, `'theme:major'`  | `--tt-document-styles-theme-font-major`                     |
+| The body font, `'theme:minor'`     | `--tt-document-styles-theme-font-minor`                     |
+| A color, such as `'theme:accent1'` | Named after the color, `--tt-document-styles-theme-accent1` |
+| `'theme:followedHyperlink'`        | `--tt-document-styles-theme-followed-hyperlink`             |
+
+The HTML keeps the reference. An override of `color: 'theme:accent1'` is the inline CSS
+`color: var(--tt-document-styles-theme-accent1)`, so it shows the theme's color only where a
+stylesheet sets that custom property.
+
+Tints and shades, such as `'theme:accent1/+40'` for 40% lighter, and dark mode use `light-dark()`
+and CSS relative colors, such as `hsl(from ...)`. They need a browser that supports both.
+
+Code that writes CSS or converts a document reads the theme with `themeVariableOf`,
+`themeDeclarations` and `themeValueOf`, which [Themes and colors](/features/document-styles/api#themes-and-colors) lists.
+`themeValueOf` is for a format without themes, or a color picker. With `accent1: '#0f766e'`,
+`themeValueOf(theme, 'theme:accent1/+40')` returns `'#36e5d8'`.
+
+## Tables in the editor
+
+A [table style](/features/document-styles/tables) formats parts of a table, such as the header row and the bands, the
+stripes of alternating rows or columns. The editor marks a table in a table style and its cells
+with the parts they are in, and the table style's rules match these marks.
+
+CSS of your own can match the marks too:
+
+| Attribute             | On                                    | Holds                                                                          | In `getHTML()` |
+| --------------------- | ------------------------------------- | ------------------------------------------------------------------------------ | -------------- |
+| `data-tt-style-id`    | The table                             | The table's style                                                              | Yes            |
+| `data-tt-style-look`  | The table                             | The stored `styleLook`, the parts that differ from the default                 | Yes            |
+| `data-tt-table-look`  | A table in a table style              | Every part the table shows, such as `first-row first-column banded-rows`       | No             |
+| `data-tt-table-style` | Each cell of a table in a table style | The table's style id                                                           | No             |
+| `data-tt-table-cell`  | Each cell of a table in a table style | The parts the cell is in, as kebab-case words, such as `first-row odd-columns` | No             |
+
+Adding a row counts the bands again, and a table inside a cell is a table of its own.
+`tableCellConditions` works out the parts of a cell, as [Tables](/features/document-styles/api#tables) describes.
