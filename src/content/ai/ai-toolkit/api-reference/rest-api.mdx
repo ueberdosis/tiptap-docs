@@ -302,10 +302,25 @@ This endpoint can return:
 POST /v4/ai/toolkit/stream-tool
 ```
 
+```txt
+GET /v4/ai/toolkit/stream-tool (WebSocket)
+```
+
 Streams tool execution. `tiptapEdit` can apply edits incrementally for a typing effect. Other tools
 run after the full input is received and return one final event, like `execute-tool`.
 
-The request is sent in parts. The first part contains:
+The endpoint accepts the same messages over two transports:
+
+- **WebSocket (recommended):** Open a WebSocket connection to the endpoint URL (`wss://`), with the
+  `Authorization` header on the handshake request. Send each message as a JSON object in one text
+  frame, and receive each event the same way. The server closes the connection after the final
+  event. Messages larger than 1 MB close the connection with code `1009`.
+- **HTTP:** Send a `POST` request whose body streams the messages as
+  [NDJSON](https://github.com/ndjson/ndjson-spec), one JSON object per line. Edits are applied as
+  the messages arrive, but the response is only sent once the request body ends, with all events
+  in one NDJSON body. Proxies with a request timeout can cut long requests.
+
+The first message (`start`) contains:
 
 - `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
 - `document` (`object`, required): Cloud document to stream the edit into:
@@ -323,22 +338,25 @@ The request is sent in parts. The first part contains:
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 - `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
-- `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
-  `tiptapEdit` output. Must be between `0` and `1000`. Use `0` to apply edits as fast as possible.
+- `delayMs` (`number`, optional, default: `0`): Delay in milliseconds between incremental
+  `tiptapEdit` steps, to slow the typing effect down. Must be between `0` and `1000`. With `0`, edits
+  are applied as fast as the input arrives.
 
 Then send:
 
-- Following parts: The value of `tool.input`, streamed as the AI generates it.
+- `delta` messages: The value of `tool.input`, streamed as the AI generates it.
+- An `end` message once the input is complete.
 
-Response:
+Response events:
 
-- `tiptapEdit`: Incremental events while edits are applied, followed by a final event with the
-  updated `document`.
-- Other tools: One final event with the same result shape as `execute-tool`.
+- `tiptapEdit`: An `action` event per applied edit step, followed by a final `completed` event with
+  the updated `document`.
+- Other tools: One final `completed` event with the same result shape as `execute-tool`.
 
 #### Error responses
 
-Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
+Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`. Over WebSocket, these
+errors reject the handshake with the HTTP status and no body.
 
 - `error` (`object`): An object with these properties:
   - `message` (`string`): Human-readable error message.
@@ -346,7 +364,7 @@ Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
   - `code` (`string`): Stable error code.
   - `data` (`object`, optional): Sanitized structured context.
 
-After streaming starts, errors are sent as NDJSON events:
+After streaming starts, errors are sent as events:
 
 - `version` (`number`): Stream protocol version.
 - `type` (`'error'`): Event type.
@@ -359,11 +377,12 @@ This endpoint can return or emit:
 - `400` with `invalid_request`: The request has no body.
 - `400` with `missing_document_credentials`: The JWT does not include document server credentials.
 - `400` with `invalid_stream_message`: A stream message is not valid JSON, fails schema validation,
-  uses an unsupported protocol version, or the stream ends with an unterminated NDJSON line.
+  uses an unsupported protocol version, arrives as a binary WebSocket frame, or the HTTP stream ends
+  with an unterminated NDJSON line.
 - `400` with `duplicate_start`: More than one `start` message was sent.
 - `400` with `delta_before_start`: A `delta` message arrived before `start`.
 - `400` with `end_before_start`: An `end` message arrived before `start`.
-- `400` with `incomplete_stream`: The request ended before an `end` message arrived.
+- `400` with `incomplete_stream`: The request or connection ended before an `end` message arrived.
 - `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A buffered
   thread or comment operation referenced data that does not exist.
 - `401` with `access_control_auth_required` or `missing_token`: The request did not include a
@@ -376,8 +395,9 @@ This endpoint can return or emit:
 - `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
   the editor schema does not support tracked changes.
 - `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
-- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size.
+- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size (HTTP only).
 - `429` with `stream_rate_limit_exceeded`: Too many concurrent streams are open for the same client.
+  Over WebSocket, this arrives as an event right after the connection opens.
 - `429` with `rate_limited`: Access Control rate-limited authentication.
 - `429`: The server-side rate limiter blocked the request before streaming started. This response
   uses a different top-level shape:
