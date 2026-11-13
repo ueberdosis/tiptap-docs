@@ -1,0 +1,166 @@
+---
+title: "A scheme stored in the document"
+intro: "A scheme is the templates of all levels together, such as <code>OUTLINE_PRESETS.legal</code>. A template writes the number of one level, such as <code>'Section {1}.{2:01}'</code>, as <a href=\"/features/outline-numbering/levels\">Levels and templates</a> explains. The <code>levels</code> option of <code>OutlineNumbering</code> gives every document the same scheme. With the <code>OutlineScheme</code> extension registered too, a document can store a scheme of its own."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "A scheme stored in the document | Tiptap Editor Docs"
+  description: "Store the numbering scheme in the document, let the user switch it or change one level, and preview a scheme."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-outline-numbering/docs/scheme.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+A stored scheme travels with the document, so it looks the same in another editor, for
+collaborators and in a saved file. The user can switch the scheme and undo the switch.
+
+## Store a scheme
+
+Register `OutlineScheme` beside `OutlineNumbering`, and store a scheme with
+[setOutlineLevels()](/features/outline-numbering/scheme#setoutlinelevels):
+
+```js
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import {
+  mountOutlineStyles,
+  OUTLINE_PRESETS,
+  OutlineNumbering,
+  OutlineScheme,
+} from '@tiptap-pro/extension-outline-numbering'
+
+mountOutlineStyles(document)
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    OutlineNumbering.configure({ types: { heading: { level: node => node.attrs.level } } }),
+    OutlineScheme,
+  ],
+})
+
+// Call this when the user picks the legal scheme, such as from a select in your toolbar
+function useLegalNumbering() {
+  editor.commands.setOutlineLevels(OUTLINE_PRESETS.legal)
+}
+```
+
+After `useLegalNumbering()`, the headings read `Article I.`, `Section 1.01` and `(a)`, and
+`getJSON()` holds the scheme.
+
+- **A document without a stored scheme** is numbered by the `levels` option.
+- **Call `setOutlineLevels` when the user picks a scheme**, not each time a document loads. It
+  replaces the scheme the loaded document brings along.
+
+## setOutlineLevels()
+
+Stores a scheme in the document, or removes it with `null` so that the `levels` option applies
+again.
+
+```js
+editor.commands.setOutlineLevels(OUTLINE_PRESETS.legal)
+editor.commands.setOutlineLevels(null)
+```
+
+| Argument | Type                     | Description                                            |
+| -------- | ------------------------ | ------------------------------------------------------ |
+| `levels` | `OutlineLevel[] \| null` | A [template](/features/outline-numbering/levels#templates) per level, or `null` |
+
+Needs `OutlineScheme`. Returns `false` and changes nothing for:
+
+- a template that is not a string or `{ label, full? }`,
+- the scheme the document already stores,
+- `null` in a document that stores no scheme.
+
+## setOutlineLevel()
+
+Stores one level of the document's scheme.
+
+```js
+editor.commands.setOutlineLevel(2, 'Section {1}.{2:01}')
+```
+
+| Argument   | Type           | Description                  |
+| ---------- | -------------- | ---------------------------- |
+| `level`    | `number`       | The level, the first being 1 |
+| `template` | `OutlineLevel` | Its template                 |
+
+- **The other levels** stay as the document stores them. Where the document stores no scheme
+  yet, they start from the `levels` option.
+- **Levels before it that the scheme does not have** are filled in as `{1}.{2}…`.
+
+Needs `OutlineScheme`. Returns `false` and changes nothing for:
+
+- a level that is not a whole number from 1,
+- a template that is not a string or `{ label, full? }`,
+- the template the stored scheme already has at this level.
+
+## Read the scheme
+
+`outlineLevelsOf(doc, levels)` returns the scheme a document is numbered by: the stored one, or
+`levels` where the document stores none. Pass the option from the editor's storage:
+
+```js
+import { outlineLevelsOf } from '@tiptap-pro/extension-outline-numbering'
+
+const scheme = outlineLevelsOf(editor.state.doc, editor.storage.outlineNumbering.levels)
+```
+
+`outlineSchemeAt(doc)` returns the node that holds the stored scheme and its position, as
+`{ node, pos }` (`OutlineSchemeAt`), or `null`.
+
+## Preview a scheme
+
+A dialog that lets the user pick a scheme can show what each level reads with
+`outlineLabelFor(scheme, counts)`. `counts` is the count at each level, the outermost first:
+
+```js
+import { OUTLINE_PRESETS, outlineLabelFor } from '@tiptap-pro/extension-outline-numbering'
+
+outlineLabelFor(OUTLINE_PRESETS.legal, [1, 1, 1])
+// { label: '(a)', fullLabel: '1.01(a)' }
+```
+
+A third argument, `context`, gives the document's own number formats and language. Take it from
+`numberFormatContextOf(doc)` of [Number formats](/features/number-formats).
+
+## With your own transactions
+
+Both commands also exist as functions that add their steps to a transaction you pass, and
+return it for you to dispatch:
+
+| Function                      | Arguments                            | Description                                                                                                         |
+| ----------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `setOutlineLevelsTransaction` | `tr`, `levels`                       | What [setOutlineLevels()](/features/outline-numbering/scheme#setoutlinelevels) does                                                                   |
+| `setOutlineLevelTransaction`  | `tr`, `level`, `template`, `current` | What [setOutlineLevel()](/features/outline-numbering/scheme#setoutlinelevel) does. `current` is the scheme to start from, usually the `levels` option |
+
+- **Both throw** for a template that is not a string or `{ label, full? }`.
+  `setOutlineLevelTransaction` also throws for a level that is not a whole number from 1.
+- **Storing a scheme in a document that has none** throws if the schema has no `outlineScheme`
+  node. It also throws if no block at the end of the document can hold the node.
+
+## How the scheme is stored
+
+The scheme is one hidden node at the end of the document. It is an `outlineScheme` node
+(`OUTLINE_SCHEME_NODE`) with a template per level in its `levels` attribute. The user cannot
+select it or type into it. In HTML it reads:
+
+```html
+<div
+  data-tt-levels='["Article {1:I}.","Section {1}.{2:01}"]'
+  data-tt-outline-scheme="true"
+  hidden="hidden"
+></div>
+```
+
+`OUTLINE_SCHEME_ATTRIBUTE` is `data-tt-outline-scheme`.
+
+- **A stored level that is not a valid template**, such as one written by hand, reads as that
+  level of the `levels` option, or as `{1}.{2}…` where the option has no such level.
+- **A level past the end of the stored scheme** reads `{1}.{2}…`, not the `levels` option's
+  level.
+- **Two documents with a scheme each, combined:** the first scheme counts. See
+  [Limitations](/features/outline-numbering/limitations#a-second-scheme-node).
