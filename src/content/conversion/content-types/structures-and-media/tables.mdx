@@ -32,16 +32,16 @@ The editor column below assumes ConvertKit (or PagesTableKit, which inherits Con
 
 | Feature | Import | Editor (with ConvertKit) | Export | Notes |
 | --- | --- | --- | --- | --- |
-| Basic tables | Supported | Supported | Supported | Full width (fluid) by default; a table with an explicit width exports at that fixed width |
-| Header rows | Detected only when source DOCX has explicit `<w:tblHeader/>` markup | Renders as `tableHeader` nodes | Supported with `repeatTableHeaderRows` | Word users who only visually format the first row (bold, shaded) without applying the "Repeat as header row" property get no `tableHeader` nodes on import. Without `repeatTableHeaderRows`, export writes no header rows |
+| Basic tables | Supported | Supported | Supported | Full width (fluid) by default; a table with an explicit width exports at that fixed width. The editor extension fits a table that the editor shows wider than the text area, and leaves out a table without cells |
+| Header rows | Detected only when source DOCX has explicit `<w:tblHeader/>` markup | Renders as `tableHeader` nodes | Supported with `repeatTableHeaderRows` | Word users who only visually format the first row (bold, shaded) without applying the "Repeat as header row" property get no `tableHeader` nodes on import. Without `repeatTableHeaderRows`, export writes no header rows. The option also covers tables in footnotes and endnotes |
 | Colspan | Supported | Supported | Supported | Full round-trip |
 | Rowspan | Supported | Supported | Supported | A pre-scan across all rows builds a complete rowspan map before processing cells |
 | Column widths | Supported | Supported | Supported | Stored as `colwidth` array in pixels, converted to twips on export. Resized columns keep their proportions on a fluid table |
-| Table borders | Supported | Supported (outer edges plus the inside grid) | Supported | A table's own outer and inside borders round-trip; a borderless table stays borderless |
+| Table borders | Supported | Supported (outer edges plus the inside grid) | Supported | A table's own outer and inside borders round-trip; a borderless table stays borderless. With computed styles, borders, `double` borders and `border-spacing` look like in the browser |
 | Cell backgrounds | Supported | Supported | Supported | `background` round-trips as cell shading |
-| Cell borders | Supported | Supported (per-side `borderTop/Bottom/Left/Right` × `Width/Style/Color`) | Supported | Per-cell borders round-trip; a cell border that differs from the table's is kept as an override |
+| Cell borders | Supported | Supported (per-side `borderTop/Bottom/Left/Right` × `Width/Style/Color`) | Supported | Per-cell borders round-trip; a cell border that differs from the table's is kept as an override. A cell border replaces only the sides it names |
 | Cell vertical alignment | Supported | Supported | Supported | `verticalAlign` (`top`, `middle`, `bottom`) round-trips |
-| Row height | Supported | Supported (`exact` clips via `.cell-content` wrapper; `atLeast` grows) | Supported | `height` and `heightRule` round-trip |
+| Row height | Supported | Supported (`exact` clips via `.cell-content` wrapper; `atLeast` grows) | Supported | `height` and `heightRule` round-trip. With computed styles, a row that the editor shows taller than its content keeps that height as a minimum |
 | Cell margins | Supported | Supported | Supported | The table's own cell margins (`cellMarginTop`, `cellMarginRight`, `cellMarginBottom`, `cellMarginLeft` on the `table` node) round-trip. A table without them uses Word's default spacing |
 | Global table styling | N/A | N/A | Supported | Via `tableOverrides` and `tableCellOverrides` |
 
@@ -112,7 +112,13 @@ Export tables using the [editor extension](/conversion/export/docx/editor-extens
 
 A table with an explicit width exports at that fixed width; a table with no width set exports full width (fluid) so it reflows to the page. Column widths come from each cell's `colwidth`, or are split evenly when none is set. On a fluid table, resized columns keep their proportions.
 
-Header rows export when you turn on `repeatTableHeaderRows` on the editor extension. The rows at the top of a table that hold only `tableHeader` cells get Word's "Repeat as header row" property, so they repeat on every page, also in nested tables. A header column, or a row of header cells below a body row, does not repeat, because Word repeats only the rows that start the table. A `tableHeader` value from `tableRowOverrides` still wins for a row. The option is off by default: without it, every row exports the same way. The REST API does not accept this option.
+The editor extension keeps tables on the page:
+
+- With [computed styles](/conversion/export/docx/computed-styles), the export uses the width that the editor shows for each table. When that width is wider than the text area of the Word page, the export shrinks the table to the text area and keeps the column proportions. A width that you set with `tableOverrides` stays as you set it.
+- A table with a percentage width inside a list or a quote stays within the page margins.
+- The export leaves out a table without rows or cells. It also leaves out a row without cells, unless a rowspan from a row above reaches it.
+
+Header rows export when you turn on `repeatTableHeaderRows` on the editor extension. The rows at the top of a table that hold only `tableHeader` cells get Word's "Repeat as header row" property, so they repeat on every page, also in nested tables and in tables in footnotes and endnotes. A header column, or a row of header cells below a body row, does not repeat, because Word repeats only the rows that start the table. A `tableHeader` value from `tableRowOverrides` still wins for a row. The option is off by default: without it, every row exports the same way. The REST API does not accept this option.
 
 ```ts
 ExportDocx.configure({
@@ -125,6 +131,17 @@ Merged cells (colspan and rowspan) export correctly.
 <Callout title="Cell and table styling round-trips on export" variant="info">
   Table borders (outer edges and the inside grid), cell margins, cell backgrounds, per-cell borders, vertical alignment, and row height are written to the DOCX on export. A borderless table stays borderless. A table without its own cell margins uses Word's default spacing. You can still set document-wide defaults with [`tableOverrides` and `tableCellOverrides`](/conversion/export/docx/styles#element-overrides) on the editor extension; these are not available via the REST API.
 </Callout>
+
+### Styles the editor shows
+
+With [computed styles](/conversion/export/docx/computed-styles), which are on by default, the editor extension also writes the table styles that the editor shows:
+
+- Cell and table borders show the same lines as in the browser. In a table with collapsed borders, each outer cell edge gets the border that wins in CSS, so a thin cell border no longer hides a wider table border.
+- A `double` border has the same total width as in the browser.
+- `border-spacing` gives the same gap between cells as in the browser. Word has one cell spacing, so the export uses the horizontal value. A table with cell spacing and no border of its own gets no frame around its cells.
+- A row that the editor shows taller than its content keeps that height as a minimum, also in tables with collapsed borders.
+- A right-to-left table stays on the same side of the page as in the editor and keeps the margin on its start side.
+- The space above and below a table stays.
 
 ### Override system
 
@@ -149,3 +166,5 @@ ExportDocx.configure({
 ```
 
 These overrides apply document-wide as defaults. Each cell's own styling (background, per-side borders, vertical alignment) and the table's own borders and cell margins are exported from the node attributes on top of those defaults.
+
+A cell border replaces only the sides it names. When the node attributes set only a bottom border, the cell keeps the other sides from `tableCellOverrides`. In the same way, a `tableCellOverrides` border that names only some sides keeps the borders that the editor shows on the other sides.

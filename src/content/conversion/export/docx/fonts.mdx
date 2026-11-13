@@ -93,7 +93,7 @@ interface DocxFontDefinition {
 
 | Field          | Description                                                                                                                                                                                                                                                                                                                                  |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | The font family name. **Must exactly match** the font name used by your content: the first family of a `textStyle` mark's `fontFamily` (quotes stripped, so `'"Playfair Display", serif'` resolves to `Playfair Display`) or the `font` set via `styleOverrides` / `textRunOverrides`. A mismatch silently falls back to a substitute font. |
+| `name`         | The font family name. **Must exactly match** the font name the export writes for your content, for example the first family of a `textStyle` mark's `fontFamily` (quotes stripped, so `'"Playfair Display", serif'` resolves to `Playfair Display`) or the `font` set via `styleOverrides` / `textRunOverrides`. See [Which font name the export writes](#which-font-name-the-export-writes). A mismatch silently falls back to a substitute font. |
 | `data`         | Raw **TTF or OTF** bytes. Accepts a Node `Buffer`, a `Uint8Array`, or an `ArrayBuffer` (so `await fetch(url).then((r) => r.arrayBuffer())` works directly in the browser). WOFF/WOFF2 data is not accepted here; see [automatic embedding](#automatic-embedding) for converting WOFF2.                                                      |
 | `characterSet` | Optional Word charset code, written as `<w:charset>` in the font table. Leave unset for ordinary Latin fonts. Use the re-exported `CharacterSet` constant for the value (e.g. `CharacterSet.GREEK`).                                                                                                                                         |
 
@@ -115,31 +115,54 @@ ExportDocx.configure({
 
 ### How it works
 
-1. **Detect**: collects the families used across `textStyle` `fontFamily` marks, [CSS styles](/conversion/export/docx/css-to-docx), and run-level style overrides. Generic keywords (`serif`, `monospace`, …) and families you already passed via `fonts` are skipped.
-2. **Locate**: finds each font's file from the page's readable `@font-face` rules, picking the regular face. When a family is split into per-language subsets (as Google Fonts, and many self-hosted setups, are), the subset that covers the characters your document actually uses is chosen: a Latin document embeds the Latin glyphs, a Cyrillic document the Cyrillic glyphs, and so on. A family with no readable rule (the usual case for a Google Fonts `<link>`, whose cross-origin stylesheet can't be read from JavaScript) falls back to a [Google Fonts](https://fonts.google.com) lookup.
-3. **Convert**: `TTF`/`OTF` files are embedded as-is. `WOFF2` files are converted to TTF through the Convert Service's `POST /fonts/convert` endpoint (this is the step that needs a token with the `Convert:Fonts` permission).
-4. **Embed**: the resulting fonts are embedded exactly as if you'd passed them through the manual `fonts` option. Manually supplied fonts always win over auto-resolved ones with the same name.
+1. The export collects the font families that the document uses. It looks at the `fontFamily` of `textStyle` marks, the fonts that [computed styles](/conversion/export/docx/computed-styles) read from the editor, [CSS styles](/conversion/export/docx/css-to-docx), and run-level style overrides, including the function form of `textRunOverrides` and `headerFooterOverrides.textRunOverrides`. The `markerFont.font` of the levels in `numberingFormats` and `listLevels` counts too, so the export also embeds a font that only list markers use. It skips generic keywords such as `serif`, `monospace` and `system-ui`, and the families you already passed in `fonts`.
+2. The export finds the file of each font in the page's readable `@font-face` rules. It picks the regular face, which is a rule with a normal style whose weight covers 400. A variable weight range such as `100 900` counts. When the family has no such rule, it uses one of its other rules. Google Fonts and many self-hosted setups split a family into subsets per language. The export then picks the subset that best covers the characters your document uses, so a Latin document embeds the Latin glyphs and a Cyrillic document the Cyrillic glyphs. A family with no readable rule, or with no source the export can embed, falls back to a [Google Fonts](https://fonts.google.com) lookup. See [Where the export finds font files](#where-the-export-finds-font-files).
+3. The export embeds `TTF` and `OTF` files as they are. It converts `WOFF2` files to TTF through the `POST /fonts/convert` endpoint of the Convert Service. This step needs a token with the `Convert:Fonts` permission. The export cannot embed `WOFF` files of the older version 1.
+4. The export embeds the resulting fonts the same way as fonts you pass in the `fonts` option. A font you pass in `fonts` always wins over a font with the same name that the export found itself.
+
+The export picks the subset from the characters each font is used for. It counts the text of the body, and the text in footnotes, endnotes, headers, footers and comments that gets its font from `textRunOverrides` or `headerFooterOverrides.textRunOverrides`. With computed styles, the export counts the characters as the editor shows them, for example in capitals after `text-transform: uppercase`. The text of list markers counts for marker fonts.
+
+### Where the export finds font files
+
+The export reads the `@font-face` rules of the page's stylesheets, and then those of `document.adoptedStyleSheets`. It reads the rules that apply to the page:
+
+- Rules inside `@media` and `@supports` blocks count when their condition matches. Rules inside `@layer` blocks count. Rules inside other blocks do not.
+- A stylesheet loaded with `@import` counts when the media and `supports()` conditions of the import match.
+- A stylesheet turned off with `disabled`, or whose media does not match, is skipped.
+- A relative `url()` resolves against the URL of the stylesheet that holds the rule, also for an imported stylesheet. A rule in an inline `<style>` resolves against the page's base URL.
+- The browser does not let JavaScript read a cross-origin stylesheet, so the export cannot see its rules. This is the usual case for a Google Fonts `<link>`.
+
+The export then tries the sources in the rule's `src` list in the order they are written, and embeds the first one that works:
+
+- It skips `local()` sources, and sources with a `format()` hint other than `truetype`, `opentype`, `woff`, `woff2` or their `-variations` forms, such as `embedded-opentype`. It does not download those.
+- It reads the format of each download from the file's first bytes, so a URL without a file extension or format hint works.
+- It moves on to the next source when a download fails, the file is in a format it cannot embed, a WOFF2 file needs conversion and there is no `token`, or the conversion fails.
+
+When no source of the rule works, or the page has no readable rule for the family, the export asks the Google Fonts css2 API. It sends the characters the document uses with that family in the `text=` parameter, so Google returns one file that covers every script the family is used with. When the request URL would be longer than 2000 characters, or that request fails, the export requests the whole family and picks the subset that covers the most of those characters. Browsers get WOFF2 files from Google Fonts, so this path needs a `token`.
 
 ### Requirements and credentials
 
 - **Browser only.** Automatic embedding reads `document.styleSheets`, so it does nothing in a server environment. Use the manual `fonts` option server-side.
-- **A token is needed only for WOFF2 conversion.** Self-hosted `TTF`/`OTF` fonts embed with no Convert Service call at all. WOFF2 fonts (including everything resolved from Google Fonts) require a token with the `Convert:Fonts` permission so the [conversion endpoint](#convert-service-endpoint) can run.
+- **A token is needed only for WOFF2 conversion.** Self-hosted `TTF`/`OTF` fonts embed with no Convert Service call at all. WOFF2 fonts (including everything resolved from Google Fonts) require a token with the `Convert:Fonts` permission so the [conversion endpoint](#convert-service-endpoint) can run. A legacy Convert JWT also needs `appId`.
 - **Convert Service ≥ v2.25.0** must back your `endpoint` for the WOFF2 → TTF conversion to be available.
 
 <Callout title="Embedding never breaks an export">
   Every font is resolved independently. If one can't be found, fetched, or converted (or
-  credentials are missing for a WOFF2 font), the export logs a single `console.warn` for that family
-  and continues. The affected text falls back to Word's font substitution, exactly as it would
-  without embedding; the export itself always succeeds.
+  credentials are missing for a WOFF2 font), the export first tries the next source and then Google
+  Fonts. When nothing works, it logs a single `console.warn` for that family and continues. The
+  affected text falls back to Word's font substitution, exactly as it would without embedding; the
+  export itself always succeeds. These messages go only to `console.warn`, never to `onWarning`.
 </Callout>
 
 <Callout title="One font used for multiple scripts">
   A DOCX embeds one file per font family. If the **same** family is used for text in more than one
-  script (for example Latin and Cyrillic) within a single document, the subset covering the most of
-  that text is embedded and text in the other scripts falls back to Word's substitution. To embed
-  full coverage for such a family, supply one complete (non-subset) font file: self-host it as a
-  single `@font-face`, or pass it through the manual [`fonts`](#manual-embedding) option. Families
-  used for only one script each are unaffected.
+  script (for example Latin and Cyrillic) within a single document, and the page splits that family
+  into subsets with `unicode-range`, the subset covering the most of that text is embedded and text
+  in the other scripts falls back to Word's substitution. To embed full coverage for such a family,
+  supply one complete (non-subset) font file: self-host it as a single `@font-face`, or pass it
+  through the manual [`fonts`](#manual-embedding) option. Families used for only one script each are
+  unaffected. A family that the export gets from Google Fonts with the `text=` parameter comes as
+  one file for all its scripts.
 </Callout>
 
 ### Options
@@ -148,8 +171,26 @@ ExportDocx.configure({
 | ------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | `embedFonts` | Enable automatic detection and embedding. Browser only.                                                         | `false`                             |
 | `token`      | Tiptap Convert JWT, sent as the `Authorization` bearer token. Required only when a WOFF2 font needs conversion. | `undefined`                         |
+| `appId`      | Tiptap Convert app ID, sent as the `X-App-Id` header with a WOFF2 conversion. Only legacy Convert JWTs need it. | `undefined`                         |
 | `endpoint`   | Tiptap Convert REST endpoint base used for WOFF2 → TTF conversion. When set, it overrides `region`.             | `undefined`                         |
 | `region`     | Tiptap Cloud region used for WOFF2 → TTF conversion when `endpoint` is not set, `'eu'` or `'us'`.               | `'eu'`                              |
+
+## Which font name the export writes
+
+Word links an embedded font to text by its name, so the `name` of a font in `fonts` must match the name the export writes for that text.
+
+- **A CSS `font-family` list.** The export writes the first named font of the list, without quotes, so `system-ui, Inter, sans-serif` gives `Inter`. This covers the fonts that [computed styles](/conversion/export/docx/computed-styles) read from the editor and the `font-family` of [`cssStyles`](/conversion/export/docx/css-to-docx) rules.
+- **A list of generic families only.** The export writes a Word font for the first family, as in the table below. Other generic families, such as `emoji` or `math`, stay as they are.
+- **A `textStyle` mark without computed styles.** On a server, or with `computedStyles: false`, the export writes the first family of the mark's `fontFamily`, without quotes.
+- **A `font` in `styleOverrides` or `textRunOverrides`.** The export writes it as you set it.
+
+| CSS generic family                                                                | Word font       |
+| --------------------------------------------------------------------------------- | --------------- |
+| `serif`, `ui-serif`, `-webkit-standard`                                           | Times New Roman |
+| `sans-serif`, `ui-sans-serif`, `system-ui`, `-apple-system`, `BlinkMacSystemFont` | Arial           |
+| `monospace`, `ui-monospace`                                                       | Courier New     |
+| `cursive`                                                                         | Comic Sans MS   |
+| `fantasy`                                                                         | Impact          |
 
 ## Make the editor match the export
 
@@ -170,6 +211,8 @@ Then apply the family to content with the `fontFamily` mark; its sanitized name 
 ```ts
 editor.chain().focus().setFontFamily('Playfair Display').run()
 ```
+
+With computed styles, the export waits at most 3 seconds for the page's web fonts to load before it measures the editor. It measures text whose font still loads after that time with the fallback font.
 
 ## Convert Service endpoint
 

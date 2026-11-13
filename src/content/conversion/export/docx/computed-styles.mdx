@@ -1,0 +1,493 @@
+---
+title: Export the editor's computed styles to DOCX
+tags:
+  - type: start
+  - type: beta
+meta:
+  title: Computed styles in DOCX export | Tiptap Conversion
+  description: The DOCX export reads the styles the browser renders for your editor and writes them into the Word file as Word styles and direct formatting. Learn how to control it.
+  category: Conversion
+---
+
+import { Requirements, RequirementItem } from '@/components/Requirements'
+import { EnterpriseCalloutAuto } from '@/components/EnterpriseCalloutAuto'
+
+<EnterpriseCalloutAuto variant="docx" renderMode="sidebar" disableWaitlist />
+
+<Requirements>
+  <RequirementItem label="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </RequirementItem>
+  <RequirementItem label="2. Install from private registry">
+    To install this frontend extension, authenticate to Tiptap's private npm registry by following
+    the [setup guide](/guides/pro-extensions).
+  </RequirementItem>
+</Requirements>
+
+When you run the `exportDocx` command, the `ExportDocx` extension reads the styles that the browser renders for the editor: fonts, sizes, colors, spacing, indents, borders, backgrounds, lists, tables, images and equations. It writes them into the DOCX file as Word styles, such as `Normal` and `Heading1`, and as direct formatting on single paragraphs, text runs, tables and images. The Word file then looks like the editor.
+
+Computed styles are on by default. You don't need an option:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [
+    StarterKit,
+    ExportDocx.configure({
+      exportType: 'blob',
+      onCompleteExport: (file) => {
+        // `file` is a Blob, because exportType is 'blob'.
+      },
+    }),
+  ],
+  content: '<h1>Report</h1><p>Hello</p>',
+})
+
+editor.commands.exportDocx()
+```
+
+Your own style options, such as `cssStyles`, `styleOverrides` and `paragraphOverrides`, still apply. They replace what the export reads. [Which value wins](#which-value-wins) gives the full order.
+
+The functions behind this feature are also public. The [computed styles API](/conversion/export/docx/computed-styles-api) describes them.
+
+## When the export reads styles
+
+The export reads the editor styles only when all of these are true:
+
+- The code runs in a browser. The export checks that `window` and `document` exist.
+- The editor is not destroyed, and Tiptap has mounted its view.
+- The editor element, `editor.view.dom`, is part of the page.
+- Computed styles are not turned off.
+
+When one of these is false, the export skips the reading and sends no warning. It uses its default styles and your style options, and the export still finishes. A server or a headless editor therefore exports without the editor styles.
+
+The reading can also fail after it starts. The export then sends a [`document-styles-failed` warning](#document-styles-failed), uses its default styles and your style options, and still finishes. These cases make the reading fail:
+
+- CSS hides the editor, so the editor element has no box. `display: none` on the editor or on a parent does this.
+- The editor element is the `<html>` element.
+- Tiptap unmounts the editor during the reading, or the editor element changes.
+
+## Turn computed styles off
+
+Set `computedStyles` to `false` on the extension, on the command, or on both:
+
+```ts
+// Off for every export.
+ExportDocx.configure({
+  computedStyles: false,
+  exportType: 'blob',
+  onCompleteExport: (file) => saveFile(file),
+})
+
+// Off for this export only.
+editor.commands.exportDocx({ computedStyles: false })
+
+// On for this export, even when the extension turns it off.
+editor.commands.exportDocx({ computedStyles: true })
+```
+
+`saveFile` stands for your own code that handles the file.
+
+With computed styles off:
+
+- `cssStyles`, `styleOverrides`, the `*Overrides` options, `listLevels`, `pageColor` and `defaultTabStop` still apply.
+- Equations still export from the MathML that KaTeX rendered in the editor, but without the font size, color and alignment that the editor shows.
+- The export reads Pages headers, footers and notes only when they hold an equation, and only to copy that equation.
+- The export sends no `document-styles-failed` and no `document-styles-dark-page` warning.
+
+### `computedStyles` and the deprecated `documentStyles`
+
+`documentStyles` is the old name of `computedStyles`. It still works, including `documentStyles: false`, but it is deprecated. Use `computedStyles` in new code.
+
+The export takes the first of these values that is not `undefined`:
+
+1. `computedStyles` on the command.
+2. `documentStyles` on the command.
+3. `computedStyles` on `ExportDocx.configure`.
+4. `documentStyles` on `ExportDocx.configure`. Its default is `true`.
+5. `true`.
+
+A command value always wins over an extension value. On the same level, `computedStyles` wins over `documentStyles`. Some examples:
+
+| Extension                                                                   | Command                                           | Reading |
+| --------------------------------------------------------------------------- | ------------------------------------------------- | ------- |
+| nothing                                                                     | nothing                                           | on      |
+| `{ documentStyles: false }`                                                 | nothing                                           | off     |
+| `{ computedStyles: false }`                                                 | `{ computedStyles: true }`                        | on      |
+| `{ computedStyles: true }`                                                  | `{ documentStyles: false }`                       | off     |
+| nothing                                                                     | `{ computedStyles: true, documentStyles: false }` | on      |
+| nothing                                                                     | `{ computedStyles: false, documentStyles: true }` | off     |
+| `.configure({ computedStyles: false }).configure({ documentStyles: true })` | nothing                                           | off     |
+
+## Which value wins
+
+The export merges your style options with what it reads. From lowest to highest priority:
+
+1. The defaults of the exporter and of the `docx` library, such as the blue color of Word's built-in headings.
+2. The Word styles that the export reads for the whole document, such as `Normal` and `Heading1`.
+3. The direct formatting that the export reads for each node.
+4. `cssStyles`. Inside it, the rules that `readFromStylesheets` reads come first, and `cssStyles.styles` replaces them.
+5. `styleOverrides`.
+6. `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides`, `listLevels`, `pageColor` and `defaultTabStop`.
+7. Formatting that the document stores. Marks, such as a `textStyle` color, and paragraph attributes, such as `textAlign`, win over every option above. `tableOverrides` and `imageOverrides` are the exception: they win over the borders and cell margins that a table node stores, and over the size that an image node stores.
+
+`computedStyles: false` removes levels 2 and 3. Levels 4 to 7 still apply.
+
+A higher level replaces a lower level only for the properties it sets. Every property it leaves out keeps the lower value. How deep that goes depends on the option:
+
+- `styleOverrides` merges property by property, also inside nested objects. The item `{ id: 'Normal', name: 'Normal', paragraph: { indent: { left: 900 } } }` in `styleOverrides.paragraphStyles` changes the left indent and keeps the right and first line indents that the export read.
+- The `*Overrides` options replace each top-level property in full. `paragraphOverrides: { spacing: { after: 0 } }` replaces the whole measured `spacing`, so the measured `before` and `line` values are gone. To change one nested value, set it in `styleOverrides` instead.
+- A `borders` object in `tableCellOverrides` is the exception. It replaces only the sides it names.
+- `listLevels` merges with the measured list levels one level at a time, see [Lists and list markers](#lists-and-list-markers).
+- `pageColor` and `defaultTabStop` replace the measured value. `pageColor: 'transparent'` writes no page color and keeps every other style that the export read.
+
+```ts
+// Keep the editor styles, but leave the page white in Word.
+editor.commands.exportDocx({ pageColor: 'transparent' })
+```
+
+A style option on the command replaces the extension option with the same name. The export does not merge the two values. Leave the option out, or pass `undefined`, to use the extension value. Both still merge with what the export reads.
+
+[Export styles](/conversion/export/docx/styles) describes the style options and their units. [CSS to DOCX](/conversion/export/docx/css-to-docx) describes `cssStyles`.
+
+## What the export reads
+
+The export reads two kinds of styles:
+
+- **Word styles for the whole document.** The export puts a hidden sample next to the editor element. The sample holds one element of each kind, such as a paragraph, each heading, a quote, lists and a table, and your CSS styles it like your content. The export measures the sample, removes it, and writes the result as Word styles.
+- **Direct formatting for each node.** The export then reads each node of the document in the rendered editor. It writes direct formatting where a node looks different from its style, for example a paragraph that a class makes red, or a table with its own width.
+
+The export only reads what the `docx` library can write. CSS outside the lists below has no effect on the DOCX file.
+
+### Word styles
+
+| In the editor                            | In Word                                       |
+| ---------------------------------------- | --------------------------------------------- |
+| The text of the editor element           | Document default font, size and color         |
+| `p`                                      | `Normal`, and the document default alignment and spacing |
+| `h1` to `h6`                             | `Heading1` to `Heading6`                      |
+| `blockquote` and the paragraph inside it | `Quote`                                       |
+| `pre` and the `code` inside it           | `CodeBlock`                                   |
+| `hr`                                     | `horizontalRule`                              |
+| The paragraph of the first `ul` item     | `ListParagraph`                               |
+| `a`                                      | `Hyperlink` character style                   |
+| Inline `code`                            | `Code` character style                        |
+| `tab-size` of `p`                        | Default tab stop                              |
+| The background behind the editor         | [Page color](#page-color)                     |
+
+The page background and any border of the editor element never become text formatting.
+
+### Paragraphs and headings
+
+These CSS properties become paragraph settings. They apply to paragraphs, headings, code blocks, paragraphs in quotes and paragraphs in table cells.
+
+| CSS                                           | Word                                                          |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| `text-align`                                  | Alignment: left, center, right or justified                   |
+| `margin-top`, `margin-bottom`                 | Spacing before and after                                      |
+| `margin-left`, `margin-right`, side `padding` | Left and right indent                                         |
+| `padding-top`, `padding-bottom`               | Added to the spacing before and after, or to the border space |
+| `border`                                      | Paragraph borders                                             |
+| `background-color`                            | Paragraph shading                                             |
+| `line-height`                                 | Minimum line height                                           |
+| `text-indent`                                 | First line indent, or hanging indent when negative            |
+| `break-before`                                | Page break before                                             |
+| `break-after: avoid`                          | Keep with next                                                |
+| `break-inside: avoid`                         | Keep lines together                                           |
+| `word-break: break-all`                       | Break words at any character                                  |
+| `direction: rtl`                              | Right-to-left paragraph                                       |
+
+- The export measures the line height in pixels, also when CSS says `normal`, and writes it as a minimum. Taller text and images in a line still fit.
+- Word has no paragraph padding. Top and bottom padding go into the spacing before and after. When that side has a border or the block has a background, the padding becomes the space between the border and the text.
+- The free space of `auto` side margins does not count, because it depends on the width of the page.
+- The first block of the document gets the space that the editor shows above it as its spacing before.
+
+### Text
+
+These CSS properties of text become run settings:
+
+| CSS                                   | Word                                                |
+| ------------------------------------- | --------------------------------------------------- |
+| `font-family`                         | Font                                                |
+| `font-size`                           | Font size                                           |
+| `color`                               | Text color                                          |
+| `font-weight` above 500               | Bold                                                |
+| `font-style: italic` or `oblique`     | Italic                                              |
+| `text-decoration` underline           | Underline with its style and color                  |
+| `text-decoration` line-through        | Strikethrough, or double strikethrough for `double` |
+| `background-color`                    | Text shading                                        |
+| `border`                              | One border around the run                           |
+| `letter-spacing`                      | Character spacing                                   |
+| `text-transform: uppercase`           | All caps                                            |
+| `font-variant-caps` small caps        | Small caps                                          |
+| `vertical-align`                      | Subscript, superscript or a raised position         |
+| `font-stretch`                        | Character scale                                     |
+| `text-emphasis-style`                 | Emphasis dot                                        |
+| `visibility: hidden`, `display: none` | Hidden text                                         |
+| `direction: rtl`                      | Right-to-left text                                  |
+| The closest `lang` attribute          | Language                                            |
+
+- The export uses the first named font of the `font-family` list. When the list holds only generic families, it writes a Word font for the first one, such as Times New Roman for `serif`, Arial for `sans-serif` and Courier New for `monospace`. [Font lists](/conversion/export/docx/css-to-docx#font-lists) on the CSS to DOCX page lists every family.
+- Word colors are solid. The export mixes a partly transparent color with the background behind it.
+- `text-transform: lowercase` and `capitalize` have no Word setting. The export writes the letters that the browser shows.
+- Word shows the font only when the computer has it, or when the DOCX file embeds it. See [Fonts](/conversion/export/docx/fonts).
+
+### Text marks
+
+| Mark                                    | Word                            |
+| --------------------------------------- | ------------------------------- |
+| `bold`, `italic`, `underline`, `strike` | Direct formatting               |
+| `highlight`, `subscript`, `superscript` | Direct formatting               |
+| `link`                                  | The `Hyperlink` character style |
+| `code`                                  | The `Code` character style      |
+
+For each mark, the export compares the text of the mark with the paragraph text around it and writes only the settings that differ. So the DOCX shows what the editor shows:
+
+- When CSS makes `strong` text regular, such as `strong { font-weight: 400 }`, the run is not bold in Word.
+- A `highlight` mark exports the background color that the browser shows as shading.
+- Marks in table cells use the CSS for marks in cells, so a rule such as `td strong` counts.
+- Text with a `subscript` or `superscript` mark keeps Word's own size and position for scripts.
+
+### Lists and list markers
+
+The export builds the list levels from a `ul`, an `ol` and a task list in the hidden sample, each nested 9 levels deep. Word supports 9 levels. For each level, the export writes the indent of the text, the indent of the marker, the marker and the marker font.
+
+For a bullet level, the marker is the first of these:
+
+1. The `content` of the item's `::marker`, when it is a string.
+2. A string `list-style-type`, such as `list-style-type: "→"`.
+3. The character for the `list-style-type` keyword:
+
+| `list-style-type`   | Marker    |
+| ------------------- | --------- |
+| `disc`              | `•`       |
+| `circle`            | `◦`       |
+| `square`            | `▪`       |
+| `disclosure-open`   | `▾`       |
+| `disclosure-closed` | `▸`       |
+| `none`              | no marker |
+
+Any other keyword keeps Word's default marker.
+
+An ordered level with one of these counters gets the matching Word format:
+
+| `list-style-type`            | Word format   |
+| ---------------------------- | ------------- |
+| `decimal`                    | `decimal`     |
+| `decimal-leading-zero`       | `decimalZero` |
+| `lower-alpha`, `lower-latin` | `lowerLetter` |
+| `upper-alpha`, `upper-latin` | `upperLetter` |
+| `lower-roman`                | `lowerRoman`  |
+| `upper-roman`                | `upperRoman`  |
+
+- When an ordered level has a string marker, or a bullet keyword such as `disc`, it writes that text instead of a counter, and the list does not count in Word.
+- The `type` attribute of an `orderedList` node, such as `'a'` or `'I'`, wins over the measured counter.
+- The marker font, size, color, bold and italic come from `::marker`. The browser must support reading `::marker` with `getComputedStyle`. Without that support, the level gets no marker font.
+- The export uses Word's gap of 360 twips, a quarter inch, between the marker and the text, or less when the text indent is smaller. CSS markers have no box to measure.
+
+The export also measures each paragraph in a list of your document: where the text starts and ends, the gap to the marker, and the space between paragraphs. A level deeper than 9 uses the ninth level. Table cells and quotes start counting levels again.
+
+`listLevels` merges with the measured levels. Each custom level replaces only the properties it sets, at the same depth. A shorter list of custom levels repeats over the depths, and an empty array keeps the measured levels. When a level sets `textIndent` or `numberIndent`, the measured left indent of its paragraphs stops applying:
+
+```ts
+ExportDocx.configure({
+  // Every bullet level puts its text 1080 twips from the page margin and its marker at 720 twips.
+  // The marker text and the marker font stay as the export measured them.
+  listLevels: { bullet: [{ textIndent: 1080, numberIndent: 720 }] },
+  exportType: 'blob',
+  onCompleteExport: (file) => saveFile(file),
+})
+```
+
+[List numbering and bullets](/conversion/export/docx/ordered-list-numbering) describes numbering formats.
+
+### Task lists
+
+Task list levels get only the text indent, the marker indent and the right indent. The checkbox is the marker, so the export writes no marker text and no marker font. A task item uses the measured gap between the checkbox and the text.
+
+### Tables and cells
+
+The sample table gives the default formatting of every table, row and cell. Header cells get their own background, borders and margins when they differ from body cells. Each table in your document then replaces these defaults with its own measured values:
+
+| CSS of the table                           | Word                                             |
+| ------------------------------------------ | ------------------------------------------------ |
+| `width` in pixels                          | Table width in twips                             |
+| `width` in percent                         | Table width in percent                           |
+| `table-layout: fixed` with a width         | Fixed layout                                     |
+| Position of the table                      | Alignment: left, center or right                 |
+| The margin on the start side               | Table indent                                     |
+| `border`                                   | Table borders                                    |
+| `border-spacing` without collapsed borders | Cell spacing                                     |
+| `direction: rtl`                           | Right-to-left table                              |
+| `margin-top`, `margin-bottom`              | Spacing of the blocks before and after the table |
+
+| CSS of a cell                                    | Word                                           |
+| ------------------------------------------------ | ---------------------------------------------- |
+| `padding`, plus padding and margins of wrappers  | Cell margins                                   |
+| `border`                                         | Cell borders                                   |
+| Backgrounds of table, row group, row and cell    | Cell shading                                   |
+| `vertical-align`                                 | Top, center or bottom                          |
+| `writing-mode`                                   | Text direction                                 |
+| The first `p`, `h1` to `h6` or `pre` in the cell | Paragraph and text settings of cell paragraphs |
+
+- In a collapsed table, each outer cell edge gets the border that wins in CSS. An edge without a line stays empty.
+- A row that is taller than its content gets that height as a minimum. `break-inside: avoid` on a row stops Word from splitting it across pages.
+- A table node with ConvertKit `width`, `indent`, border or cell margin attributes keeps those values. The measured value for that part does not apply.
+
+### Quotes
+
+Word has no quote box, so the export adds the quote to its paragraphs:
+
+- Each paragraph in a quote gets the margins, padding, borders and background of the quote.
+- Paragraphs, headings and images that follow each other in a quote share their border settings, so Word draws one box around them.
+- Lists, code blocks and rules in a quote end that box. They keep the side borders, side space and background of the quote.
+- A nested quote moves its blocks in by the space of every quote around them. It shows only the bar of the closest quote.
+
+### Code blocks
+
+Each code block uses the `CodeBlock` style and its own measured formatting. The paragraph settings come from `pre` and the text settings from the `code` inside it. Syntax highlighting counts as formatting, so its colors reach the DOCX file.
+
+### Images
+
+- The export uses the size that the editor shows, without padding and border. It measures an image only when the image has loaded, uses `object-fit: fill`, and has no transform, rotate, scale, translate or zoom of its own. Otherwise the exporter uses its own size.
+- When the measured size is wider than the Word page, the exporter shrinks the image to fit. A size from `imageOverrides` stays as you set it.
+- The export reads the side of the image, left, center or right, from where the picture sits. A float decides first.
+- The margin, border and padding of the image element become the spacing around the picture's paragraph.
+
+### Horizontal rules
+
+The `horizontalRule` style holds the top and bottom margins of the `hr` as space above and below the rule. The exporter draws the line itself. The export does not read the color or thickness of the `hr`.
+
+### Equations
+
+The export turns the MathML that KaTeX renders for `inlineMath` and `blockMath` nodes into Word equations:
+
+- The equation uses the Cambria Math font with the font size and color that the editor shows.
+- A block equation keeps its alignment. A justified equation becomes left aligned.
+- A block equation takes its margin, padding, border and background.
+- When an equation holds MathML that the export does not accept, or KaTeX shows an error, the export builds the equation from its LaTeX source instead.
+
+### Page color
+
+The page color is the background that the editor shows, over the `Canvas` color of the page's color scheme. Word leaves the page color out of PDFs and print by default.
+
+A dark theme therefore gives the DOCX file a dark page and light text, and the export sends a [`document-styles-dark-page` warning](#document-styles-dark-page). Set `pageColor` to replace the measured color, or `pageColor: 'transparent'` to leave it out.
+
+## What the export leaves out
+
+Some things the editor shows are not part of the document. The export leaves them out:
+
+- Highlights that the editor draws over text, such as remote selections, comments and search results. Inside a code block they count, because syntax highlighting is the only formatting that code has. A remote selection or a search result inside a code block therefore reaches the DOCX file.
+- Text in ProseMirror widgets.
+- The colors of comment threads and suggestions in the document. Word shows comments and tracked changes itself.
+
+A class or style on the element of a whole block counts as formatting. A focus class or a suggestion color with a background on a paragraph therefore exports as paragraph shading.
+
+## Pages headers, footers and notes
+
+With the [Pages](/pages/getting-started/overview) extension installed under the name `pages`, the export also reads the styles of each header, footer, footnote and endnote. A header in the DOCX file then looks like the header on the page.
+
+- The export reads the `default`, `first`, `odd` and `even` variants of headers and footers, and one part for each footnote and endnote. It skips a variant that Pages has not set.
+- For each part, the export finds the preview that Pages shows, checks that it shows the same content as the part's JSON, and renders a hidden copy of it with the same CSS. A header or footer that is open for editing, or a variant that no page shows, takes the CSS of a preview of the same kind.
+- When a preview shows other content than its JSON, the export sends a `document-styles-failed` warning, and the nodes of that part use the body styles.
+- When no page shows a note, or no page shows any header or footer of that kind, the export skips the part without a warning.
+- `headerFooterOverrides` replaces the body `*Overrides` options for headers and footers only. Footnotes and endnotes use the body options. `styleOverrides` and `cssStyles` reach every part, because they change the Word styles of the whole document.
+- When you pass your own `headers` or `footers`, their nodes use the body styles.
+
+[Headers and footers](/conversion/export/docx/headers-footers) describes the header and footer options.
+
+## Timing
+
+The reading measures the editor while the export runs, so it takes some time.
+
+- **Fonts.** Fonts change text sizes, so the export waits for web fonts before it measures. It waits at most 3 seconds, then measures a font that still loads with its fallback font. A browser without the font loading API does not wait.
+- **Pages parts.** Each header, footer and note first waits at most 3 seconds for its images, then at most 3 seconds for fonts. The export reads the parts and the body at the same time, so an export with Pages can wait about 6 seconds.
+- **Command chains.** `editor.chain().setContent('<p>New</p>').exportDocx().run()` exports the new content. The command takes the document from the chain's transaction, and the reading waits until Tiptap applies the chain.
+- **Edits during the export.** When the content changes while the export waits for fonts, the export keeps the Word styles for the whole document, drops the formatting of each node, and sends a `document-styles-failed` warning. New blocks added only at the end of the document do not count as a change.
+- **`editor.destroy()`.** When you destroy the editor while the export waits for fonts, the export reads the styles at once, before Tiptap removes the editor view. It measures with the fonts that have loaded by then, and the export still finishes. The command also collects the Pages parts and the comment threads before it waits, so an export that you start right before `editor.destroy()` keeps them.
+
+The reading only runs in a browser. To export on a server, read the styles in the browser first and send them along. See [Export without a browser](/conversion/export/docx/computed-styles-api#export-without-a-browser).
+
+## Warnings
+
+A failed reading does not stop the `exportDocx` command. The export continues with fewer styles and sends a warning to `onWarning`. Set `onWarning` on the extension or on the command. The command value replaces the extension value.
+
+An error that your own override callback throws still fails the export. The command then passes the error to `onError`.
+
+```ts
+ExportDocx.configure({
+  onWarning: (warning) => {
+    if (warning.code === 'document-styles-failed') reportProblem(warning.message)
+    if (warning.code === 'document-styles-dark-page') reportProblem(warning.message)
+  },
+  exportType: 'blob',
+  onCompleteExport: (file) => saveFile(file),
+})
+```
+
+`reportProblem` stands for your own code.
+
+- The same callback also receives the image warnings of the export. Check `warning.code`.
+- Warnings of computed styles set only `code` and `message`.
+- An error that your callback throws is caught, so it can't stop the export.
+- Without `onWarning`, the export logs `[export-docx] <message>` with `console.warn`.
+
+### `document-styles-failed`
+
+The export could not read some or all styles.
+
+| Message                                                                                                               | Cause                                                               | What the export does                                                                         |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `The export could not read editor styles and used default styles: <error message>`                                    | The reading of the body, or of a Pages header, footer or note, threw. | Uses its default styles and your style options for that body or part.                         |
+| `The editor changed while fonts were loading. The export kept shared styles but could not read styles for each node.` | The content changed after the export took the document JSON.        | Uses the Word styles for the whole document and your style options.                          |
+| `Could not read <kind> styles: The displayed document part does not match the document to export`                     | A Pages header, footer or note shows other content than its JSON.   | Uses the body styles for that part.                                                          |
+| `Could not read <kind> styles: <error message>`                                                                       | Building or removing the hidden copy of a Pages part threw.         | Uses the body styles for that part when building threw, and the read styles when removing threw. |
+
+`<kind>` is `header`, `footer`, `footnote` or `endnote`.
+
+### `document-styles-dark-page`
+
+The export sends this warning when both of these are true:
+
+- The measured page color is dark. The export computes `0.2126 × red + 0.7152 × green + 0.0722 × blue`, with each channel from 0 to 1, and calls the color dark below 0.5.
+- You did not set `pageColor`.
+
+The export still finishes with the dark page color. Word leaves the page color out of PDFs and print, where the light text of a dark theme is hard to read on white paper.
+
+Setting `pageColor` stops the warning, but the light text stays. To fix both, do one of these:
+
+- Export while the editor shows a light theme.
+- Turn the reading off with `computedStyles: false`.
+- Set `pageColor` and dark text colors in your style options, for example in `styleOverrides`.
+
+## Limits
+
+- The hidden sample sits right after the editor element. CSS rules such as `:only-child`, `:last-child`, `:nth-child()`, `+` and `~` on the editor element can match the editor and the sample in other ways. The Word styles for the whole document can then differ from the editor. Write selectors that don't depend on the place of the editor element.
+- Browsers round border widths to device pixels, so a `1px` border can read as 0.8 or 0.67 at some screen scales or zoom levels.
+- Any `text-emphasis-style` becomes a dot.
+- A border on inline text becomes one border around the whole run, because Word text borders have no separate sides.
+- `vertical-align: baseline` in a cell becomes top, and `vertical-lr` cells become bottom to top text.
+- Word has one cell spacing, so `border-spacing` keeps only the horizontal value. A table that floats right, such as with `float: right` or `float: inline-end` in left-to-right text, becomes right aligned. A table that floats left becomes left aligned.
+- In a narrow editor, the default table width and alignment can differ from a rendered table, because the sample table holds long words. The export measures each table in your document on its own, so those tables keep their width and alignment.
+- A list item's bottom margin and padding sit below its nested list in the browser. In Word they come right after the item's own line, because Word has no list item box.
+- The export does not read the border or background of a list item.
+- A tinted quote with a list or a code block shows separate boxes with gaps in Word.
+- The export ignores CSS that the `docx` library can't write: `text-shadow`, `-webkit-text-stroke`, overline, `word-spacing`, `border-radius`, `box-shadow` and `background-image`.
+- The export does not read floating tables, multi-column pages, the color and thickness of `hr`, image rotation and flipping, `font-kerning`, `orphans`, `widows` and `hyphens`.
+
+## Migrate from the old names
+
+Up to 0.34.7, the export ran the same reading under other names. To move to the current names:
+
+- Rename the `documentStyles` option to `computedStyles`, on the extension and on the command. `documentStyles` keeps working as a deprecated alias.
+- Rename `cssStyles.extractFromDocument` to `cssStyles.readFromStylesheets`. The old name keeps working as a deprecated alias.
+- Rename the standalone functions and types. For example, `getDocumentCss` is now `readEditorStyles`, `createExportStyles` is now `readEditorDocxStyles`, and `exportStylesFromCss` is now `createDocxStyles`.
+- Rename the `css` option of `createDocxStyles` to `editorStyles`.
+- Remove the `listDepth` and `adjustProbe` options from `readEditorStyles` and `readEditorDocxStyles` calls. The export always measures 9 list levels.
+
+[Renames and removals](/conversion/export/docx/computed-styles-api#renames-and-removals) lists every changed name and every removed option and field.
