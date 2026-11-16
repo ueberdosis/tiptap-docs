@@ -204,18 +204,36 @@ export async function captureHttpLog(request: NextRequest, extraProperties?: obj
   const postHogHost = process.env.POSTHOG_HOST
   if (!apiKey || !postHogHost) return
 
+  let body: string
   try {
     const event = await buildHttpLogEvent(request, apiKey)
     Object.assign(event.properties, extraProperties)
+    body = JSON.stringify(event)
+  } catch {
+    // Swallow: failing to build the event must not surface anywhere.
+    return
+  }
 
+  // Diagnostics below log only the error name or status code — never the event
+  // payload, the response body or the PostHog host.
+  let response: Response
+  try {
     const host = postHogHost.replace(/\/+$/, '')
-    await fetch(`${host}/i/v0/e/`, {
+    response = await fetch(`${host}/i/v0/e/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
+      body,
       signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
     })
-  } catch {
-    // Swallow: a PostHog outage or timeout must not surface anywhere.
+  } catch (error) {
+    // Rejected: the request never completed (network error, timeout).
+    const name = error instanceof Error ? error.name : 'unknown error'
+    console.warn(`[posthog] $http_log capture request failed: ${name}`)
+    return
+  }
+
+  // Resolved, but PostHog did not accept the event (e.g. 401 bad key, 429, 5xx).
+  if (!response.ok) {
+    console.warn(`[posthog] $http_log capture rejected with status ${response.status}`)
   }
 }
