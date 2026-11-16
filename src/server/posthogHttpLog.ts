@@ -17,6 +17,10 @@ import type { NextRequest } from 'next/server'
  *    `getDailyKey`). It tells clients apart within a day, but can't be traced
  *    back to an IP or linked across days.
  *
+ * Query strings are never sent either: `$current_url` and `$referrer` are
+ * stripped of them (see `stripQuery`), since request and referrer parameters
+ * can carry tokens, emails or search terms.
+ *
  * Disabled unless `POSTHOG_API_KEY` is set (read at runtime, not build time).
  */
 
@@ -140,6 +144,16 @@ async function createDistinctId(ip: string, host: string, userAgent: string) {
   return `http_log_${hex.slice(0, 32)}`
 }
 
+/**
+ * Removes the query string from a URL, keeping everything else (including a
+ * fragment) as is. Works on the raw string rather than `new URL()` so a
+ * malformed or relative `Referer` is passed through instead of being dropped
+ * or normalized. A `?` after the `#` belongs to the fragment and is left alone.
+ */
+function stripQuery(url: string) {
+  return url.replace(/^([^?#]*)\?[^#]*/, '$1')
+}
+
 export async function buildHttpLogEvent(request: NextRequest, apiKey: string) {
   const { headers, nextUrl } = request
 
@@ -155,7 +169,8 @@ export async function buildHttpLogEvent(request: NextRequest, apiKey: string) {
   // truncated form. See the module comment.
   const fullIp = getClientIp(headers)
   const ip = anonymizeIp(fullIp)
-  const referrer = headers.get('referer')
+  const rawReferrer = headers.get('referer')
+  const referrer = rawReferrer ? stripQuery(rawReferrer) : null
 
   return {
     api_key: apiKey,
@@ -164,7 +179,8 @@ export async function buildHttpLogEvent(request: NextRequest, apiKey: string) {
     timestamp: new Date().toISOString(),
     properties: {
       $raw_user_agent: userAgent,
-      $current_url: `${protocol}://${host}${pathname}${nextUrl.search}`,
+      // No query string: request parameters are not collected.
+      $current_url: `${protocol}://${host}${pathname}`,
       $host: host,
       $pathname: pathname,
       // Anonymous event: no person profile per client. Bot detection only
