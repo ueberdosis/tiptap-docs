@@ -15,6 +15,10 @@ import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
+import { CATALOG_GROUPS, CatalogArea, catalogGroupUrl } from '@/content/catalog'
+import { planFromLabel } from '@/content/plans'
+import { getCatalog } from '@/server/getCatalog'
+import { pageLabels } from '@/server/pageLabels'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
 
@@ -27,7 +31,94 @@ function link(config: SidebarConfig, titles: string[]): SidebarEntry {
   return toEntries([pick(config, titles)])[0]
 }
 
-const compare = section('Compare', compareSidebar, { inline: ['Get started'] })
+/** The catalog groups of an area, each folding open to its features. */
+function catalogGroups(area: CatalogArea): SidebarEntry[] {
+  const catalog = getCatalog()
+  return (
+    CATALOG_GROUPS.filter((group) => group.area === area)
+      .map((group) => ({
+        title: group.title,
+        href: catalogGroupUrl(group) ?? '',
+        children: catalog
+          .filter((entry) => entry.group === group.id)
+          .map((entry) => ({ title: entry.name, href: entry.url, tags: catalogTags(entry) })),
+      }))
+      .filter((group) => group.children.length > 0)
+      // A group of one is just that entry
+      .map((group) => (group.children.length === 1 ? group.children[0] : group))
+  )
+}
+
+/** A feature's status and plan as sidebar tags; the sidebar shows only the label that matters. */
+function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
+  const tags = [entry.status, entry.plan !== 'Open source' ? entry.plan : undefined].filter(
+    (tag): tag is string => !!tag,
+  )
+  return tags.length ? tags : undefined
+}
+
+/**
+ * A feature's plan and status as sidebar tags, from the frontmatter of its overview
+ * page, so the feature's pages inherit both. The sidebar itself shows no Alpha or Beta.
+ */
+function featureTags(overview: string): string[] | undefined {
+  const { plan, status } = pageLabels(overview)
+  const tags: string[] = []
+  if (plan && plan !== 'Open source') tags.push(plan)
+  if (status) tags.push(status)
+  return tags.length ? tags : undefined
+}
+
+/** A section as one feature entry, tagged with its plan and status. */
+function feature(
+  title: string,
+  config: SidebarConfig,
+  overview: string,
+  options: Parameters<typeof section>[2] = {},
+): SidebarEntry {
+  return section(title, config, { ...options, tags: featureTags(overview) })
+}
+
+const isPaidPlan = (tag: string) => {
+  const plan = planFromLabel(tag)
+  return !!plan && plan !== 'Open source'
+}
+const isPaid = (tags?: string[]) => !!tags?.some((tag) => tag === 'Paid' || isPaidPlan(tag))
+
+/**
+ * An entry whose children all need a paid plan, whichever, says "Paid"; a group
+ * that mixes paid and open source says nothing. The tag is for the label only:
+ * page headers still take the plan from the pages and their features.
+ */
+function withSharedPlan(entry: SidebarEntry): SidebarEntry {
+  if (!entry.children?.length) return entry
+  const children = entry.children.map(withSharedPlan)
+  const allPaid = children.every((child) => isPaid(child.tags))
+  return isPaid(entry.tags) || !allPaid
+    ? { ...entry, children }
+    : { ...entry, tags: [...(entry.tags ?? []), 'Paid'], children }
+}
+
+/** Below a paid entry, its pages don't repeat the label: they share it. */
+function labelWhereItDiffers(entries: SidebarEntry[], underPaid = false): SidebarEntry[] {
+  return entries.map((entry) => {
+    const paid = isPaid(entry.tags)
+    return {
+      ...entry,
+      hidePlan: underPaid && paid ? true : undefined,
+      children: entry.children && labelWhereItDiffers(entry.children, underPaid || paid),
+    }
+  })
+}
+
+/** Plan labels in a sidebar group: shared plans move up, repeated ones go. */
+function planLabels(group: SidebarGroup): SidebarGroup {
+  return { ...group, children: labelWhereItDiffers(group.children.map(withSharedPlan)) }
+}
+
+const compare = feature('Compare', compareSidebar, '/compare/getting-started/overview', {
+  inline: ['Get started'],
+})
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
@@ -48,7 +139,7 @@ const items: SidebarGroup[] = [
       {
         href: '/authentication',
         title: 'Authentication',
-        tags: ['New'],
+        newSince: '2026-04-29',
         children: [
           { href: '/authentication/migrate', title: 'Migrate from legacy' },
           { href: '/authentication/legacy', title: 'Legacy authentication' },
@@ -78,7 +169,8 @@ const items: SidebarGroup[] = [
           {
             title: 'AI Legacy',
             href: '',
-            tags: ['Deprecated'],
+            // Paid like the rest of AI; the label says Deprecated
+            tags: ['Deprecated', 'Paid'],
             children: [
               section('AI Assistant', aiAssistantSidebar, legacyOptions),
               section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
@@ -91,12 +183,19 @@ const items: SidebarGroup[] = [
         title: 'Review',
         href: '',
         children: [
-          section('Comments', commentsSidebar, { inline: ['Get started'] }),
-          section('Tracked Changes', trackedChangesSidebar, {
+          feature('Comments', commentsSidebar, '/comments/getting-started/overview', {
             inline: ['Get started'],
-            // Links to Conversion pages, which have their place there
-            omit: ['DOCX conversion'],
           }),
+          feature(
+            'Tracked Changes',
+            trackedChangesSidebar,
+            '/tracked-changes/getting-started/overview',
+            {
+              inline: ['Get started'],
+              // Links to Conversion pages, which have their place there
+              omit: ['DOCX conversion'],
+            },
+          ),
         ],
       },
       {
@@ -109,21 +208,30 @@ const items: SidebarGroup[] = [
           },
         ],
       },
-      section('Conversion', conversionSidebar, { inline: ['Get started'] }),
-      section('Composable Docs', composableDocsSidebar),
-      section('Diagrams', diagramsSidebar, { inline: ['Diagrams'], tags: ['Alpha'] }),
-      section('Pages', pagesSidebar, { inline: ['Getting started'] }),
+      feature('Conversion', conversionSidebar, '/conversion/getting-started/overview', {
+        inline: ['Get started'],
+      }),
+      feature(
+        'Composable Docs',
+        composableDocsSidebar,
+        '/composable-docs/slots/getting-started/overview',
+      ),
+      feature('Diagrams', diagramsSidebar, '/diagrams/getting-started/overview', {
+        inline: ['Diagrams'],
+      }),
+      feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
+        inline: ['Getting started'],
+      }),
       {
         ...link(editorSidebar, ['Whiteboard']),
         href: '',
+        tags: featureTags('/editor/whiteboard/getting-started/overview'),
         // The AI agent guide has its place in the AI Toolkit
         children: childrenOf(editorSidebar, ['Whiteboard']).filter(
           (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
         ),
       },
-      ...childrenOf(editorSidebar, ['Extensions']).filter((entry) =>
-        ['Nodes', 'Marks', 'Functionality'].includes(entry.title),
-      ),
+      ...catalogGroups('editor'),
       ...toEntries([pick(editorSidebar, ['Markdown'])]),
     ],
   },
@@ -156,7 +264,10 @@ const items: SidebarGroup[] = [
       },
       link(collaborationSidebar, ['Features', 'Webhooks']),
       { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
-      section('Hocuspocus', hocuspocusSidebar, { inline: ['Get started'] }),
+      section('Hocuspocus', hocuspocusSidebar, {
+        inline: ['Get started'],
+        tags: ['Open source'],
+      }),
     ],
   },
   {
@@ -228,5 +339,5 @@ export const sidebarConfig: SidebarConfig = {
   id: 'all-docs',
   rootHref: '/',
   title: 'Home',
-  items,
+  items: items.map(planLabels),
 }

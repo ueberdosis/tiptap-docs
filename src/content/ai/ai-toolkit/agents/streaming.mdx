@@ -42,7 +42,7 @@ Before you continue, set up the Server AI Toolkit by following the [installation
 ## How it works
 
 1. Your server fetches the `tiptapEdit` tool definition and reads the document, just as it does with a [non-streaming agent](/ai/ai-toolkit/agents/ai-agent-chatbot).
-2. As the model generates the tool call, your server forwards the raw input deltas to `POST /v4/ai/toolkit/stream-tool` as [NDJSON](https://github.com/ndjson/ndjson-spec) `start`, `delta`, and `end` messages.
+2. As the model generates the tool call, your server forwards the raw input deltas to `/v4/ai/toolkit/stream-tool` over a WebSocket connection, as `start`, `delta`, and `end` messages.
 3. From there, the Server AI Toolkit applies the edit for you: as the forwarded deltas arrive, it incrementally updates the Tiptap Cloud document over a live connection. You never apply anything yourself; the document updates happen automatically on the server side as the deltas stream in.
 4. The client renders the changes through [Collaboration](/collaboration/getting-started/overview). The editor never calls a streaming method itself, so the edits arrive as document updates.
 
@@ -51,12 +51,12 @@ Before you continue, set up the Server AI Toolkit by following the [installation
 <Callout title="Works with most AI backends" variant="hint">
   This example uses the [AI SDK by Vercel](https://ai-sdk.vercel.app/), but you can drive
   `stream-tool` from most AI back-end setups. You just forward your model's tool-call input as
-  NDJSON deltas.
+  `delta` messages.
 </Callout>
 
-On the server, open a [duplex](https://developer.mozilla.org/en-US/docs/Web/API/RequestInit#duplex) NDJSON request to `stream-tool` and drive it with your model's tool-call stream. A duplex request lets you stream the body up incrementally, so you can forward each tool-call delta as the model produces it instead of sending the whole input at once.
+On the server, open a WebSocket connection to `stream-tool` and drive it with your model's tool-call stream. The connection lets you forward each tool-call delta as the model produces it instead of sending the whole input at once.
 
-The `stream-tool` request and response are both NDJSON: one JSON object per line. You send three message types: `start` to open the stream, `delta` for each chunk of the AI-generated tool input, and `end` once the input is complete.
+Each message is a JSON object sent as one text frame. You send three message types: `start` to open the stream, `delta` for each chunk of the AI-generated tool input, and `end` once the input is complete. The server sends its events back the same way and closes the connection once the edit is applied.
 
 <details>
   <summary>Install dependencies</summary>
@@ -64,7 +64,7 @@ The `stream-tool` request and response are both NDJSON: one JSON object per line
 Install these dependencies in your server app:
 
 ```bash
-npm install ai zod
+npm install ai ws zod
 ```
 
 </details>
@@ -80,9 +80,9 @@ import {
   toUIMessageStream,
   type UIMessage,
 } from 'ai'
+import WebSocket from 'ws'
 import { z } from 'zod'
 import { getAuthHeaders } from './server-ai-toolkit/get-auth-headers'
-import { streamToolFetch } from './server-ai-toolkit/stream-tool-fetch'
 
 // The Server AI Toolkit API base URL
 const apiBaseUrl = process.env.TIPTAP_CLOUD_AI_API_URL || 'https://api.tiptap.dev'
@@ -116,29 +116,39 @@ export async function handleStreamEditRequest(request: Request): Promise<Respons
     }),
   }).then((res) => res.json())
 
-  // 2. Open a duplex NDJSON request to stream-tool. Each message is one line.
-  const encoder = new TextEncoder()
-  let controller: ReadableStreamDefaultController<Uint8Array>
-  const body = new ReadableStream<Uint8Array>({ start: (c) => (controller = c) })
-  const send = (message: object) =>
-    controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`))
-
-  // `streamToolFetch` sends the request over HTTP/2 so the duplex upload
-  // survives a reverse proxy (an HTTP/1.1 proxy drains the request body once the
-  // response starts, which truncates the stream). See the demo source for the
-  // helper. `duplex: 'half'` is required whenever you stream a request body.
-  const upstream = streamToolFetch(`${apiBaseUrl}/v4/ai/toolkit/stream-tool`, {
-    method: 'POST',
-    headers: { ...(await getAuthHeaders(documentId)), 'Content-Type': 'application/x-ndjson' },
-    body,
-    duplex: 'half',
+  // 2. Open a WebSocket to stream-tool. Each message is one text frame.
+  const socket = new WebSocket(`${apiBaseUrl.replace(/^http/, 'ws')}/v4/ai/toolkit/stream-tool`, {
+    headers: await getAuthHeaders(documentId),
+    // Fail instead of waiting forever if the connection is never answered.
+    handshakeTimeout: 10_000,
   })
+  // Resolves to false when the connection fails, so sending never blocks the model's stream.
+  const opened = new Promise<boolean>((resolve) => {
+    socket.once('open', () => resolve(true))
+    socket.once('close', () => resolve(false))
+  })
+  // Messages wait for the connection, then go out in the order they were sent.
+  const send = async (message: object) => {
+    if ((await opened) && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(message))
+    }
+  }
+
+  // The server sends one event per frame and closes the connection when it's done.
+  const events: { type: string; message?: string }[] = []
+  socket.on('message', (data) => events.push(JSON.parse(data.toString())))
+  const closed = new Promise((resolve) => socket.once('close', resolve))
+  // A failed connection also closes the socket, so `execute` below reports it.
+  socket.on('error', () => {})
 
   // 3. Drive the model. Forward its tool input as start / delta / end messages.
   const result = streamText({
     model: gateway('openai/gpt-5.6-luna'),
     instructions: `${systemPrompt}\n\nMake the edit with tiptapEdit, then reply with one short sentence confirming what you changed.`,
     prompt: JSON.stringify({ content: read.tool.output, task }),
+    // Close the connection if the model fails, so the stream doesn't stay open on the server.
+    onError: () => socket.close(),
+    onAbort: () => socket.close(),
     tools: {
       tiptapEdit: tool({
         description: tiptapEdit.description,
@@ -155,16 +165,14 @@ export async function handleStreamEditRequest(request: Request): Promise<Respons
           }),
         onInputDelta: ({ inputTextDelta }) =>
           send({ version: 1, type: 'delta', argsTextDelta: inputTextDelta }),
-        onInputAvailable: () => {
-          send({ version: 1, type: 'end' })
-          controller.close()
-        },
-        // Wait for the AI server to finish applying the edit, then report a
-        // result so the chat turn completes.
+        onInputAvailable: () => send({ version: 1, type: 'end' }),
+        // Wait for the AI server to finish applying the edit, then report the
+        // result so the chat turn completes and the model can tell the user.
         execute: async () => {
-          const res = await upstream
-          await res.text()
-          return { ok: res.ok }
+          await closed
+          const error = events.find((event) => event.type === 'error')
+          if (error) return { ok: false, error: error.message }
+          return { ok: events.some((event) => event.type === 'completed') }
         },
       }),
     },
@@ -188,6 +196,14 @@ export async function handleStreamEditRequest(request: Request): Promise<Respons
 ```
 
 See the [REST API reference](/ai/ai-toolkit/api-reference/rest-api#stream-a-tool) for the full request and response message shapes, and the [demo source](https://github.com/ueberdosis/ai-toolkit-demos) for a production-ready route with error handling.
+
+<Callout title="Streaming over HTTP" variant="hint">
+  `stream-tool` also accepts the same messages as an [NDJSON](https://github.com/ndjson/ndjson-spec)
+  `POST` request with a streamed body. The edit still reaches the document as the deltas arrive, but
+  the response events are only sent once the request body ends, and some proxies cut long requests.
+  Prefer the WebSocket connection. See the [REST API
+  reference](/ai/ai-toolkit/api-reference/rest-api#stream-a-tool).
+</Callout>
 
 ## Client-side setup
 

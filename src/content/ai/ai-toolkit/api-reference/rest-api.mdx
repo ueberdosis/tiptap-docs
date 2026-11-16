@@ -81,6 +81,7 @@ Returns the prompt and tool definitions that you pass to your AI provider.
 Request body:
 
 - `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
+- `hiddenAttributes` (`string[]`, optional, default: `[]`): Node attributes excluded from the schema awareness prompt, including their defaults. Use the same list when executing tools or streaming supported tools. `stream-tool` rejects non-empty `hiddenAttributes` for `tiptapEdit`; use `execute-tool` for those edits. See [Hidden attributes](#hidden-attributes).
 - `tools` (`Record<string, boolean | ToolConfig>`, optional, default: `{}`): Enables, disables, or
   configures tools. Tools are disabled by default.
 - `format` (`'json' | 'shorthand' | 'shorthandV2'`, optional, default: `'json'`): Document format used by tool
@@ -103,14 +104,15 @@ Request body:
 - `readSelection` (`boolean`, optional)
 - `proofread` (`boolean | { meta?: string }`, optional): Set `meta` when you want the AI to
   include an extra metadata field on every proofreading edit, such as a short explanation.
-- `readBoard`, `createShapes`, `arrangeShapes`, `createDiagram`, `updateShapes`, `deleteShapes`,
-  `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
+- `readBoard`, `createShapes`, `arrangeShapes`, `distributeShapes`, `createDiagram`, `updateShapes`,
+  `deleteShapes`, `connectShapes` and `createDocFrame` (`boolean`, optional): The [board tools](#board-tools), for
   a whiteboard.
 
 Response:
 
 - `systemPrompt` (`string`): Add this to the system prompt for your AI request. It teaches the AI
   how Tiptap documents work, what elements the editor supports, and which document format to use.
+  It includes attribute defaults and explains why reads omit attributes equal to those defaults.
 - `tools` (`array`): Tool definitions the AI or developer can call. Each array element contains:
   - `name` (`string`): Tool name.
   - `description` (`string`): Tool description.
@@ -302,10 +304,25 @@ This endpoint can return:
 POST /v4/ai/toolkit/stream-tool
 ```
 
+```txt
+GET /v4/ai/toolkit/stream-tool (WebSocket)
+```
+
 Streams tool execution. `tiptapEdit` can apply edits incrementally for a typing effect. Other tools
 run after the full input is received and return one final event, like `execute-tool`.
 
-The request is sent in parts. The first part contains:
+The endpoint accepts the same messages over two transports:
+
+- **WebSocket (recommended):** Open a WebSocket connection to the endpoint URL (`wss://`), with the
+  `Authorization` header on the handshake request. Send each message as a JSON object in one text
+  frame, and receive each event the same way. The server closes the connection after the final
+  event. Messages larger than 1 MB close the connection with code `1009`.
+- **HTTP:** Send a `POST` request whose body streams the messages as
+  [NDJSON](https://github.com/ndjson/ndjson-spec), one JSON object per line. Edits are applied as
+  the messages arrive, but the response is only sent once the request body ends, with all events
+  in one NDJSON body. Proxies with a request timeout can cut long requests.
+
+The first message (`start`) contains:
 
 - `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
 - `document` (`object`, required): Cloud document to stream the edit into:
@@ -323,22 +340,25 @@ The request is sent in parts. The first part contains:
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 - `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
-- `delayMs` (`number`, optional, default: `5`): Per-character delay in milliseconds for incremental
-  `tiptapEdit` output. Must be between `0` and `1000`. Use `0` to apply edits as fast as possible.
+- `delayMs` (`number`, optional, default: `0`): Delay in milliseconds between incremental
+  `tiptapEdit` steps, to slow the typing effect down. Must be between `0` and `1000`. With `0`, edits
+  are applied as fast as the input arrives.
 
 Then send:
 
-- Following parts: The value of `tool.input`, streamed as the AI generates it.
+- `delta` messages: The value of `tool.input`, streamed as the AI generates it.
+- An `end` message once the input is complete.
 
-Response:
+Response events:
 
-- `tiptapEdit`: Incremental events while edits are applied, followed by a final event with the
-  updated `document`.
-- Other tools: One final event with the same result shape as `execute-tool`.
+- `tiptapEdit`: An `action` event per applied edit step, followed by a final `completed` event with
+  the updated `document`.
+- Other tools: One final `completed` event with the same result shape as `execute-tool`.
 
 #### Error responses
 
-Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
+Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`. Over WebSocket, these
+errors reject the handshake with the HTTP status and no body.
 
 - `error` (`object`): An object with these properties:
   - `message` (`string`): Human-readable error message.
@@ -346,7 +366,7 @@ Before streaming starts, HTTP errors use the same JSON shape as `execute-tool`:
   - `code` (`string`): Stable error code.
   - `data` (`object`, optional): Sanitized structured context.
 
-After streaming starts, errors are sent as NDJSON events:
+After streaming starts, errors are sent as events:
 
 - `version` (`number`): Stream protocol version.
 - `type` (`'error'`): Event type.
@@ -359,11 +379,12 @@ This endpoint can return or emit:
 - `400` with `invalid_request`: The request has no body.
 - `400` with `missing_document_credentials`: The JWT does not include document server credentials.
 - `400` with `invalid_stream_message`: A stream message is not valid JSON, fails schema validation,
-  uses an unsupported protocol version, or the stream ends with an unterminated NDJSON line.
+  uses an unsupported protocol version, arrives as a binary WebSocket frame, or the HTTP stream ends
+  with an unterminated NDJSON line.
 - `400` with `duplicate_start`: More than one `start` message was sent.
 - `400` with `delta_before_start`: A `delta` message arrived before `start`.
 - `400` with `end_before_start`: An `end` message arrived before `start`.
-- `400` with `incomplete_stream`: The request ended before an `end` message arrived.
+- `400` with `incomplete_stream`: The request or connection ended before an `end` message arrived.
 - `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A buffered
   thread or comment operation referenced data that does not exist.
 - `401` with `access_control_auth_required` or `missing_token`: The request did not include a
@@ -376,8 +397,9 @@ This endpoint can return or emit:
 - `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
   the editor schema does not support tracked changes.
 - `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
-- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size.
+- `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size (HTTP only).
 - `429` with `stream_rate_limit_exceeded`: Too many concurrent streams are open for the same client.
+  Over WebSocket, this arrives as an event right after the connection opens.
 - `429` with `rate_limited`: Access Control rate-limited authentication.
 - `429`: The server-side rate limiter blocked the request before streaming started. This response
   uses a different top-level shape:
@@ -405,6 +427,14 @@ enabling additional tools as needed.
 
 You can also call these tools directly from your application code to build custom workflows.
 
+### Attribute defaults in reads
+
+`tiptapRead`, `readDocument`, `readSelection`, `getThreads`, and `tiptapQuery` reads automatically leave out node and mark attributes equal to their schema default. This applies to JSON and both Shorthand formats, through `execute-tool` and supported reads through `stream-tool`. No configuration is needed.
+
+For example, a heading with `level: 1` omits `level` when the schema default is `1`; a heading with `level: 2` keeps it. The same rule applies to `null`, booleans, strings, and structurally equal arrays and objects. Attributes without a schema default stay in the output unless explicitly hidden.
+
+Attributes omitted because they equal their schema default retain that value. Attributes in `hiddenAttributes` are omitted regardless of their actual value; their omission does not imply a default value. The `systemPrompt` from `fetch-tools` includes these defaults so the AI can interpret reads and write content back without losing values. This reduces read output without changing the document.
+
 ### Hidden attributes
 
 Use the `hiddenAttributes` field (`string[]`) of `execute-tool` and `stream-tool` requests to keep node attributes away from the AI, like layout settings that only an export uses. `tiptapRead`, `tiptapEdit`, `tiptapQuery`, `replaceDocument`, `createDocument`, `readSelection`, `getThreads` and `readDocument` use it: through these tools, the AI can't read or change these attributes, and the document keeps their values. The other tools ignore it, so the [board tools](#board-tools) still read and write shapes with all their attributes, like the `docId` of a doc frame. Pass the same list in every request that reads or edits the document.
@@ -429,7 +459,6 @@ Tool input (`tool.input`):
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
-- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -486,10 +515,6 @@ Error response:
 
 ### `tiptapQuery`
 
-<Callout title="Alpha feature" variant="hint">
-  `tiptapQuery` is currently in alpha
-</Callout>
-
 Reads, searches and edits the document with JSON operations. It works on its own, without
 `tiptapRead` or `tiptapEdit`. It is not available through `stream-tool`.
 
@@ -503,7 +528,6 @@ Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters that all reads of one tool call
   return together. Default: `32000`
-- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from `content` and `summary` reads. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 - `threadData` (`object`, optional): Metadata added to created threads.
 - `commentData` (`object`, optional): Metadata added to created comments.
 
@@ -557,7 +581,6 @@ Tool config (`tool.config`):
 
 - `user` (`string`, required): The ID of the user whose selection to read. Must match `user.id`
   configured in [Collaboration Caret](/editor/extensions/functionality/collaboration-caret).
-- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -585,7 +608,6 @@ Tool input (`tool.input`):
 Tool config (`tool.config`):
 
 - `chunkSize` (`number`, optional): Maximum number of characters to read in each tool call. Default: `32000`
-- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
 
 Tool output (`tool.output`):
 
@@ -676,7 +698,7 @@ This tool does not take any input. Pass an empty object (`{}`).
 
 Tool config (`tool.config`):
 
-- `omitNullAttributes` (`boolean`, optional): Leaves out node and mark attributes whose value and default are both `null` from the returned content. Use it when the schema has many attributes that are usually unset. A node written back without these attributes keeps the same values. Default: `false`
+`null`
 
 Tool output (`tool.output`):
 
@@ -749,7 +771,7 @@ Each field that is missing, `null` or invalid falls back on its own: to no selec
 `createShapes`, `createDiagram` and `createDocFrame` take these fields in their input (`tool.input`), so the AI can name the place for new content:
 
 - `near` (`string[]`, optional): Up to 100 ids of the shapes that the new content belongs next to, like the diagram that a summary is about. Defaults to the selected shapes.
-- `side` (`'right' | 'below' | 'left' | 'above'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer.
+- `side` (`'right' | 'below' | 'left' | 'above' | 'between'`, optional): The side of those shapes for the new content. Defaults to `'right'`, or `'below'` when the free spot there is closer. `'between'` puts the new content in the middle between exactly two shapes, and places it like without `side` for any other number of shapes.
 
 New shapes go beside the shapes in `near` that are on the board, or else beside the selected shapes. Without such shapes, they go in the middle of the viewport, or else right of all shapes on the board, or at the origin of an empty board. When other shapes are in the way, they move to the closest free spot.
 
@@ -811,16 +833,18 @@ Success response:
 
 ### `createShapes`
 
-Adds sticky notes as one grid, in front of all shapes.
+Adds sticky notes as one grid, or plain text as one column, in front of all shapes.
 
 Tool input (`tool.input`):
 
-- `notes` (`array`, required): 1 to 24 notes, in reading order.
+- `notes` (`array`, required): 1 to 24 notes or texts, in reading order.
   - `text` (`string`, required): Text of the note, up to 500 characters. A line break starts a
     new paragraph. Lines that start with `- `, `1. `, `[ ] ` or `[x] ` make a bulleted list, a
     numbered list or a task list.
   - `color` (`'black' | 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'violet'`,
-    optional): Color of the note. Default: `'yellow'`
+    optional): Color of the note or text. Default: `'yellow'` for notes, `'black'` for text
+- `type` (`'note' | 'text'`, optional): `'text'` adds free text without a note around it, like a
+  heading or a caption, up to 400 wide, one text below the other. Default: `'note'`
 - `near` and `side` (optional): Where the notes go. See [board placement](#board-placement).
 
 Tool config (`tool.config`):
@@ -831,8 +855,8 @@ Tool output (`tool.output`):
 
 Success response:
 
-- `success` (`true`): Indicates that the notes were added.
-- `createdIds` (`string[]`): Ids of the new notes, in the order of the input.
+- `success` (`true`): Indicates that the notes or texts were added.
+- `createdIds` (`string[]`): Ids of the new notes or texts, in the order of the input.
 - `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
 
 Error response:
@@ -872,6 +896,38 @@ Error response:
 - `success` (`false`): Indicates that no shapes were arranged. The error lists the reasons.
 - `error` (`string`): Error message.
 
+### `distributeShapes`
+
+Lines shapes up in one row or column, with equal room between them, in their order along it. They line up on the middle of all of them. The row keeps the outer edges of the shapes, unless the room between them would be under 48, and then the shapes go 48 apart. When the row would cover other shapes, it moves as a whole to the closest free spot, but frames of its shapes don't count. Shapes only move, so the arrows that connect them follow, and the shapes in a moved frame move with it.
+
+Tool input (`tool.input`):
+
+- `ids` (`string[]`, required): 2 to 300 ids of the shapes to line up.
+- `direction` (`'horizontal' | 'vertical'`, optional): A row from left to right, or a column from
+  top to bottom. Default: `'horizontal'`
+
+Tool config (`tool.config`):
+
+`null`
+
+Tool output (`tool.output`):
+
+Success response:
+
+- `success` (`true`): Indicates that the shapes were lined up.
+- `movedIds` (`string[]`): Ids of the shapes that moved, with the shapes in moved frames. Shapes
+  that were in place already are left out.
+- `skipped` (`array`): Shapes that stayed where they were, each with `id` and `reason`, like an
+  id that isn't a shape on the board, an arrow, an id that came earlier, or a shape that waits for
+  another user's review.
+- `suggestionIds` (`string[]`): See [board suggestions](#board-suggestions).
+
+Error response:
+
+- `success` (`false`): Indicates that fewer than two shapes could be lined up. The error lists the
+  reasons.
+- `error` (`string`): Error message.
+
 ### `createDiagram`
 
 Draws shapes with text, connected by arrows, and lays them out as a diagram. The arrows connect the shapes and hold their labels, so both follow when a user moves a shape.
@@ -883,7 +939,8 @@ Tool input (`tool.input`):
 - `nodes` (`array`, required): 1 to 40 shapes.
   - `key` (`string`, required): The AI's own name for the shape, up to 40 characters and unique
     in the diagram. Arrows refer to it.
-  - `text` (`string`, required): Text in the shape, up to 60 characters.
+  - `text` (`string`, optional): Text in the shape, up to 60 characters. A shape without text is
+    120 wide and 120 tall.
   - `shape` (`'rectangle' | 'ellipse' | 'diamond'`, optional): Kind of the shape. Another kind
     becomes a rectangle. Default: `'rectangle'`
   - `color` (`string`, optional): One of the colors of `createShapes`. Default: `'black'`
@@ -925,7 +982,8 @@ Tool input (`tool.input`):
   - `id` (`string`, required): Id of the shape.
   - `text` (`string`, optional): New text, up to 500 characters, with the same lines as for
     `createShapes`. It replaces the text of the shape, without its formatting. The text that
-    `readBoard` gives for the shape is no change. Sticky notes, geometric shapes and free text
+    `readBoard` gives for the shape is no change. An empty text takes the text away. Free text
+    without text stays on the board, so delete it instead. Sticky notes, geometric shapes and free text
     have text. The text of an arrow is its label, without lists, from Whiteboard 0.2.0 on.
   - `color` (`string`, optional): New color, one of the colors of `createShapes`.
   - `kind` (`'rectangle' | 'ellipse' | 'diamond' | 'triangle'`, optional): New kind of a geometric
