@@ -40,6 +40,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ai/ai-toolkit/agents/whiteboard',
             },
             {
+              title: 'With Diagrams',
+              href: '/ai/ai-toolkit/agents/diagrams',
+            },
+            {
               title: 'Selection awareness',
               href: '/ai/ai-toolkit/agents/selection-awareness',
             },
