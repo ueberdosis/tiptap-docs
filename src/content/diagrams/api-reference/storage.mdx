@@ -1,6 +1,6 @@
 ---
 title: 'Storage'
-intro: '<code>editor.storage.diagrams</code> holds functions that tell you what is in the document and what the editor can draw. You call them directly, not as commands.'
+intro: '<code>editor.storage.diagrams</code> tells you what the document holds and what the editor can draw. You call its functions directly, not as commands.'
 tags:
   - type: alpha
   - type: restricted
@@ -10,122 +10,143 @@ meta:
   category: Diagrams
 ---
 
+This reads the first chart of the `editor` from
+[A first chart](/diagrams/getting-started/install#a-first-chart):
+
 ```ts
 const charts = editor.storage.diagrams.listCharts()
 const text = editor.storage.diagrams.read({ pos: charts[0].pos, format: 'chart-syntax' })
 ```
 
-Most of these functions only read. Only `requestSync` changes the document: it runs the
-[`syncChartData`](/diagrams/data/sources#syncchartdata) command on every chart linked to the source.
-`registerSource`, `setZoom`, `setPan` and `setMaximized` change only this editor.
+`requestSync` is the only function that writes into the document, with the command
+[`syncChartData`](/diagrams/data/sources#syncchartdata). `registerSource`, `setZoom`, `setPan` and
+`setMaximized` change this editor only, and are not saved or shared.
 
 ## Charts, diagrams and tables in the document
 
-| Function         | Returns                                                                                                                                         |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `listCharts()`   | Every chart, see [Chart fields](/diagrams/api-reference/storage#chart-fields)                                                                   |
-| `listDiagrams()` | Every diagram, see [Diagram fields](/diagrams/api-reference/storage#diagram-fields)                                                             |
-| `listTables()`   | Every table a chart or a diagram can follow, see [Table fields](/diagrams/api-reference/storage#table-fields). Empty without `chart.linkTables` |
-| `getOpenInput()` | The Quick Input or input table the cursor is in, see [The open input](/diagrams/api-reference/storage#the-open-input). `null` outside one       |
+In document order:
+
+| Function         | Returns                                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `listCharts()`   | Every chart, with the [Chart fields](/diagrams/api-reference/storage#chart-fields)                                                                                                      |
+| `listDiagrams()` | Every diagram, see [Diagram fields](/diagrams/api-reference/storage#diagram-fields)                                                                                                     |
+| `listTables()`   | Every table a chart or diagram can take its data from, see [Table fields](/diagrams/api-reference/storage#table-fields). Empty without the [`linkTables`](/diagrams/api-reference/options#linktables) option |
+| `getOpenInput()` | The [Quick Input](/diagrams/data/quick-input) the cursor is in, or `null`                                                                                       |
 
 ### Chart fields
 
-| Field        | Value                                                                                                                      |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `pos`        | The chart's position                                                                                                       |
-| `data`       | The Chart Data                                                                                                             |
-| `spec`       | The Chart Spec                                                                                                             |
-| `renderer`   | The Renderer the chart names                                                                                               |
-| `source`     | Its Data Source                                                                                                            |
-| `delimiter`  | Its delimiter                                                                                                              |
-| `previewUrl` | Its preview URL                                                                                                            |
-| `layout`     | Whether it stands alone, follows a table, or is hidden below it ([`setChartLayout`](/diagrams/data/tables#setchartlayout)) |
-| `tableId`    | The table it follows, or `null`                                                                                            |
-| `tableRead`  | How it reads that table, `{ header?, range? }` with only what differs from the default, or `null`                          |
+| Field        | Value                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------- |
+| `pos`        | The chart's position in the document, a number                                                                  |
+| `data`       | The Chart Data                                                                                                  |
+| `spec`       | The Chart Spec                                                                                                  |
+| `renderer`   | The Renderer id it names, or `null`                                                                             |
+| `source`     | Its Data Source, or `null`                                                                                      |
+| `syncedAt`   | ISO time of the last source read, or `null`                                                                     |
+| `delimiter`  | The delimiter its rows were typed with, or `null`                                                               |
+| `previewUrl` | Its preview URL, or `null`                                                                                      |
+| `layout`     | `'chart'`, `'with-table'` or `'table'`, see [`setChartLayout`](/diagrams/data/tables#setchartlayout)                   |
+| `tableId`    | The table it follows, or `null`                                                                                 |
+| `tableRead`  | The settings of [`updateLinkedTable`](/diagrams/data/tables#updatelinkedtable) that differ from the default, or `null` |
 
 ### Diagram fields
 
-| Field         | Value                                                               |
-| ------------- | ------------------------------------------------------------------- |
-| `pos`         | The diagram's position                                              |
-| `format`      | Its format                                                          |
-| `source`      | Its source                                                          |
-| `title`       | Its title                                                           |
-| `description` | Its description                                                     |
-| `view`        | Its view                                                            |
-| `options`     | Its options                                                         |
-| `kind`        | The kind of Mermaid diagram, or `null`                              |
-| `drawable`    | Whether a Diagram Renderer for its format can draw the source       |
-| `link`        | The table it is drawn from, `{ tableId, columns }`, or `null`       |
-| `lanes`       | The lanes of a diagram drawn from a table, in the order they appear |
+| Field         | Value                                                                                                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pos`         | The diagram's position                                                                                                                                                       |
+| `format`      | Its format, such as `'mermaid'`                                                                                                                                              |
+| `source`      | Its source text                                                                                                                                                              |
+| `title`       | Its title, or `null`                                                                                                                                                         |
+| `description` | Its description, or `null`                                                                                                                                                   |
+| `view`        | `'diagram'` when it shows the picture, `'code'` when it shows the source text                                                                                                |
+| `options`     | `Record<string, unknown>` of other settings, such as `size`                                                                                                                  |
+| `kind`        | The Mermaid kind, such as `'flowchart'`. `null` for empty source, source that is no known Mermaid diagram kind, and draw.io or BPMN                                          |
+| `drawable`    | `false` for empty source. For Mermaid, draw.io and BPMN, whether the source is valid in that format. For another format, whether a registered Renderer for diagrams draws it |
+| `link`        | The table it is drawn from, `{ tableId, columns }`, or `null`                                                                                                                |
+| `lanes`       | `string[]`, the lane names of a diagram drawn from a table, in order. Otherwise empty                                                                                        |
 
 ### Table fields
 
-| Field         | Value                                                                                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pos`         | The table's position                                                                                                                                  |
-| `tableId`     | Its id, once a chart follows it, or `null`                                                                                                            |
-| `header`      | Its first row                                                                                                                                         |
-| `headerCells` | `true` when the first row is made of header cells. A first row of plain cells names the columns only when it holds no number outside the first column |
-| `charts`      | How many charts follow it                                                                                                                             |
-| `diagrams`    | How many diagrams are drawn from it                                                                                                                   |
-| `followers`   | Each chart and diagram that follows it, as `{ pos, kind: 'chart' \| 'diagram' }`, in document order                                                   |
+| Field         | Value                                                                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pos`         | The table's position                                                                                                                                                                                          |
+| `tableId`     | Its id once a chart or a diagram follows it, or `null`                                                                                                                                                        |
+| `header`      | The texts of its first row                                                                                                                                                                                    |
+| `headerCells` | `true` when the first row is header cells. With `header: 'auto'`, a first row of plain cells names the columns only if it has more than one cell and every cell after the first is filled and holds no number |
+| `charts`      | How many charts follow it                                                                                                                                                                                     |
+| `diagrams`    | How many diagrams are drawn from it                                                                                                                                                                           |
+| `followers`   | `{ pos, kind: 'chart' \| 'diagram' }` for each, in document order                                                                                                                                             |
 
 ### The open input
 
 `getOpenInput()` returns `{ pos, view: 'chart-syntax' | 'table', type, delimiter, editing }`.
-`editing` is set when the input holds an existing chart you are changing, not a new one.
+`type` is the chart type it becomes when it becomes a chart. `delimiter` is `null` until one is set, and in a table.
+`editing` is `true` when the input holds an existing chart.
 
 ## Reading a chart's data
 
-| Function                              | Returns                                                                                                                               |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `read({ pos?, format? })`             | A chart as text in a format, `'chart-json'` by default                                                                                |
-| `readGrid({ pos? })`                  | The data as a grid of strings. Row 0 is the header                                                                                    |
-| `readTable({ pos? })`                 | The data as table JSON, or `null` without a table node in the schema                                                                  |
-| `readText({ pos? })`                  | `{ format, text }` of a chart or a diagram, as an author edits it, or `null` ([Text beside the picture](/diagrams/guides/split-view)) |
-| `parseFormat(format, content, type?)` | `{ data, spec, delimiter }` parsed from content                                                                                       |
-| `getFormat(id)`                       | A registered format, for its `serialize`                                                                                              |
+Without `pos`, they read the selection:
 
-`parseFormat` throws an error with a message when it cannot parse the content.
+| Function                              | Returns                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `read({ pos?, format? })`             | The chart as text, `'chart-json'` by default. Throws without a chart or for an unknown format                       |
+| `readGrid({ pos? })`                  | A grid of strings, row 0 the header. Throws without a chart                                                         |
+| `readTable({ pos? })`                 | Table JSON, or `null` without table nodes. Throws without a chart                                                   |
+| `readText({ pos? })`                  | `{ format, text }` of a chart or diagram, or `null` ([Text beside the picture](/diagrams/guides/split-view))                      |
+| `parseFormat(format, content, type?)` | `{ data, spec, delimiter? }`. `type` defaults to `chart.defaultType`. Throws for content or a format it cannot read |
+| `getFormat(id)`                       | A registered format, for its `serialize`, or `undefined`                                                            |
 
 ## What the editor can draw
 
-| Function                        | Returns                                                                                                                                               |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `describeCapabilities()`        | Chart types (`{ id, label, shape, description? }`), formats, Renderers and their types, the default Renderer, sources, delimiters, trigger and styles |
-| `chartTypes`                    | The built-in chart types and those of the `chartTypes` option. This is a property, not a function                                                     |
-| `canRender(spec)`               | Whether a registered Renderer draws the type                                                                                                          |
-| `rendererFor(spec, preferred?)` | The Renderer a chart would be drawn with                                                                                                              |
-| `diagramRendererFor(format)`    | The Diagram Renderer a diagram of that format would be drawn with, or `null`                                                                          |
-| `rulesFor(renderer)`            | The rules a Renderer's charts and diagrams follow, its own and those of `rendererRules`: `{ attribution?, exports? }`                                 |
-| `refresh()`                     | Nothing. It draws every chart and diagram again. Call it after a theme change made only in CSS                                                        |
+| Function                               | Returns                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `describeCapabilities()`               | Types, formats, Renderers, default Renderer, sources, delimiters, trigger and styles |
+| `chartTypes`                           | A property: built-in and registered chart types                                      |
+| `canRender(spec)`                      | Whether a registered Renderer draws the type                                         |
+| `rendererFor(spec, preferred?, data?)` | The Renderer a chart would be drawn with, or `null`                                  |
+| `diagramRendererFor(format, source?)`  | The Diagram Renderer for that format or source, or `null`                            |
+| `rulesFor(renderer)`                   | A Renderer object's rules in effect, see [`rendererRules`](/diagrams/api-reference/options#rendererrules) |
+| `refresh()`                            | Nothing. Draws everything again, such as after a CSS-only theme change               |
+
+## What the extension holds
+
+What `Diagrams` was configured with. The lists include the built-in entries:
+
+| Member                             | Value                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `options`                          | The options `Diagrams` was configured with                                                                          |
+| `chartOptions`                     | The `chart` options with their defaults                                                                             |
+| `renderers`, `diagramRenderers`    | The registered Renderers                                                                                            |
+| `formats`, `styles`                | The built-in formats and styles, and those of the options                                                           |
+| `styleChart(spec, theme, scheme?)` | `{ spec, theme }` with the [style](/diagrams/guides/styling#styles) the spec names applied. `scheme` defaults to `'light'` |
 
 ## Export
 
-| Function                   | Returns                                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `export(target, options?)` | A chart or a diagram as a file, see [export](/diagrams/export)                                                                 |
-| `exportAll(options?)`      | Every chart and diagram that can be drawn, as files with their `pos`, in document order                                        |
-| `exportDocx(options?)`     | A promise of a Word document with native charts and diagrams as pictures: `{ blob, notes }`. See [Word](/diagrams/export#word) |
+See [Export](/diagrams/export):
+
+| Function                   | Returns                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `export(target, options?)` | A promise of a file. `target` is `{ pos }`, `{}` for the selection, or `{ data, spec, renderer? }`              |
+| `exportAll(options?)`      | Files of every chart and diagram that can be drawn, with `pos`. Skips charts without rows or with `spec.hidden` |
+| `exportDocx(options?)`     | A promise of `{ blob, notes }`, see [Word](/diagrams/export#word)                                                      |
 
 ## Data Sources
 
-| Function                         | What it does                                                                                                     |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `readSource(source)`             | Returns a promise of the data a source returns now. It writes nothing                                            |
-| `requestSync(source)`            | Reads a source and writes the data into every chart linked to it. Returns a promise of `true` when it wrote data |
-| `registerSource(provider)`       | Adds a provider at run time and returns a function that removes it                                               |
-| `getSource(id)`, `listSources()` | Return the registered providers                                                                                  |
+See [Data Sources](/diagrams/data/sources):
 
-`requestSync` resolves to `false` when the read fails or no chart is linked to the source. A
-failed read keeps the last snapshot and goes to [`onSourceError`](/diagrams/api-reference/options#onsourceerror).
+| Function                         | What it does                                                                |
+| -------------------------------- | --------------------------------------------------------------------------- |
+| `readSource(source)`             | A promise of the data now. Rejects for an unknown provider or a failed read |
+| `requestSync(source)`            | Writes into each linked chart, resolving `true` when it wrote               |
+| `registerSource(provider)`       | Adds or replaces a provider and returns a function that removes it          |
+| `getSource(id)`, `listSources()` | One provider or `undefined`, and all, in registration order                 |
+
+`requestSync` resolves `false` when the read fails or no chart is linked. A failed read keeps the
+snapshot and calls [`onSourceError`](/diagrams/api-reference/options#onsourceerror).
 
 ## Zoom, pan and maximize on screen
 
-`setZoom`, `getZoom`, `setPan`, `getPan`, `getShownSize`, `setMaximized` and `getMaximized`
-change or read how this editor shows a chart or a diagram. They never change the document. See
-[View functions](/diagrams/guides/size-and-view#view-functions).
-
-`setMaximized` also dispatches an empty transaction, so a UI that listens to `transaction`
-updates. That transaction is not added to the undo history.
+`setZoom`, `getZoom`, `setPan`, `getPan`, `getShownSize`, `setMaximized` and `getMaximized` set or
+read how this editor shows a chart or diagram, as [View functions](/diagrams/guides/size-and-view#view-functions)
+describes. To update your UI when `setMaximized` runs, listen to the editor's `transaction` event.
+That change is not in the undo history.

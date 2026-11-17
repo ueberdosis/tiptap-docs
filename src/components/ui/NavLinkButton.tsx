@@ -26,7 +26,12 @@ export const NavLinkButton = forwardRef<HTMLButtonElement, NavLinkButtonProps>(
     const Component = asChild ? Slot : 'button'
 
     return (
-      <Component {...props} ref={ref} className={linkClass}>
+      <Component
+        aria-current={isActive ? 'true' : undefined}
+        {...props}
+        ref={ref}
+        className={linkClass}
+      >
         {children}
       </Component>
     )

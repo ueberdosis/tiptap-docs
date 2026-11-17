@@ -17,7 +17,7 @@ require.cache[
 ].exports = require('next/dist/compiled/react/react.react-server')
 
 const frontmatter = require('front-matter')
-const { getExtensions } = require('../src/server/getExtensions.ts')
+const { readCatalog } = require('../src/server/getCatalog.ts')
 const { getUIComponents } = require('../src/server/getUIComponents.ts')
 
 async function withCatalog(files, run) {
@@ -41,6 +41,19 @@ async function measureReads(catalog, run) {
   let bytes = 0
   const readFileSync = fs.readFileSync
   const open = fsp.open
+  const openSync = fs.openSync
+  const readSync = fs.readSync
+  const catalogFds = new Set()
+  fs.openSync = function (file, ...args) {
+    const fd = openSync.call(this, file, ...args)
+    if (String(file).startsWith(catalog)) catalogFds.add(fd)
+    return fd
+  }
+  fs.readSync = function (fd, ...args) {
+    const bytesRead = readSync.call(this, fd, ...args)
+    if (catalogFds.has(fd)) bytes += bytesRead
+    return bytesRead
+  }
   fs.readFileSync = function (file, ...args) {
     const result = readFileSync.call(this, file, ...args)
     if (String(file).startsWith(catalog)) bytes += Buffer.byteLength(result)
@@ -64,12 +77,14 @@ async function measureReads(catalog, run) {
   } finally {
     fs.readFileSync = readFileSync
     fsp.open = open
+    fs.openSync = openSync
+    fs.readSync = readSync
   }
 }
 
 const largeBody = `\nimport Broken from "missing-module"\n${'body '.repeat(800_000)}`
 
-test('extension cards preserve links and tags without reading MDX bodies', async () => {
+test('catalog entries keep group, plan and status without reading MDX bodies', async () => {
   await withCatalog(
     {
       'sample.mdx': `---
@@ -77,30 +92,31 @@ extension:
   name: Sample
   type: extension
   description: Example
-  tags: [Existing]
+  icon: Bold
+  group: text-formatting
 tags:
   - type: beta
-  - type: start
   - type: team
-  - type: addon
 ---\n${largeBody}`,
-      'overview.mdx': 'invalid: yaml: excluded',
-      'index.mdx': 'invalid: yaml: excluded',
+      'no-group.mdx': '---\nextension:\n  name: Experiment\n  type: node\n---\nBody',
+      'plain.mdx': 'invalid: yaml: excluded',
     },
     async (catalog) => {
-      const { result, bytes } = await measureReads(catalog, () => getExtensions('content/catalog'))
-      assert.deepEqual(Object.values(result), [
+      const { result, bytes } = await measureReads(catalog, () => readCatalog(catalog))
+      assert.deepEqual(result, [
         {
           name: 'Sample',
-          type: 'extension',
           description: 'Example',
-          tags: ['Existing', 'Start', 'Team', 'Addon'],
-          isNew: true,
-          path: 'sample.mdx',
-          url: '/catalog/sample',
+          icon: 'Bold',
+          type: 'extension',
+          group: 'text-formatting',
+          area: 'editor',
+          plan: 'Team',
+          status: 'Beta',
+          url: '/sample',
         },
       ])
-      assert.ok(bytes < 16_384, `Read ${bytes} bytes for one small header`)
+      assert.ok(bytes < 16_384, `Read ${bytes} bytes for three small headers`)
     },
   )
 })
@@ -140,7 +156,7 @@ test('UI cards preserve case-insensitive order and flags without reading MDX bod
   )
 })
 
-const { readFrontmatter } = require('../src/server/readFrontmatter.ts')
+const { readFrontmatter, readFrontmatterSync } = require('../src/server/readFrontmatter.ts')
 
 test('header reader matches YAML parsing across chunk and UTF-8 boundaries', async () => {
   const files = {
@@ -159,6 +175,11 @@ test('header reader matches YAML parsing across chunk and UTF-8 boundaries', asy
         await readFrontmatter(path.join(catalog, name)),
         frontmatter(content).attributes,
         name,
+      )
+      assert.deepEqual(
+        readFrontmatterSync(path.join(catalog, name)),
+        frontmatter(content).attributes,
+        `${name} (sync)`,
       )
     }
   })
@@ -234,6 +255,7 @@ test('header-only reads match every checked-in MDX header', async () => {
   for (const file of await glob('src/content/**/*.mdx')) {
     const expected = frontmatter(fs.readFileSync(file, 'utf8')).attributes
     assert.deepEqual(await readFrontmatter(file), expected, file)
+    assert.deepEqual(readFrontmatterSync(file), expected, `${file} (sync)`)
   }
 })
 
@@ -266,5 +288,14 @@ test('incident lists preserve date order and defaults without reading bodies', a
     })
     assert.deepEqual(result[2].meta, { title: '', description: '', category: '' })
     assert.ok(bytes < 16_384, `Incident headers read ${bytes} bytes`)
+  })
+})
+
+test('the synchronous header reader stops at 64 KiB like the asynchronous one', async () => {
+  await withCatalog({ 'unclosed.mdx': `---\ntitle: Broken\n${largeBody}` }, async (catalog) => {
+    const { bytes } = await measureReads(catalog, async () =>
+      assert.throws(() => readFrontmatterSync(path.join(catalog, 'unclosed.mdx')), /64 KiB/),
+    )
+    assert.ok(bytes <= 65_536, `Unclosed header read ${bytes} bytes`)
   })
 })

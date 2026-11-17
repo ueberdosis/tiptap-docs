@@ -9,11 +9,10 @@ export const sidebarConfig: SidebarConfig = {
       href: '/ai/ai-toolkit/getting-started/overview',
       title: 'AI Toolkit',
       type: 'group',
-      tags: ['Add-on'],
+      tags: ['Add-on', 'Beta'],
       children: [
         {
           title: 'Overview',
-          releaseTag: 'beta',
           href: '/ai/ai-toolkit/overview',
         },
         {
@@ -39,7 +38,10 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'With Whiteboard',
               href: '/ai/ai-toolkit/agents/whiteboard',
-              releaseTag: 'alpha',
+            },
+            {
+              title: 'With Diagrams',
+              href: '/ai/ai-toolkit/agents/diagrams',
             },
             {
               title: 'Selection awareness',
@@ -62,7 +64,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Tiptap Query',
               href: '/ai/ai-toolkit/api-reference/tiptap-query',
-              releaseTag: 'alpha',
             },
             {
               title: 'Editor context',
@@ -89,7 +90,6 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'Tiptap Shorthand',
               href: '/ai/ai-toolkit/advanced-guides/tiptap-shorthand',
-              releaseTag: 'alpha',
             },
             {
               title: 'Security',

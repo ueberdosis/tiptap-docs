@@ -3,7 +3,10 @@ export type SidebarLink = {
   title: string
   href: string
   tags?: string[]
-  releaseTag?: 'beta' | 'alpha'
+  /** The day the page went live (YYYY-MM-DD); the entry shows "New" for 90 days after it. */
+  newSince?: string
+  /** Leave out the Paid label, because the entry above already shows it. */
+  hidePlan?: boolean
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
@@ -20,6 +23,12 @@ export type SidebarGroup = {
   href: string
   tags?: string[]
   children: Omit<SidebarLink, 'type'>[]
+  /** The title folds the group open and closed. It starts open when it holds the current page. */
+  collapsible?: boolean
+  /** A collapsible group that starts open on every page. */
+  defaultOpen?: boolean
+  /** Draws a line above the group, to separate it from the groups before. */
+  divider?: boolean
 }
 
 export type SidebarConfig = {
@@ -34,10 +43,6 @@ export type GeneralPageTag = {
     | 'pro'
     | 'new'
     | 'experiment'
-    | 'ai'
-    | 'collaboration'
-    | 'editor'
-    | 'documents'
     | 'beta'
     | 'alpha'
     | 'start'
@@ -51,6 +56,8 @@ export type GeneralPageTag = {
     | 'version'
   tooltip?: string
   label?: string
+  /** For `new`: the day the page went live (YYYY-MM-DD). The tag shows for 90 days after it. */
+  since?: string
 }
 
 export type ImagePageTag = {
@@ -124,6 +131,10 @@ export type ExtensionMeta = {
   description: string
   type: ExtensionType
   tags?: string[]
+  /** A group from src/content/catalog.ts; pages with a group appear in the feature catalog. */
+  group?: string
+  /** The npm packages to install, space-separated, as the page's install command names them. */
+  package?: string
   isPro?: boolean
   isBeta?: boolean
   isExperiment?: boolean
