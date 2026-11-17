@@ -39,7 +39,7 @@ The package does not export the option types of `readEditorDocxStyles`, `createD
 function readEditorStyles(options: ReadEditorStylesOptions): Promise<EditorStyles>
 ```
 
-Reads the styles of the whole document from the editor. It waits at most 3 seconds for web fonts, puts a hidden sample next to the editor element, measures it and removes it. It also reads the values that the Pages and ConvertKit extensions change. It does not read the nodes of the document.
+Reads the styles of the whole document from the editor. It waits at most 3 seconds for web fonts, puts a hidden sample next to the editor element, measures it and removes it. For a font that still loads after that, it leaves out the `normal` line height. It also reads the values that the Pages and ConvertKit extensions change. It does not read the nodes of the document.
 
 | Option   | Type     | Default  | Description                     |
 | -------- | -------- | -------- | ------------------------------- |
@@ -139,7 +139,7 @@ Reads the editor and converts the result into export options in one step.
 | `document`         | `Node`                                 | `undefined`                              | The JSON document you will export. With it, the result also holds the formatting of each node                               |
 | `numberingFormats` | `readonly NumberingFormatDefinition[]` | `undefined`                              | Your numbering formats. A format level with its own indents replaces the measured indent of its list paragraphs             |
 | `listLevels`       | `ListLevels`                           | `undefined`                              | Your list levels. A level that sets `textIndent` or `numberIndent` replaces the measured left indent of its list paragraphs |
-| `onWarning`        | `OnExportDocxWarning`                  | `undefined`                              | Receives the warning when the editor content changes during the reading. Without it, the function uses `console.warn`       |
+| `onWarning`        | `OnExportDocxWarning`                  | `undefined`                              | Receives the warning when the editor content changes during the reading, or when fonts still load. Without it, the function uses `console.warn` |
 | `cellParagraphIds` | `ReadonlySet<string>`                  | The IDs of the paragraphs inside tables | See [`DocxStylesOptions`](#docxstylesoptions)                                                                                |
 | `genericFonts`     | `Record<string, string>`               | `{}`                                     | See [`DocxStylesOptions`](#docxstylesoptions)                                                                                |
 
@@ -151,7 +151,7 @@ It returns [`DocxStyles`](#docxstyles):
 
 The function stores the formatting of each node with the JSON node object it belongs to. Pass the same `document` object to `exportDocx`. With another object, even an equal copy, the export finds no node formatting and uses only the styles of the whole document.
 
-When the editor content changes while the function waits for fonts, it keeps the styles of the whole document, drops the formatting of each node, and sends a `document-styles-failed` warning.
+When the editor content changes while the function waits for fonts, it keeps the styles of the whole document, drops the formatting of each node, and sends a `document-styles-failed` warning. When a font still loads after 3 seconds, it leaves out the `normal` line heights of that font and sends a `document-styles-fonts-loading` warning.
 
 The `exportDocx` command does more than this function. `readEditorDocxStyles`:
 
@@ -159,7 +159,7 @@ The `exportDocx` command does more than this function. `readEditorDocxStyles`:
 - Does not copy rendered equations. `exportDocx` then builds every equation from its LaTeX source, without the measured size, color and alignment.
 - Does not read Pages headers, footers and notes.
 - Does not merge your style options. See [Call `exportDocx` yourself](#call-exportdocx-yourself).
-- Does not send the `document-styles-dark-page` warning.
+- Does not send the `document-styles-dark-page` and `document-styles-math-source` warnings.
 
 ```ts
 import { exportDocx, readEditorDocxStyles } from '@tiptap-pro/extension-export-docx'
@@ -324,7 +324,7 @@ The result of `readEditorStyles`.
 
 | Field             | Type                                       | Description                                                               |
 | ----------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
-| `fontFamily`      | `string`                                   | The first named font, or the first generic family when no font has a name |
+| `fontFamily`      | `string`                                   | The first family of the list, skipping names that only some browsers know |
 | `fontSize`        | `number`                                   | Pixels                                                                    |
 | `bold`            | `boolean`                                  | `true` when the font weight is above 500                                  |
 | `italic`          | `boolean`                                  | `true` for `italic` and `oblique`                                         |
@@ -334,14 +334,13 @@ The result of `readEditorStyles`.
 | `backgroundColor` | `HexColor \| null`                         | The background of the element after mixing. `null` when clear             |
 | `letterSpacing`   | `number`                                   | Pixels. 0 for `normal`                                                    |
 | `allCaps`         | `boolean`                                  | `text-transform: uppercase`                                               |
-| `smallCaps`       | `boolean`                                  | Small caps from `font-variant-caps` or `font-variant`                     |
+| `smallCaps`       | `boolean`                                  | `small-caps` or `petite-caps` from `font-variant-caps` or `font-variant`  |
 | `verticalAlign`   | `'baseline' \| 'sub' \| 'super' \| number` | A number is an offset in pixels. A positive offset raises the text        |
-| `fontStretch`     | `number`                                   | Percent. 100 is the normal width                                          |
-| `emphasisMark`    | `boolean`                                  | Any `text-emphasis-style` other than `none`                               |
+| `emphasisMark`    | `boolean`                                  | `dot` or `filled dot` from `text-emphasis-style`, drawn over the text     |
 | `hidden`          | `boolean`                                  | `display: none`, or `visibility: hidden` or `collapse`                    |
 | `direction`       | `'ltr' \| 'rtl'`                           | The text direction                                                        |
 | `language`        | `string \| null`                           | The closest `lang` attribute                                              |
-| `textBorder`      | `BorderStyles`                             | One border around the text                                                |
+| `textBorder`      | `BorderStyles`                             | A border that is the same on all four sides of the text, or `null`        |
 
 ### `ElementStyles`
 
@@ -363,7 +362,7 @@ The result of `readEditorStyles`.
 
 ### `BlockStyles`
 
-`ElementStyles` plus `lineHeight`, the measured line height in pixels. The export measures it also when CSS says `normal`.
+`ElementStyles` plus `lineHeight`, the measured line height in pixels. The export measures it also when CSS says `normal`. It is 0 for `normal` while the font still loads, and the export then leaves the line height out.
 
 ### `ListStyles` and `TaskListStyles`
 
@@ -400,7 +399,7 @@ The result of `readEditorStyles`.
 | `layout`         | `'fixed' \| 'auto'`                               | The column layout                                                    |
 | `border`         | `Sides<BorderStyles>`                             | The table borders                                                    |
 | `borderCollapse` | `boolean`                                         | `border-collapse: collapse`                                          |
-| `borderSpacing`  | `number`                                          | The horizontal `border-spacing` in pixels. 0 when borders collapse   |
+| `borderSpacing`  | `number`                                          | In pixels. 0 when borders collapse, or when the two lengths differ   |
 | `alignment`      | `'left' \| 'center' \| 'right'`                   | The side the table sits on                                           |
 | `direction`      | `'ltr' \| 'rtl'`                                  | The table direction                                                  |
 | `row`            | `{ height: number \| null, breakInside: string }` | The minimum row height in pixels, `null` when the content sets it    |
@@ -432,7 +431,7 @@ One `TextStyles` object for each mark sample: `bold`, `italic`, `underline`, `st
 | Field         | Type     | Description                                                                                       |
 | ------------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `type`        | `string` | The Tiptap node type, such as `'heading'`                                                         |
-| `spaceBefore` | `number` | The space the editor shows above the block, in pixels. 0 when page layout already fills that space |
+| `spaceBefore` | `number` | The space between the top of the body and the block, in pixels: its top margin, or with Pages the distance from the bottom of the first page header. Negative when that header covers the top of the block |
 
 `EditorStyles.firstBlock` is `null` when the document is empty, or when its first block has no DOM element.
 
@@ -522,7 +521,11 @@ Optional string values for 12 CSS properties. Each property accepts a hyphen nam
 ### Warning types
 
 ```ts
-type DocumentStylesWarningCode = 'document-styles-failed' | 'document-styles-dark-page'
+type DocumentStylesWarningCode =
+  | 'document-styles-failed'
+  | 'document-styles-dark-page'
+  | 'document-styles-fonts-loading'
+  | 'document-styles-math-source'
 
 interface ExportDocxWarning {
   code: ImageErrorCode | DocumentStylesWarningCode
@@ -539,7 +542,7 @@ Warnings of computed styles set only `code` and `message`. [Warnings](/conversio
 
 ## Renames and removals
 
-Up to 0.34.7, the package used other names for these functions, types and options. Most old names have no alias. The `documentStyles` option keeps working as a deprecated alias of `computedStyles`. The old `cssStyles` names keep working as deprecated aliases too: `cssStyles.extractFromDocument`, `extractTiptapCssStyles`, `processCssStyles`, `CssStylesOptions`, `CssStylesInput` and `CssPropertyMap`.
+Up to 0.34.7, the package used other names for these functions, types and options. Most old names have no alias, including the `documentStyles` option. Only the old `cssStyles` names keep working, as deprecated aliases: `cssStyles.extractFromDocument`, `extractTiptapCssStyles`, `processCssStyles`, `CssStylesOptions`, `CssStylesInput` and `CssPropertyMap`.
 
 | Old name                           | New name                        |
 | ---------------------------------- | ------------------------------- |
@@ -584,6 +587,7 @@ These options, types and fields are gone without a replacement:
 - `border`, `height` and `backgroundColor` of `RuleStyles`.
 - `text`, `marginTop` and `marginAbsorbed` of `FirstBlockStyles`.
 - The `image` field of `EditorStyles`, and the `ImageCss` type.
-- The `BorderSpacingCss` type. `TableStyles.borderSpacing` is now one number, the horizontal `border-spacing` in pixels.
+- The `BorderSpacingCss` type. `TableStyles.borderSpacing` is now one number in pixels.
+- `fontStretch` of `TextStyles`. A browser changes the width only when the font has a wider or narrower face. Word's character scale always stretches the letters, so the export no longer writes it.
 
 Read the removed values from the editor DOM yourself if you need them.

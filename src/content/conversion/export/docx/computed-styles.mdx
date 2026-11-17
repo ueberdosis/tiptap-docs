@@ -98,31 +98,27 @@ With computed styles off:
 - `cssStyles`, `styleOverrides`, the `*Overrides` options, `listLevels`, `pageColor` and `defaultTabStop` still apply.
 - Equations still export from the MathML that KaTeX rendered in the editor, but without the font size, color and alignment that the editor shows.
 - The export reads Pages headers, footers and notes only when they hold an equation, and only to copy that equation.
-- The export sends no `document-styles-failed` and no `document-styles-dark-page` warning.
+- The export sends no `document-styles-` warnings.
 
-### `computedStyles` and the deprecated `documentStyles`
-
-`documentStyles` is the old name of `computedStyles`. It still works, including `documentStyles: false`, but it is deprecated. Use `computedStyles` in new code.
+### Which `computedStyles` value wins
 
 The export takes the first of these values that is not `undefined`:
 
 1. `computedStyles` on the command.
-2. `documentStyles` on the command.
-3. `computedStyles` on `ExportDocx.configure`.
-4. `documentStyles` on `ExportDocx.configure`. Its default is `true`.
-5. `true`.
+2. `computedStyles` on `ExportDocx.configure`. Its default is `true`.
+3. `true`.
 
-A command value always wins over an extension value. On the same level, `computedStyles` wins over `documentStyles`. Some examples:
+So a command value always wins over an extension value. Some examples:
 
-| Extension                                                                   | Command                                           | Reading |
-| --------------------------------------------------------------------------- | ------------------------------------------------- | ------- |
-| nothing                                                                     | nothing                                           | on      |
-| `{ documentStyles: false }`                                                 | nothing                                           | off     |
-| `{ computedStyles: false }`                                                 | `{ computedStyles: true }`                        | on      |
-| `{ computedStyles: true }`                                                  | `{ documentStyles: false }`                       | off     |
-| nothing                                                                     | `{ computedStyles: true, documentStyles: false }` | on      |
-| nothing                                                                     | `{ computedStyles: false, documentStyles: true }` | off     |
-| `.configure({ computedStyles: false }).configure({ documentStyles: true })` | nothing                                           | off     |
+| Extension                   | Command                         | Reading |
+| --------------------------- | ------------------------------- | ------- |
+| nothing                     | nothing                         | on      |
+| `{ computedStyles: false }` | nothing                         | off     |
+| `{ computedStyles: false }` | `{ computedStyles: true }`      | on      |
+| nothing                     | `{ computedStyles: false }`     | off     |
+| `{ computedStyles: false }` | `{ computedStyles: undefined }` | off     |
+
+The old name `documentStyles` is removed. Use `computedStyles`.
 
 ## Which value wins
 
@@ -131,7 +127,7 @@ The export merges your style options with what it reads. From lowest to highest 
 1. The defaults of the exporter and of the `docx` library, such as the blue color of Word's built-in headings.
 2. The Word styles that the export reads for the whole document, such as `Normal` and `Heading1`.
 3. The direct formatting that the export reads for each node.
-4. `cssStyles`. Inside it, the rules that `readFromStylesheets` reads come first, and `cssStyles.styles` replaces them.
+4. `cssStyles`. Inside it, the rules that `readFromStylesheets` reads come first, and `cssStyles.styles` replaces them. When the export reads the editor styles, it skips `readFromStylesheets`, because it measures what those rules only describe.
 5. `styleOverrides`.
 6. `paragraphOverrides`, `textRunOverrides`, `tableOverrides`, `tableRowOverrides`, `tableCellOverrides`, `imageOverrides`, `listLevels`, `pageColor` and `defaultTabStop`.
 7. Formatting that the document stores. Marks, such as a `textStyle` color, and paragraph attributes, such as `textAlign`, win over every option above. `tableOverrides` and `imageOverrides` are the exception: they win over the borders and cell margins that a table node stores, and over the size that an image node stores.
@@ -182,6 +178,8 @@ The export only reads what the `docx` library can write. CSS outside the lists b
 
 The page background and any border of the editor element never become text formatting.
 
+The background and borders of `p` stay out of `Normal`, because Word paints them in the empty header and footer of every page. Each paragraph gets them from its own measured formatting.
+
 ### Paragraphs and headings
 
 These CSS properties become paragraph settings. They apply to paragraphs, headings, code blocks, paragraphs in quotes and paragraphs in table cells.
@@ -202,10 +200,12 @@ These CSS properties become paragraph settings. They apply to paragraphs, headin
 | `word-break: break-all`                       | Break words at any character                                  |
 | `direction: rtl`                              | Right-to-left paragraph                                       |
 
-- The export measures the line height in pixels, also when CSS says `normal`, and writes it as a minimum. Taller text and images in a line still fit.
-- Word has no paragraph padding. Top and bottom padding go into the spacing before and after. When that side has a border or the block has a background, the padding becomes the space between the border and the text.
-- The free space of `auto` side margins does not count, because it depends on the width of the page.
-- The first block of the document gets the space that the editor shows above it as its spacing before.
+- The export measures the line height in pixels, also when CSS says `normal`, and writes it as a minimum. Taller text and images in a line still fit. The measured line height also wins over a `lineHeight` attribute of the node.
+- Word has no paragraph padding. Top and bottom padding go into the spacing before and after. When that side has a border or the block has a background, the padding becomes the space between the border and the text. A block with a side border and no background does the same, so the side line runs beside the padding like in the browser.
+- Word draws a left or right border outside the indent, so the indent holds the border width too.
+- A browser draws a `double` border thinner than 3px as one line, so the export writes a single line.
+- The free space of `auto` side margins does not count, because it depends on the width of the page. A browser without `computedStyleMap`, such as Firefox, can't tell an `auto` margin from a set one, so the export leaves out both side margins there.
+- The first block of the document gets its top margin as its spacing before. With the Pages extension, it gets the space between the bottom of the first page header and the block instead, because the header can cover the margin.
 
 ### Text
 
@@ -221,20 +221,23 @@ These CSS properties of text become run settings:
 | `text-decoration` underline           | Underline with its style and color                  |
 | `text-decoration` line-through        | Strikethrough, or double strikethrough for `double` |
 | `background-color`                    | Text shading                                        |
-| `border`                              | One border around the run                           |
+| The same `border` on all four sides   | A border around the run                             |
 | `letter-spacing`                      | Character spacing                                   |
 | `text-transform: uppercase`           | All caps                                            |
 | `font-variant-caps` small caps        | Small caps                                          |
 | `vertical-align`                      | Subscript, superscript or a raised position         |
-| `font-stretch`                        | Character scale                                     |
-| `text-emphasis-style`                 | Emphasis dot                                        |
+| A filled dot in `text-emphasis-style` | Emphasis dot                                        |
 | `visibility: hidden`, `display: none` | Hidden text                                         |
 | `direction: rtl`                      | Right-to-left text                                  |
 | The closest `lang` attribute          | Language                                            |
 
-- The export uses the first named font of the `font-family` list. When the list holds only generic families, it writes a Word font for the first one, such as Times New Roman for `serif`, Arial for `sans-serif` and Courier New for `monospace`. [Font lists](/conversion/export/docx/css-to-docx#font-lists) on the CSS to DOCX page lists every family.
+- The export uses the font that the browser draws the text with: the first family of the `font-family` list. It skips names that only some browsers know, such as `-apple-system`, `BlinkMacSystemFont` and `ui-sans-serif`. A generic family always matches, so the families after it never show. For a generic family, the export writes a Word font, such as Times New Roman for `serif`, Arial for `sans-serif` and `system-ui`, and Courier New for `monospace`. [Font lists](/conversion/export/docx/css-to-docx#font-lists) on the CSS to DOCX page lists every family.
 - Word colors are solid. The export mixes a partly transparent color with the background behind it.
-- `text-transform: lowercase` and `capitalize` have no Word setting. The export writes the letters that the browser shows.
+- Word text borders have no separate sides. A border on one, two or three sides of inline text is left out.
+- `small-caps` and `petite-caps` become small caps. `all-small-caps`, `all-petite-caps` and `unicase` also make capital letters small, which Word can't show, so they are left out.
+- `text-transform: lowercase` and `capitalize` have no Word setting, so they are left out. The DOCX file holds the letters of the document.
+- `font-stretch` is left out. Word's character scale stretches the letters, but the browser picks a wider or narrower font face.
+- Only a filled dot above the text becomes Word's emphasis dot. Other `text-emphasis-style` values and positions are left out.
 - Word shows the font only when the computer has it, or when the DOCX file embeds it. See [Fonts](/conversion/export/docx/fonts).
 
 ### Text marks
@@ -292,6 +295,8 @@ An ordered level with one of these counters gets the matching Word format:
 
 The export also measures each paragraph in a list of your document: where the text starts and ends, the gap to the marker, and the space between paragraphs. A level deeper than 9 uses the ninth level. Table cells and quotes start counting levels again.
 
+Word puts the marker on the first line of an item's first block, and no Word setting moves only the text of that line. So a `text-indent` on the first block of a list item is left out. Later blocks in the item keep their own first line indent.
+
 `listLevels` merges with the measured levels. Each custom level replaces only the properties it sets, at the same depth. A shorter list of custom levels repeats over the depths, and an empty array keeps the measured levels. When a level sets `textIndent` or `numberIndent`, the measured left indent of its paragraphs stops applying:
 
 ```ts
@@ -322,7 +327,7 @@ The sample table gives the default formatting of every table, row and cell. Head
 | Position of the table                      | Alignment: left, center or right                 |
 | The margin on the start side               | Table indent                                     |
 | `border`                                   | Table borders                                    |
-| `border-spacing` without collapsed borders | Cell spacing                                     |
+| The same `border-spacing` across and down  | Cell spacing                                     |
 | `direction: rtl`                           | Right-to-left table                              |
 | `margin-top`, `margin-bottom`              | Spacing of the blocks before and after the table |
 
@@ -335,9 +340,13 @@ The sample table gives the default formatting of every table, row and cell. Head
 | `writing-mode`                                   | Text direction                                 |
 | The first `p`, `h1` to `h6` or `pre` in the cell | Paragraph and text settings of cell paragraphs |
 
-- In a collapsed table, each outer cell edge gets the border that wins in CSS. An edge without a line stays empty.
+- The export takes the side of a table from the free space left and right of it. An `auto` start margin puts the table at its end side. Word has no indent on the end side, so a margin there is lost.
+- Word has no table margins. Two tables in a row get an empty paragraph between them, because Word would join them into one table. That paragraph holds the larger of the two margins as spacing.
+- In a collapsed table, each outer cell edge gets the border that wins in CSS. An edge without a line stays empty. A `hidden` cell edge also clears the table border, like in CSS.
+- `vertical-rl`, `sideways-rl` and `vertical-lr` become top to bottom text, and `sideways-lr` becomes bottom to top text. Word shows the lines of `vertical-lr` text from right to left.
 - A row that is taller than its content gets that height as a minimum. `break-inside: avoid` on a row stops Word from splitting it across pages.
-- A table node with ConvertKit `width`, `indent`, border or cell margin attributes keeps those values. The measured value for that part does not apply.
+- A browser without `computedStyleMap`, such as Firefox, reports every width in pixels. There the export only keeps a width that the table sets in its `style` attribute.
+- A table node with ConvertKit `width`, `indent`, border or cell margin attributes keeps those values only when the export has not measured the table. A measured table uses what the editor shows.
 
 ### Quotes
 
@@ -345,12 +354,16 @@ Word has no quote box, so the export adds the quote to its paragraphs:
 
 - Each paragraph in a quote gets the margins, padding, borders and background of the quote.
 - Paragraphs, headings and images that follow each other in a quote share their border settings, so Word draws one box around them.
-- Lists, code blocks and rules in a quote end that box. They keep the side borders, side space and background of the quote.
+- Lists, code blocks, rules and display equations in a quote end that box. Word has no nested boxes, so they keep the side space of the quote, but not its border or background.
 - A nested quote moves its blocks in by the space of every quote around them. It shows only the bar of the closest quote.
+- Word joins two quotes next to each other into one box when their borders and background match.
 
 ### Code blocks
 
-Each code block uses the `CodeBlock` style and its own measured formatting. The paragraph settings come from `pre` and the text settings from the `code` inside it. Syntax highlighting counts as formatting, so its colors reach the DOCX file.
+Each code block uses the `CodeBlock` style and its own measured formatting. The paragraph settings come from `pre` and the text settings from the `code` inside it.
+
+- Syntax highlighting is left out. Its colors come from decorations, and the export can't tell them from decorations that show editor state.
+- Word joins two code blocks next to each other into one box when their borders and background match. The space between them is the larger of the two margins, like in CSS.
 
 ### Images
 
@@ -369,8 +382,8 @@ The export turns the MathML that KaTeX renders for `inlineMath` and `blockMath` 
 
 - The equation uses the Cambria Math font with the font size and color that the editor shows.
 - A block equation keeps its alignment. A justified equation becomes left aligned.
-- A block equation takes its margin, padding, border and background.
-- When an equation holds MathML that the export does not accept, or KaTeX shows an error, the export builds the equation from its LaTeX source instead.
+- A block equation takes its margin, padding, border and background. Word draws the background of a block equation from margin to margin, so an equation with a side margin or padding leaves its background out.
+- When an equation holds MathML that the export does not accept, or KaTeX shows an error, the export builds the equation from its LaTeX source instead. That equation has no measured size, color or alignment, and the export sends a [`document-styles-math-source` warning](#document-styles-math-source).
 
 ### Page color
 
@@ -382,7 +395,7 @@ A dark theme therefore gives the DOCX file a dark page and light text, and the e
 
 Some things the editor shows are not part of the document. The export leaves them out:
 
-- Highlights that the editor draws over text, such as remote selections, comments and search results. Inside a code block they count, because syntax highlighting is the only formatting that code has. A remote selection or a search result inside a code block therefore reaches the DOCX file.
+- Highlights that the editor draws over text, such as remote selections, comments and search results. The page does not say which plugin drew a highlight, so the colors of syntax highlighting in code blocks stay out too.
 - Text in ProseMirror widgets.
 - The colors of comment threads and suggestions in the document. Word shows comments and tracked changes itself.
 
@@ -405,7 +418,7 @@ With the [Pages](/pages/getting-started/overview) extension installed under the 
 
 The reading measures the editor while the export runs, so it takes some time.
 
-- **Fonts.** Fonts change text sizes, so the export waits for web fonts before it measures. It waits at most 3 seconds, then measures a font that still loads with its fallback font. A browser without the font loading API does not wait.
+- **Fonts.** Fonts change text sizes, so the export waits for web fonts before it measures. It waits at most 3 seconds, because one font that never loads would otherwise block every export. A font that still loads after that shows with its fallback font. The export leaves out the `normal` line heights that depend on that font and sends a [`document-styles-fonts-loading` warning](#document-styles-fonts-loading). Other measurements, such as table column widths, still come from the fallback font. A browser without the font loading API does not wait.
 - **Pages parts.** Each header, footer and note first waits at most 3 seconds for its images, then at most 3 seconds for fonts. The export reads the parts and the body at the same time, so an export with Pages can wait about 6 seconds.
 - **Command chains.** `editor.chain().setContent('<p>New</p>').exportDocx().run()` exports the new content. The command takes the document from the chain's transaction, and the reading waits until Tiptap applies the chain.
 - **Edits during the export.** When the content changes while the export waits for fonts, the export keeps the Word styles for the whole document, drops the formatting of each node, and sends a `document-styles-failed` warning. New blocks added only at the end of the document do not count as a change.
@@ -465,18 +478,39 @@ Setting `pageColor` stops the warning, but the light text stays. To fix both, do
 - Turn the reading off with `computedStyles: false`.
 - Set `pageColor` and dark text colors in your style options, for example in `styleOverrides`.
 
+### `document-styles-fonts-loading`
+
+The message is `These fonts were still loading when the export read the editor: <fonts>. The export left out the line heights that depend on them.`
+
+The export waits at most 3 seconds for web fonts. A font that still loads after that shows with its fallback font, so a `normal` line height measured then would be wrong. The export leaves those line heights out, and Word uses single spacing for that text. Load your fonts earlier, for example with a `preload` link.
+
+The body and each Pages header, footer and note read the same fonts, so the export sends the same warning only once.
+
+### `document-styles-math-source`
+
+The message is `The export could not convert the rendered MathML of some equations. It wrote them from their LaTeX source, without the size, color and alignment that the editor shows.`
+
+The export accepts the MathML elements, attributes and values that KaTeX writes. An equation with anything else, or one where KaTeX shows an error, comes from its LaTeX source. Word then shows it at the size and color of the body text.
+
 ## Limits
 
 - The hidden sample sits right after the editor element. CSS rules such as `:only-child`, `:last-child`, `:nth-child()`, `+` and `~` on the editor element can match the editor and the sample in other ways. The Word styles for the whole document can then differ from the editor. Write selectors that don't depend on the place of the editor element.
 - Browsers round border widths to device pixels, so a `1px` border can read as 0.8 or 0.67 at some screen scales or zoom levels.
-- Any `text-emphasis-style` becomes a dot.
-- A border on inline text becomes one border around the whole run, because Word text borders have no separate sides.
-- `vertical-align: baseline` in a cell becomes top, and `vertical-lr` cells become bottom to top text.
-- Word has one cell spacing, so `border-spacing` keeps only the horizontal value. A table that floats right, such as with `float: right` or `float: inline-end` in left-to-right text, becomes right aligned. A table that floats left becomes left aligned.
+- Only a filled dot above the text becomes an emphasis mark. Other emphasis styles are left out.
+- A border on one, two or three sides of inline text is left out, because Word text borders have no separate sides.
+- `text-transform: lowercase` and `capitalize`, `font-stretch`, `all-small-caps`, `all-petite-caps` and `unicase` are left out.
+- `vertical-align: baseline` in a cell becomes top. Word shows the lines of `vertical-lr` text in a cell from right to left.
+- Word has one cell spacing, so a `border-spacing` with different values across and down is left out. A table that floats right, such as with `float: right` or `float: inline-end` in left-to-right text, becomes right aligned. A table that floats left becomes left aligned.
 - In a narrow editor, the default table width and alignment can differ from a rendered table, because the sample table holds long words. The export measures each table in your document on its own, so those tables keep their width and alignment.
 - A list item's bottom margin and padding sit below its nested list in the browser. In Word they come right after the item's own line, because Word has no list item box.
 - The export does not read the border or background of a list item.
-- A tinted quote with a list or a code block shows separate boxes with gaps in Word.
+- A `text-indent` on the first block of a list item is left out.
+- Lists, code blocks, rules and display equations in a quote show without the quote's border and background.
+- Word joins two quotes or two code blocks next to each other into one box when their borders and background match.
+- Syntax highlighting colors in code blocks are left out.
+- A block equation with a side margin or padding shows no background.
+- In a browser without `computedStyleMap`, such as Firefox, side margins of blocks, the free space beside task items and table widths from stylesheets are left out.
+- A `normal` line height of a font that still loads when the export reads the editor is left out.
 - The export ignores CSS that the `docx` library can't write: `text-shadow`, `-webkit-text-stroke`, overline, `word-spacing`, `border-radius`, `box-shadow` and `background-image`.
 - The export does not read floating tables, multi-column pages, the color and thickness of `hr`, image rotation and flipping, `font-kerning`, `orphans`, `widows` and `hyphens`.
 
@@ -484,7 +518,7 @@ Setting `pageColor` stops the warning, but the light text stays. To fix both, do
 
 Up to 0.34.7, the export ran the same reading under other names. To move to the current names:
 
-- Rename the `documentStyles` option to `computedStyles`, on the extension and on the command. `documentStyles` keeps working as a deprecated alias.
+- Rename the `documentStyles` option to `computedStyles`, on the extension and on the command. The old name is removed.
 - Rename `cssStyles.extractFromDocument` to `cssStyles.readFromStylesheets`. The old name keeps working as a deprecated alias.
 - Rename the standalone functions and types. For example, `getDocumentCss` is now `readEditorStyles`, `createExportStyles` is now `readEditorDocxStyles`, and `exportStylesFromCss` is now `createDocxStyles`.
 - Rename the `css` option of `createDocxStyles` to `editorStyles`.
