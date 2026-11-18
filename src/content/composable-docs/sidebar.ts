@@ -88,6 +88,10 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Lock selected content',
               href: '/composable-docs/content-protection/guides/lock-selected-content',
             },
+            {
+              title: 'Define the policy in the JWT',
+              href: '/composable-docs/content-protection/guides/policy-in-jwt',
+            },
           ],
         },
         {
