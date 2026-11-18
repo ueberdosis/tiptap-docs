@@ -55,9 +55,16 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
 ]
 
 /** Plans in the order the filter shows them. A page's plan comes from its tags. */
-export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot program'] as const
+export const CATALOG_PLANS = [
+  'Open source',
+  'Start',
+  'Team',
+  'Add-on',
+  'Pilot program',
+  'Paid',
+] as const
 
-export type CatalogPlan = (typeof CATALOG_PLANS)[number] | 'Paid'
+export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 
 // The catalog cards and the plan filter name the plans as the page header does
 export { PLAN_LABELS } from './plans'
