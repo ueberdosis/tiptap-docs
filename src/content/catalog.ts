@@ -27,6 +27,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   // Paid products and paid editor groups first, as in the sidebar, then the open source editor's groups
   { id: 'ai', title: 'AI', area: 'platform' },
   { id: 'review', title: 'Review', area: 'platform' },
+  { id: 'citations', title: 'Citations', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Docs', area: 'platform' },
@@ -56,7 +57,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
 /** Plans in the order the filter shows them. A page's plan comes from its tags. */
 export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot program'] as const
 
-export type CatalogPlan = (typeof CATALOG_PLANS)[number]
+export type CatalogPlan = (typeof CATALOG_PLANS)[number] | 'Paid'
 
 // The catalog cards and the plan filter name the plans as the page header does
 export { PLAN_LABELS } from './plans'

@@ -9,6 +9,7 @@ export const PLANS = [
   'Business',
   'Add-on',
   'Pilot program',
+  'Paid',
 ] as const
 
 export type Plan = (typeof PLANS)[number]
@@ -24,6 +25,7 @@ export const PLAN_LABELS: Record<Plan, { label: string; tooltip: string }> = {
     label: 'Pilot program',
     tooltip: 'Contact our team to join the pilot program.',
   },
+  Paid: { label: 'Paid', tooltip: 'Requires paid access to this feature.' },
 }
 
 /** Statuses a feature passes on to its pages. */
@@ -39,6 +41,7 @@ export function planFromTags(types: string[]): Plan | undefined {
   if (types.includes('team')) return 'Team'
   if (types.some((type) => ['start', 'beginStart', 'starter'].includes(type))) return 'Start'
   if (types.includes('mit') || types.includes('pro')) return 'Open source'
+  if (types.includes('paid')) return 'Paid'
   return undefined
 }
 

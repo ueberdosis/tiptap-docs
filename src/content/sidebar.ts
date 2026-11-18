@@ -2,6 +2,7 @@ import { sidebarConfig as aiAssistantSidebar } from './ai/deprecated/agent/sideb
 import { sidebarConfig as aiChangesSidebar } from './ai/deprecated/changes/sidebar'
 import { sidebarConfig as aiSuggestionSidebar } from './ai/deprecated/suggestion/sidebar'
 import { sidebarConfig as aiSidebar } from './ai/sidebar'
+import { sidebarConfig as citationsSidebar } from './citations/sidebar'
 import { sidebarConfig as collaborationSidebar } from './collaboration/sidebar'
 import { sidebarConfig as commentsSidebar } from './comments/sidebar'
 import { sidebarConfig as compareSidebar } from './compare/sidebar'
@@ -198,6 +199,9 @@ const items: SidebarGroup[] = [
           ),
         ],
       },
+      feature('Citations', citationsSidebar, '/citations/getting-started/overview', {
+        inline: ['Get started'],
+      }),
       {
         ...compare,
         children: [
