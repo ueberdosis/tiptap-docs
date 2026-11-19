@@ -95,7 +95,7 @@ export const sidebarConfig: SidebarConfig = {
         },
         {
           title: 'Components',
-          href: '/ui-components/components/overview',
+          href: '/ui-components/components/',
           children: [
             {
               title: 'Ai ask button',
@@ -292,7 +292,7 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/node-components/list-node',
             },
             {
-              title: 'Mathematics',
+              title: 'Mathematics node',
               href: '/ui-components/node-components/mathematics-node',
             },
             {
