@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextFetchEvent, NextRequest, NextResponse } from 'next/server'
+import { captureHttpLog, shouldLogRequest } from '@/server/posthogHttpLog'
 
 /** Accept header values that explicitly request markdown. */
 const MARKDOWN_ACCEPT = /text\/markdown|application\/markdown|text\/x-markdown/i
@@ -15,20 +16,22 @@ const NON_MD_EXTENSION = /\.(?!md$)[a-z0-9]+$/i
  */
 const NEGOTIATED_HEADER = 'x-markdown-negotiated'
 
-export function proxy(request: NextRequest) {
+export function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl
 
   const endsWithMd = pathname.endsWith('.md')
+  const accept = request.headers.get('accept') ?? ''
+  // A `.md` URL, or a doc URL (not a static asset) negotiated via `Accept`.
+  const wantsMarkdown =
+    endsWithMd || (!NON_MD_EXTENSION.test(pathname) && MARKDOWN_ACCEPT.test(accept))
 
-  // Bail for static assets (anything with a non-.md extension).
-  if (!endsWithMd && NON_MD_EXTENSION.test(pathname)) {
-    return NextResponse.next()
+  // Log document requests to PostHog server-side, so bots and agents that never
+  // run the client-side analytics are still counted. Runs in the background.
+  if (shouldLogRequest(request)) {
+    event.waitUntil(captureHttpLog(request, { markdown_requested: wantsMarkdown }))
   }
 
-  const accept = request.headers.get('accept') ?? ''
-
-  const wantsMarkdown = endsWithMd || MARKDOWN_ACCEPT.test(accept)
-
+  // Static assets and regular HTML page requests pass through untouched.
   if (!wantsMarkdown) {
     return NextResponse.next()
   }
@@ -56,7 +59,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Run on everything except Next internals, the markdown API itself, and
   // known non-doc top-level files. Asset extensions are filtered in code.
-  matcher: [
-    '/((?!_next/|api/|assets/|\\.well-known/|favicon\\.ico|robots\\.txt|sitemap\\.xml|llms\\.txt).*)',
-  ],
+  // robots.txt, sitemap.xml and llms.txt pass through untouched, but are matched
+  // so their requests get logged (see `shouldLogRequest`).
+  matcher: ['/((?!_next/|api/|assets/|\\.well-known/|favicon\\.ico).*)'],
 }
