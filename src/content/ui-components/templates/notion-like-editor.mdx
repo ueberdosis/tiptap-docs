@@ -2,7 +2,7 @@
 title: Notion-like
 meta:
   title: Notion-like | Tiptap UI Components
-  description: A Notion-style Tiptap editor with collaboration, AI, and rich UI components. Fully customizable and easy to integrate.
+  description: A Notion-style Tiptap editor with collaboration, AI, and rich UI components. Includes slash commands, block controls, and tables.
   category: UI Components
 sidebars:
   hideSecondary: true
@@ -16,7 +16,7 @@ import { Callout } from '@/components/ui/Callout'
 import { Button } from '@/components/ui/Button'
 import { Link } from '@/components/Link'
 
-The **Notion-like Editor Template** is a fully featured block-based editor that replicates the familiar Notion experience. It supports collaboration, AI assistance, emoji, drag & drop, advanced formatting—and it’s fully customizable.
+The Notion-like editor supports collaborative block editing, writing assistance, emoji, and drag-and-drop reordering. The CLI copies its components into your project.
 
 <div className="flex items-center gap-4 mt-8">
   <Button variant="primary" size="medium">
@@ -41,7 +41,11 @@ The **Notion-like Editor Template** is a fully featured block-based editor that 
 
 ## Installation
 
-You'll need a Tiptap account with an active subscription or trial. Create one at [cloud.tiptap.dev/register](https://cloud.tiptap.dev/register).
+Sign in with a Tiptap account that has access to the template. The CLI uses your account to download the template and its private packages.
+
+```bash
+npx @tiptap/cli@latest login
+```
 
 ### For existing projects
 
@@ -55,164 +59,90 @@ npx @tiptap/cli@latest add notion-like-editor
 npx @tiptap/cli@latest init notion-like-editor
 ```
 
-This template requires styling and configuration setup.
-
 ### Styling
 
-We stay unopinionated about styling frameworks, so you'll need to integrate it with your setup.
-Follow the [style setup guide](/ui-components/getting-started/style) to ensure the editor displays correctly.
+Load the shared variables and animations in your global stylesheet. [Style setup](/ui-components/getting-started/style)
 
 ### Configuration
 
-Before running the app, configure the required constants inside `tiptap-collab-utils.ts`. This is necessary to enable features like AI or collaboration
+The editor needs credentials for both Collaboration and writing assistance. The installed `lib/tiptap-collab-utils.ts` reads the following Next.js variables. In Vite, adapt that helper to read `import.meta.env.VITE_*` for each public value.
 
-### Environment Variables
+### Environment variables
 
-Provide values for the following environment variables:
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_TIPTAP_COLLAB_APP_ID` | Your Tiptap Collaboration app ID. |
+| `NEXT_PUBLIC_TIPTAP_AI_APP_ID` | Your writing assistance app ID. |
+| `NEXT_PUBLIC_TIPTAP_COLLAB_TOKEN` | A short-lived example Collaboration JWT for local development. |
+| `NEXT_PUBLIC_TIPTAP_AI_TOKEN` | A short-lived example writing assistance JWT for local development. |
+| `NEXT_PUBLIC_TIPTAP_COLLAB_DOC_PREFIX` | An optional prefix for document names. |
 
-- `TIPTAP_COLLAB_DOC_PREFIX` - Prefix for identifying collaborative documents
-- `TIPTAP_COLLAB_APP_ID` - Your document server ID
-- `TIPTAP_COLLAB_TOKEN` - JWT for accessing Collaboration services
-- `TIPTAP_AI_TOKEN` - JWT for accessing AI services
+### JWT authentication
 
-The above environment variables should be available in the client-side. Depending on your framework, use the following prefixes to expose them to the client:
-
-- [Next.js](/ui-components/install/next): `NEXT_PUBLIC_`. For example, `NEXT_PUBLIC_TIPTAP_COLLAB_DOC_PREFIX`.
-- [Vite + React](/ui-components/install/vite): `VITE_`. For example, `VITE_TIPTAP_COLLAB_DOC_PREFIX`.
-- Other frameworks: Follow the specific rules of your framework, and define the variables in the `tiptap-collab-utils.ts` file.
-
-### JWT Authentication
-
-Collaboration and AI features require a valid server-generated JWT passed to the editor. See the `fetchCollabToken` function in `tiptap-collab-utils.ts` for an example.
-
-> See the full guide on [JWT authentication](https://tiptap.dev/docs/guides/authentication).
-
-<Callout title="Generate the JWT" variant="info">
-  To get started quickly, you can use the example JWT from your Tiptap Cloud account and
-  store them in the `TIPTAP_COLLAB_TOKEN` and `TIPTAP_AI_TOKEN` enviroment variables. However,
-  example JWT are valid for a short time and should not be used in production. In production,
-  implement an API endpoint that generates JWTs on the server side.
-</Callout>
+For production, set `NEXT_PUBLIC_USE_JWT_TOKEN_API_ENDPOINT=true` and implement `POST /api/collaboration` and `POST /api/ai` in your app. Each endpoint checks the user's session and access, signs a short-lived JWT with the corresponding server-side secret, and returns JSON with a `token` field. For local development with example tokens, leave the switch unset. [JWT authentication](/guides/authentication)
 
 ### `room` prop
 
-Use the `room` prop to distinguish collaborative documents. Each session should use a unique room ID.
+Use a stable room ID per document. Give collaborators editing the same document the same room ID.
 
 ### Image uploads
 
-Image uploads require a server side that is not part of our ui components. You can find an example server
-that accepts an image, uploads it to s3 and then returns the permanent URL for it below. Note that you may want
-to implement additional checks when running this in production to prevent abuse.
+The demo upload handler in `lib/tiptap-utils.ts` returns a placeholder. To keep the user's image, implement an upload endpoint that stores the file and responds with its URL. The example below sends multipart form data under `file` to `/api/images` and expects JSON with a `url` field.
 
-server side (run with `node --experimental-strip-types`)
-```typescript
-import {
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
-import { Hono } from 'hono'
-import { serve } from '@hono/node-server'
-import { cors } from 'hono/cors'
-import { v4 } from 'uuid'
+For Amazon S3, install `@aws-sdk/client-s3` and give your Node.js server permission to write to the bucket. In the endpoint, check the user's access, file type, and size before calling this helper. Pass the base URL where the browser can read the stored images.
 
-const S3_REGION = 'xxx'
-const S3_BUCKET = 'xxx'
-const S3_ACCESS_KEY= 'xxx'
-const S3_ACCESS_SECRET_KEY='xxx'
+```ts
+import { randomUUID } from 'node:crypto'
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
-const PORT = 1234
-const BASE_URL = `http://127.0.0.1:${PORT}`
+const storage = new S3Client({})
 
-const app = new Hono()
-const client = new S3Client({
-  region: S3_REGION,
-  credentials: {
-    accessKeyId: S3_ACCESS_KEY,
-    secretAccessKey: S3_ACCESS_SECRET_KEY,
-  }
-});
+export async function storeImage(file: File, bucket: string, publicBase: URL) {
+  const key = `editor-images/${randomUUID()}`
+  await storage.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: new Uint8Array(await file.arrayBuffer()),
+      ContentType: file.type,
+    }),
+  )
 
-// in production, make sure to set up restrictive cors rules
-app.use('/upload', cors())
-
-// in prod, you should add sensitive rate limits for both endpoints
-// you probably want to add content-type and/or filename and filesize validation
-app.post('/upload', async (c) => {
-  const body = await c.req.arrayBuffer()
-  const remoteFileKey = `upload-${v4()}`
-
-  const command = new PutObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: remoteFileKey,
-    Body: body,
-    ContentType: c.req.header('content-type') ?? ''
-  });
-
-  try{
-    await client.send(command)
-  } catch(e) {
-    console.error(e)
-    c.status(500)
-    return c.text('')
-  }
-
-  return c.text(`${BASE_URL}/files/${remoteFileKey}`)
-})
-
-app.get('/files/:name', async (c) => {
-  const { name } = c.req.param()
-  const remoteFileKey = `${name}`
-
-  // you may want to implement caching when using this in production
-  // or, maybe you want to use pre-signed URLs to the client can directly fetch
-  // the document from S3.
-  const command = new GetObjectCommand({
-    Bucket: S3_BUCKET,
-    Key: remoteFileKey,
-  })
-
-  try{
-    const r = await client.send(command)
-    return c.body(r.Body, 200, {
-      'content-type': r.ContentType ?? ''
-    })
-  } catch(e) {
-    console.error(e)
-    c.status(500)
-    return c.text('')
-  }
-
-})
-
-serve({...app, port: PORT})
+  return Response.json({ url: new URL(key, publicBase).href })
+}
 ```
 
-In order to use the endpoint, adjust `handleImageUpload` in `tiptap-utils.ts`. You will want to remove all code after the validation
-and replace it with something similar to this:
+Keep the existing file checks in `handleImageUpload`. The rest of the handler can send the file and return its URL.
 
-```typescript
-const response = await fetch('http://YOUR_URL/upload', {
-    body: file,
-    method: 'post',
-    headers: {
-        'content-type': file.type,
-    }
+```ts
+const body = new FormData()
+body.append('file', file)
+
+const response = await fetch('/api/images', {
+  method: 'POST',
+  body,
+  signal: abortSignal,
 })
 
-if( response.ok ) {
-    return response.text()
+if (!response.ok) {
+  throw new Error('Image upload failed')
 }
 
-throw new Error('upload failed')
+const { url } = await response.json()
+if (typeof url !== 'string' || !url) {
+  throw new Error('The upload endpoint did not return an image URL')
+}
+
+onProgress?.({ progress: 100 })
+return url
 ```
 
 ## Usage
 
-Import and render the `NotionEditor` component in your React app:
+The generated Next.js page is available at `/notion-like`. To use the editor on your own route, pass the document ID as its room.
 
 ```tsx
-import { NotionEditor } from '@/components/tiptap-templates/notion-like/components/notion-like-editor'
+import { NotionEditor } from '@/components/tiptap-templates/notion-like/notion-like-editor'
 
 export default function App() {
   return <NotionEditor room="my-document-room" placeholder="Start writing..." />
@@ -221,39 +151,17 @@ export default function App() {
 
 ## Features
 
-The template includes all the essentials of a modern Notion-style editor:
+- Move blocks with the drag handle, or use the slash menu to insert headings, lists, tables, dividers, and math.
+- Format the selection with the floating toolbar, including marks, text color, highlights, links, and alignment.
+- Open the mention and emoji menus, insert images, and use the writing menu to revise a selection.
+- Edit with other participants and see their carets. The toolbar supports undo and redo.
+- Switch between light and dark themes. The toolbar adjusts to the available screen width.
 
-- **Real-time collaboration**: Live cursors and user presence
-- **AI assistance**: Inline AI tools for writing and editing
-- **Responsive design**: Mobile-ready UI with adaptive toolbars
-- **Dark/light mode**: Fully themed out of the box
-- **Slash commands**: `/` menu for quick formatting
-- **Floating toolbar**: Context-aware formatting
-- **Drag and drop**: Block-level reordering
-- **Emoji support**: GitHub-style emoji picker
-- **Mentions**: `@user` autocomplete
-- **Rich formatting**:
-
-  - Bold, italic, underline, strikethrough
-  - Highlight and color
-  - Superscript / subscript
-  - Syntax-highlighted code blocks
-
-- **Block types**:
-
-  - Headings, lists, blockquotes, dividers, math
-
-- **Media support**: Drag & drop image upload
-- **Link management**: With inline previews
-- **Text alignment**: Left, center, right, justified
-- **Undo/Redo**: Full editing history
-- **Context menus**: Right-click enhancements
-
-## Component Breakdown
+## Component breakdown
 
 ### Hooks
 
-- `use-mobile`
+- `use-is-breakpoint`
 - `use-window-size`
 - `use-ui-editor-state`
 
@@ -265,24 +173,16 @@ The template includes all the essentials of a modern Notion-style editor:
 - `link-icon`
 - `more-vertical-icon`
 
-### Tiptap Extensions
+### Tiptap extensions
 
-- `collaboration`, `collaboration-caret`
-- `selection-extension`
-- `link-extension`
-- `trailing-node-extension`
-- `ai-extension`
-- `emoji-extension`
-- `mention-extension`
-- `mathematics-extension`
-- `unique-id-extension`
+The template configures the collaboration and collaboration-caret extensions with a shared Yjs document. It also uses the emoji, mention, mathematics, and unique ID extensions, plus the UI state and indentation extensions installed with the template.
 
 ### Libs
 
 - `tiptap-utils`
 - `tiptap-collab-utils`
 
-### UI Components
+### UI components
 
 - `ai-menu`
 - `blockquote-button`
@@ -316,37 +216,18 @@ The template includes all the essentials of a modern Notion-style editor:
 
 ### Contexts
 
-- `app-context`
+- `ai-context`
 - `user-context`
 - `collab-context`
 
 ## Collaboration
 
-To use collaboration:
-
-1. Pass a unique `room` ID to `NotionEditor`
-2. Enable JWT auth for each user session
-3. User presence and cursors are handled automatically
-4. Operational transformation handles concurrent edits
-5. Sync and save are managed out-of-the-box
+The collaboration provider connects each participant to the shared Yjs document for their room. Yjs merges concurrent changes. The caret extension shows participants' positions.
 
 ```tsx
 <NotionEditor room="team-notes" placeholder="Share your ideas..." />
 ```
 
-## AI Integration
+## AI integration
 
-The built-in AI tools let you:
-
-- **Generate content** from prompts
-- **Improve** existing text
-- **Get smart completions** based on context
-
-<Callout title="AI Configuration" variant="info">
-  Make sure to configure your AI provider. Check the [Basic AI Generation extension
-  docs](/ai/basic/overview) for setup steps.
-</Callout>
-
-## Extendability
-
-This template is designed to grow with your needs. New Tiptap Cloud features will be seamlessly compatible with the same UI system—no rewrites required.
+The writing menu can generate content from a prompt and revise a selection. Configure the app ID and token before opening the editor. [Basic AI Generation extension](/ai/basic/overview)
