@@ -199,7 +199,7 @@ const items: SidebarGroup[] = [
           ),
         ],
       },
-      feature('Citations', citationsSidebar, '/citations/getting-started/overview', {
+      feature('Smart Citations', citationsSidebar, '/citations/getting-started/overview', {
         inline: ['Get started'],
       }),
       {

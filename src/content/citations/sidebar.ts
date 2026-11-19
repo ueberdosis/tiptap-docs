@@ -3,7 +3,7 @@ import type { SidebarConfig } from '@/types'
 export const sidebarConfig: SidebarConfig = {
   id: 'citations',
   rootHref: '/citations/getting-started/overview',
-  title: 'Citations',
+  title: 'Smart Citations',
   items: [
     {
       type: 'group',
