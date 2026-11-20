@@ -1,0 +1,226 @@
+---
+title: Export custom nodes to .docx
+tags:
+  - type: start
+  - type: beta
+  - type: version
+    label: v0.26.1
+meta:
+  title: Export custom nodes to DOCX | Tiptap Conversion
+  description: Learn how to export custom nodes to DOCX (Word) files using the Export extension.
+  category: Conversion
+---
+
+
+<EnterpriseCard variant="docx" renderMode="sidebar" disableWaitlist />
+
+## Requirements
+
+<Accordions>
+  <Accordion title="1. Activate trial or subscribe">
+    Start a [free trial](https://cloud.tiptap.dev/v2?trial=true) or [subscribe to the Start
+    plan](https://cloud.tiptap.dev/v2/billing) in your account.
+  </Accordion>
+  <Accordion title="2. Install from private registry">
+    To install this frontend extensions, authenticate to Tiptap's private npm registry by following
+    the [setup guide](/docs/guides/pro-extensions).
+  </Accordion>
+</Accordions>
+
+One of the biggest advantages of the `@tiptap-pro/extension-export-docx` extension is the ability to define how custom nodes in your Tiptap schema should be rendered in DOCX.
+
+This allows you to preserve application-specific content in the exported Word file.
+
+<Callout type="idea" title="Looking for the REST-compatible variant?">
+  Functions can't be serialized over HTTP, so the function API on this page only works inside the
+  editor extension. For a JSON-based equivalent that travels over REST and runs in both surfaces,
+  see the [Custom-nodes DSL](/docs/conversion/export/docx/custom-nodes-dsl).
+</Callout>
+
+## Export custom nodes to .docx
+
+<CodeDemo isPro path="/Extensions/ExportDocxCustomNode" />
+
+When calling `editor.exportDocx()`, you can pass an array of custom node definitions in the `ExportDocxOptions` argument. Each definition specifies the node type and a render function.
+
+<include>../_shared/_custom-node-conversion-guide.mdx</include>
+
+### Define the custom node render function
+
+And we will define how the `Hintbox` custom node should be rendered in the exported document:
+
+```ts
+// Import the ExportDocx extension
+import {
+  convertTextNode,
+  Docx,
+  ExportDocx,
+  lineHeightToDocx,
+  pixelsToHalfPoints,
+  pointsToTwips,
+} from '@tiptap-pro/extension-export-docx'
+
+const editor = new Editor({
+  extensions: [
+    // Other extensions ...
+    ExportDocx.configure({
+      onCompleteExport: (result) => {
+        setIsLoading(false)
+        const blob = new Blob([result], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'export.docx'
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+      exportType: 'blob',
+      customNodes: [
+        {
+          type: 'hintbox',
+          render: (node) => {
+            // Here we define how our custom Hintbox node should be rendered in the DOCX.
+            // Per the documentation, we should return a Docx node
+            // that's either a Paragraph, an array of Paragraphs, a Table, a TextRun, an ExternalHyperlink, or null.
+            return new Docx.Paragraph({
+              children: node.content.map((content) => convertTextNode(content)),
+              style: 'Hintbox', // Here we apply our custom style to the Paragraph node.
+            })
+          },
+        },
+      ], // Custom nodes
+      styleOverrides: {
+        paragraphStyles: [
+          // Here we define our custom styles for our custom Hintbox node.
+          {
+            id: 'Hintbox',
+            name: 'Hintbox',
+            basedOn: 'Normal',
+            next: 'Normal',
+            quickFormat: false,
+            run: {
+              font: 'Aptos Light',
+              size: pixelsToHalfPoints(16),
+            },
+            paragraph: {
+              spacing: {
+                before: pointsToTwips(12),
+                after: pointsToTwips(12),
+                line: lineHeightToDocx(1),
+              },
+              border: {
+                // DOCX colors are in Hexadecimal without the leading #
+                top: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                bottom: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                right: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+                left: { style: Docx.BorderStyle.SINGLE, size: 1, color: 'b8d8ff', space: 5 },
+              },
+              shading: {
+                type: Docx.ShadingType.SOLID,
+                color: 'e6f3ff',
+              },
+            },
+          },
+        ],
+      }, // Style overrides
+    }),
+    // Other extensions ...
+  ],
+  // Other editor settings ...
+})
+```
+
+Then, at a later point in your application, you can export the editor content to a `DOCX` file:
+
+```ts
+editor.chain().exportDocx().run()
+```
+
+You can construct any supported `DOCX` elements in the `render` function using the `Docx` library classes (`Paragraph`, `TextRun`, `Table`, etc.) that are provided via the `Docx` import from the `@tiptap-pro/extension-export-docx` package.
+
+See [Native DOCX options](/docs/conversion/export/docx/styles#native-docx-options) for RTL alignment, percentage widths, and default styles.
+
+## Fit images to the page or table cell
+
+An image without `width` and `height` exports at its pixel size, so a large photo runs past the right margin in Word. A custom node that renders an image can keep it inside the page.
+
+`render` gets a second argument, `context`. Its `maxImageWidth` is the width of the page's text column in pixels, or the content width of the table cell the node is in (the cell width minus its left and right margins). List indents are not subtracted. `context` is `undefined` for a custom node inside a [`customNodeDsl`](/docs/conversion/export/docx/custom-nodes-dsl) rule.
+
+Pass it as `maxWidth` to `convertImage` or `convertImageRun`:
+
+```ts
+import { convertImage, ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'photo',
+      render: (node, context) => {
+        const { src, width, height } = node.attrs ?? {}
+
+        return convertImage({
+          node: { type: 'image', attrs: { src, width, height } },
+          maxWidth: context?.maxImageWidth,
+        })
+      },
+    },
+  ],
+})
+```
+
+`maxWidth` only changes an image that has neither `width` nor `height`. A wider image shrinks to `maxWidth` and keeps its aspect ratio. An image with its own size, and `imageOverrides.transformation`, still win.
+
+When the node lays out content around the image, use `convertImageRunWithSize`. It returns the image run together with the size it gets in the document (`{ imageRun, width, height }`, in pixels), or `null` for an image the export skipped. This example puts a caption under the image in a table as wide as the image:
+
+```ts
+import {
+  convertImageRunWithSize,
+  Docx,
+  ExportDocx,
+  pixelsToPoints,
+  pointsToTwips,
+} from '@tiptap-pro/extension-export-docx'
+
+ExportDocx.configure({
+  customNodes: [
+    {
+      type: 'figure',
+      render: async (node, context) => {
+        const { src, width, height } = node.attrs ?? {}
+        const image = await convertImageRunWithSize({
+          node: { type: 'image', attrs: { src, width, height } },
+          maxWidth: context?.maxImageWidth,
+        })
+        if (!image) return null
+
+        // Word measures table widths in twips.
+        const tableWidth = Math.round(pointsToTwips(pixelsToPoints(image.width)))
+
+        return new Docx.Table({
+          // A fixed layout without cell margins keeps the table exactly as wide as the image.
+          layout: Docx.TableLayoutType.FIXED,
+          width: { size: tableWidth, type: Docx.WidthType.DXA },
+          columnWidths: [tableWidth],
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+          rows: [
+            new Docx.TableRow({
+              children: [
+                new Docx.TableCell({
+                  children: [
+                    new Docx.Paragraph({ children: [image.imageRun] }),
+                    new Docx.Paragraph({ text: node.attrs?.caption }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      },
+    },
+  ],
+})
+```
+
+Built-in `image` nodes are not affected: they keep exporting at their own size.

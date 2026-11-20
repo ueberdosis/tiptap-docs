@@ -1,0 +1,110 @@
+---
+title: Content protection
+meta:
+  title: Content protection | Tiptap Server AI Toolkit
+  description: Keep parts of a document read-only or hidden from server-side AI agents with a Content Protection Policy.
+  category: AI Toolkit
+---
+
+
+<EnterpriseCard variant="server-ai-toolkit" renderMode="sidebar" />
+
+Decide what the AI agent can read and edit. Some parts of the document can be read-only for the AI, and others hidden from it.
+
+<Callout title="Alpha" type="warning">
+  Content protection in the Server AI Toolkit is in alpha. In this version, you send the policy in
+  the body of each request. Later versions will store it with the JWT.
+</Callout>
+
+<CodeDemo
+  isLarge
+  path=""
+  isScrollable
+  src="https://ai-toolkit-demos.vercel.app/server-content-protection"
+/>
+
+See the [source code on GitHub](https://github.com/ueberdosis/ai-toolkit-demos).
+
+<Callout title="Continuation from the AI agent chatbot guide" type="info">
+  This guide continues the [AI agent chatbot guide](/docs/ai/ai-toolkit/agents/ai-agent-chatbot). Read it
+  first.
+</Callout>
+
+## Define a policy
+
+A Content Protection Policy is a JSON object with rules. Each rule selects nodes or marks of the document and allows or denies reading and editing them. The Server AI Toolkit uses the same policy format as the [Content Protection extension](/docs/composable-docs/content-protection/getting-started/overview), so the editor and the AI agent can share one policy. See the [policy reference](/docs/composable-docs/content-protection/api-reference/policy) for every selector and how rules are combined.
+
+This policy makes paragraphs with `protection: 'locked'` read-only for the AI, and hides paragraphs with `protection: 'hidden'` from it:
+
+```ts
+const contentProtectionPolicy = {
+  version: 1,
+  rules: [
+    {
+      id: 'locked-clauses',
+      selector: {
+        target: 'node',
+        node: {
+          types: ['paragraph'],
+          attributes: [{ name: 'protection', operator: 'eq', value: 'locked' }],
+        },
+      },
+      permissions: { edit: false },
+      reason: 'Approved legal text cannot be changed.',
+    },
+    {
+      id: 'internal-notes',
+      selector: {
+        target: 'node',
+        node: {
+          types: ['paragraph'],
+          attributes: [{ name: 'protection', operator: 'eq', value: 'hidden' }],
+        },
+      },
+      permissions: { read: false },
+    },
+  ],
+}
+```
+
+The node types, mark types and attributes in the policy must exist in the editor schema. `protection` is a custom attribute in this example.
+
+## Send the policy
+
+Set the policy on your server, and pass it as `contentProtectionPolicy` to both endpoints. Don't accept a policy from the browser, because users could change it.
+
+`fetch-tools` adds a description of the policy to the `systemPrompt`, so the AI knows what it can't change:
+
+```ts
+const response = await fetch(`${apiBaseUrl}/v4/ai/toolkit/fetch-tools`, {
+  method: 'POST',
+  headers: await getAuthHeaders(),
+  body: JSON.stringify({
+    editorContext,
+    tools: { tiptapQuery: true },
+    contentProtectionPolicy,
+  }),
+})
+```
+
+`execute-tool` enforces the policy on every tool call:
+
+```ts
+const result = await fetch(`${apiBaseUrl}/v4/ai/toolkit/execute-tool`, {
+  method: 'POST',
+  headers: await getAuthHeaders(documentId),
+  body: JSON.stringify({
+    editorContext,
+    document: { type: 'cloud', id: documentId },
+    tool: { name: toolName, input },
+    contentProtectionPolicy,
+  }),
+})
+```
+
+## How the AI experiences the policy
+
+- **Read-only content:** an edit operation that would change protected content fails with an error that names the denied change and the rule's `reason`. In `tiptapEdit`, the other operations of the tool call still apply. In `tiptapQuery`, earlier operations apply and later ones are skipped, as with any failed operation. Return the tool output to the AI as usual, so it can adjust its plan.
+- **Hidden content:** read tools return `[Hidden content]` instead of hidden content, and the AI can't find it by searching. Hidden content can't be edited or removed.
+
+An invalid policy, or one that names types or attributes the schema doesn't have, fails the request. `stream-tool` supports the policy for every tool except `tiptapEdit`, which applies edits while they stream in; use `execute-tool` for those edits.

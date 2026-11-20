@@ -1,0 +1,121 @@
+---
+title: Authenticate and authorize in Collaboration
+meta:
+  title: Auth Guide | Tiptap Collaboration Docs
+  description: Authorize collaborative editing with Tiptap authentication. Scope a token to the Documents service and grant per-document read, write, and comment access.
+  category: Collaboration
+---
+
+
+Collaboration authenticates against the Documents service. You sign a JWT on your server and pass it to the provider when a client connects. The token names which documents a user can reach and what they may do with them.
+
+<Callout title="New to Tiptap authentication?" type="idea">
+  This page covers the Documents-specific claims. To create a key pair and sign a token, see [Authentication](/docs/authentication). For the previous `allowedDocumentNames` model, see [Legacy authentication](/docs/authentication/legacy).
+</Callout>
+
+## Audience and actions
+
+Set the `aud` claim to `"Documents"`. Collaboration recognizes these actions:
+
+| Action | Grants |
+| --- | --- |
+| `Documents:Read` | Open and read a document |
+| `Documents:Write` | Edit a document. Implies `Documents:Read` and `Documents:Comment` |
+| `Documents:Comment` | Add comments without editing |
+| `Documents:Api:All` | Full access to every Document Server API endpoint, including settings. Keep this token server-side. See [REST API](/docs/collaboration/documents/rest-api) |
+
+Because `Documents:Write` implies read and comment, granting write alone is enough for full editing access.
+
+## Authorize per document
+
+The `resource` field names the document a permission applies to. Use `"*"` for every document, an exact document name for a single one, or `"*"` with constraints to match a group.
+
+### Full access to every document
+
+```json
+{
+  "aud": "Documents",
+  "permissions": [{ "action": "Documents:Write", "resource": "*" }]
+}
+```
+
+<Callout title="Caution" type="warning">
+  A permission with `"resource": "*"` and no constraints matches every document in your environment. Scope the resource when a user should only reach specific documents.
+</Callout>
+
+### Specific documents
+
+```json
+{
+  "permissions": [
+    { "action": "Documents:Write", "resource": "user-specific-document-1" },
+    { "action": "Documents:Write", "resource": "user-specific-document-2" }
+  ]
+}
+```
+
+### Read-only access
+
+Grant `Documents:Read` without `Documents:Write`:
+
+```json
+{
+  "permissions": [{ "action": "Documents:Read", "resource": "annual-report-2024" }]
+}
+```
+
+### Comment without editing
+
+```json
+{
+  "permissions": [
+    { "action": "Documents:Read", "resource": "policy-document-v3" },
+    { "action": "Documents:Comment", "resource": "policy-document-v3" }
+  ]
+}
+```
+
+### A group of documents
+
+Use a `prefix` constraint instead of listing each document by name:
+
+```json
+{
+  "permissions": [
+    {
+      "action": "Documents:Write",
+      "resource": "*",
+      "constraints": { "prefix": "project-alpha/" }
+    }
+  ]
+}
+```
+
+This grants access to every document whose name starts with `project-alpha/`. See [Permissions](/docs/authentication#permissions) for the full constraint reference, including `suffix` and `in`.
+
+## Connect the provider
+
+Pass the signed token to `TiptapCollabProvider` as `token`, alongside your `appId`. Generate the token on your server and send it to the client. Never expose your signing key in client code.
+
+```ts
+const doc = new Y.Doc()
+
+const provider = new TiptapCollabProvider({
+  name: note.id, // Document identifier
+  appId: 'YOUR_APP_ID', // Document server ID from the Cloud dashboard
+  token: 'YOUR_JWT', // Signed Documents token
+  document: doc,
+  user: userId,
+})
+```
+
+## Handle token expiry
+
+Keep tokens short-lived by setting `exp`. Tokens are validated every few seconds, so an expired token is rejected shortly after expiration and cannot reconnect.
+
+- If the token is invalid when connecting or reconnecting, the `onAuthenticationFailed` callback fires with reason `permission-denied`.
+- If the token expires during an established connection, the `onClose` callback fires with reason `JWT verification failed`.
+
+In both cases, create a fresh token and re-create the provider. Users may leave tabs open for a long time, so handle expiry on reconnect to avoid losing [unsynced changes](/docs/collaboration/provider/integration#unsynced-changes).
+
+To invalidate a token before it expires, Collaboration provides a [Revoke JWT API](https://www.postman.com/tiptap-platform/workspace/tiptap-workspace/request/33042171-63ed5bbe-f54d-4a85-b2d0-5c1bc215d2fc). Because revocation is available, you do not need to make tokens extremely short-lived.

@@ -1,0 +1,233 @@
+---
+title: 'Data Sources'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Data Sources | Tiptap Diagrams Docs'
+  description: 'Fill a chart from a CSV or JSON URL or a provider of your own, and synchronize it.'
+  category: Diagrams
+---
+
+A chart can take its data from a Data Source, such as a CSV file, a table in the document, or a service your own provider reads.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsDataSources" isPro />
+
+
+The chart stores the **address** and a **snapshot**, a copy of the data it last read. It draws
+from the snapshot, so it draws offline, in an export and for people who cannot reach the source.
+
+## Quick start
+
+In the editor from [A first chart](/docs/diagrams/getting-started/install#a-first-chart), this inserts an empty
+chart, which is then selected, and links it to a CSV file. It needs no other option:
+
+```ts
+editor.commands.insertChart({ type: 'line' })
+editor.commands.linkChartSource({
+  provider: 'url-csv',
+  address: { url: 'https://example.com/sales.csv' },
+  readOnly: true,
+})
+```
+
+## Stored in the document
+
+A chart stores `source`, which is `{ provider, address, mode, readOnly }`, and `syncedAt`, the ISO
+time the snapshot was last written, by a read or by `data` passed to a command, or `null`.
+`editor.storage.diagrams.listCharts()` reports both.
+
+## Linked or detached
+
+`mode`, `'linked'` or `'detached'`, says whether the chart updates from its source.
+
+**Linked.** `linkChartSource`, `syncChartData`, `requestSync`, `relinkChartSource` and a
+provider's `subscribe` ([Writing a provider](/docs/diagrams/data/sources#writing-a-provider)) fetch a new snapshot from the
+source. In between, the chart shows the last one.
+
+**Detached.** `detachChartSource` stops the updates and keeps the snapshot and the address, so the
+data can be edited. `relinkChartSource` starts them again and replaces the data with the source's.
+
+## Read-only
+
+`readOnly` decides whether the data of a linked chart can be edited in the editor:
+
+- **`readOnly: true`**: editing commands such as `updateChartData` return `false`, and rows pasted
+  onto the chart change nothing. Only a new snapshot, such as `syncChartData({ data })`, changes
+  the data.
+- **`readOnly: false`**, the default of `linkChartSource`: the data can be edited while linked, but
+  the next synchronization replaces those edits with the source's data.
+
+To keep hand edits, detach the chart. A detached chart can be edited whatever `readOnly` says,
+and the flag acts again after `relinkChartSource`. The Chart Spec stays editable.
+
+## Showing only some columns
+
+A synchronization replaces all columns. To show only some, set
+[`encoding`](/docs/diagrams/data/overview#which-columns-are-drawn), which survives every synchronization. An id the
+new data does not have is ignored, so the chart still draws after the source renames a column:
+
+```ts
+editor.commands.updateChartSpec({ spec: { encoding: { series: ['revenue'] } } })
+```
+
+## When a chart synchronizes
+
+A synchronization reads the source and writes a new snapshot. It is left out of the undo
+history, and it sets `syncedAt` even when the data is the same.
+
+When a source cannot be read, the chart keeps its snapshot, and the
+[`onSourceError`](/docs/diagrams/api-reference/options#onsourceerror) option of `Diagrams` gets the error and
+`{ provider, address }`.
+
+Every client that synchronizes needs the provider registered. Without it, a client shows the
+snapshot and its read fails with `No Data Source provider "…" is registered.`
+
+`requestSync` synchronizes every chart that reads a source, and resolves to `false` when the
+read failed or no chart reads it. The extension has no schedule, but your app can call it with
+`setInterval`, within the limits of the service:
+
+```ts
+await editor.storage.diagrams.requestSync({ provider: 'url-csv', address: { url } })
+```
+
+## Built-in providers
+
+These providers need no setup:
+
+| Provider         | Address                   | Reads                                                                                                 |
+| ---------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `url-csv`        | `{ url }` or a URL string | CSV, also with semicolons or tabs, through [`fetch`](/docs/diagrams/api-reference/options#fetch)                             |
+| `url-json`       | `{ url }` or a URL string | Chart Data, or an array of arrays or of objects, also under `data`. The first text key names the rows |
+| `document-table` | `{ tableId }`             | A table in the same document                                                                          |
+
+### Reading a URL
+
+A URL must be absolute and use `http:` or `https:`. If you set the optional
+[`allowSourceUrl`](/docs/diagrams/api-reference/options#allowsourceurl) check, a URL must also pass it. The server must allow your app's web page to read the file, which is called CORS.
+A published Google Sheet does.
+
+In these cases the read fails, and `onSourceError` gets the message:
+
+| Case                     | Message                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Not such a URL           | `<url> is not an address this editor reads data from.`                                           |
+| An error status          | `<url> answered <status>.`                                                                       |
+| A blocked request        | `Could not load <url>: the server is unreachable or does not allow this page to read it (CORS).` |
+| An HTML page, not a file | `<url> answered with a web page, not data. Check the address.`                                   |
+
+### Reading a table
+
+A chart that follows a table in the document uses `document-table`, see [Tables](/docs/diagrams/data/tables).
+
+## Writing a provider
+
+In the demo, a provider reads a weather API and fills a chart with the next seven days:
+
+<CodeDemo isPro viewer view="preview" path="/Extensions/DiagramsCustomSource" />
+
+A provider is an object with an `id` and a `read` function. Pass it in the `sources` option,
+such as `Diagrams.configure({ sources: [salesApi] })`, or add it with `editor.storage.diagrams.registerSource(provider)`, which returns a function that
+removes it. A provider with an id already registered replaces the other.
+
+```ts
+import type { ChartSourceProvider } from '@tiptap-pro/extension-diagrams'
+
+const salesApi: ChartSourceProvider = {
+  id: 'sales-api',
+  read: async (address, { fetch }) => {
+    const { region } = address as { region: string }
+    const response = await fetch(`/api/sales?region=${encodeURIComponent(region)}`)
+    const rows: { month: string; total: number }[] = await response.json()
+    return {
+      columns: [
+        { id: 'month', label: 'Month', role: 'label' },
+        { id: 'total', label: 'Total', role: 'series' },
+      ],
+      rows: rows.map(row => [row.month, row.total]),
+    }
+  },
+  describe: address => `Sales, ${(address as { region: string }).region}`,
+}
+```
+
+| Member                                  | Required | Description                                                                        |
+| --------------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `id`                                    | Yes      | What a chart stores as `provider`                                                  |
+| `read(address, context)`                | Yes      | Returns Chart Data, or a Promise of it. Throw to report an error                   |
+| `subscribe(address, onChange, context)` | No       | For a pushing source: call `onChange(data)` on each change, return a stop function |
+| `describe(address)`                     | No       | A label for a user interface                                                       |
+
+`context` has `fetch`, `decimalSeparator`, `editor`, and `allowUrl` when your app sets
+`allowSourceUrl`. To report an error, throw a `ChartSourceError` from
+`@tiptap-pro/extension-diagrams/core` with a message a person can read. Each change that
+`subscribe` reports goes into every chart linked to that address.
+
+Everyone who opens the document sees the address, so do not put credentials in it. A provider
+takes a key or token from your app when you create it.
+[Google Sheets, Excel and Airtable](/docs/diagrams/guides/spreadsheets) has a provider for each service.
+
+## Commands
+
+### linkChartSource
+
+Links a chart to a Data Source.
+
+```ts
+editor.commands.linkChartSource({ provider: 'url-csv', address: { url } })
+```
+
+| Option     | Type        | Default              | Description                                                     |
+| ---------- | ----------- | -------------------- | --------------------------------------------------------------- |
+| `provider` | `string`    | Required             | The id of a registered provider, such as `'url-csv'`            |
+| `address`  | `unknown`   | Required             | Where the provider reads, in its form                           |
+| `readOnly` | `boolean`   | `false`              | `true` blocks editing while linked, see [Read-only](/docs/diagrams/data/sources#read-only) |
+| `data`     | `ChartData` | Read from the source | The first snapshot                                              |
+| `pos`      | `number`    | The selected chart   | The chart's position                                            |
+
+Returns `false` without a chart, or for a provider that is not registered.
+
+### syncChartData
+
+Writes a new snapshot into one chart, or into every chart linked to a source.
+
+```ts
+editor.commands.syncChartData({ source: { provider: 'url-csv', address: { url } } })
+```
+
+| Option   | Type                    | Default              | Description                                           |
+| -------- | ----------------------- | -------------------- | ----------------------------------------------------- |
+| `data`   | `ChartData`             | Read from the source | The new snapshot, written even into a read-only chart |
+| `source` | `{ provider, address }` | None                 | Writes into every linked chart that reads that source |
+| `pos`    | `number`                | The selected chart   | The chart's position, without `source`                |
+
+Without `data`, the command returns `true` once the read is requested, not when it succeeds.
+Returns `false` without a matching chart, or without `data` for a chart that has no source.
+
+### detachChartSource
+
+Stops following the source, and keeps the snapshot and the address.
+
+```ts
+editor.commands.detachChartSource()
+```
+
+| Option | Type     | Default            | Description          |
+| ------ | -------- | ------------------ | -------------------- |
+| `pos`  | `number` | The selected chart | The chart's position |
+
+Returns `false` for a chart without a source.
+
+### relinkChartSource
+
+Follows the source again and reads it.
+
+```ts
+editor.commands.relinkChartSource()
+```
+
+| Option | Type     | Default            | Description          |
+| ------ | -------- | ------------------ | -------------------- |
+| `pos`  | `number` | The selected chart | The chart's position |
+
+Returns `false` for a chart without a source.

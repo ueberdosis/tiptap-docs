@@ -1,0 +1,261 @@
+---
+title: 'Charts'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Charts | Tiptap Diagrams Docs'
+  description: 'Insert a bar, line, pie or other chart into a Tiptap document, and see which chart types there are.'
+  category: Diagrams
+---
+
+A chart is a `chart` node, one block of the document like a paragraph or an image. It stores its values, the Chart Data, and its settings, the Chart Spec, so users can change both and undo it.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsChartTypes" isPro />
+
+## Quick start
+
+`insertChart()` inserts a chart from values in your code. In an editor with `Diagrams` and a
+Renderer, set up as in [A first chart](/docs/diagrams/getting-started/install#a-first-chart), this inserts a bar
+chart and selects it:
+
+```ts
+editor.commands.insertChart({
+  type: 'bar',
+  data: {
+    columns: [
+      { id: 'month', label: 'Month', role: 'label' },
+      { id: 'revenue', label: 'Revenue', role: 'series' },
+    ],
+    rows: [
+      ['Jan', 120],
+      ['Feb', 150],
+    ],
+  },
+})
+```
+
+## Chart types
+
+The label column, with `role: 'label'`, names the rows, such as `Jan`, and is the x axis. Each
+`role: 'series'` column is a series. The last column says what a chart becomes in
+[Word](/docs/diagrams/export#word):
+
+| Type                | Reads the rows as                                                                       | In Word                                      |
+| ------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `line`, `area`      | A label column and series                                                               | Word chart                                   |
+| `scatter`           | The same                                                                                | Word chart, an image when labels are numbers |
+| `bar`               | The same, on their side with `spec.orientation: 'horizontal'`                           | Word chart                                   |
+| `combo`             | The same, see [Combo charts](/docs/diagrams/charts/overview#combo-charts)                                             | Word chart                                   |
+| `radar`             | A spoke per row, a closed line per series                                               | Word chart                                   |
+| `pie`, `doughnut`   | A label column and one series                                                           | Word chart                                   |
+| `funnel`            | A label per stage and one value, drawn widest first                                     | Image                                        |
+| `gauge`             | The first series' first value, on `spec.range`, `0` to `100` by default                 | Image                                        |
+| `treemap`, `tree`   | Paths as labels and the first series as values, see [Trees and links](/docs/diagrams/charts/overview#trees-and-links) | Image                                        |
+| `sankey`, `network` | A link per row, see [Trees and links](/docs/diagrams/charts/overview#trees-and-links)                                 | Image                                        |
+| `matrix`            | Words in a grid, see [Matrix](/docs/diagrams/charts/overview#matrix)                                                  | Word table                                   |
+
+A chart with [reference lines](/docs/diagrams/charts/references) becomes an image in Word too. A type the chart's
+Renderer cannot draw goes to the next registered one that can, see
+[Choosing the Renderer](/docs/diagrams/charts/appearance#choosing-the-renderer).
+
+The [`chartTypes`](/docs/diagrams/api-reference/options#charttypes) option adds types, each with a `ChartShape` that says
+how it reads rows, such as `cartesian` for a label column and series. They are stored, listed in
+the [tools for a model](/docs/diagrams/guides/ai) and drawn by any Renderer that lists them. An unknown type stays
+in the document and reads its rows as `cartesian`.
+
+### Trees and links
+
+A `treemap` or `tree` row has a path as its label: `Europe / Germany` puts Germany under Europe.
+The slash needs a space on each side, so `km/h` stays one name. A parent needs no row, and then
+its value is the sum of its children.
+
+A `sankey` or `network` row is a link. The label column is its start, and the next column, a
+`series` column of text, its end. The third is its weight, 1 when missing:
+
+```ts
+editor.commands.insertChartFrom({
+  format: 'chart-syntax',
+  type: 'sankey',
+  content: 'From | To | Visits\nHome | Pricing | 120\nPricing | Signup | 40',
+})
+```
+
+A row without a start or an end is skipped, and so is a link from a node to itself. On a sankey, a
+link that would close a loop is dropped too.
+
+### Combo charts
+
+A combo chart draws some series as bars and others as lines, set in `spec.series` by column id.
+`updateChartSpec` replaces `series` as a whole, with its line styles. Both fields work only on a
+`combo` chart:
+
+| Field                        | Values                                               |
+| ---------------------------- | ---------------------------------------------------- |
+| `spec.series[columnId].as`   | `'bar'` (default) or `'line'`                        |
+| `spec.series[columnId].axis` | `'left'` (default) or `'right'`, a second value axis |
+
+### Matrix
+
+A `matrix` is a grid of words, such as a RACI matrix of who is responsible, accountable, consulted
+or informed. The label column holds the tasks, each other column a role:
+
+```txt
+Task   | Lead | Team | Board
+Plan   | A    | R    | I
+Build  | C    | R    |
+```
+
+The role columns are `series` columns that hold text. Each distinct text gets a series color: R,
+A, C and I first, in upper or lower case, then others in order.
+Empty cells stay empty. Of the built-in Renderers, only ECharts draws a matrix, and Mermaid source
+cannot hold one.
+
+## How a chart is stored
+
+A chart's attributes hold everything needed to draw it again, each `null` until set:
+
+| Attribute    | Content                                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------------------------- |
+| `data`       | Chart Data: `columns` (`id`, `label`, `role` of `'label'` or `'series'`) and `rows`                        |
+| `spec`       | Chart Spec, see [Chart Spec fields](/docs/diagrams/charts/appearance#chart-spec-fields), with the chart's size in `spec.size` |
+| `renderer`   | The id of the chosen Renderer, `null` for the default                                                      |
+| `source`     | The [Data Source](/docs/diagrams/data/sources) the data was read from, such as a CSV file                           |
+| `syncedAt`   | When the data was last read from its source, as an ISO time                                                |
+| `delimiter`  | The delimiter the data was typed with, kept for editing it as text again                                   |
+| `previewUrl` | An image URL for the HTML output and the export copy. No command sets it yet                               |
+
+### In HTML
+
+A chart is a `<figure data-type="chart">`. Its data is a `<table>`, so the numbers survive an HTML
+or Markdown export and a screen reader reads them. The `<figcaption>` holds the title, or
+`title: description` with `spec.caption: true`. The rest is in
+[data attributes](/docs/diagrams/api-reference/selectors#data-attributes), the spec and source as JSON.
+
+## More about charts
+
+See [Appearance](/docs/diagrams/charts/appearance), [Axes](/docs/diagrams/charts/axes), [Reference lines and bands](/docs/diagrams/charts/references),
+[Looks](/docs/diagrams/charts/looks) and [Editing in the chart](/docs/diagrams/charts/editing).
+
+## Commands
+
+### insertChart
+
+Inserts a chart at the selection, or at `pos`, and selects it. Without `data`, it starts empty:
+
+```ts
+editor.commands.insertChart({ type: 'line', pos: 0 })
+```
+
+| Option      | Type                  | Default                                                    | Description                                                           |
+| ----------- | --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| `data`      | `ChartData`           | Empty                                                      | The Chart Data                                                        |
+| `spec`      | `Partial<ChartSpec>`  | None                                                       | The Chart Spec. Wins over `look`                                      |
+| `type`      | `ChartType`           | [`chart.defaultType`](/docs/diagrams/api-reference/options#defaulttype), `'line'` | Shortcut for `spec.type`. Wins over the look's type                   |
+| `renderer`  | `string \| null`      | `null`, the default                                        | The Renderer id                                                       |
+| `source`    | `ChartSource \| null` | `null`                                                     | The Data Source the chart follows                                     |
+| `delimiter` | `string \| null`      | `null`                                                     | The delimiter the data was typed with                                 |
+| `pos`       | `number`              | The selection                                              | Where to insert                                                       |
+| `look`      | `ChartLook`           | None                                                       | A look to start with, see [`applyChartLook`](/docs/diagrams/charts/looks#applychartlook) |
+
+An empty paragraph at the selection is replaced. With a chart selected, the new one goes after it.
+
+Returns `false` when the schema has no `chart` node, or when a block cannot go at that position.
+
+### insertChartFrom
+
+Inserts a chart written in a registered format. The chart keeps the delimiter the content used.
+
+```ts
+editor.commands.insertChartFrom({
+  format: 'chart-syntax',
+  content: 'Month | Revenue\nJan | 120\nFeb | 150',
+})
+```
+
+| Option     | Type             | Default             | Description                                                                                                                                                    |
+| ---------- | ---------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`   | `string`         | Required            | `'chart-json'` (`{ spec, data }` as JSON), [`'chart-syntax'`](/docs/diagrams/data/chart-syntax), `'mermaid'`, or one from the [`formats`](/docs/diagrams/api-reference/options#formats) option |
+| `content`  | `string`         | Required            | The text in that format                                                                                                                                        |
+| `type`     | `ChartType`      | `chart.defaultType` | Used when the content names no type                                                                                                                            |
+| `renderer` | `string \| null` | `null`              | The Renderer id                                                                                                                                                |
+| `pos`      | `number`         | The selection       | Where to insert                                                                                                                                                |
+
+Returns `false` when no format has that id, when the content cannot be read, or when
+`insertChart` would return `false`.
+
+### importMermaidChart
+
+Inserts a chart from Mermaid chart source. Mermaid is a library that draws diagrams and charts
+from text.
+
+```ts
+editor.commands.importMermaidChart({ source: 'pie\n  "Dogs" : 386\n  "Cats" : 85' })
+```
+
+| Option   | Type     | Default       | Description        |
+| -------- | -------- | ------------- | ------------------ |
+| `source` | `string` | Required      | The Mermaid source |
+| `pos`    | `number` | The selection | Where to insert    |
+
+These Mermaid kinds become charts:
+
+| First line                  | Chart type      | Data                                                                                                  |
+| --------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `pie`                       | `pie`           | A row per slice                                                                                       |
+| `xychart-beta` or `xychart` | `bar` or `line` | A row per category, a series per bar or line. `line` only without bars. Keeps the y range and x title |
+| `sankey-beta` or `sankey`   | `sankey`        | A row per flow: source, target, value                                                                 |
+| `radar-beta`                | `radar`         | A row per axis, a series per curve. Keeps `min` and `max`                                             |
+| `treemap-beta` or `treemap` | `treemap`       | A row per node with a value, labeled by its path, `A / B`                                             |
+
+The title comes from `title`, or else the frontmatter, and `accDescr` becomes the description.
+Mermaid's styling (`classDef`, `showLegend`, `ticks`, `graticule`) is left out. Pasting such
+source runs this command, see [Pasting](/docs/diagrams/data/pasting#how-pasted-text-is-read).
+
+`toMermaidSource` from `@tiptap-pro/extension-diagrams/core` and the `mermaid` format write the
+five kinds back. Pie, radar and treemap take no negative numbers in Mermaid. So a pie slice of
+zero or less, an empty cell and a negative treemap node are left out, and a negative radar value
+becomes zero. An `xychart` keeps negative values.
+
+Returns `false` for any other Mermaid diagram, and for chart source it cannot read, such as a pie
+line that is not `"Label" : 42`.
+
+### convertCodeBlockToChart
+
+Replaces a code block with the chart its [Mermaid chart source](/docs/diagrams/charts/overview#importmermaidchart) describes.
+Any node with `code: true` counts as one, except the Quick Input's `diagramInput` node.
+
+```ts
+if (editor.can().convertCodeBlockToChart()) editor.commands.convertCodeBlockToChart()
+```
+
+| Option | Type     | Default       | Description                      |
+| ------ | -------- | ------------- | -------------------------------- |
+| `pos`  | `number` | The selection | A position inside the code block |
+
+Mod-Enter in the code block runs the command too, see
+[Mod-Enter in a code block](/docs/diagrams/data/quick-input#mod-enter-in-a-code-block).
+
+Returns `false` when there is no code block at the position, when it holds anything else than
+Mermaid chart source, or when that source has no rows.
+
+### insertDiagramInput
+
+Opens an empty [Quick Input](/docs/diagrams/data/quick-input), a text field in the document whose rows
+become a chart, at the selection with the cursor in it. Typing the
+[`trigger`](/docs/diagrams/api-reference/options#trigger) `:::` does the same.
+
+```ts
+editor.chain().focus().insertDiagramInput({ type: 'pie' }).run()
+```
+
+| Option | Type        | Default             | Description                          |
+| ------ | ----------- | ------------------- | ------------------------------------ |
+| `type` | `ChartType` | `chart.defaultType` | The type the Quick Input starts with |
+
+The Quick Input is the `diagramInput` node. `Diagrams` adds it with the `chart` node, unless its
+[`chart`](/docs/diagrams/api-reference/options#chart) option is `false`.
+[Keys in the Quick Input](/docs/diagrams/data/quick-input#keys-in-the-quick-input) says how users confirm.
+
+Returns `false` when the schema has no `diagramInput` node, or when a block cannot go at the
+selection.

@@ -1,0 +1,270 @@
+---
+title: Webhooks in Collaboration
+tags:
+  - type: team
+meta:
+  title: Webhooks | Tiptap Collaboration Docs
+  description: Set up and understand webhook payloads, and manage settings to integrate advanced features. Learn more in the docs!
+  category: Collaboration
+---
+
+
+You can define a URL and we will call it every time a document has changed. This is useful for getting the JSON representation of the Yjs document in your own application.
+
+We call your webhook URL when the document is saved to our database. This operation is debounced by 2-10 seconds. So your application won't be flooded by us. Right now we're only exporting the fragment `default` of the Yjs document.
+
+## Configure Webhooks
+
+To configure webhooks for document and comments notifications:
+
+1. Navigate to the [Collaboration settings](https://cloud.tiptap.dev/v2/configuration/document-server) in your account.
+2. Find the webhooks section and add your desired endpoint URL.
+
+After adding your URL, the webhook is immediately live. You'll start receiving notifications for the specified events without any delay.
+
+<Callout title="Add Comments support to your webhook" type="warning">
+  If you want to add webhook support for the comments feature and your Document server was created
+  before March 2024, please upgrade your webhook as described [below](#enable-the-comments-webhook).
+</Callout>
+
+## Example payload
+
+All requests to your webhook URL will contain a header called `X-Hocuspocus-Signature-256` that signs the entire message with your secret. You can find it in the [settings](https://collab.tiptap.dev/apps/settings) of your document server.
+
+```json
+{
+  "appName": "", // name of your document server
+  "name": "", // name of the document (URI encoded if necessary)
+  "time": 0, // current time as ISOString (Date.getTime())
+  "tiptapJson": {}, // JSON output from Tiptap (see https://tiptap.dev/guide/output#option-1-json): TiptapTransformer.fromYdoc()
+  "ydocState"?: {}, // optionally contains the entire yDoc as base64. This can be enabled in the runtime configuration (see https://tiptap.dev/docs/collaboration/operations/configure `webhook_include_ydoc_state`)
+  "clientsCount": 100,// number of currently connected clients
+  "type": "", // the payload type (if the document was changed, this is DOCUMENT) ; only available if you are on webhooks v2
+  "trigger": "", // what triggered the event (usually "document.saved") ; only available if you are on webhooks v2
+  "changedFields": [], // names of the document fields whose content changed (see below)
+  "checksums": {}, // checksum of every field in tiptapJson, for conflict-safe updates (see below)
+  "users": [] // list of users who changed the content since the last webhook ("sub" field from the JWT)
+}
+```
+
+## Content changes
+
+`document.saved` fires every time a document is written to our database, and not every write
+is a content change. The most common example: when you pass `user` to the
+`TiptapCollabProvider`, the provider records that client in the document on every connection,
+so merely opening a document produces a save — and therefore a webhook — even though nobody
+typed anything.
+
+There are two ways to tell the difference.
+
+### The `changedFields` array
+
+Every `document.saved` and `content.changed` payload lists the document fields whose content
+differs from the last change we reported:
+
+```json
+{
+  "changedFields": ["default"]
+}
+```
+
+Opening a document without editing it gives you `"changedFields": []`, because the client
+record the provider writes is an internal field and is not counted as content.
+
+`changedFields` is sent on every webhook version.
+
+<Callout title="An empty array is not a guarantee" type="warning">
+  `changedFields` is empty when nothing changed, but it is *also* empty when the server could not
+  determine what changed — for instance when a document is written without ever having been loaded.
+  Treat an empty array as "no change reported", not as "nothing changed". If you need a signal you
+  can act on, use `content.changed` below: it is only ever sent when a content change was positively
+  identified.
+</Callout>
+
+### The `content.changed` event
+
+`content.changed` is a separate trigger, delivered to the same webhook URL with the same
+payload as `document.saved`, but **only** when the content actually changed. If your
+integration currently listens for `document.saved` and ignores the saves that carry no edit,
+you can subscribe to `content.changed` instead and drop that check.
+
+It also covers one case `document.saved` does not: if the server that observed an edit
+shuts down before its scheduled save runs, another server persists the content and reports
+it as `content.changed`. No `document.saved` is sent for that save.
+
+Two requirements:
+
+1. Set `webhook_version` to `2` or higher. On version 1 the payload carries no `trigger`
+   field, so you would not be able to tell the two events apart.
+2. Subscribe to it explicitly with `webhook_events` — see below.
+
+### Choosing which events you receive
+
+`webhook_events` is a comma-separated allowlist of the triggers you want delivered:
+
+| Value                            | Result                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| unset                            | every event except `content.changed` — what your endpoint received before this setting existed |
+| `document.saved,content.changed` | exactly those two                                                                              |
+| `*`                              | every event, including ones added in future releases                                           |
+| `none`                           | nothing                                                                                        |
+
+Unrecognised entries are ignored, and a value containing _only_ unrecognised entries
+delivers nothing rather than falling back to the default — so a typo fails loudly instead of
+quietly restoring full delivery.
+
+Available events: `document.saved`, `content.changed`, `user.connected`, `user.disconnected`,
+`thread.added`, `thread.updated`, `thread.resolved`, `thread.deleted`, `comment.added`,
+`comment.updated`, `comment.deleted`, `document.reverted`, `version.created`.
+
+### Choosing which fields count as content
+
+By default every field that is not internal to Tiptap Collaboration counts as content —
+that is, every field whose name does not start with `__tiptapcollab__`. Set `content_fields`
+to change that:
+
+| Value                     | Result                                                                |
+| ------------------------- | --------------------------------------------------------------------- |
+| unset                     | every field not prefixed `__tiptapcollab__`                           |
+| `default`                 | only the main editor field                                            |
+| `default,body`            | those two                                                             |
+| `body*`                   | one `*` per entry globs, so this matches every field with that prefix |
+| `__tiptapcollab__threads` | makes comment activity count as a content change                      |
+| `*`                       | every field, internal ones included                                   |
+
+A value **replaces** the default rule rather than narrowing it, which is what lets you opt an
+internal field such as `__tiptapcollab__threads` back in. Entries are case-sensitive, since
+these are Yjs field names.
+
+Changing this setting takes effect on the next save. A field you have just added to the set
+has no recorded state yet, so it reports a change once and then settles. Removing a field is
+not itself a change — it means "stop watching this".
+
+## Conflict-safe updates from a webhook
+
+`document.saved` and `content.changed` payloads include a `checksums` object with one entry
+per field in `tiptapJson`:
+
+```json
+{
+  "tiptapJson": { "default": { "type": "doc", "content": [] } },
+  "checksums": { "default": "<sha256 hex string>" }
+}
+```
+
+Each value is the checksum the [get document](/docs/collaboration/documents/rest-api#get-a-document)
+call returns in its `x-<field>-checksum` header for the same document state. To update the
+document only if nobody edited it after the webhook was sent, pass the checksum to the
+[update call](/docs/collaboration/documents/content-injection#conflict-safe-update-with-checksum)
+as `?checksum=`. If the document changed in the meantime, the update fails with `409 Checksum
+mismatch` and nothing is written. You don't need to fetch the document first.
+
+Use the value from the payload rather than hashing `tiptapJson` yourself. Different JSON
+libraries serialize the same content differently, so your hash would not match ours.
+
+## Retries
+
+Webhooks are not retried by default, but you can enable retries by setting `webhook_retries` to `1` (see [Configure Runtime](/docs/collaboration/operations/configure)).
+The retry schedule is as follows:
+
+- 1st retry: 5 seconds after the initial attempt
+- 2nd retry: 15 seconds after the last attempt
+- 3rd retry: 2 minutes after the last attempt
+- 4th retry: 10 minute after the last attempt
+- 5th retry: 30 minutes after the last attempt
+- 6th retry: 3 hours after the last attempt
+
+All retries include a header `X-Hocuspocus-Retry` with the current retry count. The `time` property in the payload is the timestamp of the initial attempt.
+
+## Enable the Comments webhook
+
+The webhook that supports comments is automatically enabled for all users that have created their account after March, 2024.
+
+If your account was created before March, 2024 and you're using an older version of the webhook system, you'll need to manually enable the new comments webhooks. Here's how:
+
+1. In case you’ve already implemented a previous Collaboration webhook, make sure to check the `type` and `trigger` fields when processing incoming webhooks.
+2. Navigate to the [Collaboration settings](https://cloud.tiptap.dev/v2/configuration/document-server) in your account.
+3. Locate the Webhook section and click on the "Update" button.
+
+This upgrade is necessary to accommodate the introduction of multiple new events being routed to the same webhook endpoint, distinguished by a new `type` and `trigger` field.
+
+If you do not wish to use the comments webhook, no upgrade is necessary.
+
+## Loader Webhook
+
+In order to initialize documents, you can use the `webhook_loader_url` setting (see [configure runtime](/docs/collaboration/operations/configure)). This URL will be called if a new document is requested.
+The webhook will contain a header `Authorization` with your secret, and `document-name` with the name of the requested document.
+
+If you return a yjs update (Y.encodeStateAsUpdate on your side), it will be applied to the document. You can also return Tiptap JSON, if you send `Content-Type: application/json` (from January 2026 / v3.67.0).
+If you return anything else, the document will be initialized with an empty document.
+Note that the loader webhook is called only once when the document is created.
+
+The request looks like this:
+```
+GET {{webhook_loader_url}}
+
+Authorization: {{jwt secret}}
+document-name: {{requested document name}}
+```
+
+## Awareness Webhooks
+
+If you want to get notified whenever a user connects to or disconnects from a document, you can enable awareness webhooks [here](/docs/collaboration/operations/configure#settings-overview).
+If you need the user parameter, please make sure to pass it to the TiptapCollabProvider, as mentioned [here](/docs/collaboration/provider/integration#configure-the-collaboration-provider).
+
+The events look like this:
+
+```json
+{
+  "trigger": "user.connected", // or user.disconnected
+  "user": "user_1",
+  "numConnectedUsers": 0,
+  "appName": "",
+  "name": "testdocument",
+  "time": "2025-04-21T19:32:55.632Z",
+  "type": "DOCUMENT"
+}
+```
+
+## Version Webhooks
+
+When a new version is created, a `version.created` webhook is sent to your configured webhook URL. The payload includes the version's metadata, including the automatically generated `__tiptap` metadata.
+
+```json
+{
+  "trigger": "version.created",
+  "type": "DOCUMENT",
+  "appName": "",
+  "name": "testdocument",
+  "time": "2026-03-09T12:00:00.000Z",
+  "version": 5,
+  "versionName": "Name of the version",
+  "meta": {
+    "__tiptap": {
+      "trigger": "websocket",
+      "changesBy": ["#user1", "#user2"],
+      "triggeredBy": "user1"
+    },
+    "wordCount": 4523
+  }
+}
+```
+
+For more details on the `meta.__tiptap` fields, see [automatic version metadata](/docs/collaboration/documents/snapshot#automatic-version-metadata).
+
+## Custom fields
+
+If you use custom fields in Yjs, you can add them to the webhook by setting `webhook_include_fields=1` in the [runtime configuration](/docs/collaboration/operations/configure).
+In order for us to identify the correct type of the yjs field, you need to configure them in the Tiptap Typemap.
+
+```typescript
+// store any data in Yjs. See the official docs: https://docs.yjs.dev/api/shared-types
+// "config" here can be replaced by any string. A map gives you a key-value store.
+const ydoc = new Y.Doc()
+ydoc.getMap('config').set('mycustomoption', 'value123');
+
+// In the provider, you need to tell us the yjs type.
+// We currently support possible options: map, array, text, xmlfragment, xmlelement
+const provider = new TiptapCollabProvider({document: ydoc})
+provider.setFieldType('config', 'map');
+```

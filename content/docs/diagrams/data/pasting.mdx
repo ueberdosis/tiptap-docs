@@ -1,0 +1,98 @@
+---
+title: 'Pasting'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Pasting | Tiptap Diagrams Docs'
+  description: 'Turn pasted Mermaid, draw.io XML or BPMN XML into a chart or a diagram, and rows pasted from a spreadsheet into the data of a selected chart.'
+  category: Diagrams
+---
+
+When the user pastes Mermaid, draw.io XML or BPMN XML into the document, the extension turns the text into a chart or a diagram, and rows pasted onto a selected chart become its new data. The editor from [A first chart](/docs/diagrams/getting-started/install#a-first-chart) does this without more setup.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsPasteDetection" isPro />
+
+## What pasted text becomes
+
+Mermaid is a language that describes charts and diagrams as text. Pasted text becomes:
+
+| Pasted text                                                                       | Becomes                                                                                                                                |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Rows, as in the [Chart syntax](/docs/diagrams/data/chart-syntax), or CSV with at least two columns | No chart: they paste as they would without the extension. [`insertFromText`](/docs/diagrams/data/pasting#insertfromtext) or the Quick Input makes a chart of them |
+| A Mermaid chart, such as `pie` or `sankey-beta`                                   | A chart ([`importMermaidChart`](/docs/diagrams/charts/overview#importmermaidchart))                                                               |
+| Any other Mermaid kind                                                            | A diagram ([Formats](/docs/diagrams/flow-diagrams/formats#mermaid-diagrams))                                                                         |
+| draw.io XML or BPMN XML                                                           | A diagram ([Formats](/docs/diagrams/flow-diagrams/formats))                                                                                          |
+| Rows from a spreadsheet, while a chart is selected                                | That chart's new data, see [Onto a selected chart](/docs/diagrams/data/pasting#onto-a-selected-chart)                                                             |
+| Anything, into a code block                                                       | The text, unchanged                                                                                                                    |
+
+## How pasted text is read
+
+The extension finds pasted Mermaid bare, in a ` ```mermaid ` fence, or as a code block with the
+language `mermaid`. Bare Mermaid needs its kind, such as `flowchart`, on the first line, and more
+than one line, so a sentence that starts with "pie" stays a sentence.
+
+A code block that already holds diagram source becomes the diagram with
+[`convertCodeBlockToDiagram`](/docs/diagrams/flow-diagrams/overview#convertcodeblocktodiagram), or with
+[Mod-Enter](/docs/diagrams/data/quick-input#mod-enter-in-a-code-block).
+
+## Detecting text in a field of your own
+
+`detectDiagramInput` tells you what text from a field outside the editor would become.
+
+### detectDiagramInput
+
+`detectDiagramInput(text, options?)` returns `{ kind, source }`, or `null`.
+
+```ts
+import { detectDiagramInput } from '@tiptap-pro/extension-diagrams'
+
+const detected = detectDiagramInput(text)
+if (detected?.kind === 'mermaid-diagram')
+  editor.commands.insertFlowDiagram({ source: detected.source })
+```
+
+| `kind`              | Text                                                                                               | Command to call                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `'mermaid-chart'`   | A Mermaid chart, such as `pie` or `sankey-beta`, with at least one row                             | `importMermaidChart({ source })`                               |
+| `'mermaid-diagram'` | Any other [Mermaid kind](/docs/diagrams/flow-diagrams/overview#mermaid-kinds), on more than one line or in a fence | `insertFlowDiagram({ source })`                                |
+| `'drawio'`          | An `<mxfile>` or `<mxGraphModel>`                                                                  | `insertFlowDiagram({ source, format: 'drawio' })`              |
+| `'bpmn'`            | BPMN 2.0 `<definitions>`                                                                           | `insertFlowDiagram({ source, format: 'bpmn' })`                |
+| `'chart-syntax'`    | Rows with a delimiter, as the Chart syntax or CSV, with at least two columns, not a single column  | `insertChartFrom({ format: 'chart-syntax', content: source })` |
+
+- `source` is the text, trimmed, with a ` ```mermaid ` fence removed.
+- A sentence, a lone Mermaid keyword, XML that cannot be read and a fence of another language
+  return `null`.
+- With custom `delimiters` or `decimalSeparator` options, pass the same values:
+  `detectDiagramInput(text, { delimiters, decimalSeparator })`.
+- `insertFromText` acts on every `kind`. A paste acts on all but `'chart-syntax'`.
+
+## Onto a selected chart
+
+Spreadsheet apps copy rows as tab-separated lines. A paste counts as rows with a header, at least
+one row, and a tab on every line. Comma-separated text or a single line pastes as usual, also
+onto a selected chart.
+
+- **When a chart is selected**, the pasted rows replace its data and keep its spec, through
+  [`updateChartFromGrid`](/docs/diagrams/data/overview#updatechartfromgrid).
+- **When the selected chart is read-only**, the paste changes nothing.
+- **Anywhere else**, the rows paste as they would without the extension.
+
+## Commands
+
+### insertFromText
+
+Inserts a chart or a diagram from a text, read with `detectDiagramInput` and the editor's
+`delimiters` and `decimalSeparator`. Unlike a paste, it also makes a chart from rows.
+
+```ts
+editor.commands.insertFromText({ text: 'Month | Sales\nJan | 2\nFeb | 3' })
+```
+
+| Option | Type     | Default       | Description                     |
+| ------ | -------- | ------------- | ------------------------------- |
+| `text` | `string` | Required      | The text, as it would be pasted |
+| `pos`  | `number` | The selection | The position to insert at       |
+
+Returns `false` for text that is neither a chart nor a diagram, or without the node it would
+become.

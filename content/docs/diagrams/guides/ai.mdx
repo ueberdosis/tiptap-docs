@@ -1,0 +1,138 @@
+---
+title: 'Tools for a model'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Tools for a model | Tiptap Diagrams Docs'
+  description: 'Give an AI model tools to insert, read and change charts and diagrams.'
+  category: Diagrams
+---
+
+An AI model, such as a large language model (LLM), can insert, read and change charts and diagrams with tool calls. The extension builds the tool definitions from what your editor supports, and each tool writes through the same commands as a user's edits.
+
+
+Run a model's tool calls and see each answer and its effect:
+
+<CodeDemo isPro viewer view="preview" path="/Extensions/DiagramsModelTools" />
+
+The [Tiptap AI Toolkit](/docs/ai/ai-toolkit/overview) also reads, adds and changes charts and Mermaid
+diagrams, with its own document tools. The tools on this page add what the toolkit doesn't do:
+changing draw.io and BPMN diagrams, linking a chart to a Data Source, listing the chart types this
+editor draws, and checking a chart before it's written. See [Use with Diagrams](/docs/ai/ai-toolkit/agents/diagrams) for the Server AI Toolkit and
+[Schema awareness](/docs/ai/ai-toolkit/client/agents/schema-awareness) for the Client AI Toolkit.
+
+## Quick start
+
+With the editor of [A first chart](/docs/diagrams/getting-started/install#a-first-chart), offer the model the chart and
+diagram tools, and answer each call with the matching run function. `name` and `input` stand for
+the tool name and the input of the model's call:
+
+```ts
+import {
+  getChartToolDefinitions,
+  getDiagramToolDefinitions,
+  runChartTool,
+  runDiagramTool,
+} from '@tiptap-pro/extension-diagrams'
+
+// Pass these to the model as its tools
+const chartTools = getChartToolDefinitions(editor)
+const tools = [...chartTools, ...getDiagramToolDefinitions(editor)]
+
+// Answer one tool call, and send result.output back to the model
+const result = chartTools.some(tool => tool.name === name)
+  ? runChartTool(editor, name, input)
+  : runDiagramTool(editor, name, input)
+```
+
+## Functions
+
+These functions need no AI SDK:
+
+| Function                              | Returns                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `getChartToolDefinitions(editor)`     | Tool definitions (`name`, `description`, `inputSchema`) for the [chart tools](/docs/diagrams/guides/ai#charts) |
+| `runChartTool(editor, name, input)`   | `{ ok, output, pos? }` after running one chart tool                                    |
+| `getDiagramToolDefinitions(editor)`   | Tool definitions for the [diagram tools](/docs/diagrams/guides/ai#diagrams)                                    |
+| `runDiagramTool(editor, name, input)` | `{ ok, output, pos? }` after running one diagram tool                                  |
+
+## What a call returns
+
+| Field    | Type      | Description                                                       |
+| -------- | --------- | ----------------------------------------------------------------- |
+| `ok`     | `boolean` | Whether the call succeeded. A refused call writes nothing         |
+| `output` | `string`  | JSON or text for the model. On failure, how to fix the call       |
+| `pos`    | `number`  | Where an insert or update wrote. The end of `output` names it too |
+
+Inserts and updates answer with a sentence, such as `Inserted. pos: 12.`, and reads with text.
+`listCharts`, `listDiagrams` and `describeChartCapabilities` answer with JSON.
+
+## Charts
+
+The chart tools are `insertChart`, `insertLinkedChart`, `updateChart`, `readChart`, `listCharts`
+and `describeChartCapabilities`. Their definitions list your editor's text formats, such as
+`chart-syntax`, and its Renderers, the adapters to chart libraries, as enums.
+
+### Only what this editor can draw
+
+The `type` enum lists the chart types a registered Renderer draws, and `describeChartCapabilities`
+names each Renderer's types. These calls are refused, and nothing is written:
+
+- an insert of a type no Renderer draws, or that is not registered,
+- a `renderer` that is not registered, or does not draw the chart's type,
+- an `updateChart` call that changes the type to one no Renderer draws,
+- an `updateChart` call with new data for a chart on a read-only Data Source.
+
+The answer names the types or Renderers to use instead:
+
+```json
+{
+  "ok": false,
+  "output": "No Renderer here draws \"sankey\" charts. Use one of these types: line, bar, pie."
+}
+```
+
+### A chart that reads a Data Source
+
+The tool `insertLinkedChart` inserts a chart and links it to a [Data Source](/docs/diagrams/data/sources), such
+as a CSV file at a URL. The command [`insertLinkedChart`](/docs/diagrams/data/tables#insertlinkedchart) is
+different: it makes a chart that follows a table in the document, which the tool cannot do.
+
+| Parameter  | Type      | Description                                                         |
+| ---------- | --------- | ------------------------------------------------------------------- |
+| `provider` | `string`  | Required. A registered Data Source other than `document-table`      |
+| `address`  | `object`  | Required. Such as `{ url }` for a CSV or JSON file                  |
+| `type`     | `string`  | Optional. Defaults to [`chart.defaultType`](/docs/diagrams/api-reference/options#defaulttype) |
+| `title`    | `string`  | Optional                                                            |
+| `readOnly` | `boolean` | The chart is read-only unless this is `false`                       |
+
+The data arrives after the call returns, and a failed read goes to the
+[`onSourceError`](/docs/diagrams/api-reference/options#onsourceerror) option.
+
+The tool links `url-csv` and `url-json` only to URLs your
+[`allowSourceUrl`](/docs/diagrams/api-reference/options#allowsourceurl) allows. That decides where a request goes, not what it holds: a model can still put document text into an
+allowed URL's query. So allow only hosts you trust with the document's content.
+
+## Diagrams
+
+The diagram tools are `insertDiagram`, `updateDiagram`, `readDiagram` and `listDiagrams`. A model
+writes Mermaid, a diagram text format it knows, without `%%{init}%%` directives, which are removed.
+
+`listDiagrams` names each diagram's `format`. A draw.io or BPMN diagram is read and changed as its
+whole XML, so send the complete source back. An update without the root element and its closing tag
+is refused.
+
+A [Mermaid chart kind](/docs/diagrams/charts/overview#importmermaidchart), such as a pie, is a chart, so a
+diagram tool refuses it and points the model to `insertChart`.
+
+### Formats and Renderers
+
+The format a diagram tool writes depends on the call:
+
+- **`insertDiagram` creates Mermaid or BPMN** (`format: 'bpmn'`). Without a `format`, it creates
+  Mermaid, unless your editor draws BPMN but not Mermaid.
+- **`insertDiagram` does not offer draw.io.** The model can read and change an existing draw.io
+  diagram with `readDiagram` and `updateDiagram`.
+- **The tools write the source whatever Renderers are registered.** For a format or kind no
+  Renderer here draws, `output` tells the model it shows as unavailable.

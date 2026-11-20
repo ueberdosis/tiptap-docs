@@ -1,0 +1,125 @@
+---
+title: 'Versions'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Versions | Tiptap Diagrams Docs'
+  description: 'Show what changed in a chart or diagram when comparing versions of a document.'
+  category: Diagrams
+---
+
+A version comparison compares charts and diagrams by what the document stores, not by how they look. A chart or a diagram has changed when one of its stored attributes differs. You choose which attributes the comparison ignores.
+
+## What is compared
+
+A chart is compared by its data, Chart Spec (its settings), Renderer, Data Source, delimiter and
+when that source was last read. A diagram is compared by its source text, format,
+title, description, view and options.
+
+`view` is whether a diagram shows its picture or its source text. If switching it should not count
+as a change, add `'view'` to the `ignoreAttributes` in the next section, which leaves it out.
+
+## With Tiptap's Compare
+
+`@tiptap-pro/compare` compares the JSON of two documents, and reports a chart or a diagram whose
+attributes differ as a changed block. Leave out the attributes that only matter for showing or
+editing:
+
+```ts
+import { compareDocuments } from '@tiptap-pro/compare'
+
+const changeset = compareDocuments({
+  schema: editor.schema,
+  docA: olderVersion,
+  docB: newerVersion,
+  diffOptions: {
+    // Compare's defaults, plus a chart's uploaded preview image and a table's Quick Input view
+    ignoreAttributes: ['id', 'data-thread-id', '_hash', 'previewUrl', 'diagramInput'],
+  },
+})
+```
+
+A chart's attributes change in these cases:
+
+| Attribute                   | Changes when                                                    | In a comparison                                                   |
+| --------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `data`                      | values are edited, or a synchronization brings different data   | a change                                                          |
+| `spec`                      | the type, title, colors, axes or references change              | a change                                                          |
+| `renderer`                  | another Renderer is chosen. The data stays the same             | a change                                                          |
+| `source`                    | the Data Source is linked or detached, or its address changes   | a change                                                          |
+| `delimiter`                 | the rows are changed as text with another delimiter             | a change. Add `'delimiter'` to `ignoreAttributes` to leave it out |
+| `syncedAt`                  | the chart reads its Data Source, also when the data is the same | a change. Add `'syncedAt'` to `ignoreAttributes` to leave it out  |
+| `previewUrl`                | its preview image changes                                       | leave out                                                         |
+| `diagramInput` (on a table) | the table is used as the Quick Input's table view               | leave out                                                         |
+
+## Saying what changed in a chart
+
+`describeChartChange` from `@tiptap-pro/extension-diagrams/core` tells you what changed inside a
+chart, for a line such as "February: 4 → 5, type: bar → line". It compares charts only.
+
+A chart has no id, so pair the two versions of a chart through a change of the Changeset: its
+`rangeA` is in the older document and its `rangeB` in the newer one. A change can cover more than
+one block, so take the charts in each range in order, and skip a range where a chart was added or
+removed:
+
+```ts
+import type { Range } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import { describeChartChange } from '@tiptap-pro/extension-diagrams/core'
+
+const older = editor.schema.nodeFromJSON(changeset.docA)
+const newer = editor.schema.nodeFromJSON(changeset.docB)
+
+const chartsIn = (doc: ProseMirrorNode, range: Range) => {
+  const charts: ProseMirrorNode[] = []
+  doc.nodesBetween(range.from, range.to, node => {
+    if (node.type.name === 'chart') charts.push(node)
+  })
+  return charts
+}
+
+for (const { rangeA, rangeB } of changeset.changes) {
+  const olderCharts = chartsIn(older, rangeA)
+  const newerCharts = chartsIn(newer, rangeB)
+  // A chart was added or removed here, so the order cannot pair them
+  if (olderCharts.length !== newerCharts.length) continue
+
+  newerCharts.forEach((newerChart, index) => {
+    const olderChart = olderCharts[index]
+    const change = describeChartChange({ before: olderChart.attrs, after: newerChart.attrs })
+
+    if (change.changed) {
+      const cells =
+        change.data?.cells.map(
+          cell => `${cell.row} ${cell.column}: ${cell.before} → ${cell.after}`,
+        ) ?? []
+      const fields = change.spec.map(
+        field => `${field.path}: ${String(field.before)} → ${String(field.after)}`,
+      )
+      const lines = [...cells, ...fields]
+      if (lines.length) console.log(lines.join(', '))
+    }
+  })
+}
+```
+
+When a change both removes and adds charts, the counts can match and the order pairs them by
+position, which may not be the same chart.
+
+The example lists changed cells and spec fields only. `data` also names added and removed rows and
+columns, and `renderer`, `source` and `syncedAt` say how those changed.
+
+`describeChartChange` returns these fields:
+
+| Field                            | What it holds                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| `changed`                        | Whether anything below differs                                                    |
+| `data`                           | `{ columnsAdded, columnsRemoved, rowsAdded, rowsRemoved, cells }`, or `null`      |
+| `spec`                           | `{ path, before, after }` for every spec field that differs, such as `axes.y.min` |
+| `renderer`, `source`, `syncedAt` | `{ before, after }`, or `null` when unchanged                                     |
+
+A row is named by its label when every row has a different, non-empty label, and by its position
+from 0 otherwise. A cell is named by its row and its column header.
+
+Attributes from older documents work too, and attributes it cannot read count as an empty chart.

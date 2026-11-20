@@ -1,0 +1,358 @@
+---
+title: 'Export'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Export | Tiptap Diagrams Docs'
+  description: 'Export charts and diagrams as SVG, PNG, WebP or JPEG files, put them into a Word document, or turn a chart into an image.'
+  category: Diagrams
+---
+
+Export a chart or a diagram as an SVG, PNG, WebP or JPEG file, or put charts and diagrams into a Word document. Exporting reads the document and changes nothing. Only the [commands](/docs/diagrams/export#commands), which replace a chart with an image of it, change the document.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsExport" isPro />
+
+## Quick start
+
+In the editor of [A first chart](/docs/diagrams/getting-started/install#a-first-chart), which selects the chart it
+inserts, these lines save that chart as a PNG file. `downloadBlob` offers a Blob as a download:
+
+```ts
+import { downloadBlob } from '@tiptap-pro/extension-diagrams/export'
+
+const { blob } = await editor.storage.diagrams.export(
+  {},
+  { format: 'png', scale: 2, background: '#ffffff' },
+)
+downloadBlob(blob, 'chart.png')
+```
+
+## Files
+
+`editor.storage.diagrams.export(target, options)` returns a promise of one file. The file has the
+border and caption the editor shows, and the credit link that a Renderer may require.
+
+`editor.storage.diagrams.exportAll(options)` returns a promise of an array of the same results,
+each with its `pos`, for every drawable chart and diagram in document order.
+
+### What to export
+
+The first argument, `target`, is one of:
+
+| Target                      | Exports                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `{ pos? }`                  | The chart or diagram at `pos`, a position such as `listCharts()` returns, or the selected one with `{}` |
+| `{ data, spec, renderer? }` | [Chart Data](/docs/diagrams/renderers/custom#what-a-renderer-receives) that is in no document                |
+
+A diagram is drawn by its Diagram Renderer, such as the Mermaid one, and its colors come from the
+`--tt-flow-diagram-*` [custom properties](/docs/diagrams/api-reference/selectors).
+
+### Options
+
+| Option       | Type                                 | Default                                                               | Description                                                           |
+| ------------ | ------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `format`     | `'svg' \| 'png' \| 'webp' \| 'jpeg'` | `'svg'`                                                               | The file format                                                       |
+| `scale`      | `number`                             | `2`                                                                   | Image pixels per pixel of `size`. `2` gives 1600 px for 800           |
+| `background` | `string \| null`                     | `null`                                                                | A fill behind the chart in an image. A JPEG without one is white      |
+| `renderer`   | `string`                             | The chart's                                                           | Draw with another Renderer, charts only                               |
+| `theme`      | `ChartTheme`                         | The page's                                                            | Colors and fonts instead of the page's custom properties, charts only |
+| `size`       | `{ width: number; height: number }`  | `{ width: 800, height: 450 }`, or 800 wide at the chart's own `ratio` | The size to draw at, charts only                                      |
+| `scheme`     | `'light' \| 'dark'`                  | `'light'`                                                             | The color scheme, whatever the page shows. Light on a server          |
+
+### What comes back
+
+| Field             | Content                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `blob`            | The file                                                                                             |
+| `svg`             | The SVG, with concrete colors instead of `var(…)`, so it looks the same anywhere                     |
+| `width`, `height` | The size of the drawing                                                                              |
+| `alt`             | The title and description, for an `alt` attribute. Else `<type> chart` or `Diagram`                  |
+| `renderer`        | The id of the Renderer it was drawn with                                                             |
+| `raster`          | `true` when the Renderer drew pixels. The SVG then holds an image, which does not scale without loss |
+
+PNG, WebP and JPEG need a browser. ECharts and D3 SVGs can be made on a server. The mermaid.js,
+draw.io and BPMN Diagram Renderers draw only in a browser, so on a server only Pele's
+[`renderPeleDiagram`](/docs/diagrams/renderers/pele#on-a-server) draws a diagram. The promise
+rejects without a chart or diagram, without a Renderer for it, or for a format the Renderer's
+[rules](/docs/diagrams/renderers/custom#members), the export formats it allows, forbid.
+
+For an SVG of your own, `/export` also has `svgToBlob(svg)`, `svgToImage(svg, options)`,
+`toDataUrl(blob)`, `readSvgSize(svg)`, `inlineSvgStyles` and `rasterToSvg`.
+
+## Word
+
+There are three ways to get charts into Word. A native Word chart is drawn by Word, the user can
+restyle it there, and "Edit data" opens its data in Excel.
+
+| Way                                                                                        | What the Word file holds                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `editor.storage.diagrams.exportDocx()`                                                     | Only the charts and diagrams. Native Word charts where Word can draw them, and diagrams as images where they can be drawn |
+| [`toPortableContent`](/docs/diagrams/export#a-whole-document) with `ExportDocx`                                 | The whole document. Each chart is an image, a table or both, and each diagram is an image or its source                   |
+| [`toPortableContent` with `charts: 'native'`, then `addNativeCharts`](/docs/diagrams/export#native-word-charts) | The whole document, with native Word charts                                                                               |
+
+### Charts and diagrams only
+
+`exportDocx` writes a Word file of only the charts and diagrams, a promise of `{ blob, notes }`:
+
+```ts
+import { downloadBlob } from '@tiptap-pro/extension-diagrams/export'
+
+const { blob, notes } = await editor.storage.diagrams.exportDocx({
+  targets: [{ pos }],
+  title: 'Report',
+})
+downloadBlob(blob, 'charts.docx')
+for (const note of notes) console.info(note.title ?? 'All charts', note.message)
+```
+
+`exportDocx` takes these options:
+
+| Option         | Type                 | Default                                         | Description                                      |
+| -------------- | -------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| `targets`      | `ChartTarget[]`      | See [What the file holds](/docs/diagrams/export#what-the-file-holds) | [Targets](/docs/diagrams/export#what-to-export) to write, in order    |
+| `title`        | `string`             | None                                            | A heading above the charts                       |
+| `fallbackFont` | `string`             | `'Arial'`                                       | The font Word uses when it lacks the page's font |
+| `images`       | `'auto' \| 'always'` | `docxImages` option                             | See [Charts as images](/docs/diagrams/export#charts-as-images)        |
+
+### What the file holds
+
+Each target becomes a native Word chart with its data in an embedded workbook, a Word table, or a
+PNG image. Without `targets`, the file holds every chart with data, except one with the layout
+`'table'`, and every diagram with source.
+
+Colors and the font come from the page, in light.
+
+- **A native Word chart** whose Chart Spec has `caption: true` has its description below, in
+  Caption style.
+- **A chart as an image** has that description drawn in, and its title below.
+- **A diagram** is a PNG image with its title below, scaled down to the page width when wider.
+- **A `matrix` chart** is a Word table with shaded cells and its title above.
+
+A chart or diagram with a [size](/docs/diagrams/guides/size-and-view#setdiagramsize) takes that share of the page
+width. Alt text holds the title and
+description. A diagram that cannot be drawn, such as on a server, is left out with a
+[note](/docs/diagrams/export#notes). A chart that cannot be drawn becomes a native Word chart, or is left out when Word
+has no form for its type, see [Charts as images](/docs/diagrams/export#charts-as-images). The promise rejects only when
+there is nothing to write, or nothing could be written.
+
+### Charts as images
+
+`images` decides when a chart becomes a PNG image instead of a native Word chart:
+
+| `images`   | What a chart becomes                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `'always'` | A PNG image drawn by its Renderer, 800 wide at the chart's aspect ratio                                      |
+| `'auto'`   | A Word chart or table when Word has a form for the type, else an image. Also an image in the two cases below |
+| Left out   | The [`docxImages`](/docs/diagrams/api-reference/options#docximages) option decides, `'auto'` by default                                |
+
+With `'auto'`, a scatter chart with numbers on its x axis becomes an image, because Word would space
+the x values evenly. So does a chart with reference lines, because Word charts have none.
+
+No image can be drawn when no Renderer draws the chart or its rules forbid `docx`. Then a type with
+a Word form becomes a Word chart, and another type is left out, with a note.
+
+### Notes
+
+`notes` lists what Word shows differently, as `{ pos, title, message }`. `pos` and `title` are `null` for a note about the whole file. Notes cover:
+
+- a font Word lacks, listed first,
+- only the first series of a pie or doughnut chart with several,
+- the x axis range, which Word ignores,
+- a background, series or axis color that is not a hex value,
+- grid lines or labels at only some categories, which Word puts at every category,
+- a value grid line without the category axis line,
+- area edges with series styles, which Word draws in its own line style,
+- options only one Renderer understands,
+- a linked chart's snapshot of its data,
+- a `matrix` as a Word table,
+- a chart as an image, and why when its type has a Word form,
+- a chart left out, or a Word chart, because no image could be drawn,
+- a diagram as an image, or left out because it could not be drawn.
+
+### Without exporting
+
+These functions from `@tiptap-pro/extension-diagrams/core` tell you what Word gets, without
+writing a file:
+
+| Function                                                   | Returns                                                   |
+| ---------------------------------------------------------- | --------------------------------------------------------- |
+| `wordForm(type, images?)`                                  | What a type becomes: `'chart'`, `'table'` or `'image'`    |
+| `wordChartForm(data, spec, images?)`                       | What one chart becomes: `'chart'`, `'table'` or `'image'` |
+| `wordLimitations(data, spec, { theme, source?, images? })` | The messages of `notes` for one chart, as `string[]`      |
+
+`data`, `spec` and `source` are a chart node's attributes of those names. For `theme`, pass
+`defaultChartTheme` from `/core`.
+
+## A whole document
+
+A converter that does not know the `chart` and `flowDiagram` nodes leaves them out. So export the
+copy that `toPortableContent` from `@tiptap-pro/extension-diagrams/core` returns, in which charts
+and diagrams are tables, images and paragraphs. The document you pass in stays as it is, and no
+browser is needed.
+
+This example sends the copy to Tiptap's Convert service with `@tiptap-pro/extension-export-docx`.
+`CONVERT_TOKEN` is your Convert API token, see the export-docx docs:
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { toPortableContent } from '@tiptap-pro/extension-diagrams/core'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const file = await new Promise((resolve, reject) => {
+  const exporter = new Editor({
+    element: null,
+    content: toPortableContent(editor.getJSON()),
+    extensions: [
+      ConvertKit,
+      ExportDocx.configure({ token: 'CONVERT_TOKEN', onCompleteExport: resolve, onError: reject }),
+    ],
+  })
+  exporter.commands.exportDocx()
+})
+```
+
+### What the copy holds
+
+| In the document                            | In the copy                                                                      |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| A chart                                    | Its image, if it has one, and its data as a table                                |
+| A chart with the layout `'table'`          | Nothing, because only the table it follows shows                                 |
+| A diagram                                  | Its image from `imageFor`, else its title and its source as code-formatted lines |
+| An open Quick Input, the field after `:::` | Its text as code-formatted lines                                                 |
+
+With the default `charts: 'both'`, a chart has its image and its table in the copy when it has a
+`previewUrl` or your `imageFor` returns one, and only its table otherwise. No command sets `previewUrl` yet.
+Without an image, the chart's title is a line above the table. A chart with `caption: true` has its
+description below.
+
+A `matrix` cell keeps its colors as a `background` attribute and a `textStyle` mark, so a converter
+that reads them keeps the colors.
+
+### Options
+
+| Option             | Value                                                                                                 | Default                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `charts`           | `'both'`, `'image'` (else the table), `'table'` or [`'native'`](/docs/diagrams/export#native-word-charts)                  | `'both'`                                     |
+| `imageFor`         | `(figure) => url \| null`, `figure` is `{ kind: 'chart' \| 'flowDiagram', attrs }`                    | A chart's `previewUrl`                       |
+| `sources`          | `'paragraphs'`, one code-formatted paragraph per line, or `'codeBlock'` (language `mermaid` or `xml`) | `'paragraphs'`                               |
+| `names`            | Your names for `table`, `tableRow`, `tableHeader`, `tableCell`, `paragraph`, `image`, `codeBlock`     | StarterKit's and `@tiptap/extension-table`'s |
+| `decimalSeparator` | `'.'` or `','` for numbers in a table                                                                 | `'.'`                                        |
+| `theme`            | The `ChartTheme` for a `matrix` chart's cell colors                                                   | `defaultChartTheme`, from `/core`            |
+
+Choose `'codeBlock'` for a converter that writes code blocks, such as one to Markdown or HTML, and
+`'paragraphs'` for one that leaves them out.
+
+### Native Word charts
+
+A whole document with native Word charts takes two steps. First, `toPortableContent` with
+`charts: 'native'` writes a marker paragraph, such as `{{tiptap-diagrams-chart-1}}`, for each chart
+of a type Word draws itself: bar, line, area, scatter, pie, doughnut, radar and combo. Other types
+are written as with `'both'`.
+
+Any converter then writes the Word file. Second, `addNativeCharts` replaces each marker in that file
+with a native Word chart:
+
+```ts
+import { Editor } from '@tiptap/core'
+import { ConvertKit } from '@tiptap-pro/extension-convert-kit'
+import { addNativeCharts, toPortableContent } from '@tiptap-pro/extension-diagrams/core'
+import { ExportDocx } from '@tiptap-pro/extension-export-docx'
+
+const doc = editor.getJSON()
+const exported = await new Promise((resolve, reject) => {
+  const exporter = new Editor({
+    element: null,
+    content: toPortableContent(doc, { charts: 'native' }),
+    extensions: [
+      ConvertKit,
+      ExportDocx.configure({
+        token: 'CONVERT_TOKEN',
+        exportType: 'buffer',
+        onCompleteExport: resolve,
+        onError: reject,
+      }),
+    ],
+  })
+  exporter.commands.exportDocx()
+})
+const docx = addNativeCharts({ docx: exported, doc })
+```
+
+`addNativeCharts` returns the Word file as a `Uint8Array`. Pass it the document you passed to
+`toPortableContent`, because it finds the charts by their order. A marker the converter split or
+changed stays as text. It also takes `theme` (default `defaultChartTheme`) and `fallbackFont`
+(default `'Arial'`).
+
+`'native'` decides by the type alone. A scatter chart or a chart with reference lines becomes a
+native chart, where `exportDocx` with `'auto'` may write an image.
+
+## Commands
+
+These commands turn a chart into an image and back.
+
+### convertChartToImage
+
+Replaces a chart with an image of it, a node of the type the
+[`imageNodeName`](/docs/diagrams/api-reference/options#imagenodename) option names, `'image'` by default.
+
+```ts
+editor.commands.convertChartToImage({ format: 'svg', keepData: true })
+```
+
+| Option     | Type                                 | Default            | Description                                                                                |
+| ---------- | ------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------ |
+| `format`   | `'svg' \| 'png' \| 'webp' \| 'jpeg'` | `'png'`            | The image format                                                                           |
+| `keepData` | `boolean`                            | `true`             | The image keeps the chart, so [`convertImageToChart`](/docs/diagrams/export#convertimagetochart) brings it back |
+| `pos`      | `number`                             | The selected chart | The chart's position                                                                       |
+
+The [`uploadImage`](/docs/diagrams/api-reference/options#uploadimage) option uploads the image, else it is a data URL. The chart is replaced once the
+image is ready, unless the chart changed meanwhile. A failed export or upload is only logged.
+
+The image has twice the pixels it shows at, to stay sharp on high-density screens. An image node
+with a `width` attribute, such as `@tiptap/extension-image`, gets the export's width, 800 by
+default. Give images `max-width: 100%` so they shrink on a narrow screen:
+
+```css
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+}
+```
+
+Returns `false` without a chart, without the image node in the schema, or when no Renderer draws
+the chart.
+
+### convertImageToChart
+
+Turns an image made with `keepData` back into the chart, and selects the chart.
+
+```ts
+editor.commands.convertImageToChart()
+```
+
+| Option | Type     | Default            | Description          |
+| ------ | -------- | ------------------ | -------------------- |
+| `pos`  | `number` | The selected image | The image's position |
+
+Returns `false` for an image that keeps no chart.
+
+### redrawChartImage
+
+Draws an image made with `keepData` again from the chart it keeps, with the current styles,
+Renderers and color scheme.
+
+```ts
+editor.commands.redrawChartImage({ pos })
+```
+
+| Option   | Type                                 | Default            | Description          |
+| -------- | ------------------------------------ | ------------------ | -------------------- |
+| `format` | `'svg' \| 'png' \| 'webp' \| 'jpeg'` | `'png'`            | The image format     |
+| `pos`    | `number`                             | The selected image | The image's position |
+
+Once the file is ready, only the image's `src`, `alt`, `title` and `width` change, in one undo step, unless the
+image changed meanwhile. It stays an image and keeps its chart.
+
+Returns `false` for an image that keeps no chart, and when no Renderer draws its type.

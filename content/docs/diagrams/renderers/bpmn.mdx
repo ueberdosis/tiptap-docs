@@ -1,0 +1,150 @@
+---
+title: 'BPMN'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'BPMN | Tiptap Diagrams Docs'
+  description: 'Show BPMN process models in the document, and edit them in the BPMN modeler.'
+  category: Diagrams
+---
+
+The entry point `@tiptap-pro/extension-diagrams/bpmn` draws process models stored as BPMN 2.0 XML, the standard format for business processes, with [bpmn-js](https://bpmn.io/toolkit/bpmn-js/), and connects the bpmn-js modeler to change them. It draws no charts.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsBPMN" isPro />
+
+## Quick start
+
+bpmn-js is not a dependency of the package. Install it, serve its bundle, and use it under its
+own license. `bpmnXml` stands for the XML of a process:
+
+```bash
+npm install bpmn-js
+```
+
+```ts
+import { Diagrams } from '@tiptap-pro/extension-diagrams'
+import { bpmnDiagramRenderer } from '@tiptap-pro/extension-diagrams/bpmn'
+import rendererUrl from '@tiptap-pro/extension-diagrams/bpmn-renderer?url&no-inline'
+import viewerUrl from 'bpmn-js/dist/bpmn-viewer.production.min.js?url&no-inline'
+
+Diagrams.configure({
+  diagramRenderers: [bpmnDiagramRenderer({ viewerUrl, rendererUrl })],
+})
+
+editor.commands.insertFlowDiagram({ source: bpmnXml, format: 'bpmn', title: 'Payment check' })
+```
+
+The editor shows the process as bpmn-js draws it. [Install Diagrams](/docs/diagrams/getting-started/install)
+has the complete editor around these lines.
+
+## Options
+
+| Option        | Type             | Default  | Description                                           |
+| ------------- | ---------------- | -------- | ----------------------------------------------------- |
+| `viewerUrl`   | `string`         | Required | URL of a bpmn-js viewer or modeler bundle             |
+| `rendererUrl` | `string`         | Required | URL of `@tiptap-pro/extension-diagrams/bpmn-renderer` |
+| `scriptNonce` | `string \| null` | `null`   | Nonce for a nonce-based Content Security Policy       |
+| `id`          | `string`         | `'bpmn'` | Names the Renderer                                    |
+| `label`       | `string`         | `'BPMN'` | The name for a menu                                   |
+
+## How it draws
+
+bpmn-js runs in one hidden iframe per web page, with `sandbox="allow-scripts"` and no network
+access. Renderers with a different `viewerUrl`, `rendererUrl` or `scriptNonce` get an iframe each. It loads for the first BPMN diagram, and drawings are cached by source.
+
+The XML must carry its layout (BPMN DI, the positions of the shapes), as a modeler saves it. A
+process without one does not draw. Diagrams are black on their own white background, untouched by
+`--tt-flow-diagram-*`. In PNG,
+WebP, JPEG and Word exports, labels are SVG text, so files look like the editor. Exporting on a
+server is not possible, because bpmn-js lays out text in a browser.
+
+### The bpmn.io attribution
+
+The Renderer's rules ask for a "Powered by bpmn.io" link with the bpmn.io logo, below each diagram
+and in every exported file. `rendererRules` cannot remove it, see
+[Rules of your Renderer](/docs/diagrams/renderers/custom#rules-of-your-renderer).
+
+## What a BPMN source is
+
+A BPMN source is XML whose root element is `definitions` in the namespace
+`http://www.omg.org/spec/BPMN/20100524/MODEL`, under any prefix, declared on the root and closed at
+the end, such as `</bpmn:definitions>`. An XML declaration and comments may come first.
+
+The document stores it as written, without a byte-order mark and outer white space. Empty source
+is allowed, for a process not modeled yet. Pasted BPMN XML gives a BPMN diagram, and
+[`detectDiagramInput`](/docs/diagrams/data/pasting#detectdiagraminput) returns `{ kind: 'bpmn', source }`
+for it. `insertFlowDiagram` and
+`updateFlowDiagram` return `false` for anything else, and for source over 1,000,000 characters.
+
+## Editing in the modeler
+
+Users change a BPMN diagram in the bpmn-js modeler, which `connectBpmnEditor` runs in an iframe
+you build. This example opens the first BPMN diagram of `editor`, which must hold one, and Save writes
+back what `save()` returns:
+
+```ts
+import { connectBpmnEditor } from '@tiptap-pro/extension-diagrams/bpmn'
+import rendererUrl from '@tiptap-pro/extension-diagrams/bpmn-renderer?url&no-inline'
+import fontUrl from 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css?url&no-inline'
+import bpmnStyleUrl from 'bpmn-js/dist/assets/bpmn-js.css?url&no-inline'
+import diagramStyleUrl from 'bpmn-js/dist/assets/diagram-js.css?url&no-inline'
+import modelerUrl from 'bpmn-js/dist/bpmn-modeler.production.min.js?url&no-inline'
+
+const diagram = editor.storage.diagrams.listDiagrams().find(item => item.format === 'bpmn')
+
+const dialog = document.createElement('dialog')
+const frame = document.createElement('iframe')
+const saveButton = document.createElement('button')
+saveButton.textContent = 'Save'
+saveButton.disabled = true
+dialog.append(frame, saveButton)
+document.body.append(dialog)
+dialog.showModal()
+
+const connection = connectBpmnEditor(frame, {
+  modelerUrl,
+  rendererUrl,
+  styleUrls: [diagramStyleUrl, bpmnStyleUrl, fontUrl],
+  source: diagram.source,
+  onReady: () => (saveButton.disabled = false),
+})
+
+// Escape closes the dialog too
+dialog.onclose = () => {
+  connection.destroy()
+  dialog.remove()
+}
+
+saveButton.onclick = async () => {
+  const source = await connection.save()
+  editor.commands.updateFlowDiagram({ pos: diagram.pos, source, format: 'bpmn' })
+  dialog.close()
+}
+```
+
+The embedded font stylesheet is needed, because the modeler's fonts must come from a `data:` URL
+or a stylesheet's origin. The modeler works on a copy, so a save replaces changes others made
+meanwhile.
+
+### connectBpmnEditor(frame, options)
+
+Runs the modeler in `frame`, and sets its `sandbox="allow-scripts"` and `srcdoc` itself.
+
+| Option             | Type                | Default  | Description                                                               |
+| ------------------ | ------------------- | -------- | ------------------------------------------------------------------------- |
+| `modelerUrl`       | `string`            | Required | URL of `bpmn-js/dist/bpmn-modeler.production.min.js`                      |
+| `rendererUrl`      | `string`            | Required | URL of the Renderer's `bpmn-renderer` file                                |
+| `styleUrls`        | `readonly string[]` | Required | `diagram-js.css`, `bpmn-js.css` and `bpmn-font/css/bpmn-embedded.css`     |
+| `scriptNonce`      | `string \| null`    | `null`   | Nonce for a nonce-based Content Security Policy                           |
+| `source`           | `string`            | `''`     | The BPMN XML to open. Empty opens a process with a start event            |
+| `onReady()`        | `() => void`        | None     | Called when the diagram can be edited                                     |
+| `onChange()`       | `() => void`        | None     | Called after every change                                                 |
+| `onError(message)` | `(message) => void` | None     | Called when the modeler did not load within 30 seconds or open the source |
+
+It returns `{ save, destroy }`:
+
+| Function    | Returns                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `save()`    | A Promise of the BPMN XML. Rejects before `onReady`, after `destroy()`, and for XML that is not BPMN |
+| `destroy()` | Nothing. Stops listening, empties the iframe, rejects pending saves                                  |

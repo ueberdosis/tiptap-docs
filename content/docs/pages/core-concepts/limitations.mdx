@@ -1,0 +1,79 @@
+---
+title: Limitations
+meta:
+  title: Limitations | Tiptap Pages Docs
+  description: Known limitations of the Tiptap Pages extension, with workarounds.
+  category: Pages
+---
+
+
+The Pages extension has a small number of explicit limitations. Each one below is intentional (not a bug), and most have a documented workaround.
+
+## Oversized non-splittable blocks cause an infinite layout loop
+
+This is the single most important limitation to know about before adopting Pages.
+
+### What happens
+
+Tiptap Pages splits content across pages on natural break points. There is one kind of content it **cannot** split: blocks that establish a [Block Formatting Context (BFC)](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display/Block_formatting_context), such as figures, positioned containers, nested tables, and many styled containers (anything with `display: inline-block` or `flex`, `overflow: hidden`, certain `contain` values, or floats). When the page-flow encounters one of these blocks and it doesn't fit on the current page, the only thing it can do is move the entire block to the next page.
+
+Table rows are the exception. With [row fragmentation](/docs/pages/guides/row-fragmentation), PagesTableKit splits table rows across pages, including rows with merged cells or nested tables. A row that holds text inside another BFC block, such as a task item, can't be split. Nested table rows don't count as such a block.
+
+### Why this becomes a hard failure
+
+If the block is taller than the page itself, moving it forward doesn't help, since it still won't fit on the next page either. The layout will keep trying to push it forward, page after page, and never reach a stable state. The result is an infinite layout loop and an unresponsive editor. This is the most common way to render Pages unusable.
+
+### Why we don't auto-recover
+
+This is a hard limit of the way Pages currently divides content between pages, not a bug we plan to silently work around. There is no graceful "give up" point we can ship without making the layout silently lose content. We may revisit the underlying approach in a future major version; for now, treat oversized BFC blocks as a developer-side responsibility.
+
+### What to watch for
+
+Most often:
+
+- Table rows whose `heightRule: "atLeast"` allows them to grow beyond the page, where row fragmentation is off or cannot split the row.
+- DOCX-imported tables authored on much larger paper than the editor's page format.
+- Nested tables that make a table row taller than the page, with row fragmentation off.
+- Figures or positioned containers with intrinsic content larger than the page content area.
+
+### How to avoid it
+
+1. **Cap heights.** Apply `max-height` to non-splittable blocks. The Pages extension exposes the available content height as a CSS variable: use `max-height: var(--page-max-height)` to keep any block within a single page.
+2. **Split content manually.** Where a single block needs to span multiple pages, break it into smaller adjacent blocks at authoring time: a long table into several smaller tables, a tall image into smaller images, nested tables into flat tables.
+3. **Constrain `atLeast` rows.** For DOCX-imported tables, prefer `heightRule: "exact"` when the row's content is bounded; `atLeast` rows with unbounded content are the most common trigger.
+4. **Choose a page format that fits the content.** A document authored for Tabloid will not lay out on A5; pick a page format whose content area exceeds your tallest non-splittable block.
+5. **Handle it in your own NodeView with a layout participant.** For custom nodes, a [layout participant](/docs/pages/core-concepts/layout-participants) can measure the page boundaries after each pagination pass and adjust its own block - for example pushing a block below the next page break instead of letting it straddle one, or applying its own height cap.
+6. **Turn on row fragmentation for tall table rows.** [Row fragmentation](/docs/pages/guides/row-fragmentation) splits table rows across pages, including rows with merged cells or nested tables.
+
+### Detection
+
+The Pages extension logs a console warning when it detects this scenario before the loop fully runs away. Watch for it during development. Production code that imports user-supplied DOCX should treat the warning as a signal to reject the document or programmatically split tall rows before insertion.
+
+For the table-specific treatment of this limitation, see [PagesTableKit's Known issues](/docs/pages/guides/pages-tablekit#known-issues).
+
+## Tables require PagesTableKit, not the open-source Table extension
+
+Use the `TableKit` from `@tiptap-pro/extension-pages-tablekit` for any tables inside Pages. The open-source `@tiptap/extension-table` and ConvertKit's bundled `ConvertTableKit` are not pagination-safe: tables built on either will overflow page boundaries and break the layout. See [Using TableKit with Pages](/docs/pages/guides/table-with-pages) for setup, and [PagesTableKit](/docs/pages/guides/pages-tablekit) for the deeper dive.
+
+## Footnotes don't continue across pages
+
+When a page accumulates more footnotes than fit within the configured cap (`footnotes.maxHeightRatio`, default 50% of the page content height), the footnotes area clips the overflow. Microsoft Word instead continues overflowing footnotes on the next page; Pages does not do this yet. In practice this only matters for documents with many long footnotes referenced from the same page; keep footnotes concise or raise `maxHeightRatio` if you hit the cap. See [Footnotes → What not to expect](/docs/pages/core-concepts/footnotes#what-not-to-expect) for the full list of footnote-specific limitations (numbering formats, tables in exported footnotes), and [Endnotes → What not to expect](/docs/pages/core-concepts/endnotes#what-not-to-expect) for the endnote-specific ones.
+
+## No per-page styling
+
+All pages share the same layout and visual styling. Page-specific CSS rules or backgrounds are not supported.
+
+## No page templates
+
+Every page uses the same structure. Multi-column layouts, alternating page templates, and per-page customization are not supported.
+
+## No browser-print integration
+
+Pages does not implement the browser print dialog. For print-ready output, use the Tiptap Conversion extensions and REST endpoints. See the [Conversion overview](/docs/conversion/getting-started/overview), or for end-to-end setup, [From zero to print-ready](/docs/pages/guides/zero-to-print-ready).
+
+<Callout title="Help us prioritise" type="info">
+  If you need a feature that's not supported yet, let us know. Your feedback helps us prioritise.
+  <a href="https://tiptap-suite.notion.site/1b601ffa3ebc80a281a8ea0b03b19bdd">
+    Share your use case with Tiptap
+  </a>
+</Callout>

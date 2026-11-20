@@ -1,0 +1,246 @@
+---
+title: 'Tables'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'Tables | Tiptap Diagrams Docs'
+  description: 'Turn a table into a chart and back, or keep a chart in step with a table as it is edited.'
+  category: Diagrams
+---
+
+A table in the document can become a chart, and a chart can become a table again. A chart or a diagram can also follow a table, which means it updates whenever the user edits the table.
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsTables" isPro />
+
+
+## Quick start
+
+Start from the editor in [A first chart](/docs/diagrams/getting-started/install#a-first-chart), which has
+`TableKit`, and add `linkTables` to its `chart` options. Then, with the selection in a table,
+this call inserts a bar chart below it that follows the table:
+
+```ts
+Diagrams.configure({ renderers: [echartsRenderer()], chart: { linkTables: true } })
+
+editor.commands.insertLinkedChart({ type: 'bar' })
+```
+
+## Following a table
+
+The option [`chart.linkTables`](/docs/diagrams/api-reference/options#linktables) lets charts and diagrams follow tables.
+It stores an id on each table as the `chartTableId` attribute, `data-tt-chart-table-id` in HTML.
+Without the option, `insertLinkedChart`, `linkChartToTable`, and `setChartLayout` to a layout
+with a table return `false`, and `listTables()` returns an empty list.
+
+The table commands need the nodes `table`, `tableRow`, `tableCell` and `tableHeader`, which
+`TableKit` adds. A following chart changes in the same undo step as the edit of its table. The
+table can be anywhere, and `editor.storage.diagrams.listTables()` lists the tables with their
+positions. For the chart, the table is a [Data Source](/docs/diagrams/data/sources) named `document-table`.
+
+## How the table is read
+
+`insertLinkedChart`, `linkChartToTable` and `updateLinkedTable` take `header` and `range`, which
+pick the cells that become the chart's data:
+
+| Option          | Type                              | Default      | Description                                                                              |
+| --------------- | --------------------------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `header`        | `'auto' \| 'first-row' \| 'none'` | `'auto'`     | Where the column names are                                                               |
+| `range.rows`    | `TableRange \| TableRange[]`      | Every row    | Data rows, from 0 below the header                                                       |
+| `range.columns` | `(number \| TableRange)[]`        | Every column | Columns from 0, such as `[0, { from: 2 }]`. The first column listed names the categories |
+
+A `TableRange` is `{ from?: number, to?: number }`. `header` takes these values:
+
+| `header`      | The column names                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `'auto'`      | The first row, when it is made of header cells or holds no number outside the first column |
+| `'first-row'` | The first row, whatever it holds                                                           |
+| `'none'`      | Every row is data. The columns get default names, such as `Label` and `Series 1`           |
+
+- Both ends of a range are included, and empty rows are not counted.
+- A negative number counts from the end, so `{ to: -2 }` leaves out a total row.
+- Several ranges are read in order, and a row or column named twice is read once.
+- Without `range`, a selection of two or more cells is the range. The table's first column names
+  the categories, also when the selection does not include it.
+- `header` and `range` are stored with the chart and apply to every later edit of the table.
+- Numbers are read with the [`chart.decimalSeparator`](/docs/diagrams/api-reference/options#decimalseparator) option.
+  With its default, a comma between digits is a decimal separator, so `1,000` is read as 1.
+
+## Commands
+
+In the demo, turn a table into a chart and back:
+
+<CodeDemo isPro viewer view="preview" path="/Extensions/DiagramsConversions" />
+
+### convertTableToChart
+
+Replaces the table at the selection with a chart of its data, and selects the chart.
+
+```ts
+editor.commands.convertTableToChart({ type: 'bar' })
+```
+
+| Option | Type        | Default             | Description                 |
+| ------ | ----------- | ------------------- | --------------------------- |
+| `type` | `ChartType` | `chart.defaultType` | The chart type              |
+| `pos`  | `number`    | The selection       | A position inside the table |
+
+Returns `false` without a table.
+
+### convertChartToTable
+
+Replaces a chart with a plain table of its data, without its Chart Spec.
+
+```ts
+editor.commands.convertChartToTable()
+```
+
+| Option | Type     | Default            | Description          |
+| ------ | -------- | ------------------ | -------------------- |
+| `pos`  | `number` | The selected chart | The chart's position |
+
+Returns `false` without a chart, or without the table nodes in the schema.
+
+### insertLinkedChart
+
+Inserts a chart that follows a table, below the table.
+
+There are two steps. `header` and `range` pick the cells that become the chart's data, as
+[How the table is read](/docs/diagrams/data/tables#how-the-table-is-read) says. `columns` then picks, among those columns,
+the one that names the categories and the ones drawn. It takes the text of a header cell, unlike
+the column ids of `encoding`, or a position from 0 among the columns `range` kept. Positions
+also work for a table without a header.
+
+```ts
+const table = editor.storage.diagrams.listTables()[0].pos
+
+editor.commands.insertLinkedChart({
+  table,
+  type: 'bar',
+  columns: { label: 'Month', series: ['Retail'] },
+})
+
+// A table without a header, without its last row: of the columns kept, 0 names the categories
+// and 2 is drawn
+editor.commands.insertLinkedChart({
+  table,
+  header: 'none',
+  range: { rows: { to: -2 } },
+  columns: { label: 0, series: [2] },
+})
+```
+
+| Option    | Type                                                          | Default                      | Description                                                           |
+| --------- | ------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `type`    | `ChartType`                                                   | `chart.defaultType`          | The chart type                                                        |
+| `table`   | `number`                                                      | The table at the selection   | The table's position, from `listTables()`                             |
+| `columns` | `{ label?: string \| number, series?: (string \| number)[] }` | The first column, all others | The category column and the drawn columns, by header text or position |
+| `header`  | `'auto' \| 'first-row' \| 'none'`                             | `'auto'`                     | See [How the table is read](/docs/diagrams/data/tables#how-the-table-is-read)                   |
+| `range`   | `{ rows?, columns? }`                                         | The whole table              | See [How the table is read](/docs/diagrams/data/tables#how-the-table-is-read)                   |
+| `title`   | `string`                                                      | None                         | The chart's title                                                     |
+| `below`   | `boolean`                                                     | `true`                       | `false` places the chart above the table                              |
+
+The chart's data is read-only while linked. The new chart is not selected.
+
+Returns `false` without a table, without `chart.linkTables`, or when a name is not in the header
+or a position is not in the table.
+
+### updateLinkedTable
+
+Changes which cells a chart or a diagram reads from the table it follows, and reads the table
+again. Use it when the table gets a header row, a total row or new columns.
+
+```ts
+// Read every row as data, also the first one
+editor.commands.updateLinkedTable({ header: 'none' })
+
+// Go back to the default header, and leave out the first data row
+editor.commands.updateLinkedTable({ header: undefined, range: { rows: { from: 1 } } })
+```
+
+| Option   | Type                                                                                     | Default                       | Description                           |
+| -------- | ---------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------- |
+| `header` | `'auto' \| 'first-row' \| 'none' \| undefined`                                           | The stored value              | Where the column names are            |
+| `range`  | `{ rows?: TableRange \| TableRange[], columns?: (number \| TableRange)[] } \| undefined` | The stored value              | The rows and columns read             |
+| `pos`    | `number`                                                                                 | The selected chart or diagram | The chart's or the diagram's position |
+
+[How the table is read](/docs/diagrams/data/tables#how-the-table-is-read) explains each value. A key you leave out keeps
+the stored value. A key you pass as `undefined` goes back to the default: `'auto'` for `header`,
+and the whole table for `range`.
+
+The chart keeps naming its categories by the same column and drawing the same columns, also
+after the table gets a new header. A diagram drawn from a table is described in
+[A diagram from a table](/docs/diagrams/flow-diagrams/from-table).
+
+Returns `false` for a chart or a diagram that follows no table, or whose table is gone. For a
+diagram, it also returns `false` when a column the diagram names is no longer there.
+
+### setChartLayout
+
+Decides whether a chart's table is in the document, and whether the chart shows.
+
+```ts
+editor.commands.setChartLayout({ layout: 'with-table' })
+```
+
+| Option   | Type                                 | Default            | Description                    |
+| -------- | ------------------------------------ | ------------------ | ------------------------------ |
+| `layout` | `'chart' \| 'with-table' \| 'table'` | Required           | What the user sees, as follows |
+| `pos`    | `number`                             | The selected chart | The chart's position           |
+
+| `layout`       | What the user sees                                                              |
+| -------------- | ------------------------------------------------------------------------------- |
+| `'chart'`      | The chart. It holds its own data and follows no table                           |
+| `'with-table'` | The chart and the table it follows. Each stands where it was put                |
+| `'table'`      | Only the table. The chart stays, hidden directly below it, and still follows it |
+
+What the command does depends on the chart's current layout:
+
+| From           | To             | What happens                                                                                                               |
+| -------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `'chart'`      | `'with-table'` | Inserts a table of the chart's data directly above the chart. The chart follows it, read-only, as with `insertLinkedChart` |
+| `'chart'`      | `'table'`      | Inserts that table, and hides the chart directly below it                                                                  |
+| `'with-table'` | `'table'`      | Hides the chart. If the chart stands elsewhere, it moves directly below its table                                          |
+| `'table'`      | `'with-table'` | Shows the chart again, where it stands                                                                                     |
+| any            | `'chart'`      | Keeps the table's last data and follows nothing. Removes the table unless something else follows it                        |
+
+Where the chart and table stand is not part of the layout: move either node to move it. A
+hidden chart keeps its Chart Spec and shows again as it was. Deleting or moving its table shows
+it too. The change is one undo step. To keep only a table, use `convertChartToTable`.
+
+Returns `true` when the chart has the layout afterwards, also when it had it already. Returns
+`false`:
+
+- Without a chart.
+- For `'with-table'` and `'table'`, without table nodes or without `chart.linkTables`.
+- For `'with-table'` and `'table'`, on a chart that follows no table and is linked to another
+  read-only source, such as a read-only CSV URL.
+- For `'table'`, when another hidden chart already stands below the table, or the schema does
+  not allow a chart there.
+
+A hidden chart is left out of `exportAll` and `exportDocx`, and its HTML `<figure>` has the
+`hidden` attribute.
+
+### linkChartToTable
+
+Makes a chart follow a table that is already in the document, wherever that table stands.
+
+```ts
+const [table] = editor.storage.diagrams.listTables()
+if (table) editor.commands.linkChartToTable({ table: table.pos })
+```
+
+| Option     | Type                              | Default            | Description                                          |
+| ---------- | --------------------------------- | ------------------ | ---------------------------------------------------- |
+| `table`    | `number`                          | Required           | The table's position, as `listTables()` reports it   |
+| `pos`      | `number`                          | The selected chart | The chart's position                                 |
+| `readOnly` | `boolean`                         | `true`             | `false` keeps the chart's data editable while linked |
+| `header`   | `'auto' \| 'first-row' \| 'none'` | `'auto'`           | As for [`insertLinkedChart`](/docs/diagrams/data/tables#insertlinkedchart)     |
+| `range`    | `{ rows?, columns? }`             | The whole table    | As for [`insertLinkedChart`](/docs/diagrams/data/tables#insertlinkedchart)     |
+
+The table gets an id if it has none, and the chart takes the table's data at once. The chart
+ends with the layout `'with-table'`. Unlike `setChartLayout`, which makes a new table from the
+chart's data, `linkChartToTable` replaces the chart's data with an existing table's.
+
+Returns `false` without a chart, without `chart.linkTables`, for a position that holds no table,
+and for a Quick Input shown as a table.

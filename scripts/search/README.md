@@ -1,0 +1,10 @@
+# Search ranking checks
+
+`pnpm test:search <base URL>` runs the queries below against a running docs server, for example a local production build (`pnpm build && pnpm start`, then `pnpm test:search http://localhost:3000`). `--out <file>` also writes the results as JSON. The script exits with 1 when a counted test fails, a result is in the wrong version, or an expected page is missing.
+
+| Set | Source                                                                                                                                                                                                                                                     | Passes when                                                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | `ranking-tests.json`, copied unchanged from `ueberdosis/tiptap-docs` pull request 1131, branch `feature/docs-search-ranking`, commit `9d52d815c428850edadcfd07ab0309baa00c6e01`, file `search/ranking-tests.json`. Paths are latest pages without `/docs`. | An expected page is in the top 3 pages. Anchors of the same page count once. Tests whose `why` says "(synonym)" are reported but not counted. |
+| B   | `check-ranking.ts`: every area name of both sidebars, "collaboration", "collaboration authentication", "snapshot", "snapshots", "content protection", "slots", `setContent`, `clearContent`, `CodeBlock`, a blank and a nonsense query.                    | Area names: the area's overview is first. Others: as printed per case.                                                                        |
+
+Areas come from `src/lib/search/areas.ts`, the same rules the ranking uses. The ranking itself is in `src/lib/search/ranking.ts`.

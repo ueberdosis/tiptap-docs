@@ -1,0 +1,102 @@
+---
+title: 'A Renderer that draws on a canvas'
+tags:
+  - type: alpha
+  - type: restricted
+meta:
+  title: 'A Renderer that draws on a canvas | Tiptap Diagrams Docs'
+  description: 'Write a Renderer for Chart.js or another library that draws on a canvas.'
+  category: Diagrams
+---
+
+Some libraries, such as Chart.js, draw pixels on a canvas and have no SVG. Their Renderer has `toImage`, which returns a PNG at `input.size`, and every export is made from it, see [Members](/docs/diagrams/renderers/custom#members).
+
+<HeaderDemo viewer view="preview" isLarge path="/Extensions/DiagramsChartJs" isPro />
+
+## The Renderer
+
+This Renderer draws bar, line, pie and doughnut charts. `toChartJsConfig` makes the label column
+the labels and each series column a dataset, see
+[What a Renderer receives](/docs/diagrams/renderers/custom#what-a-renderer-receives):
+
+```ts
+import type { ChartRenderInput, RasterChartRenderer } from '@tiptap-pro/extension-diagrams'
+import { Chart, registerables, type ChartConfiguration } from 'chart.js'
+
+Chart.register(...registerables)
+
+function toChartJsConfig({ data, spec, theme, animate }: ChartRenderInput): ChartConfiguration {
+  const colors = spec.palette ?? theme.series
+  const round = spec.type === 'pie' || spec.type === 'doughnut'
+  const allSeries = data.columns.flatMap((column, index) =>
+    column.role === 'series' ? [{ ...column, index }] : [],
+  )
+  // A pie shows one whole, so it draws the first series and colors each slice
+  const series = round ? allSeries.slice(0, 1) : allSeries
+  return {
+    type: spec.type as 'bar' | 'line' | 'pie' | 'doughnut',
+    data: {
+      labels: data.rows.map(row => String(row[0] ?? '')),
+      datasets: series.map((column, i) => ({
+        label: column.label,
+        data: data.rows.map(row => row[column.index]).map(c => (typeof c === 'number' ? c : null)),
+        backgroundColor: round ? colors : colors[i % colors.length],
+      })),
+    },
+    options: { responsive: false, color: theme.labelColor, animation: animate ? undefined : false },
+  }
+}
+
+function createCanvas({ width, height }: ChartRenderInput['size']): HTMLCanvasElement {
+  return Object.assign(document.createElement('canvas'), { width, height })
+}
+
+export const chartJsRenderer: RasterChartRenderer = {
+  id: 'chartjs',
+  label: 'Chart.js',
+  types: ['bar', 'line', 'pie', 'doughnut'],
+  mount(target, input) {
+    let canvas = createCanvas(input.size)
+    target.replaceChildren(canvas)
+    let chart = new Chart(canvas, toChartJsConfig(input))
+    return {
+      update: next => {
+        const config = toChartJsConfig(next)
+        // A new type needs a new chart
+        if (config.type !== chart.config.type) {
+          chart.destroy()
+          canvas = createCanvas(next.size)
+          target.replaceChildren(canvas)
+          chart = new Chart(canvas, config)
+          return
+        }
+        chart.data = config.data
+        chart.options = config.options ?? {}
+        chart.resize(next.size.width, next.size.height)
+        // New data objects would grow from zero again, so only the first drawing animates
+        chart.update('none')
+      },
+      destroy: () => chart.destroy(),
+    }
+  },
+  toImage(input) {
+    const canvas = createCanvas(input.size)
+    const config = toChartJsConfig(input)
+    const chart = new Chart(canvas, {
+      ...config,
+      options: { ...config.options, animation: false, devicePixelRatio: 1 },
+    })
+    return new Promise((resolve, reject) =>
+      canvas.toBlob(blob => {
+        chart.destroy()
+        blob ? resolve(blob) : reject(new Error('No picture.'))
+      }, 'image/png'),
+    )
+  },
+}
+```
+
+`toImage` draws without animation, with `responsive: false` and a fixed `devicePixelRatio`, so the
+PNG has the asked size. A server has no canvas, so `toImage` needs a browser or a canvas library.
+This example skips titles, legends and stacking, which a complete Renderer draws or declines. The
+demo on this page draws fonts, titles and pie colors.

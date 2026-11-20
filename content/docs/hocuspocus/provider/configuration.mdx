@@ -1,0 +1,108 @@
+---
+title: Configure Hocuspocus Provider
+meta:
+  title: Configure Hocuspocus Provider | Tiptap Collaboration Docs
+  description:
+  category: Hocuspocus
+---
+
+## Settings
+
+### HocuspocusProvider
+
+| Setting             | Description                                                                                                       | Default Value                       |
+|---------------------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| `url`               | The URL of the Hocuspocus/WebSocket server.                                                                       | `''`                                |
+| `websocketProvider` | An instance of HocuspocusProviderWebsocket, if you want to share a socket between multiple providers              | `new HocuspocusProviderWebsocket()` |
+| `name`              | The name of the document.                                                                                         | `''`                                |
+| `document`          | The actual Y.js document. Optional, by default a new document is created and be access through provider.document. | `new Y.Doc()`                       |
+| `token`             | An authentication token that will be passed to the server (works with strings, functions and Promises).           | `''`                                |
+| `awareness`         | Awareness object, by default attached to the passed Y.js document.                                                | `new Awareness()`                   |
+| `forceSyncInterval` | Ask the server every x ms for updates.                                                                            | `false`                             |
+| `sessionAwareness`  | Embed a unique `sessionId` in the document name of every message, allowing multiple providers with the same document name on one WebSocket. Keep `false` when connecting to a v3 server. Requires a v4 server. | `false`                             |
+| `flushDelay`        | Batch outgoing document and awareness updates over a short window (in ms) instead of sending one message per change. Reduces websocket traffic during heavy editing. The added latency is capped at `flushDelay`, so keep it small (e.g. `500`). Set to `false` to send every change immediately. See [Batching outgoing updates](#batching-outgoing-updates). | `false`                             |
+
+### HocuspocusProviderWebsocket
+
+| Setting                   | Description                                                                                                                                                                         | Default Value     |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
+| `url`                     | The URL of the Hocuspocus/WebSocket server.                                                                                                                                         | `''`              |
+| `WebSocketPolyfill`       | Running in Node.js: Pass a WebSocket polyfill, for example ws.                                                                                                                      | `WebSocket`       |
+| `timeout`                 | A timeout in milliseconds. If timeout is non-zero then a timer is set using setTimeout. If the timeout is triggered then future attempts will be aborted.                           | `0`               |
+| `factor`                  | The factor option is used to grow the delay exponentially.                                                                                                                          | `2`               |
+| `maxAttempts`             | The maximum number of attempts or 0 if there is no limit on number of attempts.                                                                                                     | `0`               |
+| `minDelay`                | minDelay is used to set a lower bound of delay when jitter is enabled. This property has no effect if jitter is disabled.                                                           | `1000`            |
+| `maxDelay`                | The maxDelay option is used to set an upper bound for the delay when factor is enabled. A value of 0 can be provided if there should be no upper bound when calculating delay.      | `30000`           |
+| `jitter`                  | If jitter is true then the calculated delay will be a random integer value between minDelay and the calculated delay for the current iteration.                                     | `true`            |
+| `messageReconnectTimeout` | Closes the connection when after the configured messageReconnectTimeout no message was received.                                                                                    | `30000`           |
+| `delay`                   | The delay between each attempt in milliseconds. You can provide a factor to have the delay grow exponentially.                                                                      | `1000`            |
+| `initialDelay`            | The initialDelay is the amount of time to wait before making the first attempt. This option should typically be 0 since you typically want the first attempt to happen immediately. | `0`               |
+| `onMaxAttemptsFailed`     | Called with `{ error }` once every one of the `maxAttempts` reconnect attempts has failed and the provider stops retrying. Never fires with the default `maxAttempts: 0`, because the provider then retries forever. See [Reacting to failed reconnects](#reacting-to-failed-reconnects). | `() => null`      |
+
+
+## Usage
+
+There is not much required to set up the provider, a simple example can be found in [Getting started](/docs/hocuspocus/provider/install)
+
+## Batching outgoing updates
+
+By default the provider sends one websocket message per change. During heavy editing — fast typing, large pastes, or rapid cursor movement — this can produce a lot of small messages. Set `flushDelay` to a number of milliseconds to batch outgoing document and awareness updates over a short window:
+
+```js
+import { HocuspocusProvider } from '@hocuspocus/provider'
+
+const provider = new HocuspocusProvider({
+  url: 'ws://127.0.0.1:1234',
+  name: 'example-document',
+  flushDelay: 500,
+})
+```
+
+Within each window, buffered Yjs updates are merged with `Y.mergeUpdates` into a single message, and awareness collapses to the latest state of each changed client. The window is a fixed batch rather than a resetting debounce, so the added latency is capped at `flushDelay` even while the user keeps typing — keep it small (e.g. `500`) to avoid delaying what other clients see.
+
+You can force everything buffered for the current window to be sent immediately by calling `provider.flushPendingUpdates()`.
+
+## Reacting to failed reconnects
+
+With the default `maxAttempts: 0` the provider reconnects forever, so a connection failure is never final. If you set `maxAttempts` to a number, the provider gives up once those attempts are used up — and tells you so through `onMaxAttemptsFailed`, which is a good place to show a “you’re offline” state or a “try again” button:
+
+```js
+import { HocuspocusProvider } from '@hocuspocus/provider'
+
+const provider = new HocuspocusProvider({
+  url: 'ws://127.0.0.1:1234',
+  name: 'example-document',
+  maxAttempts: 5,
+  onMaxAttemptsFailed: ({ error }) => {
+    console.error('Could not connect to the server:', error)
+  },
+})
+```
+
+`error` is whatever made the last attempt fail: the WebSocket error, or — when the socket closed without ever emitting an error — an `Error` carrying the close code and reason.
+
+This is a `HocuspocusProviderWebsocket` event, and it is deliberately not forwarded to `HocuspocusProvider`, because a single socket can be shared by many documents. Passing `onMaxAttemptsFailed` to `HocuspocusProvider` works (the option is handed to the socket it creates for you), but binding a listener later has to happen on the socket:
+
+```js
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+
+const socket = new HocuspocusProviderWebsocket({
+  url: 'ws://127.0.0.1:1234',
+  maxAttempts: 5,
+})
+
+socket.on('maxAttemptsFailed', ({ error }) => {
+  // …
+})
+
+const provider = new HocuspocusProvider({
+  websocketProvider: socket,
+  name: 'example-document',
+})
+```
+
+Giving up is not permanent. Call `connect()` on the websocket provider to start a fresh round of attempts, for example from a “try again” button:
+
+```js
+provider.configuration.websocketProvider.connect()
+```
