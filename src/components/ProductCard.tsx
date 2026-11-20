@@ -49,7 +49,7 @@ export const ProductCard = ({
       </div>
       <div>
         <h3 className="font-semibold text-black leading-[140%]">{title}</h3>
-        <p className="leading-[140%] mt-2 text-grayAlpha-600">{description}</p>
+        <p className="text-sm leading-[140%] mt-2 text-grayAlpha-600">{description}</p>
       </div>
       <div className="flex items-center gap-2 mt-8">
         <Button asChild variant="secondary">

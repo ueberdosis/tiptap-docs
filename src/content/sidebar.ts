@@ -15,12 +15,12 @@ import { sidebarConfig as hocuspocusSidebar } from './hocuspocus/sidebar'
 import { sidebarConfig as pagesSidebar } from './pages/sidebar'
 import { sidebarConfig as resourcesSidebar } from './resources/sidebar'
 import { sidebarConfig as trackedChangesSidebar } from './tracked-changes/sidebar'
-import { CATALOG_GROUPS, CatalogArea, catalogGroupUrl } from '@/content/catalog'
-import { planFromLabel } from '@/content/plans'
+import { CATALOG_GROUPS, catalogGroupUrl, CatalogArea } from '@/content/catalog'
 import { getCatalog } from '@/server/getCatalog'
-import { pageLabels } from '@/server/pageLabels'
 import { SidebarConfig, SidebarGroup } from '@/types'
 import { SidebarEntry, childrenOf, pick, section, toEntries } from '@/utils/composeSidebar'
+import { legacyFeature } from '@/content/legacy'
+import { BUNDLES } from '@/content/bundles'
 
 // The one sidebar for all documentation. Each section keeps its own sidebar
 // next to its content; this file decides where the sections sit. UI Components
@@ -31,6 +31,35 @@ function link(config: SidebarConfig, titles: string[]): SidebarEntry {
   return toEntries([pick(config, titles)])[0]
 }
 
+/** Entries without the legacy pages, which have their place in the Legacy area. */
+function current(entries: SidebarEntry[]): SidebarEntry[] {
+  return entries
+    .filter((entry) => !entry.href || !legacyFeature(entry.href))
+    .map((entry) => (entry.children ? { ...entry, children: current(entry.children) } : entry))
+}
+
+/** The legacy pages of a section sidebar, as entries. */
+function legacyOf(config: SidebarConfig): SidebarEntry[] {
+  const found: SidebarEntry[] = []
+  const walk = (entries: SidebarEntry[]) =>
+    entries.forEach((entry) =>
+      entry.href && legacyFeature(entry.href)
+        ? found.push({ ...entry, children: undefined })
+        : walk(entry.children ?? []),
+    )
+  walk(toEntries(config.items))
+  return found
+}
+
+/** In the Legacy area, the entries don't each repeat the label. */
+function quiet(entries: SidebarEntry[]): SidebarEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    hideLegacy: true,
+    children: entry.children && quiet(entry.children),
+  }))
+}
+
 /** The catalog groups of an area, each folding open to its features. */
 function catalogGroups(area: CatalogArea): SidebarEntry[] {
   const catalog = getCatalog()
@@ -39,9 +68,18 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
       .map((group) => ({
         title: group.title,
         href: catalogGroupUrl(group) ?? '',
+        tags: group.paid ? ['Paid'] : undefined,
         children: catalog
           .filter((entry) => entry.group === group.id)
-          .map((entry) => ({ title: entry.name, href: entry.url, tags: catalogTags(entry) })),
+          .map((entry) =>
+            entry.url
+              ? {
+                  title: entry.name,
+                  href: entry.url,
+                  tags: catalogTags(entry),
+                }
+              : { title: entry.name, href: '', tags: soonTags(entry), disabled: true },
+          ),
       }))
       .filter((group) => group.children.length > 0)
       // A group of one is just that entry
@@ -49,7 +87,17 @@ function catalogGroups(area: CatalogArea): SidebarEntry[] {
   )
 }
 
-/** A feature's status and plan as sidebar tags; the sidebar shows only the label that matters. */
+/** Features of a catalog group that have no docs yet, shown as disabled "Soon" entries. */
+function upcoming(group: string): SidebarEntry[] {
+  return getCatalog()
+    .filter((entry) => entry.group === group && !entry.url)
+    .map((entry) => ({ title: entry.name, href: '', tags: soonTags(entry), disabled: true }))
+}
+
+/** An upcoming feature shows Soon, and counts as paid for its group when it will be. */
+const soonTags = (entry: { paid?: boolean }) => (entry.paid ? ['Soon', 'Paid'] : ['Soon'])
+
+/** A feature's status and plan as sidebar tags; the sidebar shows only the status. */
 function catalogTags(entry: { plan?: string; status?: string }): string[] | undefined {
   const tags = [entry.status, entry.plan !== 'Open source' ? entry.plan : undefined].filter(
     (tag): tag is string => !!tag,
@@ -57,38 +105,30 @@ function catalogTags(entry: { plan?: string; status?: string }): string[] | unde
   return tags.length ? tags : undefined
 }
 
-/**
- * A feature's plan and status as sidebar tags, from the frontmatter of its overview
- * page, so the feature's pages inherit both. The sidebar itself shows no Alpha or Beta.
- */
-function featureTags(overview: string): string[] | undefined {
-  const { plan, status } = pageLabels(overview)
-  const tags: string[] = []
-  if (plan && plan !== 'Open source') tags.push(plan)
-  if (status) tags.push(status)
-  return tags.length ? tags : undefined
+/** The status and plan of a feature page as sidebar tags, from the catalog. */
+function planTags(href: string): string[] | undefined {
+  const entry = getCatalog().find((candidate) => candidate.url === href)
+  return entry ? catalogTags(entry) : undefined
 }
 
-/** A section as one feature entry, tagged with its plan and status. */
+/** A section as one feature entry, tagged with its plan. */
 function feature(
   title: string,
   config: SidebarConfig,
   overview: string,
   options: Parameters<typeof section>[2] = {},
 ): SidebarEntry {
-  return section(title, config, { ...options, tags: featureTags(overview) })
+  return section(title, config, { ...options, tags: planTags(overview) })
 }
 
-const isPaidPlan = (tag: string) => {
-  const plan = planFromLabel(tag)
-  return !!plan && plan !== 'Open source'
-}
-const isPaid = (tags?: string[]) => !!tags?.some((tag) => tag === 'Paid' || isPaidPlan(tag))
+const PAID_PLANS = ['Start', 'Team', 'Business', 'Add-on', 'Pilot program']
+const isPaid = (tags?: string[]) =>
+  !!tags?.some((tag) => tag === 'Paid' || PAID_PLANS.includes(tag))
 
 /**
  * An entry whose children all need a paid plan, whichever, says "Paid"; a group
  * that mixes paid and open source says nothing. The tag is for the label only:
- * page headers still take the plan from the pages and their features.
+ * plans for llms.txt and page headers still come from the features' own tags.
  */
 function withSharedPlan(entry: SidebarEntry): SidebarEntry {
   if (!entry.children?.length) return entry
@@ -122,8 +162,7 @@ const compare = feature('Compare', compareSidebar, '/compare/getting-started/ove
 
 const legacyOptions = { inline: ['Get started'], omit: ['← Back to Content AI'] }
 
-// Guides and Examples have their own areas; the trial sits under Getting started
-const elsewhere = ['/guides', '/examples', '/resources/tiptap-trial']
+const clientToolkit = link(aiSidebar, ['Other Options', 'Client Toolkit'])
 
 const items: SidebarGroup[] = [
   {
@@ -134,20 +173,45 @@ const items: SidebarGroup[] = [
     defaultOpen: true,
     children: [
       { href: '/', title: 'Overview' },
+      {
+        href: '/platform',
+        title: 'Tiptap Platform',
+        // Where Tiptap services run: the Document Server, the AI Toolkit, and Conversion
+        children: [
+          { href: '/hosting', title: 'Hosting' },
+          { href: '/hosting/cloud', title: 'Tiptap Cloud' },
+          { href: '/hosting/on-premises', title: 'On-premises' },
+        ],
+      },
+      { href: '/document-model', title: 'Tiptap Document' },
       { ...link(editorSidebar, ['Get started', 'Overview']), title: 'Tiptap Editor' },
       { ...link(editorSidebar, ['Get started', 'Install']), title: 'Quick start' },
+      { href: '/configurator', title: 'Plan your editor' },
       {
         href: '/authentication',
         title: 'Authentication',
-        newSince: '2026-04-29',
-        children: [
-          { href: '/authentication/migrate', title: 'Migrate from legacy' },
-          { href: '/authentication/legacy', title: 'Legacy authentication' },
-        ],
+        children: [{ href: '/authentication/migrate', title: 'Migrate from legacy' }],
       },
-      { ...link(guidesSidebar, ['First Steps', 'Integrate Pro Extensions']), title: 'Pro access' },
+      { href: '/guides/pro-extensions', title: 'Pro access' },
       { href: '/resources/tiptap-trial', title: 'Tiptap trial' },
       { href: '/resources/whats-new', title: "What's new in 3.0" },
+    ],
+  },
+  {
+    // Curated sets of features for one use case; each part keeps its page under Features.
+    // A bundle is a place to start, so it sits above the line and stays open.
+    type: 'group',
+    title: 'Bundles',
+    href: '/bundles',
+    collapsible: true,
+    defaultOpen: true,
+    children: [
+      { href: '/bundles', title: 'Overview' },
+      ...BUNDLES.map((bundle) => ({
+        href: bundle.url,
+        title: bundle.title,
+        tags: [bundle.status],
+      })),
     ],
   },
   {
@@ -159,24 +223,24 @@ const items: SidebarGroup[] = [
     divider: true,
     children: [
       { ...link(editorSidebar, ['Extensions', 'Overview']), title: 'All features' },
-      // The products of the Tiptap Platform first, then the editor's extensions
+      // Paid products first, then the open source editor's groups
       {
         title: 'AI',
         href: '',
         children: [
-          { ...link(aiSidebar, ['AI Toolkit']), href: '' },
-          ...childrenOf(aiSidebar, ['Other Options']),
           {
-            title: 'AI Legacy',
+            title: 'Server AI Toolkit',
             href: '',
-            // Paid like the rest of AI; the label says Deprecated
-            tags: ['Deprecated', 'Paid'],
-            children: [
-              section('AI Assistant', aiAssistantSidebar, legacyOptions),
-              section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
-              section('AI Changes', aiChangesSidebar, legacyOptions),
-            ],
+            tags: planTags('/ai/ai-toolkit/overview'),
+            children: current(childrenOf(aiSidebar, ['AI Toolkit'])),
           },
+          {
+            ...clientToolkit,
+            href: '',
+            title: 'Client AI Toolkit',
+            children: current(clientToolkit.children ?? []),
+          },
+          { ...link(aiSidebar, ['Other Options', 'Basic AI Generation']), href: '' },
         ],
       },
       {
@@ -198,34 +262,37 @@ const items: SidebarGroup[] = [
           ),
         ],
       },
-      {
-        ...compare,
-        children: [
-          ...compare.children!,
-          {
-            ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
-            title: 'Compare snapshots',
-          },
-        ],
-      },
-      feature('Conversion', conversionSidebar, '/conversion/getting-started/overview', {
+      compare,
+      feature('Conversion', conversionSidebar, '/conversion/import/docx/editor-extension', {
         inline: ['Get started'],
+        omit: ['Legacy'],
       }),
       feature(
-        'Composable Docs',
+        'Composable Documents',
         composableDocsSidebar,
         '/composable-docs/slots/getting-started/overview',
       ),
-      feature('Diagrams', diagramsSidebar, '/diagrams/getting-started/overview', {
+      // Not in the catalog: its generated pages carry no `extension` frontmatter
+      section('Diagrams', diagramsSidebar, {
         inline: ['Diagrams'],
-      }),
-      feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
-        inline: ['Getting started'],
+        tags: catalogTags({ plan: 'Pilot program', status: 'Alpha' }),
       }),
       {
-        ...link(editorSidebar, ['Whiteboard']),
+        // Page Layout replaces Pages. Its packages show as "Soon" until their docs land;
+        // Pages stays at its URLs for existing projects, labeled Legacy.
+        title: 'Page Layout',
         href: '',
-        tags: featureTags('/editor/whiteboard/getting-started/overview'),
+        children: [
+          ...upcoming('page-layout'),
+          feature('Pages', pagesSidebar, '/pages/getting-started/overview', {
+            inline: ['Getting started'],
+          }),
+        ],
+      },
+      {
+        title: 'Whiteboard',
+        href: '',
+        tags: planTags('/editor/whiteboard/getting-started/overview'),
         // The AI agent guide has its place in the AI Toolkit
         children: childrenOf(editorSidebar, ['Whiteboard']).filter(
           (entry) => entry.href !== '/ai/ai-toolkit/agents/whiteboard',
@@ -264,6 +331,7 @@ const items: SidebarGroup[] = [
       },
       link(collaborationSidebar, ['Features', 'Webhooks']),
       { title: 'Operations', href: '', children: childrenOf(collaborationSidebar, ['Ops']) },
+      { title: 'Guides', href: '', children: childrenOf(collaborationSidebar, ['Guides']) },
       section('Hocuspocus', hocuspocusSidebar, {
         inline: ['Get started'],
         tags: ['Open source'],
@@ -280,6 +348,7 @@ const items: SidebarGroup[] = [
       link(editorSidebar, ['Get started', 'Configure']),
       link(editorSidebar, ['Get started', 'Styling']),
       ...childrenOf(editorSidebar, ['Core Concepts']).slice(1),
+      { title: 'Guides', href: '', children: childrenOf(editorSidebar, ['Guides']) },
     ],
   },
   {
@@ -294,6 +363,11 @@ const items: SidebarGroup[] = [
         children: undefined,
       },
       ...childrenOf(editorSidebar, ['Extensions', 'Custom extensions']),
+      {
+        title: 'Guides',
+        href: '',
+        children: childrenOf(editorSidebar, ['Customization guides']),
+      },
     ],
   },
   {
@@ -329,9 +403,48 @@ const items: SidebarGroup[] = [
     title: 'Resources',
     href: '/resources',
     collapsible: true,
-    children: childrenOf(resourcesSidebar, ['Resources']).filter(
-      (entry) => !elsewhere.includes(entry.href),
-    ),
+    children: childrenOf(resourcesSidebar, ['Resources']),
+  },
+  {
+    // Kept for existing projects. Its pages keep their URLs; only their place in
+    // the sidebar moves here, so the areas above show what to build with today.
+    // Pages stays under Page Layout until Page Layout ships.
+    type: 'group',
+    title: 'Legacy',
+    href: '/legacy',
+    collapsible: true,
+    divider: true,
+    children: quiet([
+      {
+        title: 'AI',
+        href: '',
+        // Paid like the rest of AI
+        tags: ['Legacy', 'Paid'],
+        children: [
+          section('AI Assistant', aiAssistantSidebar, legacyOptions),
+          section('AI Suggestion', aiSuggestionSidebar, legacyOptions),
+          section('AI Changes', aiChangesSidebar, legacyOptions),
+          {
+            title: 'AI Toolkit',
+            href: '',
+            tags: planTags('/ai/ai-toolkit/overview'),
+            children: legacyOf(aiSidebar),
+          },
+        ],
+      },
+      // The two that fold open first, then the single pages
+      {
+        ...toEntries([pick(conversionSidebar, ['Legacy'])])[0],
+        title: 'Conversion',
+        tags: ['Legacy', ...(planTags('/conversion/import/docx/editor-extension') ?? [])],
+      },
+      {
+        ...link(collaborationSidebar, ['Documents', 'Compare Snapshots']),
+        title: 'Compare snapshots',
+        tags: planTags('/collaboration/documents/snapshot-compare'),
+      },
+      { href: '/authentication/legacy', title: 'Authentication' },
+    ]),
   },
 ]
 

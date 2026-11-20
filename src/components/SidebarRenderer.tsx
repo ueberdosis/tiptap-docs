@@ -18,8 +18,8 @@ import Link from '@/components/Link'
 import { SidebarConfig, SidebarGroup, SidebarLink } from '@/types'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { cn } from '@/utils'
-import { isAtOrBelow } from '@/utils/isAtOrBelow'
 import { isNew } from '@/utils/isNew'
+import { isAtOrBelow } from '@/utils/isAtOrBelow'
 
 export const DocsSidebar = ({
   config,
@@ -136,17 +136,20 @@ const FoldArrow = ({ isOpen }: { isOpen: boolean }) => (
   />
 )
 
-// One label per entry, ranked by what matters most for whether to open it.
-// Alpha and Beta change how you build on a page, so only the page header shows them.
+// One label per entry, the one that matters most for whether to open it:
+// end of life first, then upcoming, then Paid, then new pages. The page header
+// names the exact plan; open source stays unlabeled. Alpha and Beta change how
+// you build on a page, not whether you open it, so they show in the page header
+// and the catalog instead. Labels stay grey, so the navigation stays calm.
 export type SidebarLabel = { text: string; kind: 'plan' | 'status' | 'end-of-life' }
 
 const PAID: SidebarLabel & { rank: number } = { text: 'Paid', kind: 'plan', rank: 3 }
 
 const LABELS: Record<string, SidebarLabel & { rank: number }> = {
-  deprecated: { text: 'Deprecated', kind: 'end-of-life', rank: 0 },
+  legacy: { text: 'Legacy', kind: 'end-of-life', rank: 1 },
+  soon: { text: 'Soon', kind: 'status', rank: 2 },
   paid: PAID,
   start: PAID,
-  starter: PAID,
   team: PAID,
   business: PAID,
   'add-on': PAID,
@@ -156,20 +159,20 @@ const LABELS: Record<string, SidebarLabel & { rank: number }> = {
   new: { text: 'New', kind: 'status', rank: 4 },
 }
 
-/**
- * The label an entry shows, the most important one if it has several. New comes
- * from `newSince` only, so it goes away on its own.
- */
+/** The label an entry shows, the most important one if it has several. */
 export function sidebarLabel(
   tags: string[] | undefined,
   hidePlan = false,
-  newSince?: string,
+  hideLegacy = false,
 ): SidebarLabel | undefined {
   const [label] = (tags ?? [])
-    .filter((tag) => tag.toLowerCase() !== 'new')
-    .concat(isNew(newSince) ? ['New'] : [])
     .map((tag) => LABELS[tag.toLowerCase()])
-    .filter((label) => label && !(hidePlan && label.kind === 'plan'))
+    .filter(
+      (label) =>
+        label &&
+        !(hidePlan && label.kind === 'plan') &&
+        !(hideLegacy && label.kind === 'end-of-life'),
+    )
     .sort((a, b) => a.rank - b.rank)
   return label ? { text: label.text, kind: label.kind } : undefined
 }
@@ -231,7 +234,11 @@ export const LinkItem = ({
   const hasActiveChild = hasActiveDescendant(link.children, pathname, listed)
   const isActive = isExactMatch && !hasActiveChild
   const linkRef = useRef<HTMLDivElement>(null)
-  const label = sidebarLabel(link.tags, link.hidePlan, link.newSince)
+  const label = sidebarLabel(
+    isNew(link.newSince) ? [...(link.tags ?? []), 'New'] : link.tags,
+    link.hidePlan,
+    link.hideLegacy,
+  )
   const target = targetOf(link)
 
   const [isOpen, setIsOpen] = useRememberedOpen(

@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { CATALOG_GROUPS, CatalogArea, CatalogPlan } from '../content/catalog'
+import { CATALOG_GROUPS, CatalogArea, CatalogPlan, UPCOMING_FEATURES } from '../content/catalog'
 import { INDUSTRIES } from '../content/industries'
 import type { ExtensionType } from '../types'
 import { readFrontmatterSync } from './readFrontmatter'
@@ -12,14 +12,20 @@ export type CatalogEntry = {
   type: ExtensionType
   group: string
   area: CatalogArea
+  /** Unknown for features that are announced but not documented yet. */
   plan?: CatalogPlan
-  /** Release state from the page tags, such as Beta or Alpha. */
+  /** Release state from the page tags, such as Beta or Alpha, or "Soon" for features without docs yet. */
   status?: string
+  /** Empty for features that are announced but not documented yet. */
   url: string
   /** The npm packages to install, space-separated. */
   package?: string
   /** Industries from src/content/industries.ts where this feature matters most. */
   industries?: string[]
+  /** For a feature without docs yet: what covers the need today. */
+  meanwhile?: { label: string; url: string }
+  /** For a feature without docs yet: it will need a paid plan, not yet named. */
+  paid?: boolean
 }
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
@@ -33,10 +39,11 @@ export function planFromTags(tags: string[]): CatalogPlan {
 }
 
 export function statusFromTags(tags: string[]): string | undefined {
-  if (tags.includes('deprecated')) return 'Deprecated'
+  if (tags.includes('legacy')) return 'Legacy'
   if (tags.includes('alpha')) return 'Alpha'
   if (tags.includes('beta')) return 'Beta'
   if (tags.includes('experiment')) return 'Experimental'
+  if (tags.includes('new')) return 'New'
   return undefined
 }
 
@@ -53,13 +60,33 @@ let catalog: CatalogEntry[] | undefined
 
 /** Every catalog entry, in group order and then by name. Read once per process. */
 export function getCatalog(): CatalogEntry[] {
-  catalog ??= sortByGroup(readCatalog(CONTENT_DIR)).map((entry) => {
+  catalog ??= sortByGroup([...readCatalog(CONTENT_DIR), ...upcomingEntries()]).map((entry) => {
     const industries = INDUSTRIES.filter((industry) => industry.features.includes(entry.name)).map(
       (industry) => industry.id,
     )
     return industries.length ? { ...entry, industries } : entry
   })
   return catalog
+}
+
+/** Announced features without docs pages, from UPCOMING_FEATURES. */
+function upcomingEntries(): CatalogEntry[] {
+  return UPCOMING_FEATURES.map((feature) => {
+    const group = CATALOG_GROUPS.find(({ id }) => id === feature.group)
+    if (!group) throw new Error(`Unknown catalog group "${feature.group}" for ${feature.name}`)
+    return {
+      name: feature.name,
+      description: feature.description,
+      icon: feature.icon,
+      type: 'extension' as ExtensionType,
+      group: group.id,
+      area: group.area,
+      status: 'Soon',
+      url: '',
+      meanwhile: feature.meanwhile,
+      paid: feature.paid,
+    }
+  })
 }
 
 function sortByGroup(entries: CatalogEntry[]): CatalogEntry[] {

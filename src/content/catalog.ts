@@ -9,6 +9,8 @@ export type CatalogGroup = {
   id: string
   title: string
   area: CatalogArea
+  /** Labels the group Paid in the sidebar even when not every feature in it says so. */
+  paid?: boolean
 }
 
 /** A group of editor features that has its own page, `/editor/extensions/<id>`. */
@@ -29,11 +31,13 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   { id: 'review', title: 'Review', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
-  { id: 'composable-docs', title: 'Composable Docs', area: 'platform' },
+  { id: 'composable-docs', title: 'Composable Documents', area: 'platform' },
   // Its entry comes from the overview's frontmatter, which the tiptap-pro docs sync writes
   { id: 'diagrams', title: 'Diagrams', area: 'platform' },
-  { id: 'page-layout', title: 'Pages', area: 'platform' },
+  { id: 'page-layout', title: 'Page Layout', area: 'platform' },
   { id: 'whiteboard', title: 'Whiteboard', area: 'platform' },
+  // Editor features that will need a plan, with the paid products
+  { id: 'document-structure', title: 'Document structure', area: 'editor' },
   { id: 'kits', title: 'Starter kit', area: 'editor' },
   { id: 'text-formatting', title: 'Text formatting', area: 'editor' },
   { id: 'text-styling', title: 'Text styling', area: 'editor' },
@@ -58,8 +62,105 @@ export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot p
 
 export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 
-// The catalog cards and the plan filter name the plans as the page header does
-export { PLAN_LABELS } from './plans'
+/** How the page header, the catalog cards, and the plan filter name each plan. */
+export const PLAN_LABELS: Record<CatalogPlan, { label: string; tooltip: string }> = {
+  'Open source': { label: 'Open source', tooltip: 'MIT licensed, free to use.' },
+  Start: { label: 'Start plan', tooltip: 'Included in Start, Team, Business, and Enterprise.' },
+  Team: { label: 'Team plan', tooltip: 'Included in Team, Business, and Enterprise.' },
+  'Add-on': { label: 'Paid add-on', tooltip: 'Added to a paid plan.' },
+  'Pilot program': {
+    label: 'Pilot program',
+    tooltip: 'Contact our team to join the pilot program.',
+  },
+}
 
 /** The statuses to filter by; Stable is a released feature without a status. */
-export const CATALOG_STATUSES = ['Stable', 'Beta', 'Alpha', 'Experimental', 'Deprecated'] as const
+export const CATALOG_STATUSES = [
+  'Stable',
+  'Beta',
+  'Alpha',
+  'Experimental',
+  'Soon',
+  'Legacy',
+] as const
+
+export type UpcomingFeature = {
+  name: string
+  description: string
+  icon: string
+  group: string
+  /** What covers the need today, until the feature ships. */
+  meanwhile?: { label: string; url: string }
+  /** Will need a paid plan; which one is set when its docs ship. */
+  paid?: boolean
+}
+
+/**
+ * MOCK: packages that exist in tiptap-pro but have no docs pages yet: Page Layout
+ * and the extensions that come with it. They show as "Soon" in the catalog
+ * and the sidebar. Replace an entry with a page (frontmatter `extension.group`)
+ * once its docs exist; drop the list before it ships if the packages aren't
+ * announced.
+ */
+export const UPCOMING_FEATURES: UpcomingFeature[] = [
+  {
+    name: 'Page Layout',
+    description:
+      'Lay out a document as pages, with page formats, sections, headers and footers, page numbers, and breaks.',
+    icon: 'FileText',
+    group: 'page-layout',
+    meanwhile: { label: 'Pages', url: '/pages/getting-started/overview' },
+    paid: true,
+  },
+  {
+    name: 'Footnotes',
+    description: 'Footnotes and endnotes that number themselves, in any editor.',
+    icon: 'Superscript',
+    group: 'document-structure',
+    meanwhile: { label: 'footnotes in Pages', url: '/pages/core-concepts/footnotes' },
+    paid: true,
+  },
+  {
+    name: 'Cross-references',
+    description: 'Refer to headings, clauses, or bookmarks with references that stay up to date.',
+    icon: 'Link2',
+    group: 'document-structure',
+    paid: true,
+  },
+  {
+    name: 'Outline numbering',
+    description: 'Number headings and clauses as 1.1, Article I, or (a), from where they stand.',
+    icon: 'ListTree',
+    group: 'document-structure',
+    paid: true,
+  },
+  {
+    name: 'Document styles',
+    description:
+      'Named styles for paragraphs, headings, and tables, stored in the document; change a style and everything using it follows.',
+    icon: 'Paintbrush',
+    group: 'document-structure',
+    paid: true,
+  },
+  {
+    name: 'Bookmark',
+    description: 'Named places in the document that links and references can point to.',
+    icon: 'Bookmark',
+    group: 'document-structure',
+    paid: true,
+  },
+  {
+    name: 'Columns',
+    description: 'Containers side by side, each with content of its own.',
+    icon: 'Columns2',
+    group: 'document-structure',
+    paid: true,
+  },
+  {
+    name: 'Whole blocks',
+    description: 'A block selected from start to end is deleted, cut, and copied as a block.',
+    icon: 'Square',
+    group: 'cursor-and-selection',
+    paid: true,
+  },
+]

@@ -7,6 +7,8 @@ export type SidebarLink = {
   newSince?: string
   /** Leave out the Paid label, because the entry above already shows it. */
   hidePlan?: boolean
+  /** Leave out the Legacy label, because the entry sits in the Legacy area. */
+  hideLegacy?: boolean
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
@@ -52,7 +54,7 @@ export type GeneralPageTag = {
     | 'restricted'
     | 'mit'
     | 'business'
-    | 'deprecated'
+    | 'legacy'
     | 'version'
   tooltip?: string
   label?: string
@@ -98,7 +100,10 @@ export type FrontmatterHeaderDemo = {
   src?: string
   /** `false` for a demo whose code is too much to read beside it, such as a whole app: no Preview / Code / Both. */
   code?: boolean
-  /** A short line at the left of the bar, in HTML like `intro`. Shown only without code, where the view switch is not. */
+  /**
+   * One sentence on what to try in the demo, in HTML like `intro`. At the left of the bar
+   * when the demo shows no code, where the view switch is not, otherwise below the demo.
+   */
   caption?: string
   /** A CSS length, such as `min(80vh, 52rem)`, for a taller demo. Defaults to `min(70vh, 31rem)`. */
   height?: string
