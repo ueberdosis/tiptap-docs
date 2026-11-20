@@ -379,7 +379,7 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/legacy/overview',
       title: 'Legacy',
-      tags: ['Deprecated'],
+      tags: ['Legacy'],
       children: [
         {
           title: 'Overview',
