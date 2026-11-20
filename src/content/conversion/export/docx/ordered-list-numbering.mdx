@@ -218,11 +218,7 @@ editor.commands.registerNumberingFormats(formatsFromTheImport)
 
 Merging by id means repeating the call is safe: re-registering an id replaces that entry rather than adding a second one, so importing the same file twice leaves one definition behind. An id you configured in `formats` is replaced the same way, which lets an imported document override a house format of the same name.
 
-The full registry, your configured formats plus everything registered since, is on the extension's storage. Hand it to the exporter to close the round trip:
-
-```ts
-ExportDocx.configure({ numberingFormats: editor.storage.orderedListNumbering.numberingFormats })
-```
+The full registry, your configured formats plus everything registered since, is on the extension's storage as `editor.storage.orderedListNumbering.numberingFormats`. The `exportDocx` command adds it to its `numberingFormats` by itself, so the round trip needs no wiring. A registered format replaces a format with the same id in `ExportDocx.configure({ numberingFormats })`, and a format you pass to the command replaces a registered one. When you call the `exportDocx` function yourself instead of the command, pass the registry as its `numberingFormats`.
 
 The `ImportDocx` extension calls `registerNumberingFormats` for you when `orderedListNumbering` is on, so an imported document renders its own markers without any wiring. Call it yourself when you load content some other way.
 
@@ -275,7 +271,7 @@ ConvertKit's types accept plain strings so the package does not pull in `docx`. 
 | -------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `baseStyle`    | (required)               | The counter glyph, or the literal `'bullet'` for a [bullet ladder](#bullet-ladders). Otherwise equivalent to the matching docx [`LevelFormat`](https://docx.js.org/api/enums/LevelFormat.html) value. The Latin/numeric styles (`'decimal'`, `'decimalZero'`, `'upperLetter'`, `'lowerLetter'`, `'upperRoman'`, `'lowerRoman'`, `'none'`) and many locale styles (e.g. `'hebrew1'`, `'thaiNumbers'`, `'hindiNumbers'`, `'japaneseCounting'`, `'koreanDigital'`, `'chineseCounting'`, `'ideographDigital'`) map to a matching CSS counter style so the preview renders their native glyph. Styles with no faithful CSS equivalent (e.g. `'chicago'`, `'ordinal'`, `'cardinalText'`), and any unrecognized string, fall back to `decimal` **in the editor preview only**; the exported `.docx` always carries the exact `LevelFormat` you set. |
 | `textTemplate` | (required)               | Marker text using Word's `<w:lvlText>` grammar (see below). On a `'bullet'` level it is the glyph itself.                                                                                                                                             |
-| `startAt`      | `1`                      | Initial counter value.                                                                                                                                                                                                                                                    |
+| `startAt`      | `1`                      | Initial counter value. A list that names the format counts from it and ignores its own `start` attribute. See [List starts and number types](#list-starts-and-number-types).                                                                                             |
 | `alignment`    | `'left'`                 | Where the marker is justified against `numberIndent`. See [Marker alignment](#marker-alignment).                                                                                                                                                                           |
 | `numberIndent` | Word's per-level default | Distance from the page margin to the marker. Twips number or a docx-style measure string (`'0.63cm'`, `'0.25in'`, `'18pt'`).                                                                                                                                              |
 | `textIndent`   | Word's per-level default | Distance from the page margin to the body text. Should be greater than `numberIndent`. A single item can sit somewhere else; see [Indents on a single item](#indents-on-a-single-item).                                                                                   |
@@ -488,6 +484,48 @@ Every format emits both `ul[data-numbering-format="…"]` and `ol[data-numbering
 - An unmatched id (typo, missing attribute, empty `numberingFormats`) keeps the default ladder for that list kind: plain `1. 2. 3.` for an ordered list, the built-in glyph ladder for a bullet list.
 - Sibling multilevel lists referencing the same format restart independently, each starting at its own `startAt`. A format with a `linkedStyle` on any level is the exception: it is one list for the whole document, so its lists continue each other.
 
+## List starts and number types
+
+An `orderedList` node keeps the number it starts at in `attrs.start` and its number type in `attrs.type`, like `<ol start="5" type="a">`. The export writes both into the DOCX.
+
+`start` works like this:
+
+- A whole number of `0` or more is the number the list starts at. A `start` of `1` writes the same file as no `start`.
+- A negative number exports as `0`, and a number above `2147483647` exports as `2147483647`, because Word accepts only that range.
+- Any other value, such as `2.5`, `'5'`, `NaN` or `null`, is ignored, and the list starts at 1.
+
+`type` selects the number type:
+
+| `type` | Number type       |
+| ------ | ----------------- |
+| `1`    | Decimal           |
+| `a`    | Lowercase letters |
+| `A`    | Uppercase letters |
+| `i`    | Lowercase roman   |
+| `I`    | Uppercase roman   |
+
+When more than one setting names a number type, the first of these wins:
+
+1. A `numberingFormat` that names a format in the registry. The list uses the levels of the format and counts from their `startAt`, like the editor preview. It ignores its own `start` and `type`. A `numberingFormat` id that the registry does not have does not count, so that list keeps its `start`.
+2. A `format` that you set on a level of the `listLevels.ordered` export option. The list keeps its `start`.
+3. The list's own `type`.
+4. The number type that [computed styles](/conversion/export/docx/computed-styles) read from the editor.
+
+### Nested lists
+
+- A nested ordered list with its own `start` begins its own numbering at that number. The outer list goes on counting after it.
+- A nested ordered list without `start` stays a level of the outer list. It starts again at 1 under each item of the outer list, as in Word.
+- When a level's marker text in `listLevels` also shows the outer number, such as `%1.%2.`, a nested list with its own `start` shows the current number of its outer item. Under the second item of the outer list, a nested list that starts at 5 begins with `2.5.`.
+- An ordered list in a bullet list item starts at its `start` too, and two lists with the same `start` each count from that number.
+
+### Where starts and number types export
+
+List starts and number types export in the body, footnotes, endnotes, comments, headers and footers. In a header or footer function of your own, pass the overrides argument on to `convertHeader` or `convertFooter`. Without it, a list keeps its `start` but counts in decimal numbers. See [Pass the overrides on](/conversion/export/docx/headers-footers#pass-the-overrides-on).
+
+## Items with more than one paragraph
+
+Only the first paragraph of a list item carries the marker. The later paragraphs of the item line up with its text and do not count as items, so the next item keeps its number. Code blocks, headings, quotes and images in the item line up with its text as well. When the first paragraph writes nothing, for example because its only image could not be loaded, the next paragraph of the item takes the marker.
+
 ## Known limitations
 
 Word features the exporter intentionally does not model:
@@ -496,7 +534,7 @@ Word features the exporter intentionally does not model:
 | ------------------------------------------ | ------------------------------------------------------------------------------------- |
 | Per-level counter-restart (Word's "restart list after level N", `w:lvlRestart`) | Word's default behavior (sub-levels restart when the parent advances) is always used. |
 | Picture bullets (`w:lvlPicBulletId`)       | Use a symbol font through `markerFont.font` instead.                                  |
-| Continuing numbering across separate lists | Each list starts at its `startAt` independently.                                      |
+| Continuing numbering across separate lists | Each list starts at its `startAt` independently, or at its own [`start`](#list-starts-and-number-types) when it names no format. |
 | Per-item marker overrides (a different glyph or counter value on one item) | Use a separate list to start at a different counter value. Where an item *sits* is a separate matter; see [Indents on a single item](#indents-on-a-single-item). |
 | DOCX → editor import                       | Handled by `@tiptap-pro/extension-import-docx`, which feeds the formats it reconstructs to the editor. See [Adding formats after the editor is running](#adding-formats-after-the-editor-is-running). |
 
