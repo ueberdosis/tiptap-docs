@@ -1,8 +1,15 @@
-import { SidebarConfig } from '@/types'
+import { pageLabels } from '@/server/pageLabels'
+import type { SidebarConfig } from '@/types'
+import type { SidebarEntry } from '@/utils/composeSidebar'
+
+function withPagePlan(entry: SidebarEntry): SidebarEntry {
+  const { plan } = pageLabels(entry.href)
+  return plan && plan !== 'Open source' ? { ...entry, tags: [plan] } : entry
+}
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ui components',
-  rootHref: '/ui-components/getting-started/',
+  rootHref: '/ui-components/getting-started/overview',
   title: 'Components',
   items: [
     {
@@ -66,19 +73,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
-          tags: ['MIT licensed'],
         },
         {
           title: 'Notion Editor',
           href: '/ui-components/templates/notion-like-editor',
-          tags: ['Start'],
         },
         {
           title: 'DOCX Editor',
           href: '/ui-components/templates/docx-editor',
-          tags: ['Team'],
         },
-      ],
+      ].map(withPagePlan),
     },
     {
       type: 'group',
@@ -249,7 +253,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Zoom dropdown menu',
               href: '/ui-components/components/zoom-dropdown-menu',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Node components',
@@ -288,6 +292,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/node-components/list-node',
             },
             {
+              title: 'Mathematics node',
+              href: '/ui-components/node-components/mathematics-node',
+            },
+            {
               title: 'Paragraph node',
               href: '/ui-components/node-components/paragraph-node',
             },
@@ -299,7 +307,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Table of contents node',
               href: '/ui-components/node-components/table-of-contents-node',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Primitives',
@@ -365,7 +373,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Tooltip',
               href: '/ui-components/primitives/tooltip',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Utilities',
@@ -379,7 +387,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Suggestion menu',
               href: '/ui-components/utils-components/suggestion-menu',
             },
-          ],
+          ].map(withPagePlan),
         },
       ],
     },

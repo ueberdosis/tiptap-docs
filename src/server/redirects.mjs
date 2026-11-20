@@ -287,6 +287,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/ui-components/install/tanstack',
+    destination: '/ui-components/install/manual',
+    permanent: false,
+  },
+  {
     source: '/ui-components/node-components',
     destination: '/ui-components/node-components/blockquote-node',
     permanent: true,
@@ -298,7 +303,7 @@ export const redirects = [
   },
   {
     source: '/ui-components/components',
-    destination: '/ui-components/components/ai-ask-button',
+    destination: '/ui-components/components/overview',
     permanent: true,
   },
   {
