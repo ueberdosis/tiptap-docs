@@ -237,7 +237,7 @@ export const LinkItem = ({
   const [isOpen, setIsOpen] = useRememberedOpen(
     path,
     isActive || isActiveParent || hasActiveChild,
-    false,
+    !!link.defaultOpen,
   )
 
   const toggleOpen = useCallback(

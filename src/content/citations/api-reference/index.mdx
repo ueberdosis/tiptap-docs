@@ -1,102 +1,16 @@
 ---
-title: Smart Citations API reference
-description: Look up Smart Citations options, commands, queries, and errors.
+title: 'Smart Citations API reference'
+description: 'Look up Smart Citations options, commands, queries, and errors.'
 meta:
-  title: Smart Citations API reference | Tiptap Smart Citations Docs
-  description: Look up Smart Citations options, commands, queries, and errors.
+  title: 'Smart Citations API reference | Tiptap Smart Citations Docs'
+  description: 'Look up Smart Citations options, commands, queries, and errors.'
   category: Smart Citations
 ---
 
-Import query functions, `createSources`, and types from `@tiptap-pro/extensions-smart-citations`. Call citation commands on `editor.commands`.
-
-The runtime extension name is `smartCitations`. The serialized mark type is `citation`.
-
-## Configuration
-
-The configuration type for `SmartCitations` is `SmartCitationsOptions`.
-
-| Option | Type | Required or default |
-| --- | --- | --- |
-| `sources` | `SourceCollection` | Required. The application-owned collection. |
-| `user` | `CitationUser \| (() => CitationUser)` | Required. Provide a nonempty string `id` and optional string `name`. |
-| `renderCitation` | `(context: CitationRenderContext) => CitationRenderResult` | Defaults to the source label or `Missing source`. |
-| `onCitationClick` | `(context: CitationClickContext) => void` | Optional. See [references and clicks](/citations/guides/usage#customize-references-and-clicks). |
-| `onError` | `(error: CitationError) => void` | Optional. Receives expected command failures. |
-
-Keep the `user` callback synchronous and free of side effects. Smart Citations reads it on setup, local edits, and validation for creation, approval, and restoration. If it returns an invalid user during an edit, Smart Citations keeps the edit and prior attribution and reports `invalidUser`.
-
-## Commands
-
-Commands return `true` on success. Expected failures return `false` and call `onError` if configured. Use `editor.can()` to validate without editing the document or calling `onError`.
-
-| Command on `editor.commands` | Effect | Expected failures |
-| --- | --- | --- |
-| `createCitation({ sourceId })` | Cites the current selection and records the initial confirmed reference and creator. | Unknown source, unsupported selection, schema restriction, or invalid user. |
-| `approveCitation(id)` | Confirms the current text and source revision and records the approver. | Unknown citation, missing source, or invalid user. |
-| `revertCitation(id)` | Restores the confirmed text and reevaluates affected citations. | Unknown citation, unsupported restoration, schema restriction, or invalid user. |
-| `removeCitation(id)` | Removes the specified citation, keeping the text, source, and overlapping citations. | Unknown citation. |
-
-`CreateCitationOptions` takes a string `sourceId`. Review commands take a citation ID string directly.
-
-## Queries and subscriptions
-
-| Export | Result |
-| --- | --- |
-| `getCitation({ editor, id })` | A `Citation` snapshot or `undefined` if the ID is absent. |
-| `getCitations({ editor, filter })` | A frozen `readonly Citation[]` ordered by first range position, then ID. The optional `CitationFilter` combines `status` and `sourceId` when both are supplied. |
-| `getSources(editor)` | A frozen `readonly SourceSnapshot[]` in insertion order. |
-| `subscribeCitations({ editor, listener })` | An unsubscribe function. The listener receives a `CitationChange` with read-only `changedIds` and `removedIds` arrays. |
-
-Listeners run after citation changes, including changes to ranges. Cursor movement alone does not notify. Destroying the editor detaches listeners. Smart Citations reports listener errors in a microtask after notifying the other listeners.
-
-## Citation snapshots
-
-| Fields | Type and meaning |
-| --- | --- |
-| `id`, `sourceId` | String IDs for the citation and its source. |
-| `text`, `confirmedText` | Current and confirmed text. |
-| `source`, `sourceRevision` | Current `SourceSnapshot` and revision string. A missing source yields `undefined` and `null`, respectively. |
-| `confirmedSourceRevision` | Confirmed revision string. |
-| `status`, `invalidReasons` | `'valid' \| 'invalid'` and a read-only array of [invalid reasons](/citations/guides/usage#review-changed-citations). |
-| `ranges` | Read-only `CitationRange` objects with numeric ProseMirror positions `from` and `to`. |
-| `createdBy`, `updatedBy`, `lastApprovedBy` | Read-only `CitationUser` objects. The last approver is `null` before explicit approval. |
-| `createdAt`, `updatedAt`, `lastApprovedAt` | UTC ISO timestamps. The last approval time is `null` before explicit approval. |
-
-`CitationAttributes` covers the IDs, confirmed text and revision, and attribution stored in the mark. A snapshot groups all surviving ranges for the same ID.
-
-## Source collections
-
-`createSources<T>(inputs)` takes an array of `SourceInput<T>` records. Each record needs a unique, nonempty string `id`, a nonempty string `label`, and `data`. Use `createSources<unknown>(inputs)` for mixed data shapes. See [revision strategies](/citations/guides/usage#choose-a-revision-strategy) for `revision` and `getRevision`.
-
-| Method | Result or effect |
-| --- | --- |
-| `add(input)` | Adds a source. Duplicate IDs throw. |
-| `update(id, patch)` | Replaces the supplied `label`, `data`, or `revision` and keeps omitted fields. Unknown IDs throw. A label change preserves the revision. |
-| `remove(id)` | Removes a source. Unknown IDs throw. |
-| `get(id)` | Returns a frozen `SourceSnapshot<T>` or `undefined`. |
-| `getAll()` | Returns a frozen snapshot array in insertion order. |
-| `subscribe(listener)` | Returns an unsubscribe function. The listener receives `SourceChange` with a read-only `sourceIds` array. |
-| `batch(callback)` | Combines changes into one notification at the end of the outermost synchronous batch. |
-
-A snapshot contains `id`, `label`, `revision`, and a frozen copy of `data`. Use strings, booleans, finite numbers, `null`, dense arrays, or plain objects with enumerable string keys. Cycles, accessors, `undefined`, and class instances are invalid.
-
-Source notifications are synchronous. Changes inside a listener queue another notification. The collection finishes delivery before rethrowing the first listener error. If a batch throws, it still keeps and reports successful changes.
-
-If both the batch callback and a source listener throw, the caller receives the first listener error instead of the callback error.
-
-## Errors
-
-`CitationError` extends `Error` with `code` and `details`. Details can include `sourceId`, `citationId`, `from`, `to`, `nodeType`, `markType`, or `path`. Invalid configuration, source operations, and queries throw.
-
-| Code | What to check |
-| --- | --- |
-| `unknownSource` | Add the source before citing, updating, or removing it. |
-| `unknownCitation` | Refresh the review UI and use a current citation ID. |
-| `duplicateSourceId` | Update the existing source or use a different ID. |
-| `unsupportedSelection` | Select text in one textblock. For restoration, check the surviving ranges. |
-| `markNotAllowed` | Check whether the node or an existing mark prevents the citation mark. |
-| `sourceMissing` | Load the missing source before approving. |
-| `unsupportedRevisionInput` | Inspect `details.path` and use supported JSON data. |
-| `missingExtension` | Use an editor configured with `SmartCitations` and subscribe before destroying it. |
-| `invalidSource` | Check the source shape, update fields, and revision strategy. |
-| `invalidUser` | Supply a nonempty string ID and optional string name. |
+- [Extension](/citations/api-reference/extension). Configure Smart Citations and customize text review, references, and callbacks.
+- [Commands](/citations/api-reference/commands). Create, approve, restore, or remove citations through editor commands.
+- [Queries](/citations/api-reference/queries). Read citation snapshots, subscribe to changes, and export collaborative JSON.
+- [Sources](/citations/api-reference/sources). Create and manage an observable collection of citation sources.
+- [Source data](/citations/api-reference/source-data). Choose data that Smart Citations can copy and fingerprint.
+- [Types](/citations/api-reference/types). Look up the fields stored with a citation and returned in a citation snapshot.
+- [Errors](/citations/api-reference/errors). Look up citation error codes and how to resolve them.

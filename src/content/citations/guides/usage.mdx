@@ -1,134 +1,18 @@
 ---
-title: Use Smart Citations
-description: Manage sources, review citation changes, and customize how citations appear.
+title: 'Smart Citations guides'
+description: 'Find guides for sources, review, rendering, and collaboration.'
 meta:
-  title: Use Smart Citations | Tiptap Smart Citations Docs
-  description: Manage sources, review citation changes, and customize how citations appear.
+  title: 'Smart Citations guides | Tiptap Smart Citations Docs'
+  description: 'Find guides for sources, review, rendering, and collaboration.'
   category: Smart Citations
 ---
 
-The examples use the editor and source collection from [Install Smart Citations](/citations/getting-started/install).
+Start with [Install Smart Citations](/citations/getting-started/install) to set up an editor and source collection.
 
-## Supply and update sources
-
-Your app fetches or extracts the content to track. If you store only a URL, Smart Citations tracks the URL string. Keep the same collection while the editor is open and publish changes with its [source methods](/citations/api-reference#source-collections).
-
-```ts
-const response = await fetch('/api/manual')
-if (!response.ok) {
-  throw new Error(`Could not load the manual: ${response.status}`)
-}
-
-sources.update('manual', { data: { text: await response.text() } })
-```
-
-Run refreshes for the same source one at a time, including reading the response body and updating the collection. Overlapping refreshes can let an older response overwrite newer source data. Keep the last known source if a fetch fails. Finish fetching before applying related updates in `sources.batch()`.
-
-### Choose a revision strategy
-
-| Strategy | Configuration | Behavior |
-| --- | --- | --- |
-| Automatic | Omit `revision` and `getRevision`. | Hashes canonical JSON with SHA-256. Array order matters. Object key order has no effect. |
-| Explicit | Set `revision` to a version ID or ETag. | Your app decides when to change the revision. |
-| Selected fields | Set `getRevision: data => data.text`. | Hashes the selector result, so changes to unrelated fields leave the revision unchanged. |
-
-Only explicit sources accept `revision` updates. Remove and re-add a source to change its strategy. Selectors run on insert and data replacement. They receive frozen data and must return finite JSON. If a selector throws, the collection keeps its previous state and rethrows the error.
-
-This source tracks `text` and ignores refresh timestamps.
-
-```ts
-const sources = createSources([
-  {
-    id: 'manual',
-    label: 'Editor manual',
-    data: { text: 'First version', fetchedAt: new Date().toISOString() },
-    getRevision: data => data.text,
-  },
-])
-```
-
-## Review changed citations
-
-Each citation saves the text and source revision at creation or last approval. It stays `valid` while both match the current text and local source revision. Users decide whether the source supports the passage.
-
-| Invalid reason | Meaning |
-| --- | --- |
-| `textChanged` | The current text differs from the confirmed text. |
-| `sourceChanged` | The current source revision differs from the confirmed revision. |
-| `sourceMissing` | The source ID is absent from the local collection. |
-
-A citation can have multiple reasons. Each clears when its condition clears.
-
-### Build a review panel
-
-Render the list once, then refresh it when citations change. Unsubscribe when the panel unmounts.
-
-```ts
-import { getCitations, subscribeCitations } from '@tiptap-pro/extensions-smart-citations'
-import type { Citation } from '@tiptap-pro/extensions-smart-citations'
-
-function watchReviewQueue(render: (citations: readonly Citation[]) => void) {
-  const refresh = () => render(getCitations({ editor, filter: { status: 'invalid' } }))
-  refresh()
-  return subscribeCitations({ editor, listener: refresh })
-}
-```
-
-Read fresh ranges with `getCitation({ editor, id })` before navigating to a citation. Pass the citation ID to the [review commands](/citations/api-reference#commands). Several citations can share a source ID.
-
-### Selections, overlaps, and pasting
-
-- **Creation.** Select nonempty text within one textblock. Formatted text works wherever the schema allows citation marks. Non-text inline nodes are unsupported.
-- **Overlaps.** Citations can overlap or cover identical ranges, even for the same source. Deleting all cited text removes its citation.
-- **Restoration.** Restoring text preserves uncited gaps and uses current formatting. The confirmed source revision stays the same. Across textblocks, only approval and removal work.
-- **Pasting.** Paste assigns new IDs and keeps the confirmed reference and attribution. A partial paste can be invalid. Drag-and-drop moves and `setContent()` keep IDs.
-
-## Customize references and clicks
-
-Smart Citations displays one reference after each citation's final range. It orders references by end position, then by citation ID.
-
-This example uses `See prior` for consecutive citations with the same source. It assumes every reference is visible. If your renderer hides references, return `defaultLabel` instead of `See prior`.
-
-```ts
-SmartCitations.configure({
-  sources,
-  user: { id: 'ada' },
-  renderCitation: ({ citation, previousCitation, defaultLabel }) =>
-    citation.sourceId === previousCitation?.sourceId ? 'See prior' : defaultLabel,
-  onCitationClick: ({ citations }) => {
-    console.log(citations.map(citation => citation.id))
-  },
-})
-```
-
-`CitationRenderContext` provides `citation`, `source`, `previousCitation`, a zero-based `index`, and `defaultLabel`. The source and previous citation can be `undefined`. Return plain text, an `HTMLElement`, or `null` to hide the reference. Hidden references still count toward the index and previous citation. Return `{ element, destroy }` to run cleanup when the extension replaces or removes the element or destroys the editor.
-
-`CitationClickContext` provides the mouse `event` and a read-only `citations` array. A reference click returns one citation. A click on overlapping text can return several. Custom references can suppress the callback with `preventDefault()` or `stopPropagation()`. Use a button or link for keyboard access.
-
-| Selector | What it targets |
-| --- | --- |
-| `[data-citation-id]` | Persisted mark with its citation ID. |
-| `.citation-text` | Decorated cited text. |
-| `.citation-invalid` | Text covered by at least one invalid citation. |
-| `.citation-reference` or `[data-citation-reference]` | Reference wrapper. |
-| `[data-citation-status]` | Derived status on the text decoration or reference wrapper. |
-
-## Persistence and collaboration
-
-Save the document with its `citation` marks. Store source records separately and reload them with the same IDs and revision strategy. Smart Citations derives status and positions when you open the document.
-
-To use [Tiptap Collaboration](/editor/extensions/functionality/collaboration), add `@tiptap/extension-collaboration` `^3.31.0` and `@tiptap/y-tiptap` `^3.0.2`. Also install their required peer packages, `yjs` and `y-protocols`. Use the Yjs document connected to your provider and disable StarterKit history.
-
-```ts
-import Collaboration from '@tiptap/extension-collaboration'
-
-const extensions = [
-  StarterKit.configure({ undoRedo: false }),
-  Collaboration.configure({ document: ydoc }),
-  SmartCitations.configure({ sources, user: () => currentUser }),
-]
-```
-
-- **Sources.** Yjs syncs citation marks. Each client checks validity against its local collection. To share sources, sync them in your app through an API or a Yjs map.
-- **Attribution.** Remote edits keep the originating user's attribution when available. Undo and redo restore text and citation metadata.
-- **Concurrent review.** Approval confirms what the reviewer saw. Unseen edits can leave the merged citation invalid. Removal applies to the marks the reviewer saw, so a concurrent attributed edit can survive.
+- [Review](/citations/guides/review). Review changes to cited text or sources and choose which edits need approval.
+- [Sources](/citations/guides/sources). Supply source data, publish updates, and choose how revisions are tracked.
+- [Rendering](/citations/guides/rendering). Customize citation labels, styles, and click handling.
+- [Review sidebar](/citations/guides/review-sidebar). Use citation queries and subscriptions to keep a review sidebar up to date.
+- [Cite nodes](/citations/guides/cite-nodes). Attach sources to whole nodes and navigate to node citations.
+- [Copy and paste](/citations/guides/copy-and-paste). Control copied reference labels and handle pasted citation metadata.
+- [Collaboration](/citations/guides/collaboration). Set up Smart Citations with Yjs and persist collaborative citation data.
