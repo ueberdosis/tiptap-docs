@@ -2,6 +2,7 @@
 
 import { Button } from './ui/Button'
 import { useAppState } from '@/providers/AppState'
+import { focusSidebarSearch } from '@/components/SidebarSearch.client'
 
 export const SearchButton = () => {
   const { setSearchOpen } = useAppState()
@@ -11,7 +12,7 @@ export const SearchButton = () => {
       className="font-normal"
       variant="tertiary"
       size="small"
-      onClick={() => setSearchOpen(true)}
+      onClick={() => focusSidebarSearch() || setSearchOpen(true)}
     >
       <SearchIcon />
       <span className="hidden xl:block text-base leading-[110%] text-gray-900">Search</span>

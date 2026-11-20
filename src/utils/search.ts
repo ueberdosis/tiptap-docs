@@ -4,7 +4,7 @@ import TypesenseInstantsearchAdapter from 'typesense-instantsearch-adapter'
 // Can be overridden via NEXT_PUBLIC_SEARCH_WEIGHTS env var (comma-separated, e.g. "20,10,6,4,3,2,1,1")
 const DEFAULT_WEIGHTS = '30,12,6,3,2,1,1,1'
 
-export const typesenseAdapter = new TypesenseInstantsearchAdapter({
+const options = {
   server: {
     nodes: [
       {
@@ -33,4 +33,16 @@ export const typesenseAdapter = new TypesenseInstantsearchAdapter({
     min_len_1typo: 5,
     min_len_2typo: 9,
   },
+}
+
+export const typesenseAdapter = new TypesenseInstantsearchAdapter(options)
+
+/**
+ * The sidebar search groups by page as well, but keeps up to three sections of each,
+ * nested under the page's first hit as `_grouped_hits`.
+ */
+export const sidebarSearchAdapter = new TypesenseInstantsearchAdapter({
+  ...options,
+  flattenGroupedHits: false,
+  additionalSearchParameters: { ...options.additionalSearchParameters, group_limit: 3 },
 })
