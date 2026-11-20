@@ -50,6 +50,7 @@ export type GeneralPageTag = {
     | 'team'
     | 'addon'
     | 'restricted'
+    | 'paid'
     | 'mit'
     | 'business'
     | 'deprecated'

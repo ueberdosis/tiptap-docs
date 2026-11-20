@@ -98,7 +98,17 @@ const isImageTag = (tag: PageTag): tag is ImagePageTag => {
   return tag.type === 'image'
 }
 
-const PLAN_TYPES = ['restricted', 'addon', 'business', 'team', 'start', 'beginStart', 'mit', 'pro']
+const PLAN_TYPES = [
+  'restricted',
+  'addon',
+  'business',
+  'team',
+  'start',
+  'beginStart',
+  'paid',
+  'mit',
+  'pro',
+]
 const STATUS_TYPES = ['deprecated', 'alpha', 'beta', 'experiment', 'new']
 
 // Plan first, then status, then version, then npm badges, whatever the frontmatter order
@@ -117,6 +127,7 @@ const PLAN_TAG: Record<Plan, GeneralPageTag['type']> = {
   Business: 'business',
   Team: 'team',
   Start: 'start',
+  Paid: 'paid',
   'Open source': 'mit',
 }
 
@@ -207,6 +218,12 @@ export const PageHeaderTag = ({
   const license = isTemplate ? TEMPLATE_LICENSE : ''
 
   switch (tag.type) {
+    case 'paid':
+      return (
+        <PlanTag tooltip={tag.tooltip || PLAN_LABELS.Paid.tooltip}>
+          {PLAN_LABELS.Paid.label}
+        </PlanTag>
+      )
     case 'start':
     case 'beginStart':
       return (
