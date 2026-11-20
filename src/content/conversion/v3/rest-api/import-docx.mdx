@@ -1,0 +1,105 @@
+---
+title: Import DOCX REST API
+meta:
+  title: Import DOCX REST API | Tiptap Conversion
+  description: Send a .docx file to Convert and get one Page Layout document back. Every form field, the response, warnings and errors.
+  category: Conversion
+---
+
+Send a `.docx` file to `POST /v3/convert/import/docx` and get one Page Layout document back as Tiptap JSON. Sections, page setup, headers, footers, page numbers, breaks and notes are all inside it. Call it from your own server. The [editor extension](/conversion/v3/import/docx/editor-extension) calls the same endpoint for you.
+
+On-premises, the endpoint is also available at `POST /v3/import/docx`. See the [REST API overview](/conversion/v3/rest-api/overview) for base URLs, regions and authentication.
+
+## Request
+
+| Header          | Value                                                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Authorization` | `Bearer <token>`. The token must allow `Convert:Import:Docx`.                                                                     |
+| `Content-Type`  | `multipart/form-data`.                                                                                                            |
+| `X-App-Id`      | Your Tiptap app id. Only needed with a Tiptap Cloud app token. See the [overview](/conversion/v3/rest-api/overview#authenticate). |
+
+Any other content type fails with `415 UNSUPPORTED_CONTENT_TYPE`.
+
+```bash
+curl -X POST https://api.tiptap.dev/v3/convert/import/docx \
+  -H "Authorization: Bearer $CONVERT_TOKEN" \
+  -F 'file=@report.docx' \
+  -F 'imageUploadConfig={"url":"https://example.com/upload"}' \
+  -F 'trackedChanges=preserve' \
+  -o report.json
+```
+
+Don't set the `Content-Type` header yourself. `curl` adds it with the boundary.
+
+## Form fields
+
+Every field is optional except `file`. Send each field once. An empty field counts as not sent.
+
+| Field               | Type                             | What it holds                                                                                                               |
+| ------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `file`              | File                             | Required. The `.docx` file.                                                                                                 |
+| `imageUploadConfig` | JSON                             | `{ "url", "headers"?, "method"?, "queryParams"? }`. Where Convert uploads the images. Without it, import skips every image. |
+| `prosemirrorNodes`  | JSON                             | Renames node types, such as `{ "blockquote": "quote" }`.                                                                    |
+| `prosemirrorMarks`  | JSON                             | Renames mark types, such as `{ "bold": "strong" }`.                                                                         |
+| `trackedChanges`    | `preserve`, `accept` or `reject` | What to do with tracked changes. Defaults to `accept`.                                                                      |
+| `taskLists`         | `import` or `ignore`             | Whether checkbox lists become task lists. Defaults to `ignore`.                                                             |
+| `behindTextImages`  | `import` or `ignore`             | Whether images behind the text, such as watermarks, import. Defaults to `ignore`.                                           |
+| `extractCssStyles`  | `true` or `false`                | `true` returns the Word styles as CSS in `cssStyles`.                                                                       |
+| `documentName`      | `string`                         | The Collaboration document the comments belong to.                                                                          |
+
+See [image handling](/conversion/v3/import/docx/image-handling) for the upload request Convert sends and the response it expects.
+
+You can't rename the nodes the document structure depends on: `doc`, `paragraph`, `sectionBreak`, `pageFurniture`, `pageBreak`, `columnBreak`, `pageNumber`, `footnoteReference`, `endnoteReference`, `footnote`, `footnoteCollection`, `bookmark`, `bookmarkPoint` and `crossReference`. See [custom node mapping](/conversion/v3/import/docx/custom-node-mapping).
+
+### Removed options
+
+`imageUploadCallbackUrl` and `placeholders` existed in the v2 import. They fail with `400 REMOVED_IMPORT_OPTION`, and `path` names the field. Use `imageUploadConfig` instead of `imageUploadCallbackUrl`. Word page fields now import as `pageNumber` nodes, so `placeholders` has no replacement.
+
+## Response
+
+A successful import returns `200` with JSON.
+
+```json
+{
+  "data": {
+    "content": { "type": "doc", "content": [] },
+    "cssStyles": null,
+    "commentThreads": []
+  },
+  "warnings": [
+    {
+      "code": "image-skipped",
+      "message": "Some images were left out of the import. The import logs name each one and why."
+    }
+  ],
+  "logs": { "info": [], "warn": [], "error": [] }
+}
+```
+
+| Field                 | What it holds                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `data.content`        | The Page Layout document as Tiptap JSON. See [import with Page Layout](/conversion/v3/import/docx/page-layout).          |
+| `data.cssStyles`      | The extracted styles, or `null` when you didn't send `extractCssStyles=true`.                                            |
+| `data.commentThreads` | The comment threads. Empty when the file has no comments.                                                                |
+| `warnings`            | What the import left out or changed. Each has `code` and `message`.                                                      |
+| `logs`                | The entries Convert logged: `info`, `warn` and `error`. `info` is always empty. `warn` names each skipped image and why. |
+
+The warning codes are `section-in-table-cell`, `bookmarks-dropped`, `toc-flattened`, `section-start-even-odd`, `gutter-dropped`, `notes-dropped` and `image-skipped`. Each code arrives at most once per import. See [warnings and errors](/conversion/v3/import/docx/warnings-and-errors#warnings-from-convert) for what each one means. A newer Convert may send other codes.
+
+## Errors
+
+Failures use the shapes in the [overview](/conversion/v3/rest-api/overview#errors). These come from the import itself. When the import fails while it reads the file, the body also has `logs`.
+
+| Status | `code`                                  | When                                                                                           |
+| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 400    | `INVALID_IMPORT_OPTIONS`                | The body can't be read as a form, a field is sent twice, a JSON field is malformed or invalid. |
+| 400    | `NO_FILE_PROVIDED`                      | The `file` field is missing or isn't a file.                                                   |
+| 400    | `REMOVED_IMPORT_OPTION`                 | The body has a removed field.                                                                  |
+| 400    | `UNSUPPORTED_NODE_OVERRIDE`             | `prosemirrorNodes` renames a node the document structure depends on.                           |
+| 415    | `UNSUPPORTED_CONTENT_TYPE`              | The body isn't `multipart/form-data`.                                                          |
+| 422    | `INVALID_DOCX_FILE`                     | The file is corrupt, or isn't a `.docx` file.                                                  |
+| 422    | `DOCX_TOO_LARGE`                        | The file unpacks to more than Convert accepts.                                                 |
+| 422    | `FAILED_TO_PARSE_DOCX_FILE`             | Convert couldn't read the file.                                                                |
+| 500    | `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON` | Convert read the file but couldn't convert it.                                                 |
+
+`error` says what failed, and `path` names the field when one applies. Authentication, size and rate limit errors are in the [overview](/conversion/v3/rest-api/overview#errors).

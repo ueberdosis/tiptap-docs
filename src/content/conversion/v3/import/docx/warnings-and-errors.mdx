@@ -1,0 +1,140 @@
+---
+title: Warnings and errors
+meta:
+  title: Warnings and errors | Tiptap Conversion
+  description: Read the warnings an import reports for content it left out, and handle the errors that stop an import.
+  category: Conversion
+---
+
+An import reports two kinds of problems. A warning means the import left something out or changed it, and went on. An error means it stopped.
+
+## Warnings
+
+`onWarning` receives every warning. Set it on `ImportDocx.configure` or on one `importDocx` call. The call wins.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onWarning: (warning) => console.warn(warning.code, warning.message),
+})
+```
+
+A warning never stops the import. Without `onWarning`, each warning goes to the console as `[import-docx] <message>`. An error thrown inside `onWarning` is ignored.
+
+A warning has these fields.
+
+| Field      | Type     | What it holds                                                          |
+| ---------- | -------- | ---------------------------------------------------------------------- |
+| `code`     | `string` | `'unsupported'` from the editor, or a code from Convert, listed below. |
+| `message`  | `string` | A summary that is safe to log.                                         |
+| `nodeType` | `string` | The node type the import left out or rewrote. Set on `unsupported`.    |
+| `markType` | `string` | The mark type the import left out. Set on `unsupported`.               |
+
+### Unsupported content
+
+An `unsupported` warning means the schema has no extension for a node or mark in the file.
+
+The import rewrites the content to fit the schema.
+
+- A node with content becomes a paragraph. Its children stay.
+- The import drops a node without content.
+- The import drops a mark and keeps the text it was on.
+
+You get one warning for each type, not for each occurrence. Add the extension for the type to keep it. The [content reference](/conversion/v3/content-reference/overview) names the extension for each kind of content.
+
+Without Page Layout, the import also leaves out the nodes only Page Layout can hold, with one `unsupported` warning for each type. See [import without Page Layout](/conversion/v3/import/docx/without-page-layout).
+
+### Warnings from Convert
+
+Convert sends these codes while it reads the file.
+
+| Code                     | What happened                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| `section-in-table-cell`  | A section break inside a table was ignored. Word does not end a section there. |
+| `bookmarks-dropped`      | Bookmarks were left out. Cross-references keep the text Word shows.            |
+| `toc-flattened`          | The table of contents was imported as plain paragraphs.                        |
+| `section-start-even-odd` | A section that starts on an even or odd page starts on the next page instead.  |
+| `gutter-dropped`         | The binding gutter of the page margins was left out.                           |
+| `notes-dropped`          | Footnotes or endnotes with no matching reference or text were left out.        |
+| `image-skipped`          | Some images were left out. `logs.warn` names each one and why.                 |
+
+Each code arrives at most once per import. A newer Convert may send other codes, so don't treat this list as complete. `onWarning` receives them before `onImport` runs, and `context.warnings` lists them too.
+
+The entries Convert logged are in `logs` of the `onImport` context. They don't become warnings. See [image handling](/conversion/v3/import/docx/image-handling#when-an-image-is-skipped) for the image reasons.
+
+## Errors
+
+An error stops the import. It goes to the first of these that you set.
+
+1. `onError`, from the command or from `ImportDocx.configure`. The command wins.
+2. `onImport`, as `{ content: null, error }`, when the error comes before the document is handed over.
+3. Without either, the import rethrows the error as an unhandled rejection.
+
+```ts
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError: (error) => console.error(error),
+})
+```
+
+An error thrown inside `onImport`, including by `setEditorContent`, goes to `onError`. Without `onError`, it is an unhandled rejection.
+
+### What can fail
+
+| Error                              | When                                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Error`                            | The `token` or the `file` is missing. This fails before any request.                                      |
+| `ImageUploadConfigValidationError` | `imageUploadConfig.url` isn't an `http` or `https` address, or `headers` isn't a plain object of strings. |
+| `ImportDocxRequestError`           | Convert refused the import, or the request never reached it.                                              |
+| `ImportDocxSupersededError`        | A newer import started before this one finished.                                                          |
+| `Error`                            | The editor refused the document, or Page Layout isn't ready.                                              |
+
+### Request errors
+
+`ImportDocxRequestError` has a `code` and, when Convert responded, a `status`.
+
+```ts
+import { ImportDocxRequestError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError(error) {
+    if (error instanceof ImportDocxRequestError && error.status === 401) {
+      // Ask for a new token.
+      return
+    }
+    console.error(error)
+  },
+})
+```
+
+The `code` is `NETWORK_ERROR` when the request never got a response, and `HTTP_ERROR` when the response had no code. Otherwise it's the code from Convert.
+
+| Code                                    | Status | When                                                                              |
+| --------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `INVALID_DOCX_FILE`                     | 422    | The file is corrupt, or isn't a `.docx` file.                                     |
+| `DOCX_TOO_LARGE`                        | 422    | The file unpacks to more than Convert accepts.                                    |
+| `FAILED_TO_PARSE_DOCX_FILE`             | 422    | Convert couldn't read the file.                                                   |
+| `FAILED_TO_CONVERT_DOCX_TO_TIPTAP_JSON` | 500    | Convert read the file but couldn't convert it.                                    |
+| `REQUEST_BODY_TOO_LARGE`                | 413    | The request is larger than Convert accepts.                                       |
+| `RATE_LIMITED`                          | 429    | Too many requests. Retry after the number of seconds in the `Retry-After` header. |
+| `INVALID_IMPORT_OPTIONS`                | 400    | An import option is not valid, such as `imageUploadConfig`.                       |
+| `UNSUPPORTED_NODE_OVERRIDE`             | 400    | `prosemirrorNodes` renames a node the document structure depends on.              |
+
+Authentication failures carry their own code and status, such as 401, 403, 429 or 503. A validation error without a code becomes `HTTP_ERROR` with the status. `error.message` holds the reason from Convert.
+
+### Superseded imports
+
+The newest import wins. When you start another import before the first response arrives, the first one writes nothing. It reports an `ImportDocxSupersededError`. Calling `setEditorContent` from an older import throws it too.
+
+```ts
+import { ImportDocxSupersededError } from '@tiptap-pro/extension-import-docx'
+
+ImportDocx.configure({
+  token: 'CONVERT_TOKEN',
+  onError(error) {
+    if (error instanceof ImportDocxSupersededError) return
+    console.error(error)
+  },
+})
+```

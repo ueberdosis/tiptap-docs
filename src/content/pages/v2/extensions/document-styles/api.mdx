@@ -1,0 +1,231 @@
+---
+title: Document styles at a glance
+meta:
+  title: Document styles at a glance | Tiptap Pages
+  description: Every option, command and function of the document styles extension on one page, with a link to where each is described.
+  category: Pages
+---
+
+Content stores `styleId` and `styleOverrides`. The definition says what a style looks like, what it inherits and where it can go.
+
+## Style definition
+
+- `StyleDefinition` has a stable `id`, the `name` a style picker shows, and a `kind`.
+- `kind` is `paragraph`, `character`, `list`, `object`, `table`, `cell` or `custom`. A picker groups by it. It changes nothing on screen.
+- `targets` lists the node and mark types a style can go on, as `{ kind, types }`, where `kind` is `'node'` or `'mark'`.
+- `node` is the type a block becomes when the style is applied, such as a level 1 heading, or the type that wraps the blocks, such as a blockquote.
+- `defaultFor` lists the blocks without a style that get this one, as in Word's Normal and Heading 1. It takes node types, or a type with attributes such as `{ type: 'heading', attrs: { level: 2 } }`. The type is `StyleDefaultFor`.
+- `editor.storage.documentStyles.defaultStylesOf(doc)` and `defaultStyles(doc, libraries, precedence)` read the defaults as `DefaultStyles`. `of(node)` is a block's default. `entries` holds every `DefaultStyleEntry`. `styleIdOrDefaultOf(defaults, node)` is a block's own style or its default.
+- The other fields are `props`, `basedOn`, `nextStyle`, `outlineLevel`, `builtIn`, `pagination`, `tableConditions`, `language`, `autoUpdate`, `priority`, `hidden`, `gallery`, `meta`, `version`, `status` and `replacementStyleId`.
+- `isStyleDefinition(value)` tells a definition from something that isn't one.
+
+See [definitions](/pages/v2/extensions/document-styles/definitions).
+
+## Setup
+
+```js
+DocumentStyles.configure({
+  types: ['paragraph', 'heading', 'blockquote'],
+  markTypes: ['textStyle', 'code', 'highlight'],
+  libraries: [houseStyle],
+  precedence: 'document',
+})
+```
+
+- You can leave out every option. `DocumentStyles` alone styles the `paragraph`, `heading`, `blockquote` and `table` types and the `textStyle` mark the schema has. With `wordStyles: true`, the default, it brings Word's built-in styles under the libraries.
+- `precedence: 'document'` is the default. The document's own definition of an id wins over a library's. `'libraries'` lets a house style override the document.
+- `editor.storage.documentStyles.stylesOf(doc)` returns every style the document can use.
+- `styleLookupOf(doc, libraries, precedence)` returns the same lookup where there is no editor.
+
+See [the options table](/pages/v2/extensions/document-styles#options).
+
+## Shared styles
+
+- The document keeps the definitions in the hidden `styleDefinitions` node.
+- They save with it, undo with the history, and reach every collaborator through Tiptap Collaboration. There is nothing to synchronize besides the document.
+- `styleDefinitionsOf(doc)` and `styleDefinitionsAt(doc)` read them.
+- Each definition is a `styleDefinition` node inside it. Two collaborators changing two styles at once both keep their change. Two changing the same style at once end with one of the two, the same for both.
+- Two collaborators adding a style with the same id at once leave two `styleDefinition` nodes of it. The extension reads the first, and the next change to that style removes the other one.
+- Two collaborators writing the first style or the theme of a document at once each add a `styleDefinitions` node. With `repair` on, which is the default, the editor moves the definitions of the second into the first and removes the second. That covers those of an id the first doesn't have, and its theme where the first has none. This doesn't go into the history. `repairStyleDefinitionsTransaction(transaction)` does the same where there is no editor.
+- `styleDefinitionsContent(definitions, theme)` returns the `styleDefinitions` node as JSON, for content put together rather than edited.
+
+## Commands
+
+| Command                                                                              | What it does                                                                                                      |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `applyStyle(id, options)`                                                            | Puts a style on the block or on the selected text.                                                                |
+| `removeStyle()`                                                                      | Takes the style and every override off.                                                                           |
+| `clearInlineStyles()`                                                                | Takes every character style, override and piece of Tiptap's own formatting, Bold included, off the selected text. |
+| `adoptDirectFormatting()`                                                            | Turns Tiptap's own formatting in the selection into overrides of the style, drawn the same.                       |
+| `expressAsDirectFormatting()`                                                        | Writes the overrides in the selection as Tiptap's own formatting where a rule can, drawn the same.                |
+| `detachStyle({ keepFormatting })`                                                    | Takes the style off, optionally keeping how it looks.                                                             |
+| `setStyleOverride(prop, value)`, `unsetStyleOverride(prop)`, `clearStyleOverrides()` | Set or take off what one block or run sets apart from its style.                                                  |
+| `createStyleFromSelection(input)`, `updateStyleFromSelection(id)`                    | Make a new style from the selection's formatting, or update a style to match it.                                  |
+| `setStyleDefinition(definition)`                                                     | Stores a definition in the document.                                                                              |
+| `renameStyle`, `duplicateStyle`, `deprecateStyle`, `deleteStyle`                     | Rename, copy, deprecate or delete a style.                                                                        |
+| `replaceStyle(id, replacementId)`                                                    | Gives everything that uses one style another.                                                                     |
+| `replaceStyleValue(props, from, to)`                                                 | Replaces one color or font with another in every style of the document's and every override.                      |
+| `replaceMissingStyles(id)`, `removeMissingStyleReferences()`, `removeUnusedStyles()` | Fix missing references and remove unused styles.                                                                  |
+| `applyDefaultStyles(id?, { libraries }?)`                                            | Writes the default style onto the blocks drawn in it. With `libraries`, it writes the defaults those say.         |
+| `createStyleFromCandidate(candidate, input)`                                         | Makes a style of formatting found by `discoverStyles`.                                                            |
+| `applyStyleToCandidate(candidate, styleId)`                                          | Gives a style that exists to everything `discoverStyles` found.                                                   |
+| `setTableLook(look)`                                                                 | Sets which parts of its table style the table at the selection shows.                                             |
+| `removeTableStyle()`                                                                 | Takes the style and every override off the table at the selection.                                                |
+| `setDocumentTheme(theme)`                                                            | Sets the document's theme, its fonts and colors, or `null` for the configured one.                                |
+| `setNamedColor(key, color)`                                                          | Sets a named color in the document's own theme, which a value refers to as `named:key`.                           |
+| `removeNamedColor(key)`                                                              | Takes the named color off the document's theme. Where no other layer names it, every reference becomes its color. |
+
+Every command returns `false` where it would change nothing, so a toolbar can disable a button with `editor.can()`. See [apply styles](/pages/v2/extensions/document-styles/applying) and [clean up](/pages/v2/extensions/document-styles/cleanup).
+
+## Selection policy
+
+`partialSelection` decides what `applyStyle` does when part of a paragraph's text is selected and the style can go on both the block and the text:
+
+- `apply-as-mark` is the default. The selected text gets the style.
+- `apply-to-block` gives the paragraph the style anyway.
+- `reject` does nothing, and the command returns `false`.
+
+`applyStyle(id, { target: 'node' | 'mark' })` decides it for one call. A single "Style" menu that lets the selection decide uses `target: 'auto'`. A "Paragraph style" menu and a "Character style" menu use `'node'` and `'mark'`. See [apply styles](/pages/v2/extensions/document-styles/applying).
+
+## Rendering
+
+- The editor gets a stylesheet of its own, with one rule per style. `data-tt-style-id` selects the rule, and `data-tt-document-styles` scopes it to the editor's element.
+- The extension writes an override as `data-tt-style-overrides` and as inline CSS, which wins over the rule.
+- `stylesheet: false` leaves the CSS to you. `documentStylesStylesheet(lookup, scope)` writes the rules, and `styleDeclarations(props)` writes one declaration list.
+- `STYLE_ID_ATTRIBUTE`, `STYLE_OVERRIDES_ATTRIBUTE` and `DOCUMENT_STYLES_SCOPE_ATTRIBUTE` name the attributes.
+
+See [how it is drawn](/pages/v2/extensions/document-styles#how-it-is-drawn).
+
+## Libraries
+
+- `styleLibrary(definitions, { scope })` makes one. `setStyles` replaces its definitions, and every editor using it draws them again.
+- A library of your own needs `getStyles()` and, if it changes, `subscribe(listener)`.
+- A library can define an id the document defines too, with another look or another name. `precedence` decides which wins.
+- Switching libraries changes how content looks, never the content.
+- A library's styles are read-only. `duplicateStyle` gives the document a copy to change.
+
+See [libraries](/pages/v2/extensions/document-styles/libraries).
+
+## Marks
+
+- A character style goes on the first type in `markTypes` unless its `targets` name another. That can be `textStyle`, `highlight`, `code` or any mark of the schema.
+- The mark keeps its own meaning and carries the `styleId` beside it.
+- A linked style, which goes on a paragraph and on text alike, lists a `node` and a `mark` target.
+
+## Inspect a style
+
+- `resolveStyle(lookup, id, overrides)` returns what a style looks like with everything it inherits, or why it can't. The reasons are a missing style, or `basedOn` going round in a circle.
+- `lookup.originOf(id)` says whether the document or a library defines it.
+- `styleReferencesOf(doc)` lists every styled block and run with its id and its overrides.
+
+## Next style and outline
+
+- `nextStyle` is the style Enter at the end of a paragraph gives the new one. `followNextStyle: false` turns that off.
+- `outlineLevel` puts a style's paragraphs in the outline, inherited through `basedOn`.
+- `editor.storage.documentStyles.outlineLevelsOf(doc)` and `styleOutlineLevels(doc, libraries, precedence)` read every style's level. `styleOutlineLevelOf(levels, node)` reads one paragraph's.
+
+See [the next paragraph](/pages/v2/extensions/document-styles/definitions#the-next-paragraph) and [outline levels](/pages/v2/extensions/document-styles/definitions#outline-levels).
+
+## Line and page breaks
+
+- `pagination: { keepWithNext, keepLinesTogether, pageBreakBefore }` is Word's "Line and Page Breaks". It is inherited key by key and returned as `resolveStyle(...).style.pagination`.
+- Nothing about it is drawn. `styleBlockBreaks({ types, libraries, precedence })` reads it per block, for whatever lays the document out on pages. `stylePaginations(doc, libraries, precedence)` reads every style's.
+
+See [line and page breaks](/pages/v2/extensions/document-styles/definitions#line-and-page-breaks).
+
+## Table styles
+
+- `tableConditions` formats a table's `firstRow`, `lastRow`, `firstColumn`, `lastColumn`, `oddRows`, `evenRows`, `oddColumns`, `evenColumns` and the four corners `topLeftCell`, `topRightCell`, `bottomLeftCell` and `bottomRightCell`. That is `TableCondition`, and `TABLE_CONDITIONS` lists them in the order they win in. They are inherited condition by condition as `resolveStyle(...).style.tableConditions`.
+- `tableBands` is how many rows and columns make one band. Its type is `TableBands`. `tableBandsOf(value, inherited)` reads it over `DEFAULT_TABLE_BANDS`.
+- With the cursor in a cell, the selection's style is the paragraph's. `tableStyleAt(selection, tableTypes)` reads the table's, and `removeTableStyle()` takes it off.
+- `tableTypes` names the table types. Each gets a `styleLook` of type `TableLook`, which `setTableLook(look)` changes and `tableLookOf(value)` reads over `DEFAULT_TABLE_LOOK`.
+- Each cell carries `TABLE_STYLE_ATTRIBUTE` and `TABLE_CELL_ATTRIBUTE`, and the table carries `TABLE_LOOK_ATTRIBUTE`. `tableCellConditions(place, look, bands)` says which conditions a cell is in.
+- `continuesNode` and `repeatedRowSelector` count a table shown in pieces as one. `documentStylesStylesheet(lookup, scope, { repeatedRowSelector })` writes the rules for the copies of a header row.
+
+See [table styles](/pages/v2/extensions/document-styles/tables).
+
+## Word's built-in styles
+
+- `builtIn: WordBuiltInStyle` names the one of Word's built-in styles a style is, by its `w:name` such as `'heading 1'`. `WORD_BUILT_IN_STYLES` lists them. It isn't inherited.
+- `editor.storage.documentStyles.wordBuiltInStylesOf(doc)` and `wordBuiltInStyles(doc, libraries, precedence)` read them as `WordBuiltInStyles`. `builtInOf(styleId)` is for writing a .docx file and `styleIdOf(name)` for reading one. `wordBuiltInStyleOf(name)` spells a name the way Word does.
+
+See [Word's built-in styles](/pages/v2/extensions/document-styles/definitions#words-built-in-styles).
+
+## The style list, updating and language
+
+- `priority`, `hidden` and `gallery` order and filter a style list. `editor.storage.documentStyles.catalogOf(doc, { gallery, hidden })` and `styleCatalog(doc, lookup, options)` read it. The options type is `StyleCatalogOptions`. See [the style list](/pages/v2/extensions/document-styles/definitions#the-style-list).
+- `autoUpdate: true` makes `setStyleOverride` on a paragraph of the style change the style. See [update automatically](/pages/v2/extensions/document-styles/definitions#update-automatically).
+- `language` becomes `lang` on the blocks and runs of the style, inherited through `basedOn`. `styleLanguages(doc, libraries, precedence)` reads it per style. See [language](/pages/v2/extensions/document-styles/definitions#language).
+
+## Paste from Word
+
+A paste from Word refers to the document's style for each of Word's, by `builtIn` and then by name. `wordStylesToHtml(html, styleIdOf)` and `styleIdOfWordNameIn(doc, libraries, precedence)` do it on a string. `styleIdOf` has the type `StyleIdOfWordName`.
+
+See [paste from Word](/pages/v2/extensions/document-styles#paste-from-word).
+
+## Themes
+
+- A value `'theme:major'`, `'theme:minor'` or `'theme:accent1'` refers to the theme's fonts and colors, listed in `THEME_FONTS` and `THEME_COLORS`. `themeReferenceOf(value)` reads one as a `ThemeReference`. `'theme:accent1/+40'` and `'theme:accent1/-25'` are a tint and a shade, which `themeColorValue(name, { lighter, darker })` writes.
+- `setDocumentTheme(theme)` stores a `DocumentTheme` in the document, and `null` takes it off. `setDocumentThemeTransaction(tr, theme)` does it without an editor. `documentThemeOf(doc)` reads it and `isDocumentTheme(value)` checks one.
+- The `theme` option is the integration's, and a library's `getTheme()` wins over it. `styleLibrary(..., { theme })` and `setTheme` set a library's theme. `editor.storage.documentStyles.themeOf(doc)` and `resolveTheme(doc, theme, precedence, libraries)` return the `ResolvedTheme` a document uses, over `OFFICE_THEME`.
+- `WORD_STANDARD_COLORS` is the fixed row under the theme colors in Word's picker. See [standard colors](/pages/v2/extensions/document-styles/themes#standard-colors).
+- `'named:brandRed'` refers to a color a theme names beyond its twelve places, a `NamedColor` in `DocumentTheme.named`, layered key by key. `setNamedColor(key, color)` and `removeNamedColor(key)` write the document's own. `setNamedColorTransaction(tr, key, color)` does it without an editor. `namedColorsOf(doc)` reads the document's own, and `ResolvedTheme.named` holds those of every layer. `namedColorValue(key, { lighter, darker })` and `namedColorReferenceOf(value)` write and read a reference. The types are `NamedColorReference` and `NamedColors`. See [named colors](/pages/v2/extensions/document-styles/themes#named-colors).
+- `colorScheme: 'auto-dark'` or `{ darkSelector }`, of type `ColorScheme`, draws every color with a dark counterpart. That is a theme's `dark` colors where it names them, and `darkColorCss(color)` where it doesn't. `styleDeclarations(props, { dark })` and `themeDeclarations(theme, { dark })` write the same, with options of type `CssValueOptions`. Print is light unless `printColorScheme` is `'screen'`, of type `PrintColorScheme`. See [dark mode](/pages/v2/extensions/document-styles/themes#dark-mode).
+- `themeValueOf(theme, value)` replaces a reference with what the theme says. `themeVariableOf(reference)` and `themeDeclarations(theme)` are the custom properties the stylesheet sets.
+
+See [themes](/pages/v2/extensions/document-styles/themes).
+
+## Usage
+
+- `analyzeStyleUsage(doc, lookup)` counts the references per style, on blocks and on text. It reports overrides, missing styles, deprecated styles in use and unused styles.
+- `missingStyleReferences(doc, lookup)` and `unusedStyles(doc, lookup)` each return one of these lists.
+
+See [how styles are used](/pages/v2/extensions/document-styles/cleanup#how-styles-are-used).
+
+## Colors and fonts
+
+- `styleValuesOf(doc, lookup, props, theme)` lists every value the properties are set to, in styles and in overrides, as `StyleValueUse`. That covers how often, where, which styles are read-only, and the theme color it matches. `COLOR_PROPS` and `FONT_PROPS` are the usual lists. `normalizeStyleValue(value)` writes a value the way it compares them.
+- `editor.storage.documentStyles.valueLocationsOf(doc, props, value)` and `locationsOf(doc, styleId)` return every place that shows a value or a style, as `StyleLocation`s in document order, with the extension's options. `styleValueLocationsOf(doc, styles, props, value, { defaults, tables, rules })` and `styleLocationsOf(doc, styleId, { defaults })` do the same without an editor. See [where a value or a style is drawn](/pages/v2/extensions/document-styles/values#where-a-value-or-a-style-is-drawn).
+- `replaceStyleValue(props, from, to)` replaces one with another in the document's own styles, every override and Tiptap's own formatting. `replaceStyleValueTransaction(tr, props, from, to)` does it without an editor.
+- The `directFormatting` rules read Tiptap's own formatting, such as Color's attribute, a Bold mark and TextAlign's attribute, and leave it where it is. The rules are `DirectFormattingRule` objects, `DIRECT_FORMATTING` by default. `directFormattingOf(node, rules)` returns it for a text node or a block. `adoptDirectFormatting()` turns it into overrides, and `expressAsDirectFormatting()` turns them back. See [Tiptap's own formatting](/pages/v2/extensions/document-styles/values#tiptaps-own-formatting).
+- `keepPastedFormatting` keeps pasted formatting no extension holds as an override. See [pasted formatting](/pages/v2/extensions/document-styles/values#pasted-formatting).
+
+See [colors and fonts](/pages/v2/extensions/document-styles/values).
+
+## Discover styles
+
+- `discoverStyles(doc, { minOccurrences, includeStyledNodes, kind })` groups the same formatting set by hand again and again, block candidates apart from text candidates. `targetKind` tells them apart.
+- `styleDefinitionOfCandidate(candidate, { id, name })` turns one into a definition.
+- `createStyleFromCandidate(candidate, { id, name, applyToMatches: true })` stores it and gives it to every place it was found. `applyStyleToCandidate(candidate, styleId)` gives them a style that exists.
+- `unstyledBlocks: true` also groups the blocks with no style and no overrides, by type and the attributes in `blockAttributes`. Such a candidate has a `node`. `skipUnstyled` leaves blocks out.
+
+See [formatting that should be a style](/pages/v2/extensions/document-styles/cleanup#formatting-that-should-be-a-style) and [blocks without a style](/pages/v2/extensions/document-styles/cleanup#blocks-without-a-style).
+
+## Save and load
+
+The definitions are part of the document, so `editor.getJSON()` and `editor.getHTML()` carry them, and `setContent` with either brings them back. There is no separate file to keep beside the document.
+
+## Missing styles
+
+- `onMissingStyle` decides what `applyStyle` does with an id nothing defines. It is `preserve-reference` by default, `fallback` to `fallbackStyleId`, or `remove`.
+- The editor draws a reference whose style is gone without a style until you repair it with `replaceMissingStyles(id)` or `removeMissingStyleReferences()`.
+
+## Write with transactions
+
+Each of these writes into a transaction you pass and returns it:
+
+- `setStyleDefinitionTransaction` and `removeStyleDefinitionTransaction`
+- `replaceStyleReferencesTransaction`, `removeStyleReferencesTransaction`, `freezeStyleReferencesTransaction` and `mapStyleReferencesTransaction`
+
+See [write with transactions](/pages/v2/extensions/document-styles/cleanup#write-with-transactions).
+
+## Delete strategies
+
+`deleteStyle(id, { strategy })` takes one of these:
+
+- `replace`, with `replacementStyleId`, points every reference to another style.
+- `freeze-inline` keeps how every reference looked, as overrides.
+- `remove-reference` takes the style off every reference.
+- `preserve-reference` removes only the definition. The references stay and are missing.
+
+See [deleteStyle(styleId, options)](/pages/v2/extensions/document-styles/cleanup#deletestylestyleid-options).
