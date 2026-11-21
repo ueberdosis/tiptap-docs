@@ -187,6 +187,9 @@ Request body:
   Tiptap Cloud document. Use
   `{ "type": "inline", "content": { /* Tiptap JSON document */ } }` when you want to provide the
   Tiptap JSON document in the request body.
+  - `onInvalidContent` (`'remove' | 'error'`, optional, default: `'remove'`): What to do when the
+    cloud document has content that doesn't match the editor schema. See
+    [Invalid document content](#invalid-document-content).
 - `user` (`string`, optional): Author of the edits in version history. It also sets the user associated with AI-generated comments, threads and Tracked Changes suggestions.
   use `reviewOptions.trackedChangesOptions.userId`.
 - `field` (`string`, optional, default: `"default"`): Collaborative field to target inside a cloud
@@ -273,10 +276,18 @@ This endpoint can return:
   schema that isn't a whiteboard it can work on.
 - `409` with `concurrent_edit_conflict`: The cloud document changed while the tool was executing.
   Retry the request with the latest document state.
+- `409` with `schema_mismatch`: On the `default` field, the cloud document has a node type that
+  isn't in the editor schema and `document.onInvalidContent` isn't `'error'`. See
+  [Invalid document content](#invalid-document-content). Also returned when the document is open
+  for a request with another editor schema: use the same schema in every request, or retry once no
+  request with that schema has used the document for 45 seconds.
 - `422` with `validation_failed`: The request body does not match the endpoint schema. The response
   includes `error.issues`, a list of validation issues.
 - `422` with `tool_config_validation_failed`: `tool.config` isn't valid, like a `readSelection` call
   without `user`. The response includes `error.data.issues`.
+- `422` with `invalid_document_content`: `document.onInvalidContent` is `'error'` and the cloud
+  document has content that doesn't match the editor schema. The response includes
+  `error.data.issues`. See [Invalid document content](#invalid-document-content).
 - `429` with `rate_limited`: Access Control rate-limited authentication.
 - `429`: The server-side rate limiter blocked the request. This response uses a different top-level
   shape:
@@ -330,6 +341,9 @@ The first message (`start`) contains:
 - `document` (`object`, required): Cloud document to stream the edit into:
   `{ "type": "cloud", "id": "your-document-id" }`. Inline documents are not supported for
   streaming.
+  - `onInvalidContent` (`'remove' | 'error'`, optional, default: `'remove'`): What to do when the
+    document has content that doesn't match the editor schema. See
+    [Invalid document content](#invalid-document-content).
 - `user` (`string`, optional): Author of the edits in version history, comments and threads (for example with
   `editThreads`). It does not set the author of Tracked Changes suggestions, for Tracked Changes authorship
   use `reviewOptions.trackedChangesOptions.userId`.
@@ -400,7 +414,15 @@ This endpoint can return or emit:
 - `403` with `tracked_changes_unsupported_schema`: `reviewOptions.mode` is `trackedChanges`, but
   the editor schema does not support tracked changes.
 - `403` with `thread_schema_not_supported`: The editor schema does not support comments or threads.
+- `409` with `schema_mismatch`: The document has a node type that isn't in the editor schema and
+  `document.onInvalidContent` isn't `'error'`. See
+  [Invalid document content](#invalid-document-content). Also returned when the document is open
+  for a request with another editor schema: use the same schema in every request, or retry once no
+  request with that schema has used the document for 45 seconds.
 - `413` with `ndjson_line_too_long`: A single NDJSON line exceeded the maximum size (HTTP only).
+- `422` with `invalid_document_content`: `document.onInvalidContent` is `'error'` and the document
+  has content that doesn't match the editor schema. The error event has no `data`; its `message`
+  names the first issue. See [Invalid document content](#invalid-document-content).
 - `429` with `stream_rate_limit_exceeded`: Too many concurrent streams are open for the same client.
   Over WebSocket, this arrives as an event right after the connection opens.
 - `429` with `rate_limited`: Access Control rate-limited authentication.
@@ -449,6 +471,69 @@ Use the `hiddenAttributes` field (`string[]`) of `execute-tool` and `stream-tool
 - The AI can't carry out requests that need these attributes, like a smaller line height.
 - Only node attributes are hidden. `_hash` and the tracked-changes attributes can't be hidden. An invalid list fails with `422` and `validation_failed` in `execute-tool`, and with `400` and `invalid_stream_message` in `stream-tool`.
 - `stream-tool` rejects the option for `tiptapEdit` with `invalid_stream_message`, because streamed edits can't keep the values.
+
+### Invalid document content
+
+A cloud document can have content that the editor schema can't represent. For example, a node or
+mark type that isn't in the schema, a list item that starts with a heading when the schema expects a
+paragraph, or an attribute the schema doesn't declare. To load such a document, the API leaves this
+content out. Once the document has been loaded this way, the content is gone from the cloud
+document, even when the request only reads. One exception: without `'error'`, a node type that
+isn't in the schema makes a request on the `default` field fail with `409` and `schema_mismatch`.
+
+Set `document.onInvalidContent` to `'error'` in `execute-tool` and `stream-tool` requests to fail
+instead. The request then fails with `422` and `invalid_document_content` before the document is
+loaded, also for node types that aren't in the schema, and the document stays unchanged. Fix the content, or add the missing extensions to the
+editor, and retry.
+
+```json
+{
+  "document": { "type": "cloud", "id": "your-document-id", "onInvalidContent": "error" }
+}
+```
+
+`execute-tool` lists the problems in `error.data.issues`, at most 50, and counts them all in
+`error.data.issueCount`:
+
+```json
+{
+  "error": {
+    "code": "invalid_document_content",
+    "status": 422,
+    "message": "The document has 1 content issue(s) that don't match the editor schema. First issue, at path [2, 0]: ...",
+    "data": {
+      "issueCount": 1,
+      "issues": [
+        {
+          "path": [2, 0],
+          "node": "listItem",
+          "message": "Content of node \"listItem\" doesn't match its content expression \"paragraph block*\". It contains: heading."
+        }
+      ]
+    }
+  }
+}
+```
+
+Each issue has:
+
+- `path` (`number[]`): Child indexes from the document root to the node with the invalid content.
+  `[2, 0]` is the first child of the third top-level node.
+- `node` (`string`): Name of that node.
+- `mark` (`string`, optional): Name of the invalid mark.
+- `attribute` (`string`, optional): Name of the invalid attribute.
+- `message` (`string`): What doesn't match the schema. Messages don't include document text.
+
+Good to know:
+
+- The check uses the schema from `editorContext`. Attribute `validate` functions of your extensions
+  don't run on the server.
+- `_hash` attributes are always allowed.
+- A request without `'error'` removes the invalid content when it loads the document, so later
+  requests with `'error'` can't report it. Send `'error'` in every request to the document.
+- After a request, the API keeps the document open for up to 45 seconds and works like a
+  collaborator with the request's schema. Invalid content that another editor adds in that time is
+  removed, even with `'error'`. Make sure every editor of the document uses the same schema.
 
 ### `tiptapRead`
 
