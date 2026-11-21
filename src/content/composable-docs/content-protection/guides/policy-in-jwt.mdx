@@ -1,0 +1,148 @@
+---
+title: Define the policy in the JWT
+meta:
+  title: Define the policy in the JWT | Tiptap Content Protection Docs
+  description: Store Content Protection policies in the JWT you sign for a user, scoped by document.
+  category: Composable Docs
+---
+
+import { Callout } from '@/components/ui/Callout'
+
+You can store a user's Content Protection policy in the JWT you sign for them, in the `contentProtection` claim. See [Authentication](/authentication) for how to sign tokens.
+
+<Callout title="Not enforced yet" variant="warning">
+  Tiptap services don't enforce this policy yet. Keep passing the same policy to the Content
+  Protection extension in the editor.
+</Callout>
+
+## Sign a token with a policy
+
+Add the `contentProtection` claim next to `permissions`. Each entry has a `resource`, optional `constraints` and a `policy`. The policy is the same [`ContentProtectionPolicy`](/composable-docs/content-protection/api-reference/policy) object that the extension takes.
+
+Define the policy in a module that both your server and your editor import:
+
+```ts
+// policies.ts
+import type { ContentProtectionPolicy } from '@tiptap-pro/extension-content-protection'
+
+export const contractPolicy = {
+  version: 1,
+  rules: [
+    {
+      selector: { target: 'node', node: { types: ['heading'] } },
+      permissions: { edit: false },
+    },
+  ],
+} satisfies ContentProtectionPolicy
+```
+
+On your server, sign a token that carries the policy:
+
+```ts
+import { SignJWT, importPKCS8 } from 'jose'
+import { contractPolicy } from './policies'
+
+const pem = process.env.TIPTAP_PRIVATE_KEY
+if (!pem) throw new Error('TIPTAP_PRIVATE_KEY is not set')
+const privateKey = await importPKCS8(pem, 'ES256')
+
+const jwt = await new SignJWT({
+  permissions: [{ action: 'Documents:Write', resource: 'contract-42' }],
+  contentProtection: [{ resource: 'contract-42', policy: contractPolicy }],
+})
+  .setProtectedHeader({ alg: 'ES256' })
+  .setIssuer('your-environment-hash-id')
+  .setAudience(['Documents'])
+  .setIssuedAt()
+  .setExpirationTime('30m')
+  .sign(privateKey)
+```
+
+In the editor, pass the same policy to the extension:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ContentProtection } from '@tiptap-pro/extension-content-protection'
+import { contractPolicy } from './policies'
+
+const editor = new Editor({
+  extensions: [StarterKit, ContentProtection.configure({ policy: contractPolicy })],
+})
+```
+
+## Scope policies by document
+
+One token usually covers many documents. Scoping each policy to its documents prevents a looser policy meant for one document from applying to another.
+
+`resource` and `constraints` use the same syntax and matching as [permissions](/authentication#resources): a document name, `*`, and the `prefix`, `suffix` and `in` constraints.
+
+```ts
+// policies.ts
+export const templatePolicy = {
+  version: 1,
+  rules: [
+    {
+      selector: { target: 'nodeType', node: { types: ['heading'] } },
+      permissions: { edit: false },
+    },
+  ],
+} satisfies ContentProtectionPolicy
+
+export const defaultPolicy = { version: 1, rules: [] } satisfies ContentProtectionPolicy
+
+// Same order as the token's entries: the first match wins
+export function policyFor(documentName: string): ContentProtectionPolicy {
+  if (documentName === 'contract-42') return contractPolicy
+  if (documentName.startsWith('templates/')) return templatePolicy
+  return defaultPolicy
+}
+```
+
+```ts
+// On your server
+import { contractPolicy, defaultPolicy, templatePolicy } from './policies'
+
+const payload = {
+  permissions: [
+    { action: 'Documents:Write', resource: 'contract-42' },
+    { action: 'Documents:Write', resource: '*', constraints: { prefix: 'templates/' } },
+    { action: 'Documents:Write', resource: '*', constraints: { prefix: 'drafts/' } },
+  ],
+  contentProtection: [
+    { resource: 'contract-42', policy: contractPolicy },
+    { resource: '*', constraints: { prefix: 'templates/' }, policy: templatePolicy },
+    // Fallback for every other document the token can open, here drafts/
+    { resource: '*', policy: defaultPolicy },
+  ],
+}
+```
+
+Sign this payload with `new SignJWT(payload)`, like in the previous example. In the editor, pass the policy for the open document:
+
+```ts
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import { ContentProtection } from '@tiptap-pro/extension-content-protection'
+import { policyFor } from './policies'
+
+const documentName = 'templates/nda' // the document the editor opens
+
+const editor = new Editor({
+  extensions: [StarterKit, ContentProtection.configure({ policy: policyFor(documentName) })],
+})
+```
+
+`policyFor` gives every user of a document the same policy. When the policy depends on the user, send the editor the policy your server put in that user's token for the document instead.
+
+- The first matching entry, in array order, applies to a document. Policies from different entries are never combined.
+- If no entry matches, or the token has no `contentProtection` claim, the token doesn't supply a policy for that document.
+- To cover every document, add a `resource: '*'` entry last as a fallback.
+
+You can also sign one token per document with a single `resource: '*'` entry. In that case, limit the token's `permissions` to the same document, so the token can't open other documents, whatever their policy says.
+
+## Limits and validation
+
+- A malformed claim makes the token invalid. Validation is structural: `policy.version` must be `1` and `policy.rules` must be an array of objects. The contents of each rule are not checked yet.
+- The claim can have at most 100 entries and at most 8,192 bytes, measured as the UTF-8 length of `JSON.stringify(contentProtection)`.
+- Only tokens in the current format (with `aud` and `iss`) support this claim. Legacy tokens with `allowedDocumentNames` don't.
