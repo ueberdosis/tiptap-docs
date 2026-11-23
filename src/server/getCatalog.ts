@@ -35,6 +35,7 @@ export function planFromTags(tags: string[]): CatalogPlan {
   if (tags.includes('addon')) return 'Add-on'
   if (tags.includes('team')) return 'Team'
   if (tags.includes('start') || tags.includes('beginStart')) return 'Start'
+  if (tags.includes('paid')) return 'Paid'
   return 'Open source'
 }
 

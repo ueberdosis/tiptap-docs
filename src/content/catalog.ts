@@ -29,6 +29,7 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
   // Paid products and paid editor groups first, as in the sidebar, then the open source editor's groups
   { id: 'ai', title: 'AI', area: 'platform' },
   { id: 'review', title: 'Review', area: 'platform' },
+  { id: 'citations', title: 'Smart Citations', area: 'platform' },
   { id: 'compare', title: 'Compare', area: 'platform' },
   { id: 'conversion', title: 'Conversion', area: 'platform' },
   { id: 'composable-docs', title: 'Composable Documents', area: 'platform' },
@@ -58,7 +59,14 @@ export const CATALOG_GROUPS: CatalogGroup[] = [
 ]
 
 /** Plans in the order the filter shows them. A page's plan comes from its tags. */
-export const CATALOG_PLANS = ['Open source', 'Start', 'Team', 'Add-on', 'Pilot program'] as const
+export const CATALOG_PLANS = [
+  'Open source',
+  'Start',
+  'Team',
+  'Add-on',
+  'Pilot program',
+  'Paid',
+] as const
 
 export type CatalogPlan = (typeof CATALOG_PLANS)[number]
 
@@ -72,6 +80,7 @@ export const PLAN_LABELS: Record<CatalogPlan, { label: string; tooltip: string }
     label: 'Pilot program',
     tooltip: 'Contact our team to join the pilot program.',
   },
+  Paid: { label: 'Paid', tooltip: 'Requires paid access to this feature.' },
 }
 
 /** The statuses to filter by; Stable is a released feature without a status. */

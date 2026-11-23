@@ -98,6 +98,11 @@ export const redirects = [
     permanent: true,
   },
   {
+    source: '/editor/extensions/functionality/citations',
+    destination: '/citations/getting-started/install',
+    permanent: true,
+  },
+  {
     source: '/editor/extensions/functionality/export',
     destination: '/conversion/getting-started/overview',
     permanent: true,
