@@ -7,6 +7,7 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  output: 'standalone',
   // On tiptap.dev only `/docs/*` reaches this app, so its JS and CSS are served under `/docs/_next/`.
   assetPrefix: '/docs',
   images: { path: '/docs/_next/image' },
