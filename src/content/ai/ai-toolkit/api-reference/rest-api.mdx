@@ -82,6 +82,7 @@ Request body:
 
 - `editorContext` (`object`, required): The editor context returned by `getEditorContext`.
 - `hiddenAttributes` (`string[]`, optional, default: `[]`): Node attributes excluded from the schema awareness prompt, including their defaults. Use the same list when executing tools or streaming supported tools. `stream-tool` rejects non-empty `hiddenAttributes` for `tiptapEdit`; use `execute-tool` for those edits. See [Hidden attributes](#hidden-attributes).
+- `uniqueId` (`object`, optional): Node ID settings of the Unique ID extension. The system prompt leaves the ID attribute out. See [Unique IDs](#unique-ids).
 - `contentProtectionPolicy` (`object`, optional): Rules for what the AI can read and edit. See [Content protection](/ai/ai-toolkit/agents/content-protection).
 - `tools` (`Record<string, boolean | ToolConfig>`, optional, default: `{}`): Enables, disables, or
   configures tools. Tools are disabled by default.
@@ -149,6 +150,8 @@ HTTP errors return:
 
 This endpoint can return:
 
+- `400` with `invalid_unique_id_options`: A `uniqueId` type isn't in the editor schema or doesn't
+  have the attribute, or `types` is `'all'` and no type has it.
 - `401` with `access_control_auth_required` or `missing_token`: The request did not include a
   Tiptap Access Control JWT.
 - `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
@@ -201,6 +204,7 @@ Request body:
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 - `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
+- `uniqueId` (`object`, optional): Node ID settings of the Unique ID extension, so that the nodes the AI writes keep valid IDs. See [Unique IDs](#unique-ids).
 - `contentProtectionPolicy` (`object`, optional): Rules for what the AI can read and edit. See [Content protection](/ai/ai-toolkit/agents/content-protection).
 
 Response:
@@ -257,6 +261,8 @@ This endpoint can return:
   inline document. These tools require a cloud document.
 - `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A thread or
   comment operation referenced data that does not exist.
+- `400` with `invalid_unique_id_options`: A `uniqueId` type isn't in the editor schema or doesn't
+  have the attribute, or `types` is `'all'` and no type has it.
 - `401` with `access_control_auth_required` or `missing_token`: The request did not include a
   Tiptap Access Control JWT.
 - `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
@@ -342,6 +348,7 @@ The first message (`start`) contains:
   output. See [Tiptap Shorthand](/ai/ai-toolkit/advanced-guides/tiptap-shorthand).
 - `reviewOptions` ([`ReviewOptions`](/ai/ai-toolkit/api-reference/review-options), optional, default: `{ mode: 'disabled' }`): Controls whether edits are applied directly or as reviewable changes.
 - `hiddenAttributes` (`string[]`, optional): Node attributes to hide from the AI in the tools that read or edit document content. See [Hidden attributes](#hidden-attributes).
+- `uniqueId` (`object`, optional): Node ID settings of the Unique ID extension, so that the nodes the AI writes keep valid IDs. See [Unique IDs](#unique-ids).
 - `contentProtectionPolicy` (`object`, optional): Rules for what the AI can read and edit. See [Content protection](/ai/ai-toolkit/agents/content-protection).
 - `delayMs` (`number`, optional, default: `0`): Delay in milliseconds between incremental
   `tiptapEdit` steps, to slow the typing effect down. Must be between `0` and `1000`. With `0`, edits
@@ -390,6 +397,8 @@ This endpoint can return or emit:
 - `400` with `incomplete_stream`: The request or connection ended before an `end` message arrived.
 - `400` with a thread-store code such as `thread_not_found` or `comment_not_found`: A buffered
   thread or comment operation referenced data that does not exist.
+- `400` with `invalid_unique_id_options`: A `uniqueId` type isn't in the editor schema or doesn't
+  have the attribute, or `types` is `'all'` and no type has it.
 - `401` with `access_control_auth_required` or `missing_token`: The request did not include a
   Tiptap Access Control JWT.
 - `401` with an access-control code such as `token_expired` or `signature_invalid`: The JWT was
@@ -449,6 +458,36 @@ Use the `hiddenAttributes` field (`string[]`) of `execute-tool` and `stream-tool
 - The AI can't carry out requests that need these attributes, like a smaller line height.
 - Only node attributes are hidden. `_hash` and the tracked-changes attributes can't be hidden. An invalid list fails with `422` and `validation_failed` in `execute-tool`, and with `400` and `invalid_stream_message` in `stream-tool`.
 - `stream-tool` rejects the option for `tiptapEdit` with `invalid_stream_message`, because streamed edits can't keep the values.
+
+### Unique IDs
+
+If your editor uses the [Unique ID](/editor/extensions/functionality/uniqueid) extension, pass its settings in the `uniqueId` field of `fetch-tools`, `execute-tool` and `stream-tool` requests. The extension ignores changes that arrive through collaboration, so without this field the nodes that the AI writes have no ID. Pass the same settings in every request.
+
+```json
+"uniqueId": { "attributeName": "id", "types": ["heading", "paragraph"] }
+```
+
+- `types` (`string[] | 'all'`, required): Node types that have an ID, like the `types` option of the extension. `'all'` means every node type in the editor schema, except `doc` and `text`, that has the attribute.
+- `attributeName` (`string`, optional, default: `'id'`): The attribute that holds the ID, like the `attributeName` option of the extension.
+
+`tiptapEdit`, `tiptapQuery`, `replaceDocument` and `createDocument` follow these rules, in both review modes:
+
+- New nodes get a new UUID v4. This includes a node that the AI duplicates.
+- A node that the AI moves keeps its ID. When the AI moves it with a separate delete and insert in the same tool call, the inserted node gets the ID back if its content didn't change and no other node has that ID. Nodes inside it get their IDs back too. A moved node with changed content, an empty node, and a node moved across tool calls get new IDs. The other [hidden attributes](#hidden-attributes) of a moved node still get their default values.
+- A node that the AI edits keeps its ID, also when it moves inside the replaced content. When the AI splits a node, one part keeps the ID and the other parts get new ones. With direct edits, the first part keeps it. A node that changes to another type in `types`, like a paragraph that becomes a heading, keeps its ID.
+- The AI never writes an ID that another node already has. Nodes that the AI doesn't change keep their IDs, also when the document already has duplicate or missing IDs.
+- In `trackedChanges` mode, a node that a suggestion adds always gets a new ID, and the original node keeps its ID until the suggestion is accepted or rejected:
+  - A split adds a node next to the original one. Depending on how the suggestion records the split, the added node holds the first or the second part, so either part can keep the ID after you accept it.
+  - A type change, like a paragraph that becomes a heading, replaces the whole node. The deleted node keeps the old ID and the new node gets a new one. After you accept the suggestion, the node has the new ID.
+  - A move with a separate delete and insert leaves the deleted node in the document, so the moved node gets a new ID.
+- The AI can't read or set the attribute. It is hidden like the [hidden attributes](#hidden-attributes), so `tiptapQuery` node steps can't select nodes by it.
+
+Limits:
+
+- IDs are always UUID v4 values. A custom `generateID` function of the extension isn't used.
+- `stream-tool` rejects the field for `tiptapEdit` with `invalid_stream_message`. Use `execute-tool` for those edits.
+- The [board tools](#board-tools) ignore the field.
+- An empty `types` list, `_hash` or a tracked-changes attribute fails with `422` and `validation_failed` (`400` and `invalid_stream_message` in `stream-tool`). A type that isn't in the editor schema, a type that doesn't have the attribute, and `'all'` when no type has it fail with `400` and `invalid_unique_id_options`.
 
 ### `tiptapRead`
 
