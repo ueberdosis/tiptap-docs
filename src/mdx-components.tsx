@@ -25,6 +25,20 @@ const getHeadlineId = (children: React.ReactNode) => {
 const hashClass =
   'text-grayAlpha-600 transition-all opacity-0 group-hover:opacity-100 absolute -left-5 pr-1 top-0 bottom-0 m-auto w-5 h-4'
 
+const createHeading = (Tag: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6') => {
+  return function Heading({ children, ...props }: React.ComponentProps<'h1'>) {
+    const id = getHeadlineId(children)
+    return (
+      <Tag className="group relative" {...props} id={id}>
+        <a className={hashClass} href={`#${id}`}>
+          <HashIcon className="w-full h-full" />
+        </a>
+        {children}{' '}
+      </Tag>
+    )
+  }
+}
+
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
@@ -35,72 +49,12 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       </Codeblock>
     ),
     code: (props) => <code {...props} />,
-    h1: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h1 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h1>
-      )
-    },
-    h2: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h2 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h2>
-      )
-    },
-    h3: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h3 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h3>
-      )
-    },
-    h4: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h4 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h4>
-      )
-    },
-    h5: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h5 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h5>
-      )
-    },
-    h6: ({ children, ...props }) => {
-      const id = getHeadlineId(children)
-      return (
-        <h6 className="group relative" {...props} id={id}>
-          <a className={hashClass} href={`#${id}`}>
-            <HashIcon className="w-full h-full" />
-          </a>
-          {children}{' '}
-        </h6>
-      )
-    },
+    h1: createHeading('h1'),
+    h2: createHeading('h2'),
+    h3: createHeading('h3'),
+    h4: createHeading('h4'),
+    h5: createHeading('h5'),
+    h6: createHeading('h6'),
     table: (props) => (
       <div className="w-full overflow-auto my-8 first:mt-0 last:mb-0">
         <table {...props} className="w-full" />

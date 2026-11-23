@@ -27,6 +27,7 @@ export function toEntries(items: SectionItem[]): SidebarEntry[] {
       disabled,
       isActive,
       children,
+      defaultOpen,
     } = item
     // A parent that links to its own first child only folds open; the child carries the link
     const duplicatesChild = !!children?.length && children[0].href === href
@@ -40,6 +41,7 @@ export function toEntries(items: SectionItem[]): SidebarEntry[] {
       external,
       disabled,
       isActive,
+      defaultOpen,
       children: children ? toEntries(children) : undefined,
     }
   })
