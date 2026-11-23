@@ -4,7 +4,7 @@ import { sidebarConfig } from '@/content/sidebar'
 type Entry = { href: string; tags?: string[]; children?: Entry[] }
 type Labels = { plan?: Plan; status?: Status }
 
-/** What an entry's tags add to what it inherited. "Paid" names no plan, so it passes nothing on. */
+/** What an entry's tags add to the access and status it inherited. */
 function withTags(tags: string[] | undefined, inherited: Labels): Labels {
   const plan = tags?.map(planFromLabel).find(Boolean)
   const status = tags?.map(statusFromLabel).find(Boolean)

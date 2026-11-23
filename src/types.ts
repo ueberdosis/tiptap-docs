@@ -10,6 +10,8 @@ export type SidebarLink = {
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
+  /** A nested entry that starts open when it has children. */
+  defaultOpen?: boolean
   /**
    * Whether to show the link as active. If undefined, the link will be active
    * if its href matches the current pathname.
@@ -50,6 +52,7 @@ export type GeneralPageTag = {
     | 'team'
     | 'addon'
     | 'restricted'
+    | 'paid'
     | 'mit'
     | 'business'
     | 'deprecated'
