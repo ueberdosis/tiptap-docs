@@ -214,6 +214,14 @@ function hasActiveDescendant(
   )
 }
 
+function rememberCollapsedLinks(links: Omit<SidebarLink, 'type'>[], parentPath: string) {
+  for (const link of links) {
+    const path = `${parentPath}/${link.title}`
+    rememberedOpen.set(path, false)
+    if (link.children) rememberCollapsedLinks(link.children, path)
+  }
+}
+
 export const LinkItem = ({
   link,
   path,
@@ -394,10 +402,7 @@ export const GroupItem = ({ group, onClick }: { group: SidebarGroup; onClick?: (
             <CollapseButton
               area={group.title}
               onClick={() => {
-                // Entries inside closed ones aren't mounted, so they forget here instead
-                for (const key of rememberedOpen.keys()) {
-                  if (key.startsWith(`${group.title}/`)) rememberedOpen.delete(key)
-                }
+                rememberCollapsedLinks(group.children, group.title)
                 setCollapseAll((count) => count + 1)
               }}
             />
