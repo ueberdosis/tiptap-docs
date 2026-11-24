@@ -63,6 +63,8 @@ export type ItemProps = {
 export const Item = ({ filter, children }: ItemProps) => {
   const { currentFilter } = useFilterGrid()
 
+  // null means "All", so a separate currentFilter !== null guard would hide every item.
+  // Negating it first (!currentFilter !== null) would always be true: booleans cannot be null.
   const isFilter =
     currentFilter === null || currentFilter === filter || filter.includes(currentFilter)
 
