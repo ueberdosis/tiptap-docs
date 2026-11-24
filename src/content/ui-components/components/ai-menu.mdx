@@ -27,7 +27,7 @@ import { CodeDemo } from '@/components/CodeDemo'
 Add the component via the Tiptap CLI:
 
 ```bash
-npx @tiptap/cli@latest add ai-menu
+npx @tiptap/cli@latest add ai-menu ai-ask-button
 ```
 
 ## Components
@@ -38,6 +38,8 @@ A comprehensive AI-powered menu that provides contextual editing and generation 
 
 #### Usage
 
+Pass the app ID and a user token from your server to the editor. [Set up Basic AI Generation](/ai/basic/install)
+
 ```tsx
 import { EditorContent, EditorContext, useEditor } from '@tiptap/react'
 
@@ -46,9 +48,7 @@ import { StarterKit } from '@tiptap/starter-kit'
 import { Ai } from '@tiptap-pro/extension-ai'
 import { UiState } from '@/components/tiptap-extension/ui-state-extension'
 
-import { HorizontalRule } from '@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension'
 import { Selection } from '@tiptap/extensions'
-import { AiProvider, useAi } from '@/components/contexts/ai-context'
 
 // --- Tiptap UI ---
 import { AiMenu } from '@/components/tiptap-ui/ai-menu'
@@ -57,46 +57,16 @@ import { AiAskButton } from '@/components/tiptap-ui/ai-ask-button'
 // --- UI Primitive ---
 import { ButtonGroup } from '@/components/tiptap-ui-primitive/button-group'
 
-// --- Utils ---
-import { TIPTAP_AI_APP_ID } from '@/lib/tiptap-collab-utils'
-
-// --- Tiptap Node ---
-import '@/components/tiptap-node/blockquote-node/blockquote-node.scss'
-import '@/components/tiptap-node/code-block-node/code-block-node.scss'
-import '@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss'
-import '@/components/tiptap-node/heading-node/heading-node.scss'
-import '@/components/tiptap-node/paragraph-node/paragraph-node.scss'
-
-export const AiMenuExample = () => {
-  return (
-    <AiProvider>
-      <AiEditorWrapper />
-    </AiProvider>
-  )
-}
-
-const AiEditorWrapper = () => {
-  const { aiToken } = useAi()
-
-  if (!aiToken) {
-    return <div className="tiptap-editor-wrapper">Loading AI...</div>
-  }
-
-  return <AiEditor aiToken={aiToken} />
-}
-
-const AiEditor = ({ aiToken }: { aiToken: string }) => {
+export const AiMenuExample = ({ appId, token }: { appId: string; token: string }) => {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        horizontalRule: false,
-      }),
-      HorizontalRule,
+      StarterKit,
       Selection,
       UiState,
       Ai.configure({
-        token: aiToken,
+        appId,
+        token,
         autocompletion: false,
         showDecorations: true,
         hideDecorationsOnStreamEnd: false,
@@ -115,10 +85,7 @@ const AiEditor = ({ aiToken }: { aiToken: string }) => {
         },
       }),
     ],
-    content: `
-<p>Today, we're exploring how AI is transforming creative workflows. From writing assistance to intelligent summarization, the tools at our fingertips are evolving fast. But how do we use them responsibly?</p>
-<p>In this article, we'll look at real-world examples of AI enhancing—not replacing—human creativity.</p>
-        `,
+    content: '<p>Select this sentence and open the menu to revise it.</p>',
   })
 
   return (
@@ -148,15 +115,21 @@ const AiEditor = ({ aiToken }: { aiToken: string }) => {
 
 ### `<AiMenuStateProvider />`
 
-State provider that manages AI menu state across the application.
+Provides the menu state to `AiMenuContent` and to the components that call `useAiMenuState()`. `<AiMenu />` renders its own provider, so a component outside it cannot read that menu's state. To share the state with your own controls, render the provider and `AiMenuContent` yourself.
 
 #### Usage
 
 ```tsx
-import { AiMenuStateProvider } from '@/components/tiptap-ui/ai-menu'
+import type { Editor } from '@tiptap/react'
+import { AiMenuContent, AiMenuStateProvider } from '@/components/tiptap-ui/ai-menu'
 
-function App() {
-  return <AiMenuStateProvider>{/* Your editor components */}</AiMenuStateProvider>
+function EditorAiMenu({ editor }: { editor: Editor | null }) {
+  return (
+    <AiMenuStateProvider>
+      <AiMenuContent editor={editor} />
+      <MyComponent />
+    </AiMenuStateProvider>
+  )
 }
 ```
 
@@ -175,7 +148,7 @@ The main content component that renders the AI menu interface.
 
 ### `useAiMenuState()`
 
-Hook to access and manage AI menu state.
+Hook to access and manage AI menu state. Call it in a component inside `AiMenuStateProvider`. Outside the provider, the hook throws an error.
 
 #### Usage
 
@@ -218,9 +191,13 @@ Hook to track AI-generated content changes in the editor. Supports two positioni
 
 ```tsx
 import { useAiContentTracker } from '@/components/tiptap-ui/ai-menu'
+import { useFloatingMenuStore } from '@/components/tiptap-ui-primitive/menu'
+import { useTiptapEditor } from '@/hooks/use-tiptap-editor'
 
 function MyComponent() {
   const { editor } = useTiptapEditor()
+
+  const { store } = useFloatingMenuStore()
 
   useAiContentTracker({
     editor,
@@ -244,15 +221,20 @@ function MyComponent() {
 
 ### `useTextSelectionTracker()`
 
-Hook to track text selection changes for menu positioning. When `anchorToSelection` is `true`, creates editor-width virtual anchors at the selection's vertical position instead of using the raw selected DOM element.
+Hook to track text selection changes for menu positioning. When `anchorToSelection` is `true`, creates editor-width virtual anchors at the selection's vertical position instead of using the raw selected DOM element. The example calls `useAiMenuState()`, so render it inside `AiMenuStateProvider`.
 
 #### Usage
 
 ```tsx
-import { useTextSelectionTracker } from '@/components/tiptap-ui/ai-menu'
+import { useAiMenuState, useTextSelectionTracker } from '@/components/tiptap-ui/ai-menu'
+import { useFloatingMenuStore } from '@/components/tiptap-ui-primitive/menu'
+import { useTiptapEditor } from '@/hooks/use-tiptap-editor'
 
 function MyComponent() {
   const { editor } = useTiptapEditor()
+
+  const { show } = useFloatingMenuStore()
+  const { updateState } = useAiMenuState()
 
   useTextSelectionTracker({
     editor,
@@ -292,12 +274,7 @@ import { AiMenuItems } from '@/components/tiptap-ui/ai-menu'
 function CustomAiMenu() {
   const { editor } = useTiptapEditor()
 
-  return (
-    <AiMenuItems
-      editor={editor}
-      availableActions={['improveWriting', 'aiFixSpellingAndGrammar', 'summarize']}
-    />
-  )
+  return <AiMenuItems editor={editor} />
 }
 ```
 
@@ -316,6 +293,7 @@ function CustomAiMenu() {
   return (
     <AiMenuActions
       editor={editor}
+      options={{ format: 'rich-text' }}
       onAccept={() => console.log('AI content accepted')}
       onRegenerate={() => console.log('Regenerating AI content')}
     />
@@ -339,7 +317,7 @@ function CustomPromptInput() {
 
   return (
     <AiMenuInputTextarea
-      onSubmit={handleSubmit}
+      onInputSubmit={handleSubmit}
       placeholder="Ask AI to help with your content..."
     />
   )
@@ -357,13 +335,7 @@ import { getContextAndInsertAt } from '@/components/tiptap-ui/ai-menu'
 
 const { context, insertAt, isSelection } = getContextAndInsertAt(editor)
 
-if (isSelection) {
-  // Handle selection-based AI operation
-  editor.chain().aiEdit({ prompt: 'Improve this text', insertAt }).run()
-} else {
-  // Handle insertion-based AI operation
-  editor.chain().aiGenerate({ prompt: 'Write about AI', insertAt }).run()
-}
+console.log({ context, insertAt, isSelection })
 ```
 
 ### `findPrioritizedAIElement(editor)`
@@ -397,7 +369,7 @@ if (rect) {
 Creates a full-width anchor `DOMRect` spanning the editor's content area (excluding padding and border) at the vertical position of the given source rect.
 
 ```tsx
-import { createEditorWidthAnchorRect } from '@/components/tiptap-ui/ai-menu'
+import { createEditorWidthAnchorRect, getSelectionRangeRect } from '@/components/tiptap-ui/ai-menu'
 
 const selectionRect = getSelectionRangeRect(editor)
 if (selectionRect) {
@@ -411,13 +383,14 @@ if (selectionRect) {
 Creates a virtual anchor element that reports a bounding rect via `getBoundingClientRect()`. When a `referenceElement` is provided, the anchor stores offsets relative to the reference and dynamically recomputes viewport coordinates on each call, enabling scroll-aware positioning.
 
 ```tsx
-import { createVirtualAnchor, createEditorWidthAnchorRect } from '@/components/tiptap-ui/ai-menu'
+import { createVirtualAnchor, createEditorWidthAnchorRect, getSelectionRangeRect } from '@/components/tiptap-ui/ai-menu'
 
-const anchorRect = createEditorWidthAnchorRect(editor.view.dom, selectionRect)
-const anchor = createVirtualAnchor(anchorRect, editor.view.dom)
-
-// The anchor's getBoundingClientRect() will update as the editor scrolls
-store.setAnchorElement(anchor)
+const selectionRect = getSelectionRangeRect(editor)
+if (selectionRect) {
+  const rect = createEditorWidthAnchorRect(editor.view.dom, selectionRect)
+  const anchor = createVirtualAnchor(rect, editor.view.dom)
+  console.log(anchor.getBoundingClientRect())
+}
 ```
 
 ### `getEditorContentRect(editorDom)`
@@ -455,10 +428,12 @@ The AI Menu provides several built-in actions organized by category:
 ### `AiMenuState` Interface
 
 ```tsx
+import type { Language, Tone } from '@tiptap-pro/extension-ai'
+
 interface AiMenuState {
   isOpen: boolean
-  tone?: string
-  language: string
+  tone?: Tone
+  language: Language
   shouldShowInput: boolean
   inputIsFocused: boolean
   fallbackAnchor: {
@@ -496,12 +471,11 @@ updateState({ tone: 'professional' })
 - `@tiptap/react` - Core Tiptap React integration
 - `@tiptap-pro/extension-ai` - AI extension for content generation
 - `@tiptap/starter-kit` - Basic Tiptap extensions
-- `react-hotkeys-hook` - Keyboard shortcut management
 
 ### Extensions
 
 - `ui-state-extension` - Manages UI state for AI operations
-- `selection-extension` - Enhanced text selection handling
+- `Selection` from `@tiptap/extensions` - Keeps the selected text highlighted while the menu has focus
 
 ### Referenced Components
 
@@ -512,20 +486,4 @@ updateState({ tone: 'professional' })
 - `card` (primitive)
 - `combobox` (primitive)
 - `tiptap-utils` (lib)
-- `sparkles-icon`, `stop-circle-2-icon` (icons)
-
-## Configuration
-
-### AI Provider Setup
-
-```tsx
-import { AiProvider } from '@/contexts/ai-context'
-
-function App() {
-  return (
-    <AiProvider token="your-ai-token">
-      <YourEditor />
-    </AiProvider>
-  )
-}
-```
+- `ai-sparkles-icon`, `stop-circle-2-icon` (icons)

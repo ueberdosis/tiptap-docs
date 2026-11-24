@@ -1,8 +1,23 @@
+import fs from 'fs'
+import path from 'path'
+import { planFromTags } from '@/server/getCatalog'
+import { readFrontmatterSync } from '@/server/readFrontmatter'
 import { SidebarConfig } from '@/types'
+import { SidebarEntry } from '@/utils/composeSidebar'
+
+const CONTENT_DIR = path.join(process.cwd(), 'src/content')
+
+/** Tags an entry with the plan its own page names, so the sidebar can't drift from the page. */
+function withPagePlan(entry: SidebarEntry): SidebarEntry {
+  const file = `${path.join(CONTENT_DIR, entry.href)}.mdx`
+  if (!fs.existsSync(file)) return entry
+  const plan = planFromTags((readFrontmatterSync(file).tags ?? []).map((tag) => tag.type))
+  return plan === 'Open source' ? entry : { ...entry, tags: [plan] }
+}
 
 export const sidebarConfig: SidebarConfig = {
   id: 'ui components',
-  rootHref: '/ui-components/getting-started/',
+  rootHref: '/ui-components/getting-started/overview',
   title: 'Components',
   items: [
     {
@@ -66,19 +81,16 @@ export const sidebarConfig: SidebarConfig = {
         {
           title: 'Simple Editor',
           href: '/ui-components/templates/simple-editor',
-          tags: ['MIT licensed'],
         },
         {
           title: 'Notion Editor',
           href: '/ui-components/templates/notion-like-editor',
-          tags: ['Start'],
         },
         {
           title: 'DOCX Editor',
           href: '/ui-components/templates/docx-editor',
-          tags: ['Team'],
         },
-      ],
+      ].map(withPagePlan),
     },
     {
       type: 'group',
@@ -249,7 +261,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Zoom dropdown menu',
               href: '/ui-components/components/zoom-dropdown-menu',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Node components',
@@ -288,6 +300,10 @@ export const sidebarConfig: SidebarConfig = {
               href: '/ui-components/node-components/list-node',
             },
             {
+              title: 'Mathematics node',
+              href: '/ui-components/node-components/mathematics-node',
+            },
+            {
               title: 'Paragraph node',
               href: '/ui-components/node-components/paragraph-node',
             },
@@ -299,7 +315,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Table of contents node',
               href: '/ui-components/node-components/table-of-contents-node',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Primitives',
@@ -365,7 +381,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Tooltip',
               href: '/ui-components/primitives/tooltip',
             },
-          ],
+          ].map(withPagePlan),
         },
         {
           title: 'Utilities',
@@ -379,7 +395,7 @@ export const sidebarConfig: SidebarConfig = {
               title: 'Suggestion menu',
               href: '/ui-components/utils-components/suggestion-menu',
             },
-          ],
+          ].map(withPagePlan),
         },
       ],
     },
