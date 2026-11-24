@@ -18,17 +18,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      # Lets the job request a GitHub Actions OIDC token, which authenticates it at the Tiptap Cloud app
+      id-token: write
+
     steps:
+      # GitLab is only reachable through our VPN, so the deployment is triggered through the
+      # Tiptap Cloud app. It verifies the OIDC token and takes branch and commit from it.
       - name: Trigger build
         shell: bash
         run: |
+          set -euo pipefail
+
+          OIDC_TOKEN=$(curl \
+            --fail \
+            --silent \
+            --show-error \
+            --header "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=collab-app-docs-deploy" \
+            | jq -r '.value')
+          echo "::add-mask::$OIDC_TOKEN"
+
           curl \
-          --fail \
-          --silent \
-          --request POST \
-          --form token=${{ secrets.CI_TOKEN }} \
-          --form ref=main \
-          --form 'variables[GITHUB_COMMIT_REF_NAME]'=$GITHUB_REF_NAME \
-          --form 'variables[GITHUB_COMMIT_SHA]'=$GITHUB_SHA \
-          ${{ secrets.CI_WEBHOOK_URL }} \
-          &> /dev/null
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Authorization: Bearer $OIDC_TOKEN" \
+            --header "Accept: application/json" \
+            https://cloud.tiptap.dev/api/docs/deploy
