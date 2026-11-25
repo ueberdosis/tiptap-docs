@@ -63,11 +63,10 @@ export type ItemProps = {
 export const Item = ({ filter, children }: ItemProps) => {
   const { currentFilter } = useFilterGrid()
 
-  const hasFilter = !currentFilter !== null
   const isFilter =
     currentFilter === null || currentFilter === filter || filter.includes(currentFilter)
 
-  if (!hasFilter || !isFilter) {
+  if (!isFilter) {
     return null
   }
 
