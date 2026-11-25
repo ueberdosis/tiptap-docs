@@ -11,6 +11,12 @@ const config = {
   // On tiptap.dev only `/docs/*` reaches this app, so its JS and CSS are served under `/docs/_next/`.
   assetPrefix: '/docs',
   images: { path: '/docs/_next/image' },
+  // Keeps the build under 8 GB of memory. One page worker, and no webpack cache, which holds every compiled page in memory.
+  experimental: { cpus: 1 },
+  webpack: (webpackConfig) => {
+    webpackConfig.cache = false;
+    return webpackConfig;
+  },
   async headers() {
     if (!isProductionSite) {
       return [{ source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: previewRobots }] }];
