@@ -268,6 +268,12 @@ export const useCases: ShapeStep = {
     const href = (link: string) => {
       const result = resolvePageLink('latest', file, link);
       if (result.kind === 'ok') return result.text;
+      if (result.kind === 'anchor-not-found') {
+        console.log(
+          `Use case link ${result.reason}: ${label}  ${link}  (written as ${result.text})`,
+        );
+        return result.text;
+      }
       console.log(`Unresolved use case link, kept as it is: ${label}  ${link}  (${result.reason})`);
       return link;
     };

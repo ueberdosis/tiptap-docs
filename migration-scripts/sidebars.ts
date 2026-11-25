@@ -171,7 +171,7 @@ const resolveHref = (context: Context, href: string, where: string) => {
   if (/^https?:\/\//.test(href)) return { url: href, external: true };
   if (!href.startsWith('/')) fail(`${where} href "${href}" is not a root link`);
   const result = resolvePageLink(context.version.name, context.indexFile, href);
-  if (result.kind === 'ok') return { url: result.text, external: false };
+  if (result.kind === 'ok') return { url: result.text, external: /^https?:\/\//.test(result.text) };
   const known = knownMissing.find(
     (item) =>
       item.version === context.version.name &&

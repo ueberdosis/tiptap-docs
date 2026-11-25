@@ -11,13 +11,20 @@
  * A heading's id is its custom id (`[#id]`) if it has one. An anchor in the old id format, or the id
  * a heading would have without its custom id, gets the heading's id.
  * On latest pages, a root link to a file that `public-assets.ts` copies gets `/docs` like a page link.
- * A link it cannot resolve, page or anchor, stays as it is. Prints the number of rewritten links per
- * version and every link it cannot resolve. Stops with an error on a link prop that is not one string
- * literal. Writes the files only after all pages pass.
+ * The package changelog pages in `.changelogs/index.json` (written by `pnpm changelogs`) are pages of
+ * latest at `resources/changelog/<slug>`; their headings are not checked. Stops with an error if the
+ * index is missing.
+ * A link whose redirects end on a path outside the docs (first segment is not a content folder)
+ * becomes a URL on `https://tiptap.dev`.
+ * `href` properties of objects in `{…}` prop values are links too.
+ * A link to a found page with an anchor it cannot find gets the page URL and keeps its anchor. Any
+ * other link it cannot resolve stays as it is. Prints the number of rewritten links per version and
+ * every link with a page or anchor it cannot resolve. Stops with an error on a link prop that is not
+ * one string literal. Writes the files only after all pages pass.
  *
  * Importing the file runs nothing. `resolvePageLink` resolves one link the same way.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { remarkHeading } from 'fumadocs-core/mdx-plugins';
@@ -25,7 +32,8 @@ import { remark } from 'remark';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
 import remarkMdx from 'remark-mdx';
-import { docsRoute, docsV2Route } from '../src/lib/shared.ts';
+import { contentFolders, isDocsPath } from '../src/lib/app-redirects.mjs';
+import { docsRoute, docsV2Route, siteUrl } from '../src/lib/shared.ts';
 import { oldSlug } from './heading-ids.ts';
 import { publicAssetPaths } from './public-assets.ts';
 import type { Redirect } from './redirects.ts';
@@ -33,9 +41,19 @@ import type { Redirect } from './redirects.ts';
 const appDir = dirname(import.meta.dirname);
 
 const versions = [
-  { name: 'latest', dir: 'content/docs', route: docsRoute, publicFiles: true },
-  { name: 'v2', dir: 'content/v2', route: docsV2Route, publicFiles: false },
+  { name: 'latest', dir: 'content/docs', route: docsRoute, publicFiles: true, changelogs: true },
+  { name: 'v2', dir: 'content/v2', route: docsV2Route, publicFiles: false, changelogs: false },
 ];
+
+/** Page paths of the package changelogs, from the index `pnpm changelogs` writes. */
+const changelogPaths = () => {
+  const file = join(appDir, '.changelogs/index.json');
+  if (!existsSync(file)) {
+    throw new Error('.changelogs/index.json is missing. Run `pnpm changelogs` before the import.');
+  }
+  const index: { slug: string }[] = JSON.parse(readFileSync(file, 'utf8'));
+  return index.map(({ slug }) => `resources/changelog/${slug}`);
+};
 
 /** JSX props that hold a page link. */
 const linkProps = new Set(['href', 'documentationUrl', 'secondaryUrl']);
@@ -222,7 +240,9 @@ const loadVersion = (
     destination: redirect.destination,
   }));
   const assetPaths = new Set(version.publicFiles ? publicAssetPaths() : []);
-  return { ...version, pages, redirects, assetPaths };
+  const changelogs = new Set(version.changelogs ? changelogPaths() : []);
+  const folders = contentFolders(appDir, version.dir);
+  return { ...version, pages, redirects, assetPaths, changelogs, folders };
 };
 
 type Version = ReturnType<typeof loadVersion>;
@@ -239,13 +259,16 @@ const loadVersions = () => {
   return loaded;
 };
 
-/** Follows the redirects of a version. Returns the final path and the anchor of the last redirect. */
+/**
+ * Follows the redirects of a version. Returns the final path, the anchor of the last redirect and
+ * whether any redirect matched.
+ */
 const followRedirects = (version: Version, path: string) => {
   let current = path;
   let anchor: string | undefined;
   for (let step = 0; step <= 10; step += 1) {
     const redirect = version.redirects.find(({ pattern }) => pattern.test(current));
-    if (!redirect) return { path: current, anchor };
+    if (!redirect) return { path: current, anchor, redirected: step > 0 };
     if (step === 10) throw new Error(`${version.name}: more than 10 redirects for "${path}"`);
     const groups = redirect.pattern.exec(current)?.groups ?? {};
     const destination = fillDestination(redirect.destination, groups);
@@ -253,15 +276,25 @@ const followRedirects = (version: Version, path: string) => {
     current = hash === -1 ? destination : destination.slice(0, hash);
     if (hash !== -1) anchor = destination.slice(hash + 1);
   }
-  return { path: current, anchor };
+  return { path: current, anchor, redirected: true };
 };
 
-/** Returns the page key for a URL path, after redirects, or undefined. */
-const findPage = (version: Version, path: string) => {
+/**
+ * Returns the page key for a URL path, after redirects, or the path outside the docs that its
+ * redirects end on, or undefined.
+ */
+const findPage = (
+  version: Version,
+  path: string,
+): { key: string; anchor?: string } | { outside: string; anchor?: string } | undefined => {
   const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path;
   const followed = followRedirects(version, normalized);
   const key = followed.path.replace(/^\//, '');
-  if (version.pages.has(key)) return { key, anchor: followed.anchor };
+  if (version.pages.has(key) || version.changelogs.has(key))
+    return { key, anchor: followed.anchor };
+  if (followed.redirected && !isDocsPath(followed.path, version.folders)) {
+    return { outside: followed.path, anchor: followed.anchor };
+  }
   return undefined;
 };
 
@@ -271,7 +304,14 @@ const findFile = (version: Version, path: string) => {
   return version.assetPaths.has(followed.path) ? followed.path : undefined;
 };
 
-export type Result = { kind: 'ok'; text: string } | { kind: 'unresolved'; reason: string };
+/**
+ * `anchor-not-found`: the page exists, its anchor does not; `text` is the page URL with the anchor
+ * kept.
+ */
+export type Result =
+  | { kind: 'ok'; text: string }
+  | { kind: 'anchor-not-found'; text: string; reason: string }
+  | { kind: 'unresolved'; reason: string };
 
 /** Returns the anchor to write, or undefined if the page has no such heading or id. */
 const resolveAnchor = (page: Page, anchor: string) => {
@@ -287,7 +327,7 @@ const resolveLink = (version: Version, current: Page, link: string): Result => {
   const path = queryIndex === -1 ? beforeHash : beforeHash.slice(0, queryIndex);
   const query = queryIndex === -1 ? '' : beforeHash.slice(queryIndex);
 
-  let page: Page;
+  let page: Page | undefined;
   let url: string;
   if (path === '') {
     page = current;
@@ -302,17 +342,23 @@ const resolveLink = (version: Version, current: Page, link: string): Result => {
       if (anchor !== undefined) return { kind: 'unresolved', reason: 'anchor on a file' };
       return { kind: 'ok', text: `${version.route}${file}${query}` };
     }
-    page = version.pages.get(found.key) as Page;
-    url = found.key ? `${version.route}/${found.key}` : version.route;
     if (anchor === undefined) anchor = found.anchor;
+    if ('outside' in found) {
+      const hash = anchor === undefined ? '' : `#${anchor}`;
+      return { kind: 'ok', text: `${siteUrl}${found.outside}${query}${hash}` };
+    }
+    page = version.pages.get(found.key);
+    url = found.key ? `${version.route}/${found.key}` : version.route;
   }
 
   if (anchor === undefined || anchor === '') {
     return { kind: 'ok', text: `${url}${query}${anchor === '' ? '#' : ''}` };
   }
-  const newAnchor = resolveAnchor(page, anchor);
-  if (newAnchor === undefined) return { kind: 'unresolved', reason: `anchor not found` };
-  return { kind: 'ok', text: `${url}${query}#${newAnchor}` };
+  const newAnchor = page && resolveAnchor(page, anchor);
+  if (newAnchor !== undefined) return { kind: 'ok', text: `${url}${query}#${newAnchor}` };
+  if (url === '') return { kind: 'unresolved', reason: 'anchor not found' };
+  const reason = page ? 'anchor not found' : 'anchor not checked on a changelog page';
+  return { kind: 'anchor-not-found', text: `${url}${query}#${anchor}`, reason };
 };
 
 /**
@@ -370,18 +416,39 @@ const estreeLinkValue = (fail: (message: string) => never, value: EsNode | null)
   return { link: literal.value, offset: literal.start + 1 };
 };
 
-/** Calls `found` for every JSX link prop inside an estree node. */
+/** Returns the name of a non-computed object property key, or undefined. */
+const propertyName = (property: EsNode) => {
+  if (property.computed) return undefined;
+  const key = property.key as EsNode;
+  if (key.type === 'Identifier') return key.name as string;
+  if (key.type === 'Literal' && typeof key.value === 'string') return key.value;
+  return undefined;
+};
+
+/**
+ * Calls `found` for every JSX link prop inside an estree node. With `objects`, also for every
+ * `href` property of an object.
+ */
 const visitJsxLinkProps = (
   label: string,
   node: unknown,
   found: (link: string, offset: number) => void,
+  objects = false,
 ) => {
   if (!node || typeof node !== 'object') return;
   if (Array.isArray(node)) {
-    for (const child of node) visitJsxLinkProps(label, child, found);
+    for (const child of node) visitJsxLinkProps(label, child, found, objects);
     return;
   }
   const value = node as EsNode;
+  if (objects && value.type === 'Property' && propertyName(value) === 'href') {
+    const fail = (message: string): never => {
+      throw new Error(`${label}: an "href" property inside a {…} prop ${message}`);
+    };
+    const { link, offset } = estreeLinkValue(fail, value.value as EsNode);
+    found(link, offset);
+    return;
+  }
   if (value.type === 'JSXAttribute') {
     const name = (value.name as EsNode).name as string;
     if (linkProps.has(name)) {
@@ -394,7 +461,7 @@ const visitJsxLinkProps = (
     }
   }
   for (const [key, child] of Object.entries(value)) {
-    if (key !== 'loc' && key !== 'range') visitJsxLinkProps(label, child, found);
+    if (key !== 'loc' && key !== 'range') visitJsxLinkProps(label, child, found, objects);
   }
 };
 
@@ -409,6 +476,8 @@ const main = () => {
       anchors: 0,
       unchanged: 0,
       unresolved: 0,
+      anchorNotFound: 0,
+      outside: 0,
       relative: 0,
       external: 0,
     };
@@ -433,6 +502,14 @@ const main = () => {
           counts.unresolved += 1;
           unresolved.push(`${version.name}  ${label}  ${link}  (${result.reason})`);
           return;
+        }
+        if (result.kind === 'anchor-not-found') {
+          counts.anchorNotFound += 1;
+          unresolved.push(
+            `${version.name}  ${label}  ${link}  (${result.reason}, written as ${result.text})`,
+          );
+        } else if (result.text.startsWith(`${siteUrl}/`)) {
+          counts.outside += 1;
         }
         if (result.text === link) {
           counts.unchanged += 1;
@@ -485,7 +562,7 @@ const main = () => {
               }
               if (!linkProps.has(name)) {
                 if (typeof valueNode === 'object') {
-                  visitJsxLinkProps(label, valueNode?.data?.estree, handle);
+                  visitJsxLinkProps(label, valueNode?.data?.estree, handle, true);
                 }
                 continue;
               }
@@ -530,7 +607,8 @@ const main = () => {
 
     summary.push(
       `${version.dir}: ${counts.rewritten} rewritten (${counts.anchors} with a new anchor), ` +
-        `${counts.unchanged} already correct, ` +
+        `${counts.unchanged} already correct, ${counts.outside} outside the docs, ` +
+        `${counts.anchorNotFound} with an anchor not found, ` +
         `${counts.unresolved} unresolved, ${counts.relative} relative and ` +
         `${counts.external} external unchanged`,
     );
@@ -540,7 +618,7 @@ const main = () => {
   console.log(summary.join('\n'));
   if (unresolved.length > 0) {
     console.log(
-      `Unresolved links, kept as they are (${unresolved.length}):\n${unresolved.join('\n')}`,
+      `Links with a page or anchor not found (${unresolved.length}):\n${unresolved.join('\n')}`,
     );
   }
 

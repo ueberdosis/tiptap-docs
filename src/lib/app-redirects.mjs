@@ -14,6 +14,32 @@ export const redirectVersions = [
 ];
 
 /**
+ * Returns the top-level folders of a version's content folder.
+ *
+ * @param {string} appDir
+ * @param {string} dir content folder of the version, relative to `appDir`
+ * @returns {Set<string>}
+ */
+export function contentFolders(appDir, dir) {
+  return new Set(
+    readdirSync(join(appDir, dir), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name),
+  );
+}
+
+/**
+ * Returns whether an old path is a docs path: `/` or a path whose first segment is one of `folders`.
+ *
+ * @param {string} path
+ * @param {Set<string>} folders
+ */
+export function isDocsPath(path, folders) {
+  const first = path.split(/[/?#]/)[1];
+  return first === '' || folders.has(first);
+}
+
+/**
  * Returns the redirects of each version with app paths.
  * - Sources get the version route.
  * - A destination is a docs path when it is `/` or its first segment is a top-level folder of the
@@ -26,18 +52,13 @@ export const redirectVersions = [
 export function versionRedirects(appDir) {
   const lists = JSON.parse(readFileSync(join(appDir, 'src/lib/redirects.json'), 'utf8'));
   return redirectVersions.map((version) => {
-    const folders = new Set(
-      readdirSync(join(appDir, version.dir), { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name),
-    );
+    const folders = contentFolders(appDir, version.dir);
     /** @param {string} path */
     const withRoute = (path) => (path === '/' ? version.route : `${version.route}${path}`);
     /** @type {Redirect[]} */
     const redirects = lists[version.name].map(
       (/** @type {Redirect} */ { source, destination, permanent }) => {
-        const first = destination.split(/[/?#]/)[1];
-        const isDocs = first === '' || folders.has(first);
+        const isDocs = isDocsPath(destination, folders);
         return {
           source: withRoute(source),
           destination: isDocs ? withRoute(destination) : `${siteUrl}${destination}`,
