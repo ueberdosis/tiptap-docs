@@ -7,7 +7,7 @@ test('pages send only the current edit path, including homepage and index routes
   for (const [route, file] of [
     ['/', 'index.mdx'],
     ['/editor/extensions/overview', 'editor/extensions/overview.mdx'],
-    ['/editor/extensions/nodes', 'editor/extensions/nodes/index.mdx'],
+    ['/editor/getting-started/style-editor', 'editor/getting-started/style-editor/index.mdx'],
     ['/ui-components/components/overview', 'ui-components/components/overview.mdx'],
   ]) {
     const response = await fetch(`${base}${route}`)
@@ -33,4 +33,22 @@ test('markdown responses still work after the rebase', async () => {
   assert.equal(response.status, 200)
   assert.match(response.headers.get('content-type'), /text\/markdown/)
   assert.match(await response.text(), /extensions/i)
+})
+
+test('UI component links redirect to the matching HTML or Markdown guide', async () => {
+  for (const [source, destination, status] of [
+    ['/ui-components/components', '/ui-components/components/overview', 308],
+    ['/ui-components/install/tanstack', '/ui-components/install/manual', 307],
+  ]) {
+    for (const suffix of ['', '.md']) {
+      const response = await fetch(`${base}${source}${suffix}`, { redirect: 'manual' })
+      assert.equal(response.status, status)
+      const location = response.headers.get('location')
+      assert.ok(location)
+      assert.equal(
+        new URL(location, base).pathname,
+        new URL(`${base}${destination}${suffix}`).pathname,
+      )
+    }
+  }
 })
