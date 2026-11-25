@@ -34,7 +34,6 @@ Industries for the catalog filter are in `src/content/industries.ts`; each lists
 ## Labels
 
 - **Plan and status come from the feature.** Tag the feature's overview page in its frontmatter (`start`, `team`, `addon`, `restricted`, `mit`; `alpha`, `beta`, `deprecated`). Its pages inherit the plan and status through the sidebar and show them in the page header. Tag a page only when it differs from its feature, such as a Team page inside a Start feature.
-- **Page header tags are explicit.** Tags declared on a page do not suppress one another. A page's own plan or lifecycle status overrides the corresponding tag inherited from its feature. When deprecating a page, remove obsolete Alpha, Beta, Experiment, or New tags from its frontmatter. Remove the legacy `pro` tag when replacing it with a paid plan.
 - **The sidebar shows one grey label per entry**, in this order: Deprecated, Paid, New. Paid stands for any plan, add-on, or the pilot program; the page header names which. A group says Paid when all its entries are paid, and the entries below a paid one don't repeat it; a group that mixes free and paid features says nothing, only its paid entries do. Open source stays unlabeled. Alpha and Beta show in the page header, not in the sidebar.
 - **"New" carries a date and goes away after 90 days.** In frontmatter, `- type: new` with `since: '2026-10-01'`; in a sidebar, `newSince: '2026-10-01'` on the entry.
 
