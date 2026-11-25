@@ -157,17 +157,9 @@ export type PageHeaderTagsProps = {
 }
 
 export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
-  // A deprecated page shouldn't also invite you in as Beta or New
-  const endOfLife = tags.some((tag) => tag.type === 'deprecated')
-  // `pro` reads as Open source, which a page that names a paid plan isn't
-  const paidPlan = tags.some(
-    (tag) => PLAN_TYPES.includes(tag.type) && !['mit', 'pro'].includes(tag.type),
-  )
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
-    .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
     .filter(({ tag }) => tag.type !== 'new' || isNew((tag as GeneralPageTag).since))
-    .filter(({ tag }) => !(paidPlan && tag.type === 'pro'))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
   if (!sorted.length) return null
   return (
