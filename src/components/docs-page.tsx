@@ -13,6 +13,7 @@ import { EnterpriseCardBox, type EnterpriseVariant } from '@/components/enterpri
 import { JsonLd } from '@/components/json-ld';
 import { getMDXComponents } from '@/components/mdx';
 import { PageTags } from '@/components/page-tags';
+import { pageHeaderTags } from '@/lib/page-header-tags';
 import { pageMetaDescription, pageMetaTitle } from '@/lib/page-meta';
 import type { EnterpriseCardData } from '@/lib/remark-enterprise-cards';
 import {
@@ -84,7 +85,7 @@ export function DocsPageContent({ source, contentDir, slug }: DocsPageProps) {
       {/* Labels and page actions in one row, so the page starts sooner */}
       <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b pb-6">
         <PageTags
-          tags={page.data.tags}
+          tags={pageHeaderTags(page.data.tags, page.slugs, version)}
           severity={page.data.incident?.severity}
           version={version}
           isTemplate={page.slugs.includes('templates')}

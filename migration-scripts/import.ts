@@ -1,7 +1,7 @@
 /**
  * Runs the import steps in order: `enterprise-content.ts`, `copy.ts`, `redirects.ts`,
  * `heading-ids.ts`, `links.ts`, `components.ts`, `sidebars.ts`, `v2-notice.ts`,
- * `feature-catalog.ts`, `favicon.ts`, then `public-assets.ts`. Passes `--strict` to the copy.
+ * `feature-catalog.ts`, `favicon.ts`, `public-assets.ts`, then `inherited-labels.ts`. Passes `--strict` to the copy.
  * Stops at the first step that fails.
  */
 import { execFileSync } from 'node:child_process';
@@ -21,6 +21,7 @@ const steps = [
   ['feature-catalog.ts'],
   ['favicon.ts'],
   ['public-assets.ts'],
+  ['inherited-labels.ts'],
 ];
 for (const [script, ...args] of steps) {
   try {

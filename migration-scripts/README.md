@@ -90,7 +90,7 @@ pnpm migration:import
 
 Run `pnpm migration:clone` and `pnpm changelogs` first. The import does not clone. `links.ts` needs the changelog index that `pnpm changelogs` writes.
 
-The import runs eleven steps in order. It stops at the first step that fails.
+The import runs twelve steps in order. It stops at the first step that fails.
 
 1. `enterprise-content.ts` copies the enterprise card texts.
 2. `copy.ts` copies the pages.
@@ -103,6 +103,7 @@ The import runs eleven steps in order. It stops at the first step that fails.
 9. `feature-catalog.ts` writes the latest feature catalog.
 10. `favicon.ts` copies the favicon.
 11. `public-assets.ts` copies the old public files.
+12. `inherited-labels.ts` writes the plan and status that latest pages inherit.
 
 The same sources always give the same files. Commit them to Git. Never edit them by hand. Change the scripts and run the import again.
 
@@ -379,6 +380,17 @@ It stops with an error on:
 2. Copies every file under `public/assets/` of `tiptap-docs-main` to `public/docs/assets/`, with the same paths and unchanged. The app serves them at the old URLs `/docs/assets/…`. The structured data (JSON-LD) links to the logo there.
 
 It stops with an error that names the file when its type is not `png`, `jpg`, `svg` or `json`.
+
+### Step 12: Write the inherited page labels
+
+`inherited-labels.ts`:
+
+1. Runs `inheritedLabels(route)` in `src/server/inheritedLabels.ts` of `tiptap-docs-main` with `run-source.ts`, once per latest page, for example `/ai/deprecated/agent/overview`. The home page is left out.
+2. Writes `src/lib/inherited-labels.json`, formatted with Biome: route → `{ plan?, status? }`, with the upstream names, for example `{ "plan": "Paid", "status": "Deprecated" }`. Pages without inherited labels are left out.
+
+It stops with an error that names the page on another field, or on a plan or status that `inheritedPlanTags` and `inheritedStatusTags` in `src/lib/page-tag-labels.ts` do not know.
+
+`src/lib/page-header-tags.ts` adds the inherited plan to the page's tags when the page has no plan tag of its own, and the inherited status when it has no status tag of its own (`new` does not count). The page header and the `Tags:` line of the `.md` show the result.
 
 ### Running source TypeScript
 

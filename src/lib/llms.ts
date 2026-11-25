@@ -1,5 +1,6 @@
 import { llms } from 'fumadocs-core/source';
 import { getMarkdownComponents } from '@/lib/markdown-components';
+import { pageHeaderTags } from '@/lib/page-header-tags';
 import { severityLabel, tagLabel } from '@/lib/page-tag-labels';
 import {
   docsRoute,
@@ -77,11 +78,11 @@ function v2NoticeQuote(page: Page) {
   return `> ${notice.text ? `${notice.text} ` : ''}[${notice.linkText}](${url})`;
 }
 
-/** Text of the page labels, as on the HTML page. Image tags are left out. */
+/** Text of the page header labels, as on the HTML page. Image tags are left out. */
 function pageTagTexts(page: Page, version: VersionName) {
   const labels = [
     severityLabel(page.data.incident?.severity),
-    ...(page.data.tags ?? []).map((tag) =>
+    ...pageHeaderTags(page.data.tags, page.slugs, version).map((tag) =>
       tag.type === 'image' ? null : tagLabel(tag, version, page.slugs.includes('templates')),
     ),
   ];

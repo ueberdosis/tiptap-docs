@@ -20,6 +20,7 @@ export const pageTagTypes = [
   'alpha',
   'experiment',
   'restricted',
+  'paid',
   'deprecated',
   'version',
   'starter',
@@ -45,6 +46,7 @@ export const docsPageSchema = pageSchema.extend({
         tooltip: z.string().optional(),
         src: z.string().optional(),
         url: z.string().optional(),
+        since: z.string().optional(),
       }),
     )
     .optional(),
