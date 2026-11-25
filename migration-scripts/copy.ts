@@ -16,6 +16,7 @@
  * with an error on any other key or value under `sidebars`.
  * Moves the frontmatter field `headerDemo` into the page body as a `HeaderDemo` (`steps/header-demo.ts`).
  * Moves the frontmatter field `intro` above it as a Markdown paragraph (`steps/intro.ts`).
+ * Adds the `deprecated` tag to every latest page in `ai/deprecated/` (`steps/deprecated-tags.ts`).
  * With `--strict`, also stops on a component without an entry in `component-mapping.ts`.
  */
 import {
@@ -37,6 +38,7 @@ import { brandIconsModule, isBrandIcon } from '../src/lib/brand-icons.ts';
 import { docsPageSchema } from '../src/lib/page-schema.ts';
 import { componentMapping, iconRenames } from './component-mapping.ts';
 import { currentColorIconImport, currentColorIcons } from './steps/cards.ts';
+import { deprecatedTagEdit } from './steps/deprecated-tags.ts';
 import { headerDemoEdits } from './steps/header-demo.ts';
 import { introEdits } from './steps/intro.ts';
 
@@ -326,6 +328,10 @@ const copyVersion = (version: (typeof versions)[number]) => {
           if (pageIcon) edits.push(pageIcon);
           const fullPage = fullPageEdit(label, yaml, yamlOffset);
           if (fullPage) edits.push(fullPage);
+          if (version.name === 'latest') {
+            const deprecatedTag = deprecatedTagEdit(label, page, yaml, yamlOffset);
+            if (deprecatedTag) edits.push(deprecatedTag);
+          }
           return;
         }
         case 'mdxjsEsm': {
