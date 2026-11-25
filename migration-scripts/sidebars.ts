@@ -83,6 +83,7 @@ const versions: Version[] = [
         'disabled',
         'children',
         'isActive',
+        'defaultOpen',
       ],
     },
     labels: (entry, where) => {
@@ -201,12 +202,13 @@ const convertLink = (context: Context, entry: Raw, where: string): NavigationEnt
   const href =
     (optional(entry, 'href', 'string', label) as string | undefined) ??
     fail(`${label} has no href`);
-  for (const field of ['hidePlan', 'external', 'disabled', 'isActive', 'beta']) {
+  for (const field of ['hidePlan', 'external', 'disabled', 'isActive', 'beta', 'defaultOpen']) {
     optional(entry, field, 'boolean', label);
   }
   if (entry.disabled === true) fail(`${label} is disabled; the script does not support that`);
   if (entry.isActive === true) fail(`${label} sets isActive; the script does not support that`);
   if (entry.isActive === false) notes.push(`${label}: isActive false is dropped`);
+  if (entry.defaultOpen === true) notes.push(`${label}: defaultOpen is dropped`);
   const newSince = optional(entry, 'newSince', 'string', label) as string | undefined;
   if (newSince !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(newSince)) {
     fail(`${label} newSince "${newSince}" is not YYYY-MM-DD`);

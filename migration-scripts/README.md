@@ -322,7 +322,7 @@ Groups that need more than these rules get their own file in `migration-scripts/
 4. Writes the labels the old sidebar shows:
    - latest: at most one, the first of `Deprecated`, `Paid` (any paid plan) and `Open source`. `hidePlan` hides `Paid`. `newSince` stays a date. The app shows "New" when the render date is less than 90 days after it.
    - v2: `Beta` for `beta`, then every tag as it is.
-5. Prints a note for each source setting it drops: `isActive: false`, and the links in `knownMissing`.
+5. Prints a note for each source setting it drops: `isActive: false`, `defaultOpen: true` on a link, and the links in `knownMissing`.
 
 It stops with an error that names the sidebar and the entry on:
 

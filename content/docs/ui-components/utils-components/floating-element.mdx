@@ -13,6 +13,8 @@ component:
   isOpen: false
   isNew: false
   icon: ArrowUpRightIcon
+tags:
+  - type: start
 ---
 
 
@@ -26,10 +28,10 @@ A floating UI element that positions itself relative to the current selection in
 
 ## Installation
 
-Add the component via the Tiptap CLI:
+Install the floating element and the controls and breakpoint hook used in the examples.
 
 ```bash
-npx @tiptap/cli@latest add floating-element
+npx @tiptap/cli@latest add floating-element mark-button toolbar button-group use-is-breakpoint
 ```
 
 ## Components
@@ -41,22 +43,17 @@ A versatile React component that creates floating UI elements positioned relativ
 #### Usage
 
 ```tsx
-import * as React from 'react'
+'use client'
 import { EditorContent, EditorContext, useEditor } from '@tiptap/react'
 
-// --- Tiptap Core Extensions ---
 import { StarterKit } from '@tiptap/starter-kit'
 
-// --- Tiptap UI ---
 import { FloatingElement } from '@/components/tiptap-ui-utils/floating-element'
 import { MarkButton } from '@/components/tiptap-ui/mark-button'
 
-// --- UI Primitives ---
 import { ButtonGroup } from '@/components/tiptap-ui-primitive/button-group'
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
-// --- Tiptap Node ---
-import '@/components/tiptap-node/paragraph-node/paragraph-node.scss'
 
 export const FloatingElementExample = () => {
   const editor = useEditor({
@@ -100,15 +97,18 @@ export const FloatingElementExample = () => {
 | `resetTextSelectionOnClose` | `boolean`                             | `true`                     | When `true` (default), reset/clear the editor's text selection when the floating element closes; when `false`, preserve it    |
 | `children`                  | `React.ReactNode`                     | `undefined`                | Content to display inside the floating element                                                                                |
 
-## Advanced Usage Examples
+## Position and visibility
 
-### Basic Floating Toolbar
+### Toolbar placement
 
 ```tsx
+'use client'
+
+import type { Editor } from '@tiptap/react'
 import { shift, flip, offset } from '@floating-ui/react'
 import { FloatingElement } from '@/components/tiptap-ui-utils/floating-element'
 
-function FloatingToolbar({ editor }) {
+function FloatingToolbar({ editor }: { editor: Editor }) {
   return (
     <FloatingElement
       editor={editor}
@@ -123,19 +123,21 @@ function FloatingToolbar({ editor }) {
 }
 ```
 
-### Custom Positioning with Mobile Support
+### Cursor position on mobile
 
 ```tsx
+'use client'
+
+import type { Editor } from '@tiptap/react'
 import { FloatingElement } from '@/components/tiptap-ui-utils/floating-element'
-import { useMobile } from '@/hooks/use-mobile'
+import { useIsBreakpoint } from '@/hooks/use-is-breakpoint'
 
-function ResponsiveFloatingMenu({ editor, isMenuVisible }) {
-  const isMobile = useMobile()
+function ResponsiveFloatingMenu({ editor, isMenuVisible }: { editor: Editor; isMenuVisible: boolean }) {
+  const isMobile = useIsBreakpoint('max', 768)
 
-  const getCustomRect = (editor) => {
-    // Custom positioning logic
-    // Example: position relative to current cursor
-    return editor.view.coordsAtPos(editor.state.selection.from)
+  const getCustomRect = (editor: Editor) => {
+    const { left, top, right, bottom } = editor.view.coordsAtPos(editor.state.selection.from)
+    return new DOMRect(left, top, right - left, bottom - top)
   }
 
   return (
@@ -162,14 +164,17 @@ function ResponsiveFloatingMenu({ editor, isMenuVisible }) {
 }
 ```
 
-### Customize `shouldShow` Floating Menu
+### Selection visibility
 
 ```tsx
+'use client'
+
+import type { Editor } from '@tiptap/react'
 import { useState, useEffect } from 'react'
 import { FloatingElement } from '@/components/tiptap-ui-utils/floating-element'
 import { isSelectionValid } from '@/lib/tiptap-collab-utils'
 
-function SelectionMenu({ editor }) {
+function SelectionMenu({ editor }: { editor: Editor }) {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -181,8 +186,11 @@ function SelectionMenu({ editor }) {
       setIsVisible(hasSelection && isValidSelection)
     }
 
+    updateVisibility()
     editor.on('selectionUpdate', updateVisibility)
-    return () => editor.off('selectionUpdate', updateVisibility)
+    return () => {
+      editor.off('selectionUpdate', updateVisibility)
+    }
   }, [editor])
 
   return (
@@ -193,25 +201,31 @@ function SelectionMenu({ editor }) {
 }
 ```
 
-### Using Reference Element
+### Element reference
 
 Attach the floating element to a specific DOM element instead of the text selection:
 
 ```tsx
+'use client'
+
+import type { Editor } from '@tiptap/react'
 import { useState } from 'react'
 import { offset, flip, shift } from '@floating-ui/react'
 import { FloatingElement } from '@/components/tiptap-ui-utils/floating-element'
 
-function ButtonWithTooltip() {
+function ButtonWithTooltip({ editor }: { editor: Editor }) {
   const [buttonRef, setButtonRef] = useState<HTMLElement | null>(null)
-  const [showTooltip, setShowTooltip] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
 
   return (
     <>
       <button
         ref={setButtonRef}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         Hover me
       </button>
@@ -219,7 +233,7 @@ function ButtonWithTooltip() {
       <FloatingElement
         editor={editor}
         referenceElement={buttonRef}
-        shouldShow={showTooltip}
+        shouldShow={isHovered || isFocused}
         floatingOptions={{
           placement: 'top',
           middleware: [offset(8), flip(), shift()],
@@ -232,82 +246,12 @@ function ButtonWithTooltip() {
 }
 ```
 
-## Utilities
+## Selection utilities
 
-### `getSelectionBoundingRect(editor)`
+Import `getSelectionBoundingRect`, `isSelectionValid`, and `isTextSelectionValid` from `@/lib/tiptap-collab-utils`.
 
-Gets the bounding rectangle of the current selection in the editor.
+- `getSelectionBoundingRect(editor)` returns the selection bounds as a `DOMRect`. For a node selection it measures the node's element, otherwise the selected range.
+- `isSelectionValid(editor, selection?, excludedNodeTypes?)` checks the current selection by default. It excludes empty selections, text selections without any text, code blocks, table cell selections, and selected nodes of type `imageUpload` or `horizontalRule`. Pass a list of node names to replace those node exclusions.
+- `isTextSelectionValid(editor)` checks for a nonempty text selection outside a code block.
 
-**Parameters:**
-
-- `editor` - The Tiptap editor instance
-
-**Returns:** `DOMRect | null` - The bounding rectangle of the current selection
-
-```tsx
-import { getSelectionBoundingRect } from '@/lib/tiptap-collab-utils'
-
-const rect = getSelectionBoundingRect(editor)
-console.log('Selection bounds:', rect)
-```
-
-### `isSelectionValid(editor, selection?, excludedNodeTypes?)`
-
-Checks if the current selection is valid for showing floating elements. Returns `false` for empty selections, code blocks, excluded node types, and table cells.
-
-**Parameters:**
-
-- `editor` - The Tiptap editor instance
-- `selection` (optional) - The selection to validate. Defaults to `editor.state.selection`
-- `excludedNodeTypes` (optional) - Array of node type names to exclude. Defaults to `['imageUpload', 'horizontalRule']`
-
-**Returns:** `boolean` - `true` if the selection is valid for floating elements
-
-```tsx
-import { isSelectionValid } from '@/lib/tiptap-collab-utils'
-
-const shouldShow = isSelectionValid(editor)
-
-// With custom excluded node types
-const isValid = isSelectionValid(editor, undefined, ['image', 'video'])
-```
-
-### `isTextSelectionValid(editor)`
-
-Checks if the current text selection is valid for editing. Returns `false` for empty selections, code blocks, and node selections.
-
-**Parameters:**
-
-- `editor` - The Tiptap editor instance
-
-**Returns:** `boolean` - `true` if the text selection is valid
-
-```tsx
-import { isTextSelectionValid } from '@/lib/tiptap-collab-utils'
-
-const canEdit = isTextSelectionValid(editor)
-if (canEdit) {
-  // Show text editing toolbar
-}
-```
-
-### `isElementWithinEditor(editor, element)`
-
-Checks if a DOM element is within the editor's DOM tree. Useful for determining click/focus events.
-
-**Parameters:**
-
-- `editor` - The Tiptap editor instance
-- `element` - The DOM element to check
-
-**Returns:** `boolean` - `true` if the element is within the editor
-
-```tsx
-import { isElementWithinEditor } from '@/components/tiptap-ui-utils/floating-element'
-
-const handleClick = (event: MouseEvent) => {
-  if (isElementWithinEditor(editor, event.target as Node)) {
-    console.log('Clicked inside editor')
-  }
-}
-```
+Import `isElementWithinEditor` from `@/components/tiptap-ui-utils/floating-element`. Pass the editor and a DOM node to check whether the editor wrapper contains the node. The wrapper itself also qualifies.
