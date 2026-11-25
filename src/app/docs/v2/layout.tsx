@@ -6,9 +6,10 @@ import { baseOptions } from '@/lib/layout.shared';
 import { getSidebarTabs } from '@/lib/navigation';
 import { appName, docsV2Route, isProductionSite, legacyRobots, previewRobots } from '@/lib/shared';
 import { getSharedPagePaths } from '@/lib/source';
+import { versionTitle } from '@/lib/versions';
 
 export const metadata: Metadata = {
-  title: { template: '%s (v2)', default: `${appName} (v2)` },
+  title: { template: versionTitle('%s', 'v2'), default: versionTitle(appName, 'v2') },
   robots: isProductionSite ? legacyRobots : previewRobots,
 };
 

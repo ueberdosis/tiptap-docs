@@ -3,7 +3,7 @@ import { pickTab } from './active-tab';
 import { getPlainSidebarTabs } from './navigation';
 import { type PageMetaFields, pageMetaDescription, pageMetaTitle } from './page-meta';
 import { docsRoute, siteUrl } from './shared';
-import { type VersionName, versions } from './versions';
+import { type VersionName, versions, versionTitle } from './versions';
 
 const logoUrl = `${siteUrl}${docsRoute}/assets/images/tiptap-logo.png`;
 const imageUrl = `${siteUrl}${docsRoute}/assets/images/example-image.jpg`;
@@ -50,10 +50,12 @@ function absoluteUrl(url: string) {
 
 /**
  * Schema.org `TechArticle` of a docs page. Headline and description prefer the `meta` values.
- * Pages of an old version carry the version label as `version`, for example `2.x`.
+ * Pages of an old version carry the version suffix in `headline` and the version label as
+ * `version`, for example `2.x`.
  */
 export function getTechArticleJsonLd(page: StructuredDataPage, version: VersionName) {
-  const headline = pageMetaTitle(page);
+  const title = pageMetaTitle(page);
+  const headline = title && versionTitle(title, version);
   const description = pageMetaDescription(page);
   return {
     '@context': 'https://schema.org',

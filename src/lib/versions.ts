@@ -10,6 +10,14 @@ export const versions: Version[] = [
   { name: 'v2', label: '2.x', route: docsV2Route },
 ];
 
+/**
+ * A page title as `version` shows it. Latest titles stay as they are; others end with the version
+ * name, for example ` (v2)`.
+ */
+export function versionTitle(title: string, version: VersionName): string {
+  return version === 'latest' ? title : `${title} (${version})`;
+}
+
 /** The version an app URL belongs to. URLs outside the v2 route count as latest. */
 export function getVersionName(pathname: string): VersionName {
   return pathname === docsV2Route || pathname.startsWith(`${docsV2Route}/`) ? 'v2' : 'latest';

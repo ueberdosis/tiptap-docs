@@ -26,6 +26,7 @@ import {
 } from '@/lib/shared';
 import { type DocsSource, source as latestSource } from '@/lib/source';
 import { getBreadcrumbJsonLd, getTechArticleJsonLd } from '@/lib/structured-data';
+import { versionTitle } from '@/lib/versions';
 
 // Fumadocs' page action buttons at the labels' height, so labels and actions read as one row
 const pageAction = 'h-5.5 py-0 px-2';
@@ -118,10 +119,13 @@ export function getDocsMetadata(source: DocsSource, slug?: string[]): Metadata {
   if (!page) notFound();
 
   const isLatest = source === latestSource;
+  const version = isLatest ? 'latest' : 'v2';
   const url = siteUrl + page.url;
   const image = siteUrl + getPageImageUrl(page, isLatest ? docsImageRoute : docsV2ImageRoute).url;
   const title = pageMetaTitle(page.data);
   const description = pageMetaDescription(page.data);
+  // `<title>` gets the version suffix from the version layout's title template.
+  const shareTitle = title && versionTitle(title, version);
 
   return {
     title,
@@ -131,7 +135,7 @@ export function getDocsMetadata(source: DocsSource, slug?: string[]): Metadata {
       types: { 'text/markdown': siteUrl + getPageMarkdownUrl(page).url },
     },
     openGraph: {
-      title,
+      title: shareTitle,
       description,
       url: isLatest ? url : undefined,
       images: [{ url: image, ...ogImageSize }],
@@ -140,7 +144,7 @@ export function getDocsMetadata(source: DocsSource, slug?: string[]): Metadata {
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: shareTitle,
       description,
       images: [image],
     },
