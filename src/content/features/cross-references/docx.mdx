@@ -1,0 +1,192 @@
+---
+title: "Word fields"
+intro: "A .docx file stores a cross-reference as a Word field, a <code>REF</code>, <code>PAGEREF</code> or <code>NOTEREF</code> instruction that names a bookmark around its target. The functions on this page translate between such a field and a reference of the editor, so references survive an export to Word and an import back."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Word fields | Tiptap Editor Docs"
+  description: "Translate between a cross-reference and the REF, PAGEREF and NOTEREF fields of a .docx file."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-cross-references/docs/docx.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+A reference is the inline node `crossReference`, which names targets, such as headings, by their
+ids. Your converter, the code that turns a .docx into a Tiptap document and back, reads and writes
+the file, places a bookmark on every target and calls these functions.
+
+## Which field a reference becomes
+
+A reference's `show` attribute, the display it reads of its target, decides the field (see
+[What a reference shows](/features/cross-references/displays)). `_Ref…` stands for the target's bookmark:
+
+| `show`                | Field                                                                       |
+| --------------------- | --------------------------------------------------------------------------- |
+| `relativeNumber`      | `REF _Ref… \r`                                                              |
+| `number`              | `REF _Ref… \n`, or `NOTEREF _Ref…` where `isNote` says the target is a note |
+| `fullNumber`          | `REF _Ref… \w`                                                              |
+| `title`               | `REF _Ref…`                                                                 |
+| `aboveBelow`          | `REF _Ref… \p`                                                              |
+| `page`                | `PAGEREF _Ref…`                                                             |
+| `formattedNumber`     | `NOTEREF _Ref… \f`, also for a target that is no note                       |
+| A display of your own | `REF _Ref…`                                                                 |
+
+### Switches from the other attributes
+
+The reference's other attributes add switches, the letters after a backslash:
+
+| Attribute                               | Switch                                                                                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hyperlink`                             | `\h`, unless the reference has `hyperlink: false`                                                                                                   |
+| `aboveBelow: true` on a number          | `\p` in the same field, as in `REF _Ref… \w \p`                                                                                                     |
+| `aboveBelow: true` on a title or a page | A second field, `REF _Ref… \p`, after a space and with an empty `result`. With several targets, it comes once at the end and names the first target |
+| `numberSeparator`                       | `\d "-"`, only on `relativeNumber`, `fullNumber` and a `number` that is no note                                                                     |
+
+## Bookmarks
+
+A target's bookmark is named after its id, and the name gives the id back:
+
+```js
+import { bookmarkNameFor, targetIdFromBookmark } from '@tiptap-pro/extension-cross-references'
+
+bookmarkNameFor('scope of work') // '_Ref_scope_0020of_0020work'
+targetIdFromBookmark('_Ref_scope_0020of_0020work') // 'scope of work'
+targetIdFromBookmark('_Ref123456789') // '_Ref123456789', a name Word made reads as itself
+```
+
+`bookmarkNameFor(targetId)` spells every character other than an ASCII letter or digit as `_` and
+four hex digits, `_` included, so the name reads back to the same id. A character such as an emoji
+gets five digits and does not read back.
+
+Word allows forty characters in a bookmark name, so for a longer one `bookmarkNameFor` returns a
+hashed name that does not read back. To keep such ids, pass your own names through the
+`bookmarkOf` option of the export and the `targetIdOf` option of the import.
+
+## Export
+
+To export, read what each reference says with `crossReferenceLabelsIn`, see
+[Reading the document](/features/cross-references/reading), and turn it into fields with `crossReferenceToFields`.
+`writeParts` stands for your converter's function that writes them:
+
+```js
+import {
+  crossReferenceLabelsIn,
+  crossReferenceTargetsIn,
+  crossReferenceToFields,
+} from '@tiptap-pro/extension-cross-references'
+
+const doc = editor.state.doc
+const reading = editor.storage.crossReferences
+const targets = crossReferenceTargetsIn(doc, reading)
+const noteIds = new Set(
+  targets.filter(target => target.node?.type.name === 'footnote').map(target => target.id),
+)
+const withheldIds = new Set(targets.filter(target => target.withheld).map(target => target.id))
+
+for (const label of crossReferenceLabelsIn(doc, reading, reading.labels)) {
+  const text = label.fixed ? label.reference.fixedText : label.text
+  const parts = crossReferenceToFields(label.reference, text, {
+    isNote: id => noteIds.has(id),
+    isWithheld: id => withheldIds.has(id),
+    doc,
+    reading,
+  })
+  // parts: [{ instruction: 'REF _Ref_fees \\w \\h', result: '1.2' }]
+  writeParts(label.reference.pos, parts)
+}
+```
+
+`editor.storage.crossReferences` is the registration, your configuration of the extension.
+`'footnote'` is the node type of [Footnotes](/features/footnotes), for
+footnotes and endnotes alike, and `withheldIds` are the
+[withheld targets](/features/cross-references/targets#withheld-targets).
+
+`label.fixed` says whether the reference shows its own text, so the loop writes what the user sees.
+
+### What crossReferenceToFields returns
+
+`crossReferenceToFields(reference, text, options)` returns the parts of a reference in order. A
+part with an `instruction` is a field, and its `result` is what it reads in the file. A part whose
+`instruction` is `null` is plain text, such as the words between the fields of several targets.
+
+A reference naming several targets gets one field per target that
+[the rule it reads them by](/features/cross-references/joins) names. So `3–5 and 7` is three fields with `–` and `and`
+between them. Each field has an empty `result`, because the package does not know which part of
+the text belongs to which target.
+
+### Options
+
+`options` may be left out entirely:
+
+| Option       | Type                    | Default                               | Description                                                                            |
+| ------------ | ----------------------- | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `bookmarkOf` | `(targetId) => string`  | `bookmarkNameFor`                     | The bookmark a target is under, also a source's target by its stored id                |
+| `isNote`     | `(targetId) => boolean` | None                                  | Whether a target is a note, whose number is a `NOTEREF`                                |
+| `isWithheld` | `(targetId) => boolean` | None                                  | Whether a target is withheld. A reference to one is written as its text, with no field |
+| `doc`        | `Node`                  | None                                  | The document                                                                           |
+| `reading`    | `CrossReferenceReading` | None                                  | The registration                                                                       |
+| `phrases`    | `CrossReferencePhrases` | Those of `reading`, else the defaults | The words between the fields, as a whole phrases object                                |
+
+Pass `doc` and `reading` too. Without them, a source's target outside the document is written as a
+`REF` instead of through its `field`, see [Word fields for a source](/features/cross-references/sources#word-fields-for-a-source).
+A `range` is then written as a list, and your own rules and displays are unknown.
+
+A reference to a target that is gone is still written as a `REF` to its bookmark.
+
+## Import
+
+To import, pass each field to `crossReferenceFromField` as `{ instruction, result }`, where
+`result` is the text Word last showed. Then build the reference node from the answer:
+
+```js
+import { crossReferenceFromField } from '@tiptap-pro/extension-cross-references'
+
+const { schema } = editor
+
+const imported = crossReferenceFromField({
+  instruction: 'REF _Ref_fees \\w \\h \\* MERGEFORMAT',
+  result: '1.2',
+})
+// { attrs: { targetIds: ['fees'], show: 'fullNumber', hyperlink: true, ... }, text: '1.2' }
+
+const node = schema.nodes.crossReference.create(
+  imported.attrs,
+  imported.text ? schema.text(imported.text) : null,
+)
+```
+
+An imported reference names one target and holds the field's result as its own text.
+`crossReferenceFromField` returns `null` for a field that is no
+cross-reference or names no bookmark.
+
+The field and its switches give `show` and the other attributes back as
+[Which field a reference becomes](/features/cross-references/docx#which-field-a-reference-becomes) lists them. A `REF` with no
+display switch shows `title`, and a field without `\h` gives `hyperlink: false`.
+
+A switch with no meaning for the package, such as `\* MERGEFORMAT`, is kept in `fieldSwitches`, in HTML
+`data-tt-field-switches`, and written back on export.
+
+The second argument takes one option, `targetIdOf(bookmark)`, which is `targetIdFromBookmark` by
+default. The types are `WordField`, `ImportedCrossReference` and `CrossReferenceFieldOptions`.
+
+Word writes a reference to several targets as several fields, and each is imported as a reference
+of its own. Joining them is up to your converter.
+
+### Let unchanged references follow their targets
+
+After an import, every reference holds the text Word showed, so none follows its target yet.
+`liveWhereUnchangedTransaction` removes that text where it is what the targets say, so those
+references follow their targets, see [Updating references](/features/cross-references/references#updating-references):
+
+```js
+import { liveWhereUnchangedTransaction } from '@tiptap-pro/extension-cross-references'
+
+const transaction = liveWhereUnchangedTransaction(editor.state, editor.storage.crossReferences)
+if (transaction) editor.view.dispatch(transaction)
+```
+
+It returns `null` when nothing changes or the update mode is `'manual'`. A reference edited in
+Word, a locked one and an unresolved one keep their text. A page reference follows its target only
+where the `pageOf` option answers the same page.

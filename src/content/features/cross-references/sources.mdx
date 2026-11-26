@@ -1,0 +1,220 @@
+---
+title: "Sources"
+intro: "A source lets a reference point at something that is not a node, such as a bookmark around a few words, a statute, or a clause in another document. The user picks and follows a source's targets like headings, and an export writes them to Word like any other target."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Sources | Tiptap Editor Docs"
+  description: "Point a cross-reference at more than a node type, such as a bookmark, a statute or a clause in another document."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-cross-references/docs/sources.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## When to use a source
+
+A target is what a reference points at, usually a node of a type registered in the `targets`
+option, see [Targets](/features/cross-references/targets#registering-targets). Use a source when the target is not a node:
+
+- **A range inside the document**, such as a bookmark. The source reads these targets with
+  `inBlock`.
+- **Something outside the document**, such as a statute. The source lists these targets with
+  `targets` and finds one by its id with `resolve`.
+
+Register sources by name in the `sources` option. This configuration builds on
+[Install Cross-references](/features/cross-references/install#a-first-editor). `bookmarkTargetsIn` is the function of
+[Inside the document](/features/cross-references/sources#inside-the-document), and `statutes` and `lookUpStatute` stand for your own
+data:
+
+```js
+import { CrossReferences } from '@tiptap-pro/extension-cross-references'
+
+CrossReferences.configure({
+  targets: { heading: {} },
+  sources: {
+    bookmark: {
+      inBlock: (block, blockPos) => bookmarkTargetsIn(block, blockPos),
+    },
+    statute: {
+      targets: () =>
+        statutes.map(statute => ({
+          id: statute.number,
+          type: 'Statute',
+          title: statute.name,
+          data: statute,
+        })),
+      resolve: id => lookUpStatute(id),
+    },
+  },
+})
+```
+
+## Inside the document
+
+`inBlock(block, blockPos)` gets each top-level block and the position it starts at. It returns
+the targets inside that block, each with the `pos` where it starts.
+
+This function turns the bookmarks of the [Bookmark extension](/features/bookmark)
+into targets:
+
+```js
+import { bookmarksInBlock } from '@tiptap-pro/extension-bookmark'
+
+function bookmarkTargetsIn(block, blockPos) {
+  return bookmarksInBlock(block, blockPos).map(bookmark => ({
+    id: bookmark.id,
+    type: 'Bookmark',
+    title: bookmark.name,
+    pos: bookmark.from,
+  }))
+}
+```
+
+The package keeps what `inBlock` returned until the block changes, also through a refresh. So the
+answer must depend on the block alone.
+
+These targets stand in reading order among the node targets. A target that two blocks return, such
+as a bookmark across two paragraphs, counts once, at the first block.
+
+Such a target has a position, so the displays `page` and `aboveBelow` work for it as for a
+heading. It has no node, so a display of yours gets `target.node` as `null`.
+
+## Outside the document
+
+A source lists its targets outside the document with `targets()`, which a picker shows after the
+document's own targets. The package calls it synchronously and keeps the list until a refresh. So
+keep it quick and fetch the data elsewhere.
+
+`resolve(id)` answers for an id that `targets()` does not list, such as one pasted from another
+document. It gets the id without the source's prefix, such as `'433'`, and returns `null` for an
+id it does not know. Its answer is kept until a refresh.
+
+A reference to an id no source knows
+reads `?`, see [Broken references](/features/cross-references/reading#broken-references).
+
+A target outside the document has no position, so `goToCrossReferenceTarget` returns `false` and
+`page` reads `?`, see [Targets outside the document](/features/cross-references/displays#targets-outside-the-document).
+
+## What a source has
+
+Every field of a source is optional:
+
+| Field      | Type                                  | Description                                       |
+| ---------- | ------------------------------------- | ------------------------------------------------- |
+| `inBlock`  | `(block, blockPos) => target[]`       | The targets inside one top-level block            |
+| `targets`  | `() => target[]`                      | The targets outside the document                  |
+| `resolve`  | `(id) => target \| null`              | One target by its id, returned without `id`       |
+| `displays` | `(string \| { id, title })[]`         | What a reference to its targets may show          |
+| `withheld` | `boolean \| (target) => boolean`      | Whether its targets are withheld                  |
+| `field`    | `(target) => { instruction } \| null` | The Word field for a target outside the document  |
+| `reveal`   | `CrossReferenceRevealHandler`         | Called when a reference to its target is followed |
+
+Without `displays`, a source offers `title`. It adds `relativeNumber`, `number` and `fullNumber`
+where the first target of a type has a `label`, and `page` and `aboveBelow` where that target is
+inside the document.
+
+A withheld target is one a reference may point at without saying anything about it, see
+[Withheld targets](/features/cross-references/targets#withheld-targets). A source's target is withheld where its own
+`withheld` or the source's says so, and its own `withheld: false` does not override the source's.
+
+## What a source returns
+
+A target that a source returns has these fields, and one from `inBlock` also has `pos`. The type
+is `CrossReferenceSourceTarget`:
+
+| Field      | Type                                      | Description                                                                |
+| ---------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| `id`       | `string`                                  | Unique within the source                                                   |
+| `type`     | `string`                                  | The reference type a picker lists it under, such as `Statute`              |
+| `title`    | `string`                                  | What `show: 'title'` reads                                                 |
+| `label`    | `{ number, fullNumber, counts? } \| null` | Its number, a value. See [Numbering targets](/features/cross-references/targets#numbering-targets) |
+| `data`     | `unknown`                                 | Anything your own displays read as `target.data`                           |
+| `withheld` | `boolean`                                 | Whether this target is withheld                                            |
+
+## Ids
+
+A reference stores a source's target as `source:id`, such as `statute:433`. Insert a reference
+with that stored id:
+
+```js
+editor.commands.insertCrossReference({ target: 'statute:433', show: 'title' })
+```
+
+Two functions write and read the stored form:
+
+```js
+import { parseTargetId, sourceTargetId } from '@tiptap-pro/extension-cross-references'
+
+sourceTargetId('statute', '433') // 'statute:433'
+parseTargetId('statute:433', editor.storage.crossReferences.sources) // { source: 'statute', id: '433' }
+```
+
+`parseTargetId` splits at the first colon, so a source's id may hold colons. A prefix counts only
+where a source of that name is registered, so a heading with the id `a:b` stays the heading's.
+
+A source owns its ids, and the package does not change them. Wherever the package hands you a
+source's target, its `id` is the stored id.
+
+## Following a reference
+
+When the user follows a reference to a source's target, the package calls the source's
+`reveal(click)` first, with the click of [Going to the target](/features/cross-references/references#going-to-the-target).
+This `statute` source for the `sources` option opens the statute in your own viewer,
+`openStatute`:
+
+```js
+const statute = {
+  targets, // as in the first example
+  reveal: ({ id }) => {
+    openStatute(id)
+    return true
+  },
+}
+```
+
+`true` stops the click there. `false` passes it to the `reveal` option, and without one the editor
+places the caret. A source's `reveal` turns clicks on without the `reveal` option.
+
+## Word fields for a source
+
+A .docx export writes a source's target inside the document as a bookmark, like a heading, see
+[Export](/features/cross-references/docx#export). The Bookmark extension exports each bookmark under its own name, so pass
+the export a `bookmarkOf` that answers with that name:
+
+```js
+import { bookmarkById } from '@tiptap-pro/extension-bookmark'
+import { bookmarkNameFor, parseTargetId } from '@tiptap-pro/extension-cross-references'
+
+const doc = editor.state.doc
+const reading = editor.storage.crossReferences
+
+const bookmarkOf = targetId => {
+  const { source, id } = parseTargetId(targetId, reading.sources)
+  return (source === 'bookmark' && bookmarkById(doc, id)?.name) || bookmarkNameFor(targetId)
+}
+// crossReferenceToFields(label.reference, text, { bookmarkOf, doc, reading })
+```
+
+A target outside the document has no bookmark. The source's `field(target)` returns its field,
+such as a `HYPERLINK`, or `null`:
+
+```js
+const statute = {
+  targets, // as in the first example
+  field: target => ({
+    instruction: `HYPERLINK "https://example.com/statutes/${target.data.number}"`,
+  }),
+}
+```
+
+Without `field`, or where it returns `null`, the reference is written as its text alone. The
+export asks `field` only when it gets `doc` and `reading`. Without them, it writes a `REF` to a
+bookmark the file does not have.
+
+## Refreshing the references
+
+The editor sees changes to the document only. So when the data behind a target changes, call
+[`refreshCrossReferences()`](/features/cross-references/commands#refreshcrossreferences). It asks every source's
+`targets()`, `resolve` and `withheld` again, but not `inBlock` for a block that did not change.
