@@ -114,6 +114,16 @@ export const sidebarConfig: SidebarConfig = {
               tags: ['Beta'],
             },
             {
+              title: 'Computed styles',
+              href: '/conversion/export/docx/computed-styles',
+              tags: ['Beta'],
+            },
+            {
+              title: 'Computed styles API',
+              href: '/conversion/export/docx/computed-styles-api',
+              tags: ['Beta'],
+            },
+            {
               title: 'REST API',
               href: '/conversion/export/docx/rest-api',
             },
