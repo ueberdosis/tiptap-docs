@@ -1,0 +1,115 @@
+---
+title: "Word documents"
+intro: "The Footnotes extension turns footnotes and endnotes that the user pastes from Microsoft Word into notes of the editor, numbered with the others. The notes of a .docx file come in and go out through Tiptap Conversion."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Word documents | Tiptap Editor Docs"
+  description: "Paste footnotes and endnotes from Word, and bring the notes of a .docx file in and out with Tiptap Conversion."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-footnotes/docs/word.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+## Paste notes from Word
+
+When the user pastes text with footnotes or endnotes from Word, each of them becomes a note.
+`Footnotes` does this itself, so the editor from [Install Footnotes](/features/footnotes/install) needs nothing
+more:
+
+- **The reference**, the number in the text, goes where Word's number was. Word's own number, such
+  as `[1]`, is dropped.
+- **The note's text** goes into the numbered list of notes at the end of the document, not under
+  the pasted text.
+
+A footnote stays a footnote, and an endnote stays an endnote. Each pasted note gets a new
+`footnoteId`, the id that pairs it with its reference, and is numbered in the order of its
+reference.
+
+The editor reads the note's text like any other paste, without loading its images. HTML
+that holds no notes from Word reaches the editor unchanged.
+
+### Text copied without its notes
+
+Word keeps the text of its notes at the end of the document. When the user copies a sentence
+without the end, each number stays what Word made it, a link, and no note is created.
+
+## Notes in .docx files
+
+A .docx file needs Page Layout for its notes. With
+[Page Layout](/features/page-layout/getting-started/overview), Tiptap Conversion v3 imports Word's
+footnotes and endnotes as these notes, and exports these notes to Word. Without Page Layout, the
+notes travel as separate objects that you handle yourself. See
+[Footnotes and endnotes](https://tiptap.dev/docs/conversion/v3/docx/elements/footnotes)
+in the Conversion docs.
+
+With Page Layout, the export takes the notes from the document and ignores the `footnotes` and
+`endnotes` options of `ExportDocx` with a warning.
+
+## Paste from Word without the Footnotes extension
+
+`Footnotes` brings the paste from Word through its `WordFootnotePaste` extension. So an editor
+with `Footnotes` needs nothing from this section, and does not add `WordFootnotePaste` a second
+time.
+
+An editor built from the
+[separate parts](/features/footnotes/api-reference/functions#parts-for-an-editor-without-footnotes) instead of
+`Footnotes` adds `WordFootnotePaste` next to the nodes `FootnoteReference`, `Footnote`,
+`FootnoteCollection` and `FootnoteNumberingBreak`, and `footnotesRepairPlugin()`. The repair pass
+is what turns a pasted reference into a note in the collection, the numbered list of notes at the
+end. Without it, the pasted reference gets no note.
+
+To change what happens on a paste, write an extension of your own in place of
+`WordFootnotePaste`. Its plugin rewrites the pasted HTML in `transformPastedHTML`, keeps the notes
+it found, and hands them to the pasted content in `transformPasted`, which runs right after. This
+one does what `WordFootnotePaste` does:
+
+```js
+import { Extension } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
+import {
+  parseWordNoteInBrowser,
+  sliceCarryingWordNotes,
+  wordNotesToHtml,
+} from '@tiptap-pro/extension-footnotes'
+
+export const MyWordNotePaste = Extension.create({
+  name: 'myWordNotePaste',
+
+  addProseMirrorPlugins() {
+    let pending = new Map()
+
+    return [
+      new Plugin({
+        props: {
+          transformPastedHTML: html => {
+            const rewritten = wordNotesToHtml(html)
+            pending = rewritten.notes
+            return rewritten.html
+          },
+          transformPasted: (slice, view) => {
+            const notes = pending
+            pending = new Map()
+            return notes.size === 0
+              ? slice
+              : sliceCarryingWordNotes(slice, notes, view.state.schema, parseWordNoteInBrowser)
+          },
+        },
+      }),
+    ]
+  },
+})
+```
+
+| Function                 | Arguments                     | What it does                                                                                          |
+| ------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `wordNotesToHtml`        | `html, createId?`             | Returns `{ html, notes }`: references in place of Word's numbers, and each `WordNote` by `footnoteId` |
+| `sliceCarryingWordNotes` | `slice, notes, schema, parse` | Returns the pasted content with each reference carrying its note                                      |
+| `parseWordNoteInBrowser` | `note, footnoteId, schema`    | The `parse` that `WordFootnotePaste` passes: reads a note's HTML with the schema. Needs a browser     |
+
+`createId` makes each new `footnoteId` and defaults to `createFootnoteId()`. A `WordNote` holds the
+note's `html` and `placement`. A `parse` of your own takes the same arguments as
+`parseWordNoteInBrowser` and returns the note's JSON. When it returns `null`, the reference gets no
+note and no number.
