@@ -1,0 +1,205 @@
+---
+title: "Columns API"
+intro: "These functions of the Columns extension let your own code change a column layout in a transaction, find the layout and the column at a position, and bind the column moves to keyboard shortcuts of your own. For the commands most editors need, see <a href=\"/features/columns\">Columns</a>."
+tags:
+  - type: pro
+  - type: alpha
+  - type: restricted
+meta:
+  title: "Columns API | Tiptap Editor Docs"
+  description: "Change a column layout from your own code in one transaction, find the layout and column at a position, and build your own column keys."
+  category: Editor
+---
+
+{/* Synced from ueberdosis/tiptap-pro packages/extension-columns/docs/api.md. Change it there and sync it again: an edit made here is overwritten by the next sync. */}
+
+All of them come from `@tiptap-pro/extension-columns`, and the examples use the editor from
+[Install](/features/columns#install).
+
+## Write a layout in a transaction
+
+A transaction is a set of changes to the document that Tiptap applies at once, such as the one
+`editor.state.tr` starts. Each command of `Columns` has a transaction function named after it,
+such as `setColumnGapTransaction()` for `setColumnGap()`. A transaction function takes a
+position instead of reading the selection, and adds its change to the transaction you pass.
+
+So you can write several changes and dispatch them together, and the user undoes them in one
+step:
+
+```js
+import {
+  columnLayoutAt,
+  setColumnGapTransaction,
+  setColumnWidthsTransaction,
+} from '@tiptap-pro/extension-columns'
+
+const at = columnLayoutAt(editor.state.doc, editor.state.selection.from)
+
+if (at) {
+  const transaction = editor.state.tr
+  setColumnGapTransaction(transaction, at.pos, '48px')
+  setColumnWidthsTransaction(transaction, at.pos, ['1fr', '2fr'])
+  editor.view.dispatch(transaction)
+}
+```
+
+The functions take these arguments:
+
+| Function                        | Arguments                                        |
+| ------------------------------- | ------------------------------------------------ |
+| `insertColumnsTransaction`      | `transaction`, `position`, `options`, `input?`   |
+| `setColumnCountTransaction`     | `transaction`, `layoutPos`, `count`, `options`   |
+| `setColumnGapTransaction`       | `transaction`, `layoutPos`, `gap`                |
+| `setColumnWidthModeTransaction` | `transaction`, `layoutPos`, `mode`               |
+| `setColumnWidthsTransaction`    | `transaction`, `layoutPos`, `widths`             |
+| `addColumnTransaction`          | `transaction`, `layoutPos`, `index`, `options`   |
+| `removeColumnTransaction`       | `transaction`, `layoutPos`, `index`, `options`   |
+| `moveColumnTransaction`         | `transaction`, `layoutPos`, `index`, `direction` |
+| `deleteColumnsTransaction`      | `transaction`, `layoutPos`                       |
+| `exitColumnsTransaction`        | `transaction`, `layoutPos`, `direction?`         |
+
+The arguments mean the same in each function:
+
+| Argument    | Value                                                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `layoutPos` | The position of the layout, the `pos` that `columnLayoutAt()` returns                                                     |
+| `position`  | Where `insertColumnsTransaction()` inserts, such as the cursor position                                                   |
+| `index`     | A column's index in the layout, from `0`                                                                                  |
+| `options`   | A `ColumnLayoutOptions` object with the options of `Columns`                                                              |
+| `input`     | An `InsertColumnsOptions` object: `count`, `gap` and `widthMode`, as for `insertColumns()`                                |
+| `count`     | The number of columns                                                                                                     |
+| `gap`       | A CSS length, such as `'48px'`                                                                                            |
+| `widths`    | One grid track size per column, such as `['1fr', '2fr']`, or `null` for equal columns                                     |
+| `mode`      | `'equal'` or `'custom'`                                                                                                   |
+| `direction` | `'left'` or `'right'` for `moveColumnTransaction()`, `'before'` or `'after'` (the default) for `exitColumnsTransaction()` |
+
+The functions do not read the editor, so pass `options` yourself: the options you gave
+`Columns.configure()`, with `DEFAULT_COLUMN_LAYOUT_OPTIONS` for the rest, such as
+`{ ...DEFAULT_COLUMN_LAYOUT_OPTIONS, maxColumns: 8 }`. Then the functions keep to the same
+number of columns as the editor.
+
+Each command does what its transaction function does, so [Commands](/features/columns#commands)
+describes both: the defaults, when a count is clamped to the bounds, and where the content of a
+removed column goes. `exitColumnsTransaction()`, for example, puts the caret in an empty block
+beside the layout and inserts one when there is none.
+
+### Several calls on one transaction
+
+Positions are read in `transaction.doc`, the document with the changes the transaction already
+holds. A change inside a layout keeps its start where it is, so the same `layoutPos` works for
+several calls. Call `deleteColumnsTransaction()` and `exitColumnsTransaction()` with `'before'`
+last, because the first removes the layout and the second can insert a block before it.
+
+`insertColumnsTransaction()` puts the selection into the first column of the new layout. So
+`columnLayoutAt(transaction.doc, transaction.selection.from)` finds the new layout for the next
+call.
+
+Each function returns the transaction you passed. When it cannot act, it adds no step and
+leaves the selection as it was, so compare `transaction.steps.length` before and after a call
+to know whether it changed the document.
+
+## Find the layout and the column at a position
+
+`columnLayoutAt()` tells your code which layout and which column a position is in, such as the
+cursor position for a toolbar:
+
+```js
+import { columnLayoutAt } from '@tiptap-pro/extension-columns'
+
+const at = columnLayoutAt(editor.state.doc, editor.state.selection.from)
+
+if (at) {
+  console.log(`Column ${at.columnIndex + 1} of ${at.node.childCount}`)
+}
+```
+
+These functions read a layout without changing it:
+
+| Function                     | Arguments                      | Returns                                                                                        |
+| ---------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `columnLayoutAt`             | `doc`, `pos`                   | `{ node, pos, columnIndex }` for the layout around the position, or `null`                     |
+| `columnBounds`               | `layout`, `layoutPos`, `index` | `{ node, pos, start, end }` for one column, or `null` for an index the layout does not have    |
+| `gapOf`                      | `node`                         | The layout's gap, `'24px'` when it has none                                                    |
+| `widthsOf`                   | `node`                         | The layout's stored `widths`, or `null` when it stores none                                    |
+| `gridTemplateOf`             | `node`                         | The widths as one `grid-template-columns` value, or `null` when the layout draws equal columns |
+| `isColumnLayout`, `isColumn` | `node`                         | Whether a node is a layout, or a column                                                        |
+| `isEmptyColumn`              | `node`                         | Whether a column holds nothing but one empty block of text, such as an empty paragraph         |
+
+In the result of `columnLayoutAt()`, `node` is the layout node, `pos` its position, and
+`columnIndex` the index of the column the position is in. `columnIndex` is `-1` for a position
+between two columns. A layout inside a column, from a paste for example, answers for a position
+inside it.
+
+`columnBounds()` takes the layout node and position from `columnLayoutAt()`. In its result,
+`pos` is the position of the column node, and `start` and `end` are the first and last position
+inside it. `ColumnLayoutAt` and `ColumnBounds` are the types of the two results.
+
+## Bind column moves to other keys
+
+The keys of `Columns`, which [Keys](/features/columns#keys) lists, come from functions you can call in
+a keyboard shortcut of your own. Your shortcut works next to the keys of `Columns`, because no
+option turns those off. This extension moves the caret to the start of the next column with
+`Alt-ArrowRight`, when the caret is at the end of a column:
+
+```js
+import { Extension } from '@tiptap/core'
+import { TextSelection } from '@tiptap/pm/state'
+import { caretAcrossColumns } from '@tiptap-pro/extension-columns'
+
+const NextColumnKey = Extension.create({
+  name: 'nextColumnKey',
+
+  addKeyboardShortcuts() {
+    return {
+      'Alt-ArrowRight': ({ editor }) => {
+        const { doc, selection } = editor.state
+        const to = caretAcrossColumns(doc, selection, 'forward')
+
+        if (to === null) {
+          return false
+        }
+
+        editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(doc.resolve(to))))
+        return true
+      },
+    }
+  },
+})
+```
+
+Add `NextColumnKey` to the editor's extensions next to `Columns`.
+
+| Function             | Arguments                       | Returns                                                                                      |
+| -------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
+| `caretAcrossColumns` | `doc`, `selection`, `direction` | The position to move the caret to, in the column before or after, or `null`                  |
+| `layoutToLeave`      | `doc`, `selection`, `direction` | The position of the layout to leave, for `exitColumnsTransaction()`, or `null`               |
+| `columnShortcuts`    | None                            | All keys of `Columns`, as the object an extension returns from `addKeyboardShortcuts()`      |
+| `activeColumnPlugin` | None                            | The plugin that sets the class `tiptap-columns-column-active` on the column the cursor is in |
+
+- **`caretAcrossColumns()`** takes `'backward'` or `'forward'`. It returns a position only when
+  the selection is a caret at the start of a column, for `'backward'`, or at its end, for
+  `'forward'`, and a column is on that side. ArrowLeft, ArrowRight and Backspace use it.
+- **`layoutToLeave()`** takes `'before'` or `'after'`. It returns the layout's position only
+  when the caret is at the start or end of a column and the layout is the first or last block
+  of the document. ArrowUp and ArrowDown then call `exitColumns()`.
+
+`Columns` adds the keys and the plugin already. `columnShortcuts()` and `activeColumnPlugin()`
+are for an extension that sets up the same keys or the same class itself.
+
+## Other exports
+
+The package also exports its nodes, types and names, for code that checks a node or builds an
+extension list of its own:
+
+| Export                                                      | Description                                                                                           |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `ColumnLayout`, `Column`                                    | The two nodes. `Columns` adds both. `ColumnLayout` brings the keys and the plugin with it             |
+| `ColumnsOptions`, `ColumnLayoutOptions`                     | The type of the options. Both names are the same type                                                 |
+| `ColumnWidthMode`                                           | The type of `widthMode`: `'equal' \| 'custom'`                                                        |
+| `InsertColumnsOptions`                                      | The type of the options of `insertColumns()`                                                          |
+| `DEFAULT_COLUMN_LAYOUT_OPTIONS`                             | The default options                                                                                   |
+| `COLUMN_LAYOUT_NODE_NAME`, `COLUMN_NODE_NAME`               | The node names, `'columnLayout'` and `'column'`                                                       |
+| `COLUMN_LAYOUT_ATTRIBUTE`, `COLUMN_ATTRIBUTE`               | The HTML attributes that mark a layout and a column, `'data-tt-column-layout'` and `'data-tt-column'` |
+| `GAP_ATTRIBUTE`, `WIDTH_MODE_ATTRIBUTE`, `WIDTHS_ATTRIBUTE` | The names of the layout node's attributes, `'gap'`, `'widthMode'` and `'widths'`                      |
+| `ACTIVE_COLUMN_CLASS`                                       | `'tiptap-columns-column-active'`                                                                      |
+| `columnStyleRules`, `mountColumnStyles`                     | The grid CSS, see [Styling](/features/columns#the-grid-css-and-a-content-security-policy)                     |
