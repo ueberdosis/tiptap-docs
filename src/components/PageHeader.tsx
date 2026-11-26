@@ -109,7 +109,7 @@ const PLAN_TYPES = [
   'mit',
   'pro',
 ]
-const STATUS_TYPES = ['deprecated', 'alpha', 'beta', 'experiment', 'new']
+const STATUS_TYPES = ['legacy', 'alpha', 'beta', 'experiment', 'new']
 
 // Plan first, then status, then version, then npm badges, whatever the frontmatter order
 const tagRank = (tag: PageTag) =>
@@ -132,7 +132,7 @@ const PLAN_TAG: Record<Plan, GeneralPageTag['type']> = {
 }
 
 const STATUS_TAG: Record<Status, GeneralPageTag['type']> = {
-  Deprecated: 'deprecated',
+  Legacy: 'legacy',
   Alpha: 'alpha',
   Beta: 'beta',
 }
@@ -154,12 +154,27 @@ export function headerTags(tags: PageTag[] = [], inherited?: { plan?: Plan; stat
 export type PageHeaderTagsProps = {
   tags: PageTag[]
   isTemplate?: boolean
+  /** The Legacy box below says it already, so the tag would repeat it. */
+  hideLegacy?: boolean
 }
 
-export const PageHeaderTags = ({ tags, isTemplate = false }: PageHeaderTagsProps) => {
+export const PageHeaderTags = ({
+  tags,
+  isTemplate = false,
+  hideLegacy = false,
+}: PageHeaderTagsProps) => {
+  // A legacy page shouldn't also invite you in as Beta or New
+  const endOfLife = tags.some((tag) => tag.type === 'legacy')
+  // `pro` reads as Open source, which a page that names a paid plan isn't
+  const paidPlan = tags.some(
+    (tag) => PLAN_TYPES.includes(tag.type) && !['mit', 'pro'].includes(tag.type),
+  )
   const sorted = tags
     .map((tag, index) => ({ tag, index }))
+    .filter(({ tag }) => !endOfLife || !['alpha', 'beta', 'experiment', 'new'].includes(tag.type))
+    .filter(({ tag }) => !(hideLegacy && tag.type === 'legacy'))
     .filter(({ tag }) => tag.type !== 'new' || isNew((tag as GeneralPageTag).since))
+    .filter(({ tag }) => !(paidPlan && tag.type === 'pro'))
     .sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.index - b.index)
   if (!sorted.length) return null
   return (
@@ -282,13 +297,13 @@ export const PageHeaderTag = ({
           New
         </Tag>
       ) : null
-    case 'deprecated':
+    case 'legacy':
       return (
         <Tag
           variant="hint"
-          tooltip={tag.tooltip || 'Will be removed. Use what the page names instead.'}
+          tooltip={tag.tooltip || 'Kept for existing projects, not for new ones.'}
         >
-          Deprecated
+          Legacy
         </Tag>
       )
     case 'version':

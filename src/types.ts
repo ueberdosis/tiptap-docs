@@ -7,6 +7,8 @@ export type SidebarLink = {
   newSince?: string
   /** Leave out the Paid label, because the entry above already shows it. */
   hidePlan?: boolean
+  /** Leave out the Legacy label, because the entry sits in the Legacy area. */
+  hideLegacy?: boolean
   external?: boolean
   disabled?: boolean
   children?: Omit<SidebarLink, 'type'>[]
@@ -55,7 +57,7 @@ export type GeneralPageTag = {
     | 'paid'
     | 'mit'
     | 'business'
-    | 'deprecated'
+    | 'legacy'
     | 'version'
   tooltip?: string
   label?: string
