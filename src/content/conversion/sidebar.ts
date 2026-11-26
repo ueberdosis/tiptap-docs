@@ -179,6 +179,32 @@ export const sidebarConfig: SidebarConfig = {
               title: 'REST API',
               href: '/conversion/export/pdf/rest-api',
             },
+            {
+              title: 'Customize',
+              href: '/conversion/export/pdf/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/pdf/custom-nodes',
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/pdf/styles',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/pdf/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/pdf/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/pdf/page-layout',
+                },
+              ],
+            },
           ],
         },
         {
@@ -192,6 +218,32 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'REST API',
               href: '/conversion/export/odt/rest-api',
+            },
+            {
+              title: 'Customize',
+              href: '/conversion/export/odt/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/odt/custom-nodes',
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/odt/styles',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/odt/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/odt/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/odt/page-layout',
+                },
+              ],
             },
           ],
         },
@@ -207,6 +259,32 @@ export const sidebarConfig: SidebarConfig = {
               title: 'REST API',
               href: '/conversion/export/epub/rest-api',
             },
+            {
+              title: 'Customize',
+              href: '/conversion/export/epub/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/epub/custom-nodes',
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/epub/styles',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/epub/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/epub/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/epub/page-layout',
+                },
+              ],
+            },
           ],
         },
         {
@@ -220,6 +298,32 @@ export const sidebarConfig: SidebarConfig = {
             {
               title: 'REST API',
               href: '/conversion/export/doc/rest-api',
+            },
+            {
+              title: 'Customize',
+              href: '/conversion/export/doc/custom-nodes',
+              children: [
+                {
+                  title: 'Custom nodes',
+                  href: '/conversion/export/doc/custom-nodes',
+                },
+                {
+                  title: 'Styles',
+                  href: '/conversion/export/doc/styles',
+                },
+                {
+                  title: 'Headers & footers',
+                  href: '/conversion/export/doc/headers-footers',
+                },
+                {
+                  title: 'Page breaks',
+                  href: '/conversion/export/doc/page-breaks',
+                },
+                {
+                  title: 'Page layout',
+                  href: '/conversion/export/doc/page-layout',
+                },
+              ],
             },
           ],
         },
@@ -379,7 +483,7 @@ export const sidebarConfig: SidebarConfig = {
       type: 'group',
       href: '/conversion/legacy/overview',
       title: 'Legacy',
-      tags: ['Deprecated'],
+      tags: ['Legacy'],
       children: [
         {
           title: 'Overview',

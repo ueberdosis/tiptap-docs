@@ -1,10 +1,18 @@
-import { pageLabels } from '@/server/pageLabels'
-import type { SidebarConfig } from '@/types'
-import type { SidebarEntry } from '@/utils/composeSidebar'
+import fs from 'fs'
+import path from 'path'
+import { planFromTags } from '@/server/getCatalog'
+import { readFrontmatterSync } from '@/server/readFrontmatter'
+import { SidebarConfig } from '@/types'
+import { SidebarEntry } from '@/utils/composeSidebar'
 
+const CONTENT_DIR = path.join(process.cwd(), 'src/content')
+
+/** Tags an entry with the plan its own page names, so the sidebar can't drift from the page. */
 function withPagePlan(entry: SidebarEntry): SidebarEntry {
-  const { plan } = pageLabels(entry.href)
-  return plan && plan !== 'Open source' ? { ...entry, tags: [plan] } : entry
+  const file = `${path.join(CONTENT_DIR, entry.href)}.mdx`
+  if (!fs.existsSync(file)) return entry
+  const plan = planFromTags((readFrontmatterSync(file).tags ?? []).map((tag) => tag.type))
+  return plan === 'Open source' ? entry : { ...entry, tags: [plan] }
 }
 
 export const sidebarConfig: SidebarConfig = {

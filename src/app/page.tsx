@@ -74,6 +74,9 @@ export default async function HomePage() {
                 </div>
               ) : null}
               <PageHeader.Title>{pageMdx.frontmatter.title}</PageHeader.Title>
+              {pageMdx.frontmatter?.intro ? (
+                <PageHeader.Intro dangerouslySetInnerHTML={{ __html: pageMdx.frontmatter.intro }} />
+              ) : null}
               {pageMdx.frontmatter?.tags ? (
                 <PageHeader.Tags tags={pageMdx.frontmatter.tags} />
               ) : null}

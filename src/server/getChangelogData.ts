@@ -7,6 +7,8 @@ export type ChangelogData = {
   packageName: string
   slug: string
   content: string
+  /** The day each published version came out (YYYY-MM-DD), when the registry told. */
+  dates?: Record<string, string>
 }
 
 export type ChangelogIndexEntry = {
