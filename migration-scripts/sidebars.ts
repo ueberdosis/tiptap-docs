@@ -15,7 +15,9 @@
  * source.
  *
  * Each entry keeps the source title, order and nesting. Links become app URLs with
- * `resolvePageLink` from `links.ts`. Labels follow the old sidebar of the version:
+ * `resolvePageLink` from `links.ts`. A link with children and no page of its own gets the URL of its
+ * first child's page as `target`. So does a link whose page, after redirects, is that same page.
+ * Labels follow the old sidebar of the version:
  * - latest: at most one label, the first of Deprecated, Paid (any paid plan), Open source. A plan
  *   label is left out on `hidePlan`. `newSince` stays a date; the app shows "New" from it.
  * - v2: "Beta" for `beta`, then every tag as it is.
@@ -220,21 +222,31 @@ const convertLink = (context: Context, entry: Raw, where: string): NavigationEnt
   if (href === '' && !children?.length) {
     fail(`${label} has neither href nor children`);
   }
-  const target = href === '' ? undefined : resolveHref(context, href, label);
-  if (href !== '' && !target) {
+  const own = href === '' ? undefined : resolveHref(context, href, label);
+  if (href !== '' && !own) {
     if (children !== undefined) fail(`${label} is a missing page with children`);
     return undefined;
   }
-  if (entry.external === true && !target?.external) fail(`${label} is external but not http(s)`);
+  if (entry.external === true && !own?.external) fail(`${label} is external but not http(s)`);
+  const converted = children?.map((child) => convertLink(context, child, label));
+  // An entry without its own page links to the target of its first child, like `targetOf()` in
+  // the old `src/components/SidebarRenderer.tsx`.
+  const first = converted?.[0];
+  if (href === '' && !first) fail(`${label} has no href and its first child is a missing page`);
+  if (href === '' && first?.external) fail(`${label} has no href and its first child is external`);
+  const firstTarget = first?.url ?? first?.target;
+  // An entry whose own page is its first child's page is a link to that child, not a page of its own.
+  const ownPage = own && own.url !== firstTarget ? own : undefined;
   const labels = version.labels(entry, label);
   return {
     type: 'link',
     title: title as string,
-    url: target?.url,
-    external: target?.external || undefined,
+    url: ownPage?.url,
+    target: ownPage ? undefined : firstTarget,
+    external: ownPage?.external || undefined,
     labels: labels.length ? labels : undefined,
     newSince,
-    children: children && convertLinks(context, children, label),
+    children: converted?.filter((child): child is NavigationEntry => child !== undefined),
   };
 };
 

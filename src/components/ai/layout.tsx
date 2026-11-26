@@ -5,6 +5,7 @@ import { type DocsLayoutProps, DocsLayout as Layout } from 'fumadocs-ui/layouts/
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useMemo } from 'react';
 import { HeaderActions } from '@/components/header-actions';
+import { Sidebar, SidebarDrawer, SidebarProvider } from '@/components/sidebar';
 import { VersionMenu } from '@/components/version-menu';
 import { pickTab } from '@/lib/active-tab';
 import type { SidebarTab } from '@/lib/navigation';
@@ -82,7 +83,11 @@ function VersionLayout({ sidebarTabs, version, sharedPaths, ...props }: VersionL
       nav={navWithVersions}
       tree={active.tree}
       tabs={tabs}
-      slots={{ ...props.slots, actions: HeaderActions }}
+      slots={{
+        ...props.slots,
+        actions: HeaderActions,
+        sidebar: { provider: SidebarProvider, main: Sidebar, drawer: SidebarDrawer },
+      }}
     />
   );
 }

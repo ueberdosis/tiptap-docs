@@ -321,7 +321,7 @@ Groups that need more than these rules get their own file in `migration-scripts/
    | v2      | every `src/content/**/sidebar.ts`, sorted by path                | the sidebar `title`          |
 
    Each tab has the `rootHref` as `url` and a `scope`: the URL of the sidebar's folder. A page shows the tab with the longest scope its URL starts with, like the nearest `sidebar.ts` in the old app.
-3. Keeps titles, order, groups and nesting. Turns each `href` into an app URL with `resolvePageLink` from `links.ts`, so redirects and anchors resolve as in step 4. An `http(s)` link is external.
+3. Keeps titles, order, groups and nesting. Turns each `href` into an app URL with `resolvePageLink` from `links.ts`, so redirects and anchors resolve as in step 4. An `http(s)` link is external. A link with children and an empty `href` gets the URL of its first child's page as `target`, like `targetOf()` in the old `src/components/SidebarRenderer.tsx`. So does a link whose `href`, after redirects, is that same page (for example `/ai/basic` → `/ai/basic/overview`).
 4. Writes the labels the old sidebar shows:
    - latest: at most one, the first of `Deprecated`, `Paid` (any paid plan) and `Open source`. `hidePlan` hides `Paid`. `newSince` stays a date. The app shows "New" when the render date is less than 90 days after it.
    - v2: `Beta` for `beta`, then every tag as it is.
@@ -332,9 +332,10 @@ It stops with an error that names the sidebar and the entry on:
 - an unknown field or a value of the wrong type,
 - `disabled` or `isActive: true`,
 - an entry with neither `href` nor children,
+- an entry with an empty `href` whose first child is left out,
 - a link that is not an imported page, except the approved entries in `knownMissing`. These are left out of the menu.
 
-`src/lib/navigation.tsx` turns each tab into a Fumadocs page tree. A collapsible group becomes a folder, another group a separator title, `divider` a separator. `src/components/ai/layout.tsx` picks the tab for the current URL and passes its tree to the Fumadocs layout.
+`src/lib/navigation.tsx` turns each tab into a Fumadocs page tree. A collapsible group becomes a folder, another group a separator title, `divider` a separator. A folder with a `target` is shown as a link to it that also folds open (`src/components/sidebar.tsx`). `src/components/ai/layout.tsx` picks the tab for the current URL and passes its tree to the Fumadocs layout.
 
 ### Step 8: Write the v2 notice bar
 

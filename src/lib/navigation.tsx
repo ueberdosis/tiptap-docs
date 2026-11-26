@@ -10,8 +10,10 @@ import v2 from './navigation/v2.json';
 export type NavigationEntry = {
   type: 'group' | 'link';
   title: string;
-  /** App URL. Missing on an entry that only folds open, and on a group. */
+  /** App URL of the entry's own page. Missing on an entry that only folds open, and on a group. */
   url?: string;
+  /** Link without its own page: the URL of the first page below it, where the entry links to. */
+  target?: string;
   external?: boolean;
   labels?: string[];
   /** The day the page went live (YYYY-MM-DD). */
@@ -39,6 +41,9 @@ export type NavigationTab = {
 
 /** The generated navigation file of one version. */
 export type Navigation = { tabs: NavigationTab[] };
+
+/** A page tree folder. Without an index page, its title links to `target`, if set. */
+export type TargetFolder = PageTree.Folder & { target?: string };
 
 /** A tab with its page tree, ready for the docs layout. */
 export type SidebarTab = { title: string; url: string; scope: string; tree: PageTree.Root };
@@ -75,12 +80,14 @@ function toNode(entry: NavigationEntry, entryName: EntryName): PageTree.Node {
     ? { type: 'page', name, url: entry.url, external: entry.external }
     : undefined;
   if (!entry.children?.length) return page as PageTree.Item;
-  return {
+  const folder: TargetFolder = {
     type: 'folder',
     name,
     index: page,
+    target: entry.target,
     children: entry.children.map((child) => toNode(child, entryName)),
   };
+  return folder;
 }
 
 function toNodes(entries: NavigationEntry[], entryName: EntryName): PageTree.Node[] {
