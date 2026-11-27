@@ -29,8 +29,9 @@ import { type DocsSource, source as latestSource } from '@/lib/source';
 import { getBreadcrumbJsonLd, getTechArticleJsonLd } from '@/lib/structured-data';
 import { versionTitle } from '@/lib/versions';
 
-// Fumadocs' page action buttons at the labels' height, so labels and actions read as one row
-const pageAction = 'h-5.5 py-0 px-2';
+// Fumadocs' page action buttons at the labels' height, so labels and actions read as one row.
+// 14px text: button labels below 14px are hard to read.
+const pageAction = 'h-5.5 py-0 px-2 text-sm';
 
 type DocsPageProps = {
   source: DocsSource;
