@@ -101,7 +101,8 @@ export function FeatureCard({
               href={action.href}
               className={cn(
                 buttonVariants({ variant: index === 0 ? 'secondary' : 'ghost', size: 'sm' }),
-                'gap-1.5',
+                // 14px text: button labels below 14px are hard to read
+                'gap-1.5 text-sm',
               )}
             >
               {action.label}
