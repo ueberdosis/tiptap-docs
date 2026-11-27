@@ -29,10 +29,10 @@ const mdxOptions = (catalogs: RemarkCatalogsOptions) =>
       langs: ['bash', 'dotenv'],
       fallbackLanguage: 'text',
       // Both GitHub themes color comments #6a737d, below WCAG AA's 4.5:1 on our code blocks.
-      // These reach 5.0:1 on light (#f1f1f1) and 4.7:1 on dark (#191919). Other token colors stay.
+      // These reach 5.2:1 on light (#f5f5f5) and 5.0:1 on dark (#1e1e1e). Other token colors stay.
       colorReplacements: {
         'github-light': { '#6a737d': '#5f6873' },
-        'github-dark': { '#6a737d': '#7d8590' },
+        'github-dark': { '#6a737d': '#848d97' },
       },
     },
   });
