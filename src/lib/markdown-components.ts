@@ -2,12 +2,9 @@ import { asMarkdown, md } from 'fumadocs-core/server';
 import type { MDXComponents } from 'mdx/types';
 import type { ReactNode } from 'react';
 import { getDemoBaseUrl } from '@/lib/demo-base-urls';
-import enterpriseContent from '@/lib/enterprise-content.json';
 import type { VersionName } from '@/lib/versions';
 
 type Children = { children?: ReactNode };
-
-const defaultContactUrl = 'https://tiptap.dev/contact-sales?form=ai-toolkit';
 
 /** Renders `node` to Markdown on one line. */
 async function inline(node: ReactNode) {
@@ -76,16 +73,6 @@ function FeatureCard({
   return listItem(title, href ?? actions[0]?.href, children);
 }
 
-function EnterpriseCard({ variant }: { variant: string }) {
-  asMarkdown();
-  const content = (enterpriseContent as Record<string, Record<string, unknown>>)[variant];
-  if (!content) throw new Error(`<EnterpriseCard> has an unknown variant "${variant}"`);
-  const url = (content.contactUrl as string | undefined) ?? defaultContactUrl;
-  return md`
-${listItem(content.title as string, url, content.description as string)}
-`;
-}
-
 type CodeDemoProps = { src?: string; path?: string; isPro?: boolean; externalTitle?: string };
 
 function CodeDemo({
@@ -121,7 +108,7 @@ export function getMarkdownComponents(version: VersionName): MDXComponents {
     Cards,
     CatalogCard: Card,
     CodeDemo: codeDemos[version],
-    EnterpriseCard,
+    EnterpriseCard: Nothing,
     FeatureCard,
     HeaderDemo: codeDemos[version],
     IncidentCard: Card,

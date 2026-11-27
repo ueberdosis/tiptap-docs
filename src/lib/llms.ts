@@ -1,5 +1,6 @@
 import { llms } from 'fumadocs-core/source';
 import { getMarkdownComponents } from '@/lib/markdown-components';
+import { absoluteMarkdownLinks } from '@/lib/markdown-links';
 import { pageHeaderTags } from '@/lib/page-header-tags';
 import { severityLabel, tagLabel } from '@/lib/page-tag-labels';
 import {
@@ -91,17 +92,18 @@ function pageTagTexts(page: Page, version: VersionName) {
 
 /**
  * The page as Markdown: frontmatter (title, description, canonical URL on latest), the v2 notice,
- * the title, the description, the page labels and the converted body. `entry` replaces the
- * frontmatter with a `Source: <page URL>` line under the title, for pages joined into one file,
- * and puts the v2 notice below it. Throws an error that names the page when the body has a
- * component without a Markdown form.
+ * the title, the description, the page labels and the converted body, with absolute `.md` links
+ * to docs pages. `entry` replaces the frontmatter with a `Source: <page URL>` line under the
+ * title, for pages joined into one file, and puts the v2 notice below it. Throws an error that
+ * names the page when the body has a component without a Markdown form.
  */
 export async function getPageMarkdown(page: Page, version: MarkdownVersion, entry = false) {
   let body: string;
   try {
-    body = await page.data.getText('processed', {
+    const text = await page.data.getText('processed', {
       components: getMarkdownComponents(version.name),
     });
+    body = absoluteMarkdownLinks(text.trim());
   } catch (error) {
     throw new Error(`${version.contentDir}/${page.path}: ${(error as Error).message}`, {
       cause: error,
@@ -126,7 +128,7 @@ export async function getPageMarkdown(page: Page, version: MarkdownVersion, entr
     entry && notice,
     description,
     tags.length > 0 && `Tags: ${tags.join(', ')}`,
-    body.trim(),
+    body,
   ].filter(Boolean);
   return `${parts.join('\n\n')}\n`;
 }
