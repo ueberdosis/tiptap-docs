@@ -148,21 +148,16 @@ function useFilteredIncidents(incidents: IncidentData[], filter: IncidentFilter)
   }, [incidents, filter])
 }
 
-function useAvailableProducts(incidents: IncidentData[]) {
-  return useMemo(() => {
-    const products = new Set(incidents.map((incident) => incident.incident.product))
-    return Array.from(products)
-  }, [incidents])
-}
-
 // Main Component
 export const IncidentGrid = ({ incidents }: IncidentGridProps) => {
   const { filter, showAll, showUIComponent } = useIncidentSearch()
   const filteredIncidents = useFilteredIncidents(incidents, filter)
-  const availableProducts = useAvailableProducts(incidents)
 
   const noIncidents = incidents.length === 0 || filteredIncidents.length === 0
-  const hasUIComponents = availableProducts.includes('UI Component')
+  const hasUIComponents = useMemo(
+    () => incidents.some((incident) => incident.incident.product === 'UI Component'),
+    [incidents],
+  )
 
   return (
     <div className="grid gap-8">
