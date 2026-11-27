@@ -1,7 +1,11 @@
 /**
- * Rewrites root links (`/…`) and `#anchor` links on the copied pages in `content/docs/` (latest) and
- * `content/v2/` (v2), so they open the right page and heading in this app. Expects the fresh output
- * of `copy.ts` and the redirect list from `redirects.ts`.
+ * Rewrites root links (`/…`), relative links and `#anchor` links on the copied pages in
+ * `content/docs/` (latest) and `content/v2/` (v2), so they open the right page and heading in this
+ * app. Expects the fresh output of `copy.ts` and the redirect list from `redirects.ts`.
+ *
+ * A relative link is resolved against the page URL (no trailing slash) as a browser does, then
+ * handled like a root link. The written link is the full path with the version route. A relative
+ * link that leaves the version route is not resolved.
  *
  * Reads Markdown links, Markdown reference definitions and the link props of HTML tags and
  * components. Changes only the link target. The rest of each file stays byte for byte the same.
@@ -362,6 +366,21 @@ const resolveLink = (version: Version, current: Page, link: string): Result => {
 };
 
 /**
+ * Returns the root link (`/…`, without the version route) of a relative link on the page `key`, as
+ * a browser resolves it against the page URL (no trailing slash). Query and anchor stay as they are.
+ * Returns undefined if the link leaves the version route.
+ */
+const relativeToRoot = (version: Version, key: string, link: string) => {
+  const pageUrl = key ? `${version.route}/${key}` : version.route;
+  const end = link.search(/[?#]/);
+  const path = end === -1 ? link : link.slice(0, end);
+  const rest = end === -1 ? '' : link.slice(end);
+  const resolved = new URL(path, `https://host${pageUrl}`).pathname;
+  if (resolved !== version.route && !resolved.startsWith(`${version.route}/`)) return undefined;
+  return `${resolved.slice(version.route.length) || '/'}${rest}`;
+};
+
+/**
  * Resolves a root or `#anchor` link as this script does, for a link on the page `file` (absolute
  * path) of the version `versionName`. Reads the pages on disk on first use.
  */
@@ -482,22 +501,31 @@ const main = () => {
       external: 0,
     };
 
-    for (const page of version.pages.values()) {
+    for (const [key, page] of version.pages) {
       const { label, source } = page;
       const edits: Edit[] = [];
 
       /** `offset` is a number or a function that returns it, for links that need an edit. */
       const handle = (link: string, offset: number | (() => number)) => {
         const kind = linkKind(link);
-        if (kind === 'relative' || kind === 'external') {
-          counts[kind] += 1;
+        if (kind === 'external') {
+          counts.external += 1;
           return;
         }
         const start = typeof offset === 'number' ? offset : offset();
         if (!source.startsWith(link, start)) {
           throw new Error(`${label}: cannot find the link "${link}" in the source`);
         }
-        const result = resolveLink(version, page, link);
+        let result: Result;
+        if (kind === 'relative') {
+          counts.relative += 1;
+          const root = relativeToRoot(version, key, link);
+          result = root
+            ? resolveLink(version, page, root)
+            : { kind: 'unresolved', reason: 'outside the version' };
+        } else {
+          result = resolveLink(version, page, link);
+        }
         if (result.kind === 'unresolved') {
           counts.unresolved += 1;
           unresolved.push(`${version.name}  ${label}  ${link}  (${result.reason})`);
@@ -609,7 +637,7 @@ const main = () => {
       `${version.dir}: ${counts.rewritten} rewritten (${counts.anchors} with a new anchor), ` +
         `${counts.unchanged} already correct, ${counts.outside} outside the docs, ` +
         `${counts.anchorNotFound} with an anchor not found, ` +
-        `${counts.unresolved} unresolved, ${counts.relative} relative and ` +
+        `${counts.unresolved} unresolved (${counts.relative} relative links in all), ` +
         `${counts.external} external unchanged`,
     );
   }

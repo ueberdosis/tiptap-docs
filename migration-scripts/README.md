@@ -247,7 +247,9 @@ The old app added `/docs` to every link. This app has no such prefix: latest is 
 7. Writes the changed pages only after all pages pass.
 8. Prints the numbers per version and every link with a page or anchor it cannot find, with its page and reason.
 
-Relative (`./`, `../`) and external links stay as they are.
+A relative link (`./…`, `../…`, or a path without a leading `/`) is resolved against the page URL as a browser does. The page URL has no trailing slash, so on `/docs/editor/markdown/api/utilities`, `../glossary#lexer` is `/docs/editor/markdown/glossary#lexer`. Without the version route, it is a root link and gets steps 3 to 5. The written link is the full path with the version route and no trailing slash. A relative link that leaves the version route, or that it cannot resolve, stays as it is and is printed.
+
+External links stay as they are.
 
 It stops with an error that names the page if a link prop is not one string, or if it cannot find a link in the source text.
 
